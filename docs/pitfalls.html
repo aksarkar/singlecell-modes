@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2018-09-18 Tue 13:26 -->
+<!-- 2018-09-18 Tue 16:05 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Common pitfalls in estimating the number of modes of gene expression</title>
@@ -342,6 +342,14 @@ Now, simulate negative binomial count data, assuming 25,000 molecules per
 cell and a range of parameters <a href="https://users.rcc.uchicago.edu/~aksarkar/singlecell-qtl/zinb.html#orgac1f6dc">matching real data</a>:
 </p>
 
+<p>
+\[ r_{ij} \sim \mathrm{Poisson}(R_i \lambda_{ij}) \]
+</p>
+
+<p>
+\[ \lambda_{ij} \sim \mathrm{Gamma}(\mu, \phi) \]
+</p>
+
 
 <div class="figure">
 <p><img src="https://users.rcc.uchicago.edu/~aksarkar/singlecell-qtl/figure/zinb.org/joint-distribution.png" alt="joint-distribution.png">
@@ -372,6 +380,12 @@ plt.xlabel(<span class="org-string">'$\log_2(r + 1)$ of cell 1'</span>)
 <p><img src="figure/pitfalls.org/pois.png" alt="pois.png">
 </p>
 </div>
+
+<p>
+The results suggest that the observed pattern of zeros in the joint
+distribution of genes across cells can arise simply from Poisson
+sampling. The observed outliers can be explained by overdispersion as well.
+</p>
 </div>
 </div>
 
@@ -403,49 +417,77 @@ Data set <i>sc2</i> is scRNA-Seq of hESCs generated in <a href="https://www.ncbi
 </div>
 
 <p>
-To estimate the number of modes, BK2016 fit a Gaussian mixture model to
-log-transformed expression, selecting the number of components which
-optimizes BIC.
+To estimate the number of modes, Bacher and Kendziorski fit a Gaussian
+mixture model to log-transformed expression, selecting the number of
+components which optimizes BIC.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">naive_est_modes</span>(x):
-  <span class="org-variable-name">bic</span> = np.infty
-  <span class="org-variable-name">opt</span> = <span class="org-constant">None</span>
-  <span class="org-keyword">for</span> cv_type <span class="org-keyword">in</span> [<span class="org-string">'spherical'</span>, <span class="org-string">'tied'</span>, <span class="org-string">'diag'</span>, <span class="org-string">'full'</span>]:
-    <span class="org-keyword">for</span> n_components <span class="org-keyword">in</span> <span class="org-builtin">range</span>(1, 4):
-      <span class="org-variable-name">m</span> = skm.GaussianMixture(n_components=n_components,
-                              covariance_type=cv_type)
-      m.fit(x)
-      <span class="org-keyword">if</span> m.bic(x) &lt; bic:
-        <span class="org-variable-name">bic</span> = m.bic(x)
-        <span class="org-variable-name">opt</span> = m
-  <span class="org-keyword">return</span> m
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">naive_est_num_modes</span>(x):
+  <span class="org-variable-name">x</span> = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
+  <span class="org-keyword">if</span> x.shape[0] &gt; 1:
+    <span class="org-variable-name">res</span> = mclust.Mclust(x, verbose=<span class="org-constant">False</span>)
+    <span class="org-keyword">return</span> np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'mean'</span>)).shape[0]
+  <span class="org-keyword">else</span>:
+    <span class="org-keyword">return</span> np.nan
 </pre>
 </div>
 
-<p>
-Look at one example.
-</p>
-
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">x</span> = leng_tpm.loc[<span class="org-string">'CDC6'</span>]
-<span class="org-variable-name">x</span> = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
-<span class="org-variable-name">m</span> = naive_est_modes(x)
+<pre class="src src-ipython"><span class="org-variable-name">num_modes</span> = (leng_tpm
+             .loc[(leng_tpm &gt; 0).mean(axis=1) &gt; 0.75]
+             .sample(n=1000, random_state=0)
+             .<span class="org-builtin">apply</span>(naive_est_num_modes, axis=1))
 </pre>
 </div>
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
 plt.gcf().set_size_inches(3, 3)
-<span class="org-variable-name">grid</span> = np.linspace(x.<span class="org-builtin">min</span>(), x.<span class="org-builtin">max</span>(), 100)
-plt.hist(x, color=<span class="org-string">'.75'</span>, bins=50, density=<span class="org-constant">True</span>)
-<span class="org-keyword">for</span> i, (mu, s2) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(m.means_, m.covariances_)):
-  plt.plot(grid, st.norm(loc=mu, scale=np.sqrt(s2.ravel())).pdf(grid), lw=1, label=<span class="org-string">'Component {}'</span>.<span class="org-builtin">format</span>(i + 1), ls=<span class="org-string">'--'</span>)
-plt.plot(grid, m.weights_.dot(st.norm(loc=m.means_, scale=np.sqrt(m.covariances_.reshape(-1, 1))).pdf(grid)), label=<span class="org-string">'Average density'</span>, lw=1, c=<span class="org-string">'k'</span>)
-plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
-plt.xlabel(<span class="org-string">'log TPM'</span>)
-<span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Density'</span>)
+plt.hist(num_modes, bins=np.arange(num_modes.dropna().<span class="org-builtin">max</span>()), color=<span class="org-string">'black'</span>)
+plt.xlabel(<span class="org-string">'Number of modes'</span>)
+<span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Number of genes'</span>)
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pitfalls.org/gmm-mode-hist.png" alt="gmm-mode-hist.png">
+</p>
+</div>
+
+<p>
+Look at some examples.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">plot_data_gmm</span>(x):
+  <span class="org-variable-name">x</span> = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
+  <span class="org-variable-name">res</span> = mclust.Mclust(x, verbose=<span class="org-constant">False</span>)
+  plt.clf()
+  plt.gcf().set_size_inches(3, 3)
+  <span class="org-variable-name">grid</span> = np.linspace(x.<span class="org-builtin">min</span>(), x.<span class="org-builtin">max</span>(), 100)
+  plt.hist(x, color=<span class="org-string">'.75'</span>, bins=50, density=<span class="org-constant">True</span>)
+  <span class="org-variable-name">means</span> = np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'mean'</span>)).reshape(-1, 1)
+  <span class="org-variable-name">variances</span> = np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'variance'</span>).rx2(<span class="org-string">'sigmasq'</span>)).reshape(-1, 1)
+  <span class="org-variable-name">F</span> = st.norm(loc=means, scale=np.sqrt(variances)).pdf(grid)
+  <span class="org-keyword">for</span> i, px <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(F):
+    plt.plot(grid, px, lw=1, label=<span class="org-string">'Component {}'</span>.<span class="org-builtin">format</span>(i + 1), ls=<span class="org-string">'--'</span>)
+  <span class="org-variable-name">weights</span> = np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'pro'</span>))
+  plt.plot(grid, weights.dot(st.norm(loc=means, scale=np.sqrt(variances)).pdf(grid)), label=<span class="org-string">'Average density'</span>, lw=1, c=<span class="org-string">'k'</span>)
+  plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+  plt.xlabel(<span class="org-string">'log TPM'</span>)
+  <span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Density'</span>)
+</pre>
+</div>
+
+<p>
+<i>CDC6</i> was reported as a gene showing cyclical gene expression through the
+cell cycle in the original study.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plot_data_gmm(leng_tpm.loc[<span class="org-string">'CDC6'</span>])
 </pre>
 </div>
 
@@ -456,45 +498,41 @@ plt.xlabel(<span class="org-string">'log TPM'</span>)
 </div>
 
 <p>
-Now, look at Poisson data which is constructed to be unimodal.
+Look at the gene with the most estimated modes.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">np.random.seed(1)
-<span class="org-variable-name">mu</span> = np.exp(-3)
-<span class="org-variable-name">N</span> = 460
-<span class="org-variable-name">size</span> = 1e5
-<span class="org-variable-name">x</span> = np.random.poisson(lam=size * mu, size=N)
-<span class="org-variable-name">x</span> = np.ma.masked_invalid(np.log(x)).compressed().reshape(-1, 1)
-<span class="org-variable-name">m</span> = naive_est_modes(x)
+<pre class="src src-ipython">num_modes.idxmax()
 </pre>
 </div>
 
+<pre class="example">
+'SEPN1'
+
+</pre>
+
 <div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(3, 3)
-<span class="org-variable-name">grid</span> = np.linspace(x.<span class="org-builtin">min</span>(), x.<span class="org-builtin">max</span>(), 100)
-plt.hist(x, color=<span class="org-string">'.75'</span>, bins=50, density=<span class="org-constant">True</span>)
-<span class="org-keyword">for</span> i, (mu, s2) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(m.means_, m.covariances_)):
-  plt.plot(grid, st.norm(loc=mu, scale=np.sqrt(s2.ravel())).pdf(grid), lw=1, label=<span class="org-string">'Component {}'</span>.<span class="org-builtin">format</span>(i + 1), ls=<span class="org-string">'--'</span>)
-plt.plot(grid, m.weights_.dot(st.norm(loc=m.means_, scale=np.sqrt(m.covariances_.reshape(-1, 1))).pdf(grid)), label=<span class="org-string">'Average density'</span>, lw=1, c=<span class="org-string">'k'</span>)
-plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
-plt.xlabel(<span class="org-string">'log CPM'</span>)
-<span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Density'</span>)
+<pre class="src src-ipython">plot_data_gmm(leng_tpm.loc[<span class="org-string">'SEPN1'</span>])
 </pre>
 </div>
 
 
 <div class="figure">
-<p><img src="figure/pitfalls.org/gmm-pois.png" alt="gmm-pois.png">
+<p><img src="figure/pitfalls.org/gmm-sepn1.png" alt="gmm-sepn1.png">
 </p>
 </div>
+
+<p>
+The results suggest that Gaussian mixture modeling of log-transformed data
+does not give the right answer. Further, they suggest that GMM overfits the
+data (despite optimizing BIC).
+</p>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2018-09-18 Tue 13:26</p>
+<p class="date">Created: 2018-09-18 Tue 16:05</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

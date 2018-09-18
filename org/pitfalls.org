@@ -15,7 +15,7 @@
 
   #+RESULTS:
   :RESULTS:
-  Submitted batch job 49776235
+  Submitted batch job 49788372
   :END:
 
   #+BEGIN_SRC ipython
@@ -29,11 +29,19 @@
     import pandas as pd
     import scipy.stats as st
     import sklearn.mixture as skm
+
+    import rpy2.robjects.packages
+    import rpy2.robjects.pandas2ri
+    import rpy2.robjects.numpy2ri
+
+    rpy2.robjects.pandas2ri.activate()
+    rpy2.robjects.numpy2ri.activate()
+    mclust = rpy2.robjects.packages.importr('mclust')
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[18]:
+  # Out[1]:
   :END:
 
 * Joint distribution of expression across genes
@@ -108,6 +116,10 @@
   Now, simulate negative binomial count data, assuming 25,000 molecules per
   cell and a range of parameters [[https://users.rcc.uchicago.edu/~aksarkar/singlecell-qtl/zinb.html#orgac1f6dc][matching real data]]:
 
+  \[ r_{ij} \sim \mathrm{Poisson}(R_i \lambda_{ij}) \]
+
+  \[ \lambda_{ij} \sim \mathrm{Gamma}(\mu, \phi) \]
+
   https://users.rcc.uchicago.edu/~aksarkar/singlecell-qtl/figure/zinb.org/joint-distribution.png
 
   #+BEGIN_SRC ipython
@@ -138,6 +150,10 @@
   [[file:figure/pitfalls.org/pois.png]]
   :END:
 
+  The results suggest that the observed pattern of zeros in the joint
+  distribution of genes across cells can arise simply from Poisson
+  sampling. The observed outliers can be explained by overdispersion as well.
+
 * Distribution of log CPM across cells
 
   Reproduce Fig 1C from [[https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0927-y#Sec13][Bacher and Kendziorski 2016]]:
@@ -158,97 +174,116 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[15]:
+  # Out[2]:
   :END:
 
-  To estimate the number of modes, BK2016 fit a Gaussian mixture model to
-  log-transformed expression, selecting the number of components which
-  optimizes BIC.
+  To estimate the number of modes, Bacher and Kendziorski fit a Gaussian
+  mixture model to log-transformed expression, selecting the number of
+  components which optimizes BIC.
 
   #+BEGIN_SRC ipython
-    def naive_est_modes(x):
-      bic = np.infty
-      opt = None
-      for cv_type in ['spherical', 'tied', 'diag', 'full']:
-        for n_components in range(1, 4):
-          m = skm.GaussianMixture(n_components=n_components,
-                                  covariance_type=cv_type)
-          m.fit(x)
-          if m.bic(x) < bic:
-            bic = m.bic(x)
-            opt = m
-      return m
+    def naive_est_num_modes(x):
+      x = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
+      if x.shape[0] > 1:
+        res = mclust.Mclust(x, verbose=False)
+        return np.array(res.rx2('parameters').rx2('mean')).shape[0]
+      else:
+        return np.nan
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[25]:
+  # Out[3]:
   :END:
-
-  Look at one example.
 
   #+BEGIN_SRC ipython :async t
-    x = leng_tpm.loc['CDC6']
-    x = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
-    m = naive_est_modes(x)
+    num_modes = (leng_tpm
+                 .loc[(leng_tpm > 0).mean(axis=1) > 0.75]
+                 .sample(n=1000, random_state=0)
+                 .apply(naive_est_num_modes, axis=1))
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[40]:
+  # Out[4]:
   :END:
 
-  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/gmm-cdc6.png
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/gmm-mode-hist.png
     plt.clf()
     plt.gcf().set_size_inches(3, 3)
-    grid = np.linspace(x.min(), x.max(), 100)
-    plt.hist(x, color='.75', bins=50, density=True)
-    for i, (mu, s2) in enumerate(zip(m.means_, m.covariances_)):
-      plt.plot(grid, st.norm(loc=mu, scale=np.sqrt(s2.ravel())).pdf(grid), lw=1, label='Component {}'.format(i + 1), ls='--')
-    plt.plot(grid, m.weights_.dot(st.norm(loc=m.means_, scale=np.sqrt(m.covariances_.reshape(-1, 1))).pdf(grid)), label='Average density', lw=1, c='k')
-    plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
-    plt.xlabel('log TPM')
-    _ = plt.ylabel('Density')
+    plt.hist(num_modes, bins=np.arange(num_modes.dropna().max()), color='black')
+    plt.xlabel('Number of modes')
+    _ = plt.ylabel('Number of genes')
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[65]:
+  # Out[5]:
+  [[file:figure/pitfalls.org/gmm-mode-hist.png]]
+  :END:
+
+  Look at some examples.
+
+  #+BEGIN_SRC ipython
+    def plot_data_gmm(x):
+      x = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
+      res = mclust.Mclust(x, verbose=False)
+      plt.clf()
+      plt.gcf().set_size_inches(3, 3)
+      grid = np.linspace(x.min(), x.max(), 100)
+      plt.hist(x, color='.75', bins=50, density=True)
+      means = np.array(res.rx2('parameters').rx2('mean')).reshape(-1, 1)
+      variances = np.array(res.rx2('parameters').rx2('variance').rx2('sigmasq')).reshape(-1, 1)
+      F = st.norm(loc=means, scale=np.sqrt(variances)).pdf(grid)
+      for i, px in enumerate(F):
+        plt.plot(grid, px, lw=1, label='Component {}'.format(i + 1), ls='--')
+      weights = np.array(res.rx2('parameters').rx2('pro'))
+      plt.plot(grid, weights.dot(st.norm(loc=means, scale=np.sqrt(variances)).pdf(grid)), label='Average density', lw=1, c='k')
+      plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+      plt.xlabel('log TPM')
+      _ = plt.ylabel('Density')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[32]:
+  :END:
+
+  /CDC6/ was reported as a gene showing cyclical gene expression through the
+  cell cycle in the original study.
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/gmm-cdc6.png
+    plot_data_gmm(leng_tpm.loc['CDC6'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[34]:
   [[file:figure/pitfalls.org/gmm-cdc6.png]]
   :END:
 
-  Now, look at Poisson data which is constructed to be unimodal.
+  Look at the gene with the most estimated modes.
 
   #+BEGIN_SRC ipython
-    np.random.seed(1)
-    mu = np.exp(-3)
-    N = 460
-    size = 1e5
-    x = np.random.poisson(lam=size * mu, size=N)
-    x = np.ma.masked_invalid(np.log(x)).compressed().reshape(-1, 1)
-    m = naive_est_modes(x)
+    num_modes.idxmax()
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[118]:
+  # Out[17]:
+  : 'SEPN1'
   :END:
 
-  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/gmm-pois.png
-    plt.clf()
-    plt.gcf().set_size_inches(3, 3)
-    grid = np.linspace(x.min(), x.max(), 100)
-    plt.hist(x, color='.75', bins=50, density=True)
-    for i, (mu, s2) in enumerate(zip(m.means_, m.covariances_)):
-      plt.plot(grid, st.norm(loc=mu, scale=np.sqrt(s2.ravel())).pdf(grid), lw=1, label='Component {}'.format(i + 1), ls='--')
-    plt.plot(grid, m.weights_.dot(st.norm(loc=m.means_, scale=np.sqrt(m.covariances_.reshape(-1, 1))).pdf(grid)), label='Average density', lw=1, c='k')
-    plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
-    plt.xlabel('log CPM')
-    _ = plt.ylabel('Density')
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/gmm-sepn1.png
+    plot_data_gmm(leng_tpm.loc['SEPN1'])
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[119]:
-  [[file:figure/pitfalls.org/gmm-pois.png]]
+  # Out[36]:
+  [[file:figure/pitfalls.org/gmm-sepn1.png]]
   :END:
+
+  The results suggest that Gaussian mixture modeling of log-transformed data
+  does not give the right answer. Further, they suggest that GMM overfits the
+  data (despite optimizing BIC).
