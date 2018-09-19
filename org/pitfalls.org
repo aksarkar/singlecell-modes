@@ -28,7 +28,7 @@
     import numpy as np
     import pandas as pd
     import scipy.stats as st
-    import sklearn.mixture as skm
+    import sklearn.neighbors as skn
 
     import rpy2.robjects.packages
     import rpy2.robjects.pandas2ri
@@ -41,7 +41,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[69]:
   :END:
 
 * Joint distribution of expression across genes
@@ -104,7 +104,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[57]:
+  # Out[146]:
   :END:
 
   #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/islam-mef.png
@@ -113,7 +113,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[58]:
+  # Out[147]:
   [[file:figure/pitfalls.org/islam-mef.png]]
   :END:
 
@@ -383,3 +383,48 @@
   The results suggest that Gaussian mixture modeling of log-transformed data
   does not give the right answer. Further, they suggest that GMM overfits the
   data (despite optimizing BIC).
+* Pseudocount
+
+  When computing log-transformed expression values, we need to introduce a
+  pseudocount \(\epsilon\) to deal with observations of zero.
+
+  Standard choices include \(\epsilon = 1\) and \(\epsilon = .5 / \bar{R}\),
+  where \(\bar{R} = \frac{1}{n} \sum_i R_i\) ([[https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3378882/][McCarthy et al 2012]]).
+
+  Clearly, the pseudocount will introduce a mode at zero, even when the data is
+  Poisson distributed.
+
+  #+BEGIN_SRC ipython
+    x = simulate_counts(num_cells=1000, num_genes=10000, size=1e5, seed=3)
+    R = x.sum(axis=1)
+    # Match edgeR
+    eps = .5 / R.mean()
+    y = (np.log(x + eps) - np.log(R.reshape(-1, 1) + 2 * eps) + 6 * np.log(10)) / np.log(2)
+    # Get the simulated gene with most zeros
+    idx = np.argmax((x == 0).mean(axis=0))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[172]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/log-cpm-modes.png
+    plt.clf()
+    fig, ax = plt.subplots(1, 2, sharey=True)
+    fig.set_size_inches(5, 3)
+    ax[0].hist(x[:,2], bins=np.arange(15), color='k')
+    ax[0].plot(.5 + np.arange(15), 1000 * st.poisson(mu=x[:,2].mean()).pmf(np.arange(15)), lw=1, c='r')
+    ax[0].set_xlabel('Molecule count')
+    ax[0].set_ylabel('Number of cells')
+
+    ax[1].hist(y[:,2], bins=30, color='k')
+    ax[1].set_xlabel('$\log_2(\mathrm{CPM})$')
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[190]:
+  [[file:figure/pitfalls.org/log-cpm-modes.png]]
+  :END:

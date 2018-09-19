@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2018-09-19 Wed 11:28 -->
+<!-- 2018-09-19 Wed 14:01 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Common pitfalls in estimating the number of modes of gene expression</title>
@@ -260,6 +260,7 @@ for the JavaScript code in this tag.
 <li><a href="#orgde1f3e7">Joint distribution of expression across genes</a></li>
 <li><a href="#orgc9e381a">Mode on zero</a></li>
 <li><a href="#org3c0762c">Distribution of log CPM across cells</a></li>
+<li><a href="#org1de5c13">Pseudocount</a></li>
 </ul>
 </div>
 </div>
@@ -621,10 +622,61 @@ data (despite optimizing BIC).
 </p>
 </div>
 </div>
+<div id="outline-container-org1de5c13" class="outline-2">
+<h2 id="org1de5c13">Pseudocount</h2>
+<div class="outline-text-2" id="text-org1de5c13">
+<p>
+When computing log-transformed expression values, we need to introduce a
+pseudocount \(\epsilon\) to deal with observations of zero.
+</p>
+
+<p>
+Standard choices include \(\epsilon = 1\) and \(\epsilon = .5 / \bar{R}\),
+where \(\bar{R} = \frac{1}{n} \sum_i R_i\) (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3378882/">McCarthy et al 2012</a>).
+</p>
+
+<p>
+Clearly, the pseudocount will introduce a mode at zero, even when the data is
+Poisson distributed.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = simulate_counts(num_cells=1000, num_genes=10000, size=1e5, seed=3)
+<span class="org-variable-name">R</span> = x.<span class="org-builtin">sum</span>(axis=1)
+<span class="org-comment-delimiter"># </span><span class="org-comment">Match edgeR</span>
+<span class="org-variable-name">eps</span> = .5 / R.mean()
+<span class="org-variable-name">y</span> = (np.log(x + eps) - np.log(R.reshape(-1, 1) + 2 * eps) + 6 * np.log(10)) / np.log(2)
+<span class="org-comment-delimiter"># </span><span class="org-comment">Get the simulated gene with most zeros</span>
+<span class="org-variable-name">idx</span> = np.argmax((x == 0).mean(axis=0))
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(5, 3)
+ax[0].hist(x[:,2], bins=np.arange(15), color=<span class="org-string">'k'</span>)
+ax[0].plot(.5 + np.arange(15), 1000 * st.poisson(mu=x[:,2].mean()).pmf(np.arange(15)), lw=1, c=<span class="org-string">'r'</span>)
+ax[0].set_xlabel(<span class="org-string">'Molecule count'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+
+ax[1].hist(y[:,2], bins=30, color=<span class="org-string">'k'</span>)
+ax[1].set_xlabel(<span class="org-string">'$\log_2(\mathrm{CPM})$'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pitfalls.org/log-cpm-modes.png" alt="log-cpm-modes.png">
+</p>
+</div>
+</div>
+</div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2018-09-19 Wed 11:28</p>
+<p class="date">Created: 2018-09-19 Wed 14:01</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
