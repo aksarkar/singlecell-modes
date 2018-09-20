@@ -15,7 +15,7 @@
 
   #+RESULTS:
   :RESULTS:
-  Submitted batch job 49822119
+  Submitted batch job 49846061
   :END:
 
   #+BEGIN_SRC ipython
@@ -41,7 +41,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[69]:
+  # Out[1]:
   :END:
 
 * Joint distribution of expression across genes
@@ -56,6 +56,19 @@
   #+RESULTS:
   :RESULTS:
   :END:
+
+  #+BEGIN_SRC R :eval never
+    islam_counts <- read.delim(gzfile('/scratch/midway2/aksarkar/modes/GSE29087_L139_expression_tab.txt.gz'), skip=6, header=F)
+    x <- log10(islam_counts[,92] + 1)
+    y <- log10(islam_counts[,93] + 1)
+    keep <- x != 0 | y != 0
+    png('temp.png', width=4, height=4, res=300, units="in")
+    smoothScatter(x[keep],y[keep] )
+    dev.off()
+  #+END_SRC
+
+  #+ATTR_HTML: :width 300
+  file:figure/pitfalls.org/islam-smoothscatter.png
 
   Parse the data.
 
@@ -82,11 +95,6 @@
   # Out[2]:
   :END:
 
-  #+RESULTS:
-  :RESULTS:
-  # Out[37]:
-  :END:
-
   Plot the joint distribution of \(\log_2\) expression values across a pair of
   cells.
 
@@ -94,27 +102,54 @@
     def plot_joint_dist_two_cells(x, y):
       x = np.log(x + 1) / np.log(2)
       y = np.log(y + 1) / np.log(2)
+      keep = (x + y) > 0
+
       plt.clf()
       plt.gcf().set_size_inches(3, 3)
-      plt.scatter(x, y, c='k', s=1)
-      plt.axis('equal')
+      plt.hexbin(x[keep], y[keep], gridsize=25, bins='log', cmap=colorcet.cm['bgyw_r'])
+      H, xx, yy = np.histogram2d(x[keep], y[keep], bins=30)
+      gridx, gridy = np.meshgrid(xx[1:] + (xx[1] - xx[0]) / 2, yy[1:] + (yy[1] - yy[0]) / 2)
+      low_pass = np.logical_and(H > 0, H < 3)
+      plt.scatter(gridx[low_pass].ravel(), gridy[low_pass].ravel(), c='k', s=H[low_pass], alpha=0.5)
+
+      plt.xlim([-0.5, 16])
+      plt.ylim([-0.5, 16])
+      plt.xticks(np.arange(0, 16, 5))
+      plt.yticks(np.arange(0, 16, 5))
       plt.xlabel('$\log_2(r + 1)$ of cell 1')
       plt.ylabel('$\log_2(r + 1)$ of cell 2')
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[146]:
+  # Out[148]:
   :END:
 
   #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/islam-mef.png
-    plot_joint_dist_two_cells(counts[1], counts[2])
+    plot_joint_dist_two_cells(counts[91], counts[92])
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[147]:
+  # Out[149]:
   [[file:figure/pitfalls.org/islam-mef.png]]
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/islam-mef-scatter.png
+    x = np.log(counts[91] + 1) / np.log(2)
+    y = np.log(counts[92] + 1) / np.log(2)
+    plt.clf()
+    plt.gcf().set_size_inches(3, 3)
+    plt.scatter(x, y, c='k', s=1, alpha=0.1)
+    plt.axis('equal')
+    plt.xlabel('$\log_2(r + 1)$ of cell 1')
+    _ = plt.ylabel('$\log_2(r + 1)$ of cell 2')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[153]:
+  [[file:figure/pitfalls.org/islam-mef-scatter.png]]
   :END:
 
   Now, simulate count data, assuming 25,000 molecules per
@@ -140,7 +175,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[52]:
+  # Out[154]:
   :END:
 
   First, simulate Poisson data.
@@ -156,7 +191,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[59]:
+  # Out[151]:
   [[file:figure/pitfalls.org/pois.png]]
   :END:
 
