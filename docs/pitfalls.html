@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2018-09-19 Wed 19:45 -->
+<!-- 2018-10-15 Mon 14:05 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Common pitfalls in estimating the number of modes of gene expression</title>
@@ -258,6 +258,7 @@ for the JavaScript code in this tag.
 <div id="text-table-of-contents">
 <ul>
 <li><a href="#orgde1f3e7">Joint distribution of expression across genes</a></li>
+<li><a href="#org63fce9e">Single cell/bulk concordance</a></li>
 <li><a href="#orgc9e381a">Mode on zero</a></li>
 <li><a href="#org3c0762c">Distribution of log CPM across cells</a></li>
 <li><a href="#org1de5c13">Pseudocount</a></li>
@@ -447,6 +448,384 @@ The results suggest that the observed pattern of zeros in the joint
 distribution of genes across cells can arise simply from Poisson
 sampling. The observed outliers can be explained by overdispersion as well.
 </p>
+</div>
+</div>
+
+<div id="outline-container-org63fce9e" class="outline-2">
+<h2 id="org63fce9e">Single cell/bulk concordance</h2>
+<div class="outline-text-2" id="text-org63fce9e">
+<p>
+Reproduce Fig. 2 of <a href="https://academic.oup.com/biostatistics/article-lookup/doi/10.1093/biostatistics/kxx053">Hicks et al. 2017</a> (<a href="https://github.com/stephaniehicks/scBatchPaper/blob/master/scripts/createFigures.Rmd">associated repository</a>), which is Fig.
+1C of <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3683364/">Shalek et al. 2013</a>.
+</p>
+
+<p>
+Download the data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">curl <span class="org-string">"https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE41265&amp;format=file&amp;file=GSE41265_allGenesTPM.txt.gz"</span> -o GSE41265_allGenesTPM.txt.gz
+</pre>
+</div>
+
+<p>
+Read the data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">shalek_tpm</span> = pd.read_table(<span class="org-string">'/scratch/midway2/aksarkar/ideas/GSE41265_allGenesTPM.txt.gz'</span>)
+</pre>
+</div>
+
+<p>
+Shalek et al filtered genes that don't have TPM &gt; 1 in at least three cells.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">shalek_tpm_pass</span> = shalek_tpm.loc[((shalek_tpm.<span class="org-builtin">filter</span>(like=<span class="org-string">'S'</span>) &gt; 1).<span class="org-builtin">sum</span>(axis=1) &gt;= 3).values]
+shalek_tpm_pass.shape
+</pre>
+</div>
+
+<pre class="example">
+(6312, 22)
+
+</pre>
+
+<p>
+Plot 10K populations against each other.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 2)
+fig.set_size_inches(6, 6)
+
+ax[0][0].scatter(np.log(shalek_tpm_pass[<span class="org-string">'P1'</span>] + 1), np.log(shalek_tpm_pass[<span class="org-string">'P2'</span>] + 1), c=<span class="org-string">'k'</span>, s=2, alpha=0.1)
+ax[0][0].set_xlabel(<span class="org-string">'Population 1 ln (TPM + 1)'</span>)
+ax[0][0].set_ylabel(<span class="org-string">'Population 2 ln (TPM + 1)'</span>)
+
+ax[0][1].scatter(np.log(shalek_tpm_pass[<span class="org-string">'P1'</span>] + 1), np.log(shalek_tpm_pass[<span class="org-string">'P3'</span>] + 1), c=<span class="org-string">'k'</span>, s=2, alpha=0.1)
+ax[0][1].set_xlabel(<span class="org-string">'Population 1 ln (TPM + 1)'</span>)
+ax[0][1].set_ylabel(<span class="org-string">'Population 3 ln (TPM + 1)'</span>)
+
+ax[1][0].scatter(np.log(shalek_tpm_pass[<span class="org-string">'P2'</span>] + 1), np.log(shalek_tpm_pass[<span class="org-string">'P3'</span>] + 1), c=<span class="org-string">'k'</span>, s=2, alpha=0.1)
+ax[1][0].set_xlabel(<span class="org-string">'Population 2 ln (TPM + 1)'</span>)
+ax[1][0].set_ylabel(<span class="org-string">'Population 3 ln (TPM + 1)'</span>)
+
+ax[1][1].set_axis_off()
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pitfalls.org/shalek-fig-1a.png" alt="shalek-fig-1a.png">
+</p>
+</div>
+
+<p>
+Plot the average single cell log (TPM + 1) against each 10K population log
+(TPM + 1)
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3)
+fig.set_size_inches(9, 3)
+<span class="org-keyword">for</span> i, a <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(ax):
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: "When calculating the &#8220;average&#8221; single-cell expression level, we</span>
+  <span class="org-comment-delimiter"># </span><span class="org-comment">first averaged TPM levels from each of the 18 single cells, and then</span>
+  <span class="org-comment-delimiter"># </span><span class="org-comment">transformed this average estimate into log space." (Shalek et al 2013)</span>
+  a.scatter(np.log(shalek_tpm_pass.<span class="org-builtin">filter</span>(like=<span class="org-string">'S'</span>).mean(axis=1) + 1), np.log(shalek_tpm_pass[f<span class="org-string">'P{i + 1}'</span>] + 1), s=2, alpha=0.1, c=<span class="org-string">'k'</span>)
+  a.plot([0, 12], [0, 12], c=<span class="org-string">'r'</span>, lw=1)
+  a.set_title(f<span class="org-string">'Population {i + 1}'</span>)
+  a.set_xlabel(<span class="org-string">'10K cells log (TPM + 1)'</span>)
+ax[0].set_ylabel(<span class="org-string">'Single cell sample mean log (TPM + 1)'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pitfalls.org/shalek-fig-1c.png" alt="shalek-fig-1c.png">
+</p>
+</div>
+
+<p>
+Reproduce Fig. 2A of Hicks et al.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.scatter(np.log(shalek_tpm[<span class="org-string">'P1'</span>] + 1) / np.log(2), np.log(shalek_tpm.<span class="org-builtin">filter</span>(like=<span class="org-string">'S'</span>).mean(axis=1) + 1) / np.log(2), c=<span class="org-string">'k'</span>, s=1, alpha=0.1)
+plt.plot([0, 10], [0, 10], c=<span class="org-string">'r'</span>, lw=1)
+plt.xlabel(<span class="org-string">'Population 1 $\log_2(\mathrm{TPM} + 1)$'</span>)
+plt.ylabel(<span class="org-string">'Single cell mean $\log_2(\mathrm{TPM} + 1)$'</span>)
+</pre>
+</div>
+
+<pre class="example">
+Text(0,0.5,'Single cell mean $\\log_2(\\mathrm{TPM} + 1)$')
+
+</pre>
+
+<div class="figure">
+<p><img src="figure/pitfalls.org/hicks-fig-2a.png" alt="hicks-fig-2a.png">
+</p>
+</div>
+
+<p>
+Reproduce Fig. 2B of Hicks et al. In their plotting code, they truncate the
+\(y\) limits to \([-5, 5]\), which actually cuts off some data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3)
+fig.set_size_inches(8.5, 3)
+
+<span class="org-keyword">for</span> i, a <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(ax):
+  <span class="org-variable-name">M</span> = (np.log(shalek_tpm.<span class="org-builtin">filter</span>(like=<span class="org-string">'S'</span>).mean(axis=1) + 1) / np.log(2) + np.log(shalek_tpm[f<span class="org-string">'P{i + 1}'</span>] + 1) / np.log(2)) / 2
+  <span class="org-variable-name">A</span> = np.log(shalek_tpm.<span class="org-builtin">filter</span>(like=<span class="org-string">'S'</span>).mean(axis=1) + 1) / np.log(2) - np.log(shalek_tpm[f<span class="org-string">'P{i + 1}'</span>] + 1) / np.log(2)
+  a.scatter(M, A, s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+
+  <span class="org-variable-name">grid</span> = np.linspace(0, M.<span class="org-builtin">max</span>(), 25)
+  a.plot(grid, A.groupby(np.digitize(M, bins=grid)).agg(np.mean), c=<span class="org-string">'r'</span>, ls=<span class="org-string">'--'</span>)
+
+  a.set_title(f<span class="org-string">'Population {i + 1}'</span>)
+  a.set_xlabel(<span class="org-string">'M (mean average)'</span>)
+  a.set_ylabel(<span class="org-string">'A (log ratio)'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pitfalls.org/hicks-fig-2b.png" alt="hicks-fig-2b.png">
+</p>
+</div>
+
+<p>
+From these plots, Hicks et al. conclude that the single cell expression is
+systematically smaller than the bulk expression for lowly expressed genes.
+</p>
+
+<p>
+Now, TPM is proportional to relative abundance, where the constant of
+proportionality is constant across samples (<a href="https://dx.doi.org/10.1007/s12064-012-0162-3">Wagner et al. 2012</a>). 
+</p>
+
+<p>
+However, it is still possible that TPM can be systematically different across
+many genes simply because some gene is highly expressed in one sample,
+altering the relative abundances of all other genes. Therefore, naive
+comparison of TPM could give misleading results.
+</p>
+
+<p>
+To investigate whether this is the case, instead plot relative abundances
+against each other.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3, sharex=<span class="org-constant">True</span>, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(9, 3)
+
+<span class="org-variable-name">sc_mean_tpm</span> = shalek_tpm.<span class="org-builtin">filter</span>(like=<span class="org-string">'S'</span>).mean(axis=1)
+<span class="org-variable-name">sc_ln_abundance</span> = np.ma.masked_invalid(np.log(sc_mean_tpm / sc_mean_tpm.<span class="org-builtin">sum</span>()))
+<span class="org-variable-name">lim</span> = [-50,
+       <span class="org-builtin">max</span>(bulk_ln_abundance.<span class="org-builtin">max</span>(), sc_ln_abundance.<span class="org-builtin">max</span>())]
+
+<span class="org-keyword">for</span> i, a <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(ax):
+  <span class="org-variable-name">bulk_ln_abundance</span> = np.ma.masked_invalid(np.log(shalek_tpm[f<span class="org-string">'P{i + 1}'</span>] / shalek_tpm[f<span class="org-string">'P{i + 1}'</span>].<span class="org-builtin">sum</span>()))
+
+  a.scatter(bulk_ln_abundance, sc_ln_abundance, s=1, c=<span class="org-string">'0.75'</span>, alpha=0.1)
+
+  <span class="org-variable-name">outlier</span> = np.where(np.logical_or(sc_ln_abundance &lt; -30, bulk_ln_abundance &lt; -30).filled(0))[0]
+  a.scatter(bulk_ln_abundance[outlier], sc_ln_abundance[outlier], s=4, c=<span class="org-string">'k'</span>)
+  <span class="org-keyword">for</span> o <span class="org-keyword">in</span> outlier:
+    a.text(bulk_ln_abundance[o], sc_ln_abundance[o], shalek_tpm.iloc[o][<span class="org-string">'GENE'</span>])
+
+  a.plot(lim, lim, c=<span class="org-string">'r'</span>, lw=1)
+  a.set_xlabel(f<span class="org-string">'Population {i + 1} ln relative abundance'</span>)
+  ax[0].set_ylabel(<span class="org-string">'Single cell ln relative abundance'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pitfalls.org/shalek-abundances.png" alt="shalek-abundances.png">
+</p>
+</div>
+
+<p>
+From these plots, we would conclude that the relative abundances in bulk are
+systematically smaller than in single cell, which is exactly the opposite of
+the conclusion in Hicks et al. 
+</p>
+
+<p>
+Our results are explained by the fact that exactly two genes, <i>ACAT3</i> and
+<i>HSPA1B</i>, have systematically higher estimated abundance in bulk versus
+single cell.
+</p>
+
+<p>
+Reproduce Fig. 3 of Hicks et al. 2017. The data were generated in Shalek et
+al 2013, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4122333/">Trapnell et al. 2014</a>, and <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4022966/">Wu et al. 2014</a>.
+</p>
+
+<p>
+Download the data generated by Trapnell et al.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">curl <span class="org-string">"https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE52529&amp;format=file&amp;file=GSE52529_fpkm_matrix.txt.gz"</span> -o GSE52529_fpkm_matrix.txt.gz
+curl <span class="org-string">"https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE52529&amp;format=file&amp;file=GSE52529_truseq_fpkm_matrix.txt.gz"</span> -o GSE52529_truseq_fpkm_matrix.txt.gz
+</pre>
+</div>
+
+<p>
+Download the data generated by Wu et al.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">curl -O --ftp-pasv <span class="org-string">"ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE51nnn/GSE51254/suppl/GSE51254_RAW.tar"</span>
+tar xf GSE51254_RAW.tar
+</pre>
+</div>
+
+<p>
+Wu et al generated 2 bulk RNA-Seq replicates for each of two different
+technologies, and 96 scRNA-Seq libraries using the C1 platform.
+</p>
+
+<p>
+The RNA-Seq data were quantified using cufflinks. Concatenate the output to
+simplify parsing.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">zcat GSM*bulk*.sorted.genes.fpkm_tracking.txt.gz | cut -f10 | gzip &gt;wu-bulk-fpkm.txt.gz
+zcat GSM*_C*_IL*.sorted.genes.fpkm_tracking.txt.gz | cut -f10 | gzip &gt;wu-c1-fpkm.txt.gz
+</pre>
+</div>
+
+<p>
+Read the data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">trapnell_sc_fpkm</span> = pd.read_table(<span class="org-string">'/scratch/midway2/aksarkar/ideas/GSE52529_fpkm_matrix.txt.gz'</span>)
+<span class="org-variable-name">trapnell_bulk_fpkm</span> = pd.read_table(<span class="org-string">'/scratch/midway2/aksarkar/ideas/GSE52529_truseq_fpkm_matrix.txt.gz'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">wu_bulk_fpkm</span> = pd.read_table(<span class="org-string">'/scratch/midway2/aksarkar/ideas/wu-bulk-fpkm.txt.gz'</span>, header=<span class="org-constant">None</span>).values.reshape(4, -1).T
+<span class="org-variable-name">wu_sc_fpkm</span> = pd.read_table(<span class="org-string">'/scratch/midway2/aksarkar/ideas/wu-c1-fpkm.txt.gz'</span>, header=<span class="org-constant">None</span>).values.reshape(-1, wu_bulk_fpkm.shape[0]).T
+</pre>
+</div>
+
+<p>
+Plot single cell mean against bulk expression. <b>Important: Hicks et al
+truncate the visualization.</b>
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3)
+fig.set_size_inches(9, 3)
+
+ax[0].scatter(shalek_tpm[<span class="org-string">'P1'</span>], shalek_tpm.<span class="org-builtin">filter</span>(like=<span class="org-string">'S'</span>).mean(axis=1), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[0].set_xlim(0, 30)
+ax[0].set_ylim(0, 30)
+<span class="org-variable-name">grid</span> = np.linspace(0, 30, 15)
+<span class="org-variable-name">sm</span> = shalek_tpm.<span class="org-builtin">filter</span>(like=<span class="org-string">'S'</span>).mean(axis=1).groupby(np.digitize(shalek_tpm[<span class="org-string">'P1'</span>], bins=grid)).agg(np.mean)
+ax[0].plot(grid[sm.index - 1], sm, c=<span class="org-string">'r'</span>, lw=1, ls=<span class="org-string">'--'</span>)
+
+
+ax[1].scatter(wu_bulk_fpkm[:,0], wu_sc_fpkm.mean(axis=1), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[1].set_xlim(0, 50)
+ax[1].set_ylim(0, 50)
+<span class="org-variable-name">grid</span> = np.linspace(0, 30, 15)
+<span class="org-variable-name">sm</span> = pd.Series(wu_sc_fpkm.mean(axis=1)).groupby(np.digitize(wu_bulk_fpkm[:,0], bins=grid)).agg(np.mean)
+ax[1].plot(grid[sm.index - 1][1:], sm[1:], c=<span class="org-string">'r'</span>, lw=1, ls=<span class="org-string">'--'</span>)
+
+ax[2].scatter(trapnell_bulk_fpkm[<span class="org-string">'T72_0'</span>], trapnell_sc_fpkm.mean(axis=1), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[2].set_xlim(0, 30)
+ax[2].set_ylim(0, 30)
+<span class="org-variable-name">grid</span> = np.linspace(0, 30, 15)
+<span class="org-variable-name">sm</span> = trapnell_sc_fpkm.mean(axis=1).groupby(np.digitize(trapnell_bulk_fpkm[<span class="org-string">'T72_0'</span>], bins=grid)).agg(np.mean)
+ax[2].plot(grid[sm.index - 1], sm, c=<span class="org-string">'r'</span>, lw=1, ls=<span class="org-string">'--'</span>)
+
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a.set_xlabel(<span class="org-string">'Bulk TPM'</span>)
+  a.set_ylabel(<span class="org-string">'Single cell mean TPM'</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pitfalls.org/hicks-fig-3.png" alt="hicks-fig-3.png">
+</p>
+</div>
+
+<p>
+As we argued above, this comparison is not sensible. Instead, plot relative
+abundances against each other.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">get_abundance</span>(bulk, sc):
+  <span class="org-variable-name">bulk</span> = np.ma.masked_values(bulk / bulk.<span class="org-builtin">sum</span>(), 0)
+  <span class="org-variable-name">mean</span> = sc.mean(axis=1)
+  <span class="org-variable-name">sc</span> = np.ma.masked_values(mean / mean.<span class="org-builtin">sum</span>(), 0)
+  <span class="org-keyword">return</span> bulk, sc
+
+<span class="org-variable-name">shalek_bulk_abundance</span>, <span class="org-variable-name">shalek_sc_abundance</span> = get_abundance(shalek_tpm[<span class="org-string">'P1'</span>], shalek_tpm.<span class="org-builtin">filter</span>(like=<span class="org-string">'S'</span>))
+<span class="org-variable-name">wu_bulk_abundance</span>, <span class="org-variable-name">wu_sc_abundance</span> = get_abundance(wu_bulk_fpkm[:,0], wu_sc_fpkm)
+<span class="org-variable-name">trapnell_bulk_abundance</span>, <span class="org-variable-name">trapnell_sc_abundance</span> = get_abundance(trapnell_bulk_fpkm[<span class="org-string">'T72_0'</span>], trapnell_sc_fpkm)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3, sharex=<span class="org-constant">True</span>, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 3)
+
+<span class="org-variable-name">lim</span> = [5e-9, .1]
+ax[0].set_ylabel(<span class="org-string">'Single cell mean relative abundance'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a.set_xlabel(<span class="org-string">'Bulk relative abundance'</span>)
+  a.set_xscale(<span class="org-string">'log'</span>)
+  a.set_yscale(<span class="org-string">'log'</span>)
+  a.plot(lim, lim, c=<span class="org-string">'r'</span>, lw=1)
+
+ax[0].scatter(shalek_bulk_abundance, shalek_sc_abundance, c=<span class="org-string">'k'</span>, s=2, alpha=0.1)
+ax[0].set_title(<span class="org-string">'Shalek et al.'</span>)
+
+ax[1].scatter(wu_bulk_abundance, wu_sc_abundance, c=<span class="org-string">'k'</span>, s=1, alpha=0.1)
+ax[1].set_title(<span class="org-string">'Wu et al.'</span>)
+
+ax[2].scatter(trapnell_bulk_abundance, trapnell_sc_abundance, c=<span class="org-string">'k'</span>, s=1, alpha=0.1)
+ax[2].set_title(<span class="org-string">'Trapnell et al.'</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pitfalls.org/sc-bulk-abundance.png" alt="sc-bulk-abundance.png">
+</p>
+</div>
 </div>
 </div>
 
@@ -721,7 +1100,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2018-09-19 Wed 19:45</p>
+<p class="date">Created: 2018-10-15 Mon 14:05</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

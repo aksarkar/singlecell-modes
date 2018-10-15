@@ -11,11 +11,11 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="singlecell") :dir /scratch/midway2/aksarkar/modes/
+  #+CALL: ipython3(mem="4G",partition="mstephens",venv="singlecell") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
   :RESULTS:
-  Submitted batch job 49846061
+  Submitted batch job 51133345
   :END:
 
   #+BEGIN_SRC ipython
@@ -215,6 +215,355 @@
   The results suggest that the observed pattern of zeros in the joint
   distribution of genes across cells can arise simply from Poisson
   sampling. The observed outliers can be explained by overdispersion as well.
+
+* Single cell/bulk concordance
+
+  Reproduce Fig. 2 of [[https://academic.oup.com/biostatistics/article-lookup/doi/10.1093/biostatistics/kxx053][Hicks et al. 2017]] ([[https://github.com/stephaniehicks/scBatchPaper/blob/master/scripts/createFigures.Rmd][associated repository]]), which is Fig.
+  1C of [[https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3683364/][Shalek et al. 2013]].
+
+  Download the data.
+
+  #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/ideas/.
+    curl "https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE41265&format=file&file=GSE41265_allGenesTPM.txt.gz" -o GSE41265_allGenesTPM.txt.gz
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  :END:
+
+  Read the data.
+
+  #+BEGIN_SRC ipython 
+    shalek_tpm = pd.read_table('/scratch/midway2/aksarkar/ideas/GSE41265_allGenesTPM.txt.gz')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[12]:
+  :END:
+
+  Shalek et al filtered genes that don't have TPM > 1 in at least three cells.
+
+  #+BEGIN_SRC ipython
+    shalek_tpm_pass = shalek_tpm.loc[((shalek_tpm.filter(like='S') > 1).sum(axis=1) >= 3).values]
+    shalek_tpm_pass.shape
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  : (6312, 22)
+  :END:
+
+  Plot 10K populations against each other.
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/shalek-fig-1a.png
+    plt.clf()
+    fig, ax = plt.subplots(2, 2)
+    fig.set_size_inches(6, 6)
+
+    ax[0][0].scatter(np.log(shalek_tpm_pass['P1'] + 1), np.log(shalek_tpm_pass['P2'] + 1), c='k', s=2, alpha=0.1)
+    ax[0][0].set_xlabel('Population 1 ln (TPM + 1)')
+    ax[0][0].set_ylabel('Population 2 ln (TPM + 1)')
+
+    ax[0][1].scatter(np.log(shalek_tpm_pass['P1'] + 1), np.log(shalek_tpm_pass['P3'] + 1), c='k', s=2, alpha=0.1)
+    ax[0][1].set_xlabel('Population 1 ln (TPM + 1)')
+    ax[0][1].set_ylabel('Population 3 ln (TPM + 1)')
+
+    ax[1][0].scatter(np.log(shalek_tpm_pass['P2'] + 1), np.log(shalek_tpm_pass['P3'] + 1), c='k', s=2, alpha=0.1)
+    ax[1][0].set_xlabel('Population 2 ln (TPM + 1)')
+    ax[1][0].set_ylabel('Population 3 ln (TPM + 1)')
+
+    ax[1][1].set_axis_off()
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[4]:
+  [[file:figure/pitfalls.org/shalek-fig-1a.png]]
+  :END:
+
+  Plot the average single cell log (TPM + 1) against each 10K population log
+  (TPM + 1)
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/shalek-fig-1c.png
+    plt.clf()
+    fig, ax = plt.subplots(1, 3)
+    fig.set_size_inches(9, 3)
+    for i, a in enumerate(ax):
+      # Important: "When calculating the “average” single-cell expression level, we
+      # first averaged TPM levels from each of the 18 single cells, and then
+      # transformed this average estimate into log space." (Shalek et al 2013)
+      a.scatter(np.log(shalek_tpm_pass.filter(like='S').mean(axis=1) + 1), np.log(shalek_tpm_pass[f'P{i + 1}'] + 1), s=2, alpha=0.1, c='k')
+      a.plot([0, 12], [0, 12], c='r', lw=1)
+      a.set_title(f'Population {i + 1}')
+      a.set_xlabel('10K cells log (TPM + 1)')
+    ax[0].set_ylabel('Single cell sample mean log (TPM + 1)')
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[5]:
+  [[file:figure/pitfalls.org/shalek-fig-1c.png]]
+  :END:
+
+  Reproduce Fig. 2A of Hicks et al.
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/hicks-fig-2a.png
+    plt.clf()
+    plt.gcf().set_size_inches(3, 3)
+    plt.scatter(np.log(shalek_tpm['P1'] + 1) / np.log(2), np.log(shalek_tpm.filter(like='S').mean(axis=1) + 1) / np.log(2), c='k', s=1, alpha=0.1)
+    plt.plot([0, 10], [0, 10], c='r', lw=1)
+    plt.xlabel('Population 1 $\log_2(\mathrm{TPM} + 1)$')
+    plt.ylabel('Single cell mean $\log_2(\mathrm{TPM} + 1)$')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[15]:
+  : Text(0,0.5,'Single cell mean $\\log_2(\\mathrm{TPM} + 1)$')
+  [[file:figure/pitfalls.org/hicks-fig-2a.png]]
+  :END:
+  
+  Reproduce Fig. 2B of Hicks et al. In their plotting code, they truncate the
+  \(y\) limits to \([-5, 5]\), which actually cuts off some data.
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/hicks-fig-2b.png
+    plt.clf()
+    fig, ax = plt.subplots(1, 3)
+    fig.set_size_inches(8.5, 3)
+
+    for i, a in enumerate(ax):
+      M = (np.log(shalek_tpm.filter(like='S').mean(axis=1) + 1) / np.log(2) + np.log(shalek_tpm[f'P{i + 1}'] + 1) / np.log(2)) / 2
+      A = np.log(shalek_tpm.filter(like='S').mean(axis=1) + 1) / np.log(2) - np.log(shalek_tpm[f'P{i + 1}'] + 1) / np.log(2)
+      a.scatter(M, A, s=1, c='k', alpha=0.1)
+
+      grid = np.linspace(0, M.max(), 25)
+      a.plot(grid, A.groupby(np.digitize(M, bins=grid)).agg(np.mean), c='r', ls='--')
+
+      a.set_title(f'Population {i + 1}')
+      a.set_xlabel('M (mean average)')
+      a.set_ylabel('A (log ratio)')
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[27]:
+  [[file:figure/pitfalls.org/hicks-fig-2b.png]]
+  :END:
+
+  From these plots, Hicks et al. conclude that the single cell expression is
+  systematically smaller than the bulk expression for lowly expressed genes.
+
+  Now, TPM is proportional to relative abundance, where the constant of
+  proportionality is constant across samples ([[https://dx.doi.org/10.1007/s12064-012-0162-3][Wagner et al. 2012]]). 
+
+  However, it is still possible that TPM can be systematically different across
+  many genes simply because some gene is highly expressed in one sample,
+  altering the relative abundances of all other genes. Therefore, naive
+  comparison of TPM could give misleading results.
+
+  To investigate whether this is the case, instead plot relative abundances
+  against each other.
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/shalek-abundances.png
+    plt.clf()
+    fig, ax = plt.subplots(1, 3, sharex=True, sharey=True)
+    fig.set_size_inches(9, 3)
+
+    sc_mean_tpm = shalek_tpm.filter(like='S').mean(axis=1)
+    sc_ln_abundance = np.ma.masked_invalid(np.log(sc_mean_tpm / sc_mean_tpm.sum()))
+    lim = [-50,
+           max(bulk_ln_abundance.max(), sc_ln_abundance.max())]
+
+    for i, a in enumerate(ax):
+      bulk_ln_abundance = np.ma.masked_invalid(np.log(shalek_tpm[f'P{i + 1}'] / shalek_tpm[f'P{i + 1}'].sum()))
+
+      a.scatter(bulk_ln_abundance, sc_ln_abundance, s=1, c='0.75', alpha=0.1)
+
+      outlier = np.where(np.logical_or(sc_ln_abundance < -30, bulk_ln_abundance < -30).filled(0))[0]
+      a.scatter(bulk_ln_abundance[outlier], sc_ln_abundance[outlier], s=4, c='k')
+      for o in outlier:
+        a.text(bulk_ln_abundance[o], sc_ln_abundance[o], shalek_tpm.iloc[o]['GENE'])
+
+      a.plot(lim, lim, c='r', lw=1)
+      a.set_xlabel(f'Population {i + 1} ln relative abundance')
+      ax[0].set_ylabel('Single cell ln relative abundance')
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[84]:
+  [[file:figure/pitfalls.org/shalek-abundances.png]]
+  :END:
+
+  From these plots, we would conclude that the relative abundances in bulk are
+  systematically smaller than in single cell, which is exactly the opposite of
+  the conclusion in Hicks et al. 
+
+  Our results are explained by the fact that exactly two genes, /ACAT3/ and
+  /HSPA1B/, have systematically higher estimated abundance in bulk versus
+  single cell.
+
+  Reproduce Fig. 3 of Hicks et al. 2017. The data were generated in Shalek et
+  al 2013, [[https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4122333/][Trapnell et al. 2014]], and [[https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4022966/][Wu et al. 2014]].
+
+  Download the data generated by Trapnell et al.
+
+  #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/ideas/
+    curl "https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE52529&format=file&file=GSE52529_fpkm_matrix.txt.gz" -o GSE52529_fpkm_matrix.txt.gz
+    curl "https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE52529&format=file&file=GSE52529_truseq_fpkm_matrix.txt.gz" -o GSE52529_truseq_fpkm_matrix.txt.gz
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  :END:
+
+  Download the data generated by Wu et al.
+
+  #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/ideas/
+    curl -O --ftp-pasv "ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE51nnn/GSE51254/suppl/GSE51254_RAW.tar"
+    tar xf GSE51254_RAW.tar
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  :END:
+
+  Wu et al generated 2 bulk RNA-Seq replicates for each of two different
+  technologies, and 96 scRNA-Seq libraries using the C1 platform.
+
+  The RNA-Seq data were quantified using cufflinks. Concatenate the output to
+  simplify parsing.
+  
+  #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/ideas/
+    zcat GSM*bulk*.sorted.genes.fpkm_tracking.txt.gz | cut -f10 | gzip >wu-bulk-fpkm.txt.gz
+    zcat GSM*_C*_IL*.sorted.genes.fpkm_tracking.txt.gz | cut -f10 | gzip >wu-c1-fpkm.txt.gz
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  :END:
+
+  Read the data.
+
+  #+BEGIN_SRC ipython
+    trapnell_sc_fpkm = pd.read_table('/scratch/midway2/aksarkar/ideas/GSE52529_fpkm_matrix.txt.gz')
+    trapnell_bulk_fpkm = pd.read_table('/scratch/midway2/aksarkar/ideas/GSE52529_truseq_fpkm_matrix.txt.gz')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[10]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    wu_bulk_fpkm = pd.read_table('/scratch/midway2/aksarkar/ideas/wu-bulk-fpkm.txt.gz', header=None).values.reshape(4, -1).T
+    wu_sc_fpkm = pd.read_table('/scratch/midway2/aksarkar/ideas/wu-c1-fpkm.txt.gz', header=None).values.reshape(-1, wu_bulk_fpkm.shape[0]).T
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[86]:
+  :END:
+
+  Plot single cell mean against bulk expression. *Important: Hicks et al
+  truncate the visualization.*
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/hicks-fig-3.png
+    plt.clf()
+    fig, ax = plt.subplots(1, 3)
+    fig.set_size_inches(9, 3)
+
+    ax[0].scatter(shalek_tpm['P1'], shalek_tpm.filter(like='S').mean(axis=1), s=1, c='k', alpha=0.1)
+    ax[0].set_xlim(0, 30)
+    ax[0].set_ylim(0, 30)
+    grid = np.linspace(0, 30, 15)
+    sm = shalek_tpm.filter(like='S').mean(axis=1).groupby(np.digitize(shalek_tpm['P1'], bins=grid)).agg(np.mean)
+    ax[0].plot(grid[sm.index - 1], sm, c='r', lw=1, ls='--')
+
+
+    ax[1].scatter(wu_bulk_fpkm[:,0], wu_sc_fpkm.mean(axis=1), s=1, c='k', alpha=0.1)
+    ax[1].set_xlim(0, 50)
+    ax[1].set_ylim(0, 50)
+    grid = np.linspace(0, 30, 15)
+    sm = pd.Series(wu_sc_fpkm.mean(axis=1)).groupby(np.digitize(wu_bulk_fpkm[:,0], bins=grid)).agg(np.mean)
+    ax[1].plot(grid[sm.index - 1][1:], sm[1:], c='r', lw=1, ls='--')
+
+    ax[2].scatter(trapnell_bulk_fpkm['T72_0'], trapnell_sc_fpkm.mean(axis=1), s=1, c='k', alpha=0.1)
+    ax[2].set_xlim(0, 30)
+    ax[2].set_ylim(0, 30)
+    grid = np.linspace(0, 30, 15)
+    sm = trapnell_sc_fpkm.mean(axis=1).groupby(np.digitize(trapnell_bulk_fpkm['T72_0'], bins=grid)).agg(np.mean)
+    ax[2].plot(grid[sm.index - 1], sm, c='r', lw=1, ls='--')
+
+    for a in ax:
+      a.set_xlabel('Bulk TPM')
+      a.set_ylabel('Single cell mean TPM')
+
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[96]:
+  [[file:figure/pitfalls.org/hicks-fig-3.png]]
+  :END:
+
+  As we argued above, this comparison is not sensible. Instead, plot relative
+  abundances against each other.
+
+  #+BEGIN_SRC ipython
+    def get_abundance(bulk, sc):
+      bulk = np.ma.masked_values(bulk / bulk.sum(), 0)
+      mean = sc.mean(axis=1)
+      sc = np.ma.masked_values(mean / mean.sum(), 0)
+      return bulk, sc
+
+    shalek_bulk_abundance, shalek_sc_abundance = get_abundance(shalek_tpm['P1'], shalek_tpm.filter(like='S'))
+    wu_bulk_abundance, wu_sc_abundance = get_abundance(wu_bulk_fpkm[:,0], wu_sc_fpkm)
+    trapnell_bulk_abundance, trapnell_sc_abundance = get_abundance(trapnell_bulk_fpkm['T72_0'], trapnell_sc_fpkm)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[88]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/sc-bulk-abundance.png
+    plt.clf()
+    fig, ax = plt.subplots(1, 3, sharex=True, sharey=True)
+    fig.set_size_inches(8, 3)
+
+    lim = [5e-9, .1]
+    ax[0].set_ylabel('Single cell mean relative abundance')
+    for a in ax:
+      a.set_xlabel('Bulk relative abundance')
+      a.set_xscale('log')
+      a.set_yscale('log')
+      a.plot(lim, lim, c='r', lw=1)
+
+    ax[0].scatter(shalek_bulk_abundance, shalek_sc_abundance, c='k', s=2, alpha=0.1)
+    ax[0].set_title('Shalek et al.')
+
+    ax[1].scatter(wu_bulk_abundance, wu_sc_abundance, c='k', s=1, alpha=0.1)
+    ax[1].set_title('Wu et al.')
+
+    ax[2].scatter(trapnell_bulk_abundance, trapnell_sc_abundance, c='k', s=1, alpha=0.1)
+    ax[2].set_title('Trapnell et al.')
+
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[95]:
+  [[file:figure/pitfalls.org/sc-bulk-abundance.png]]
+  :END:
 
 * Mode on zero
 
