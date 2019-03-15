@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-03-14 Thu 15:28 -->
+<!-- 2019-03-14 Thu 21:42 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Common pitfalls in estimating the number of modes of gene expression</title>
+<title>Technical zero-generating mechanism in scRNA-seq data</title>
 <meta name="generator" content="Org mode">
 <meta name="author" content="Abhishek Sarkar">
 <style type="text/css">
@@ -252,17 +252,63 @@ for the JavaScript code in this tag.
 </head>
 <body>
 <div id="content">
-<h1 class="title">Common pitfalls in estimating the number of modes of gene expression</h1>
+<h1 class="title">Technical zero-generating mechanism in scRNA-seq data</h1>
 <div id="table-of-contents">
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
+<li><a href="#org669fb46">Introduction</a></li>
+<li><a href="#org1eab7a8">Setup</a></li>
 <li><a href="#orgde1f3e7">Joint distribution of expression across genes</a></li>
 <li><a href="#org63fce9e">Single cell/bulk concordance</a></li>
 <li><a href="#orgc9e381a">Mode on zero</a></li>
-<li><a href="#org3c0762c">Distribution of log CPM across cells</a></li>
-<li><a href="#org1de5c13">Pseudocount</a></li>
 </ul>
+</div>
+</div>
+
+<div id="outline-container-org669fb46" class="outline-2">
+<h2 id="org669fb46">Introduction</h2>
+<div class="outline-text-2" id="text-org669fb46">
+<p>
+Important recent work has demonstrated that Multinomial (equivalently,
+Poisson) sampling is sufficient to model the noise introduced by sequencing
+(<a href="https://dx.doi.org/10.1073/pnas.1721085115">Wang et al. 2018</a>,
+<a href="https://www.biorxiv.org/content/early/2019/03/11/574574">Townes et
+al. 2019</a>). Here, we show that previously cited evidence of a technical
+zero-generating mechanism can be replicated in simulated data without such a
+mechanism.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org1eab7a8" class="outline-2">
+<h2 id="org1eab7a8">Setup</h2>
+<div class="outline-text-2" id="text-org1eab7a8">
+<p>
+Submitted batch job 51133345
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+
+<span class="org-keyword">import</span> colorcet
+<span class="org-keyword">import</span> gzip
+<span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+<span class="org-keyword">import</span> sklearn.neighbors <span class="org-keyword">as</span> skn
+
+<span class="org-keyword">import</span> rpy2.robjects.packages
+<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
+<span class="org-keyword">import</span> rpy2.robjects.numpy2ri
+
+rpy2.robjects.pandas2ri.activate()
+rpy2.robjects.numpy2ri.activate()
+<span class="org-variable-name">mclust</span> = rpy2.robjects.packages.importr(<span class="org-string">'mclust'</span>)
+</pre>
+</div>
 </div>
 </div>
 
@@ -911,196 +957,10 @@ the particular shape of the dependence observed in real data.
 </p>
 </div>
 </div>
-
-<div id="outline-container-org3c0762c" class="outline-2">
-<h2 id="org3c0762c">Distribution of log CPM across cells</h2>
-<div class="outline-text-2" id="text-org3c0762c">
-<p>
-Reproduce <a href="https://media.springernature.com/lw785/springer-static/image/art%3A10.1186%2Fs13059-016-0927-y/MediaObjects/13059_2016_927_Fig1_HTML.gif">Fig 1C</a> from <a href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0927-y#Sec13">Bacher and Kendziorski 2016</a>.  
-</p>
-
-<p>
-Data set <i>sc2</i> is scRNA-Seq of hESCs generated in <a href="https://www.ncbi.nlm.nih.gov/pubmed/26301841">Leng et al 2015</a>.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-sh">curl -s -o GSE64016_H1andFUCCI_normalized_EC.csv.gz <span class="org-string">"https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE64016&amp;format=file&amp;file=GSE64016_H1andFUCCI_normalized_EC.csv.gz"</span>
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">leng_tpm</span> = pd.read_table(<span class="org-string">'/scratch/midway2/aksarkar/modes/GSE64016_H1andFUCCI_normalized_EC.csv.gz'</span>, sep=<span class="org-string">','</span>, index_col=0)
-</pre>
-</div>
-
-<p>
-To estimate the number of modes, Bacher and Kendziorski fit a Gaussian
-mixture model to log-transformed expression, selecting the number of
-components which optimizes BIC.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">naive_est_num_modes</span>(x):
-  <span class="org-variable-name">x</span> = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
-  <span class="org-keyword">if</span> x.shape[0] &gt; 1:
-    <span class="org-variable-name">res</span> = mclust.Mclust(x, verbose=<span class="org-constant">False</span>)
-    <span class="org-keyword">return</span> np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'mean'</span>)).shape[0]
-  <span class="org-keyword">else</span>:
-    <span class="org-keyword">return</span> np.nan
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">num_modes</span> = (leng_tpm
-             .loc[(leng_tpm &gt; 0).mean(axis=1) &gt; 0.75]
-             .sample(n=1000, random_state=0)
-             .<span class="org-builtin">apply</span>(naive_est_num_modes, axis=1))
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(3, 3)
-plt.hist(num_modes, bins=np.arange(num_modes.dropna().<span class="org-builtin">max</span>()), color=<span class="org-string">'black'</span>)
-plt.xlabel(<span class="org-string">'Number of modes'</span>)
-<span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Number of genes'</span>)
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/pitfalls.org/gmm-mode-hist.png" alt="gmm-mode-hist.png">
-</p>
-</div>
-
-<p>
-Look at some examples.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">plot_data_gmm</span>(x):
-  <span class="org-variable-name">x</span> = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
-  <span class="org-variable-name">res</span> = mclust.Mclust(x, verbose=<span class="org-constant">False</span>)
-  plt.clf()
-  plt.gcf().set_size_inches(3, 3)
-  <span class="org-variable-name">grid</span> = np.linspace(x.<span class="org-builtin">min</span>(), x.<span class="org-builtin">max</span>(), 100)
-  plt.hist(x, color=<span class="org-string">'.75'</span>, bins=50, density=<span class="org-constant">True</span>)
-  <span class="org-variable-name">means</span> = np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'mean'</span>)).reshape(-1, 1)
-  <span class="org-variable-name">variances</span> = np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'variance'</span>).rx2(<span class="org-string">'sigmasq'</span>)).reshape(-1, 1)
-  <span class="org-variable-name">F</span> = st.norm(loc=means, scale=np.sqrt(variances)).pdf(grid)
-  <span class="org-keyword">for</span> i, px <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(F):
-    plt.plot(grid, px, lw=1, label=<span class="org-string">'Component {}'</span>.<span class="org-builtin">format</span>(i + 1), ls=<span class="org-string">'--'</span>)
-  <span class="org-variable-name">weights</span> = np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'pro'</span>))
-  plt.plot(grid, weights.dot(st.norm(loc=means, scale=np.sqrt(variances)).pdf(grid)), label=<span class="org-string">'Average density'</span>, lw=1, c=<span class="org-string">'k'</span>)
-  plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
-  plt.xlabel(<span class="org-string">'log TPM'</span>)
-  <span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Density'</span>)
-</pre>
-</div>
-
-<p>
-<i>CDC6</i> was reported as a gene showing cyclical gene expression through the
-cell cycle in the original study.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plot_data_gmm(leng_tpm.loc[<span class="org-string">'CDC6'</span>])
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/pitfalls.org/gmm-cdc6.png" alt="gmm-cdc6.png">
-</p>
-</div>
-
-<p>
-Look at the gene with the most estimated modes.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">num_modes.idxmax()
-</pre>
-</div>
-
-<pre class="example">
-'SEPN1'
-
-</pre>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plot_data_gmm(leng_tpm.loc[<span class="org-string">'SEPN1'</span>])
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/pitfalls.org/gmm-sepn1.png" alt="gmm-sepn1.png">
-</p>
-</div>
-
-<p>
-The results suggest that Gaussian mixture modeling of log-transformed data
-does not give the right answer. Further, they suggest that GMM overfits the
-data (despite optimizing BIC).
-</p>
-</div>
-</div>
-<div id="outline-container-org1de5c13" class="outline-2">
-<h2 id="org1de5c13">Pseudocount</h2>
-<div class="outline-text-2" id="text-org1de5c13">
-<p>
-When computing log-transformed expression values, we need to introduce a
-pseudocount \(\epsilon\) to deal with observations of zero.
-</p>
-
-<p>
-Standard choices include \(\epsilon = 1\) and \(\epsilon = .5 / \bar{R}\),
-where \(\bar{R} = \frac{1}{n} \sum_i R_i\) (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3378882/">McCarthy et al 2012</a>).
-</p>
-
-<p>
-Clearly, the pseudocount will introduce a mode at zero, even when the data is
-Poisson distributed.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">x</span> = simulate_counts(num_cells=1000, num_genes=10000, size=1e5, seed=3)
-<span class="org-variable-name">R</span> = x.<span class="org-builtin">sum</span>(axis=1)
-<span class="org-comment-delimiter"># </span><span class="org-comment">Match edgeR</span>
-<span class="org-variable-name">eps</span> = .5 / R.mean()
-<span class="org-variable-name">y</span> = (np.log(x + eps) - np.log(R.reshape(-1, 1) + 2 * eps) + 6 * np.log(10)) / np.log(2)
-<span class="org-comment-delimiter"># </span><span class="org-comment">Get the simulated gene with most zeros</span>
-<span class="org-variable-name">idx</span> = np.argmax((x == 0).mean(axis=0))
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(5, 3)
-ax[0].hist(x[:,2], bins=np.arange(15), color=<span class="org-string">'k'</span>)
-ax[0].plot(.5 + np.arange(15), 1000 * st.poisson(mu=x[:,2].mean()).pmf(np.arange(15)), lw=1, c=<span class="org-string">'r'</span>)
-ax[0].set_xlabel(<span class="org-string">'Molecule count'</span>)
-ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
-
-ax[1].hist(y[:,2], bins=30, color=<span class="org-string">'k'</span>)
-ax[1].set_xlabel(<span class="org-string">'$\log_2(\mathrm{CPM})$'</span>)
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/pitfalls.org/log-cpm-modes.png" alt="log-cpm-modes.png">
-</p>
-</div>
-</div>
-</div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-03-14 Thu 15:28</p>
+<p class="date">Created: 2019-03-14 Thu 21:42</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

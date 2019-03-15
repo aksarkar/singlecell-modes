@@ -1,22 +1,12 @@
-#+TITLE: Poisson adaptive shrinkage to estimate the modality of gene expression
+#+TITLE: Modeling single cell data
 #+SETUPFILE: setup.org
 
-The development of single cell RNA sequencing (scRNA-Seq) has enabled
-investigation of the nature of heterogeneity between individuals cells. One
-surprising aspect of this heterogeneity has been the phenomenon of multimodal
-distributions of gene expression of single genes across cells. In particular,
-the phenomenon of zero-inflation (expression mode at zero) has motivated the
-development of sophisticated count-based methods for scRNA-Seq data.
+The development of single cell RNA sequencing (scRNA-Seq) technology has
+enabled investigation of heterogeneity between individuals cells, dynamics of
+cellular processes, and the biological pathways underlying cellular
+differentiation. However, a number of features of scRNA-seq data continue to
+cause confusion among practitioners applying published methods to analyze new
+datasets, as well as researchers developing and benchmarking new methods.
 
-A number of studies have sought to estimate the number of modes from the data,
-or test for differences in the number of modes between conditions. These
-studies have produced some surprising results: for example, that most genes
-have more than two modes of gene expression. In contrast, simple kinetic models
-of transcriptional regulation predict that mRNA abundance can be at most
-bimodal, and indeed predict a mode at zero in some cases.
-
-Here, we develop a new method for single cell expression deconvolution based on
-adaptive shrinkage. The key idea of our approach is to use a flexible unimodal
-distribution to model the underlying distribution of expression.
-
-- [[file:pitfalls.org][Common pitfalls in estimating the number of modes]]
+- [[file:pitfalls.org][Technical zero-generating mechanism in scRNA-seq data]]
+- [[file:modes.org][Estimating the number of modes]]

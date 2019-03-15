@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2019-03-14 Thu 21:41 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estimating the number of modes</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Estimating the number of modes</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org90e9643">Distribution of log CPM across cells</a></li>
+<li><a href="#org48bfff1">Pseudocount</a></li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org90e9643" class="outline-2">
+<h2 id="org90e9643">Distribution of log CPM across cells</h2>
+<div class="outline-text-2" id="text-org90e9643">
+<p>
+Reproduce <a href="https://media.springernature.com/lw785/springer-static/image/art%3A10.1186%2Fs13059-016-0927-y/MediaObjects/13059_2016_927_Fig1_HTML.gif">Fig 1C</a> from <a href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0927-y#Sec13">Bacher and Kendziorski 2016</a>.  
+</p>
+
+<p>
+Data set <i>sc2</i> is scRNA-Seq of hESCs generated in <a href="https://www.ncbi.nlm.nih.gov/pubmed/26301841">Leng et al 2015</a>.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">curl -s -o GSE64016_H1andFUCCI_normalized_EC.csv.gz <span class="org-string">"https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE64016&amp;format=file&amp;file=GSE64016_H1andFUCCI_normalized_EC.csv.gz"</span>
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">leng_tpm</span> = pd.read_table(<span class="org-string">'/scratch/midway2/aksarkar/modes/GSE64016_H1andFUCCI_normalized_EC.csv.gz'</span>, sep=<span class="org-string">','</span>, index_col=0)
+</pre>
+</div>
+
+<p>
+To estimate the number of modes, Bacher and Kendziorski fit a Gaussian
+mixture model to log-transformed expression, selecting the number of
+components which optimizes BIC.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">naive_est_num_modes</span>(x):
+  <span class="org-variable-name">x</span> = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
+  <span class="org-keyword">if</span> x.shape[0] &gt; 1:
+    <span class="org-variable-name">res</span> = mclust.Mclust(x, verbose=<span class="org-constant">False</span>)
+    <span class="org-keyword">return</span> np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'mean'</span>)).shape[0]
+  <span class="org-keyword">else</span>:
+    <span class="org-keyword">return</span> np.nan
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">num_modes</span> = (leng_tpm
+             .loc[(leng_tpm &gt; 0).mean(axis=1) &gt; 0.75]
+             .sample(n=1000, random_state=0)
+             .<span class="org-builtin">apply</span>(naive_est_num_modes, axis=1))
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.hist(num_modes, bins=np.arange(num_modes.dropna().<span class="org-builtin">max</span>()), color=<span class="org-string">'black'</span>)
+plt.xlabel(<span class="org-string">'Number of modes'</span>)
+<span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Number of genes'</span>)
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pitfalls.org/gmm-mode-hist.png" alt="gmm-mode-hist.png">
+</p>
+</div>
+
+<p>
+Look at some examples.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">plot_data_gmm</span>(x):
+  <span class="org-variable-name">x</span> = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
+  <span class="org-variable-name">res</span> = mclust.Mclust(x, verbose=<span class="org-constant">False</span>)
+  plt.clf()
+  plt.gcf().set_size_inches(3, 3)
+  <span class="org-variable-name">grid</span> = np.linspace(x.<span class="org-builtin">min</span>(), x.<span class="org-builtin">max</span>(), 100)
+  plt.hist(x, color=<span class="org-string">'.75'</span>, bins=50, density=<span class="org-constant">True</span>)
+  <span class="org-variable-name">means</span> = np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'mean'</span>)).reshape(-1, 1)
+  <span class="org-variable-name">variances</span> = np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'variance'</span>).rx2(<span class="org-string">'sigmasq'</span>)).reshape(-1, 1)
+  <span class="org-variable-name">F</span> = st.norm(loc=means, scale=np.sqrt(variances)).pdf(grid)
+  <span class="org-keyword">for</span> i, px <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(F):
+    plt.plot(grid, px, lw=1, label=<span class="org-string">'Component {}'</span>.<span class="org-builtin">format</span>(i + 1), ls=<span class="org-string">'--'</span>)
+  <span class="org-variable-name">weights</span> = np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'pro'</span>))
+  plt.plot(grid, weights.dot(st.norm(loc=means, scale=np.sqrt(variances)).pdf(grid)), label=<span class="org-string">'Average density'</span>, lw=1, c=<span class="org-string">'k'</span>)
+  plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+  plt.xlabel(<span class="org-string">'log TPM'</span>)
+  <span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Density'</span>)
+</pre>
+</div>
+
+<p>
+<i>CDC6</i> was reported as a gene showing cyclical gene expression through the
+cell cycle in the original study.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plot_data_gmm(leng_tpm.loc[<span class="org-string">'CDC6'</span>])
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pitfalls.org/gmm-cdc6.png" alt="gmm-cdc6.png">
+</p>
+</div>
+
+<p>
+Look at the gene with the most estimated modes.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">num_modes.idxmax()
+</pre>
+</div>
+
+<pre class="example">
+'SEPN1'
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plot_data_gmm(leng_tpm.loc[<span class="org-string">'SEPN1'</span>])
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pitfalls.org/gmm-sepn1.png" alt="gmm-sepn1.png">
+</p>
+</div>
+
+<p>
+The results suggest that Gaussian mixture modeling of log-transformed data
+does not give the right answer. Further, they suggest that GMM overfits the
+data (despite optimizing BIC).
+</p>
+</div>
+</div>
+<div id="outline-container-org48bfff1" class="outline-2">
+<h2 id="org48bfff1">Pseudocount</h2>
+<div class="outline-text-2" id="text-org48bfff1">
+<p>
+When computing log-transformed expression values, we need to introduce a
+pseudocount \(\epsilon\) to deal with observations of zero.
+</p>
+
+<p>
+Standard choices include \(\epsilon = 1\) and \(\epsilon = .5 / \bar{R}\),
+where \(\bar{R} = \frac{1}{n} \sum_i R_i\) (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3378882/">McCarthy et al 2012</a>).
+</p>
+
+<p>
+Clearly, the pseudocount will introduce a mode at zero, even when the data is
+Poisson distributed.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = simulate_counts(num_cells=1000, num_genes=10000, size=1e5, seed=3)
+<span class="org-variable-name">R</span> = x.<span class="org-builtin">sum</span>(axis=1)
+<span class="org-comment-delimiter"># </span><span class="org-comment">Match edgeR</span>
+<span class="org-variable-name">eps</span> = .5 / R.mean()
+<span class="org-variable-name">y</span> = (np.log(x + eps) - np.log(R.reshape(-1, 1) + 2 * eps) + 6 * np.log(10)) / np.log(2)
+<span class="org-comment-delimiter"># </span><span class="org-comment">Get the simulated gene with most zeros</span>
+<span class="org-variable-name">idx</span> = np.argmax((x == 0).mean(axis=0))
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(5, 3)
+ax[0].hist(x[:,2], bins=np.arange(15), color=<span class="org-string">'k'</span>)
+ax[0].plot(.5 + np.arange(15), 1000 * st.poisson(mu=x[:,2].mean()).pmf(np.arange(15)), lw=1, c=<span class="org-string">'r'</span>)
+ax[0].set_xlabel(<span class="org-string">'Molecule count'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+
+ax[1].hist(y[:,2], bins=30, color=<span class="org-string">'k'</span>)
+ax[1].set_xlabel(<span class="org-string">'$\log_2(\mathrm{CPM})$'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pitfalls.org/log-cpm-modes.png" alt="log-cpm-modes.png">
+</p>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2019-03-14 Thu 21:41</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

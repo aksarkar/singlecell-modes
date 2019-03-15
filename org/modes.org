@@ -1,0 +1,179 @@
+#+TITLE: Estimating the number of modes
+#+SETUPFILE: setup.org
+
+* Distribution of log CPM across cells
+
+  Reproduce [[https://media.springernature.com/lw785/springer-static/image/art%253A10.1186%252Fs13059-016-0927-y/MediaObjects/13059_2016_927_Fig1_HTML.gif][Fig 1C]] from [[https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0927-y#Sec13][Bacher and Kendziorski 2016]].  
+
+  Data set /sc2/ is scRNA-Seq of hESCs generated in [[https://www.ncbi.nlm.nih.gov/pubmed/26301841][Leng et al 2015]].
+
+  #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/.
+    curl -s -o GSE64016_H1andFUCCI_normalized_EC.csv.gz "https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE64016&format=file&file=GSE64016_H1andFUCCI_normalized_EC.csv.gz"
+  #+END_SRC
+
+  #+RESULTS:
+
+  #+BEGIN_SRC ipython
+    leng_tpm = pd.read_table('/scratch/midway2/aksarkar/modes/GSE64016_H1andFUCCI_normalized_EC.csv.gz', sep=',', index_col=0)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  To estimate the number of modes, Bacher and Kendziorski fit a Gaussian
+  mixture model to log-transformed expression, selecting the number of
+  components which optimizes BIC.
+
+  #+BEGIN_SRC ipython
+    def naive_est_num_modes(x):
+      x = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
+      if x.shape[0] > 1:
+        res = mclust.Mclust(x, verbose=False)
+        return np.array(res.rx2('parameters').rx2('mean')).shape[0]
+      else:
+        return np.nan
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+  #+BEGIN_SRC ipython :async t
+    num_modes = (leng_tpm
+                 .loc[(leng_tpm > 0).mean(axis=1) > 0.75]
+                 .sample(n=1000, random_state=0)
+                 .apply(naive_est_num_modes, axis=1))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[4]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/gmm-mode-hist.png
+    plt.clf()
+    plt.gcf().set_size_inches(3, 3)
+    plt.hist(num_modes, bins=np.arange(num_modes.dropna().max()), color='black')
+    plt.xlabel('Number of modes')
+    _ = plt.ylabel('Number of genes')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[5]:
+  [[file:figure/pitfalls.org/gmm-mode-hist.png]]
+  :END:
+
+  Look at some examples.
+
+  #+BEGIN_SRC ipython
+    def plot_data_gmm(x):
+      x = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
+      res = mclust.Mclust(x, verbose=False)
+      plt.clf()
+      plt.gcf().set_size_inches(3, 3)
+      grid = np.linspace(x.min(), x.max(), 100)
+      plt.hist(x, color='.75', bins=50, density=True)
+      means = np.array(res.rx2('parameters').rx2('mean')).reshape(-1, 1)
+      variances = np.array(res.rx2('parameters').rx2('variance').rx2('sigmasq')).reshape(-1, 1)
+      F = st.norm(loc=means, scale=np.sqrt(variances)).pdf(grid)
+      for i, px in enumerate(F):
+        plt.plot(grid, px, lw=1, label='Component {}'.format(i + 1), ls='--')
+      weights = np.array(res.rx2('parameters').rx2('pro'))
+      plt.plot(grid, weights.dot(st.norm(loc=means, scale=np.sqrt(variances)).pdf(grid)), label='Average density', lw=1, c='k')
+      plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+      plt.xlabel('log TPM')
+      _ = plt.ylabel('Density')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[32]:
+  :END:
+
+  /CDC6/ was reported as a gene showing cyclical gene expression through the
+  cell cycle in the original study.
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/gmm-cdc6.png
+    plot_data_gmm(leng_tpm.loc['CDC6'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[34]:
+  [[file:figure/pitfalls.org/gmm-cdc6.png]]
+  :END:
+
+  Look at the gene with the most estimated modes.
+
+  #+BEGIN_SRC ipython
+    num_modes.idxmax()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[17]:
+  : 'SEPN1'
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/gmm-sepn1.png
+    plot_data_gmm(leng_tpm.loc['SEPN1'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[36]:
+  [[file:figure/pitfalls.org/gmm-sepn1.png]]
+  :END:
+
+  The results suggest that Gaussian mixture modeling of log-transformed data
+  does not give the right answer. Further, they suggest that GMM overfits the
+  data (despite optimizing BIC).
+* Pseudocount
+
+  When computing log-transformed expression values, we need to introduce a
+  pseudocount \(\epsilon\) to deal with observations of zero.
+
+  Standard choices include \(\epsilon = 1\) and \(\epsilon = .5 / \bar{R}\),
+  where \(\bar{R} = \frac{1}{n} \sum_i R_i\) ([[https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3378882/][McCarthy et al 2012]]).
+
+  Clearly, the pseudocount will introduce a mode at zero, even when the data is
+  Poisson distributed.
+
+  #+BEGIN_SRC ipython
+    x = simulate_counts(num_cells=1000, num_genes=10000, size=1e5, seed=3)
+    R = x.sum(axis=1)
+    # Match edgeR
+    eps = .5 / R.mean()
+    y = (np.log(x + eps) - np.log(R.reshape(-1, 1) + 2 * eps) + 6 * np.log(10)) / np.log(2)
+    # Get the simulated gene with most zeros
+    idx = np.argmax((x == 0).mean(axis=0))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[172]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/pitfalls.org/log-cpm-modes.png
+    plt.clf()
+    fig, ax = plt.subplots(1, 2, sharey=True)
+    fig.set_size_inches(5, 3)
+    ax[0].hist(x[:,2], bins=np.arange(15), color='k')
+    ax[0].plot(.5 + np.arange(15), 1000 * st.poisson(mu=x[:,2].mean()).pmf(np.arange(15)), lw=1, c='r')
+    ax[0].set_xlabel('Molecule count')
+    ax[0].set_ylabel('Number of cells')
+
+    ax[1].hist(y[:,2], bins=30, color='k')
+    ax[1].set_xlabel('$\log_2(\mathrm{CPM})$')
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[190]:
+  [[file:figure/pitfalls.org/log-cpm-modes.png]]
+  :END:
