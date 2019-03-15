@@ -1,6 +1,49 @@
 #+TITLE: Estimating the number of modes
 #+SETUPFILE: setup.org
 
+* Setup
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(mem="4G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes
+
+  #+RESULTS:
+  :RESULTS:
+  Submitted batch job 58584169
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+
+    import colorcet
+    import gzip
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+    import scipy.stats as st
+    import sklearn.neighbors as skn
+
+    import rpy2.robjects.packages
+    import rpy2.robjects.pandas2ri
+    import rpy2.robjects.numpy2ri
+
+    rpy2.robjects.pandas2ri.activate()
+    rpy2.robjects.numpy2ri.activate()
+    mclust = rpy2.robjects.packages.importr('mclust')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[1]:
+  :END:
+
 * Distribution of log CPM across cells
 
   Reproduce [[https://media.springernature.com/lw785/springer-static/image/art%253A10.1186%252Fs13059-016-0927-y/MediaObjects/13059_2016_927_Fig1_HTML.gif][Fig 1C]] from [[https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0927-y#Sec13][Bacher and Kendziorski 2016]].  

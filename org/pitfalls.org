@@ -21,11 +21,11 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(mem="4G",partition="mstephens",venv="singlecell") :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(mem="4G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
   :RESULTS:
-  Submitted batch job 51133345
+  Submitted batch job 58584169
   :END:
 
   #+BEGIN_SRC ipython
@@ -39,14 +39,6 @@
     import pandas as pd
     import scipy.stats as st
     import sklearn.neighbors as skn
-
-    import rpy2.robjects.packages
-    import rpy2.robjects.pandas2ri
-    import rpy2.robjects.numpy2ri
-
-    rpy2.robjects.pandas2ri.activate()
-    rpy2.robjects.numpy2ri.activate()
-    mclust = rpy2.robjects.packages.importr('mclust')
   #+END_SRC
 
   #+RESULTS:

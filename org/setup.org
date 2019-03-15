@@ -5,6 +5,6 @@
 #+HTML_HEAD: <link href="css/bootstrap.min.css" rel="stylesheet" />
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
 #+HTML_HEAD: <style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
-#+PROPERTY: header-args:ipython+ :session kernel-singlecell.json :results raw drawer :eval never-export :exports both
+#+PROPERTY: header-args:ipython+ :session kernel-scmodes.json :results raw drawer :eval never-export :exports both
 #+PROPERTY: header-args:shell+ :results raw drawer :eval never-export :exports both
 #+PROPERTY: header-args:sh+ :results raw drawer :eval never-export :exports both
