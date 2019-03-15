@@ -1,6 +1,11 @@
 #+TITLE: Estimating the number of modes
 #+SETUPFILE: setup.org
 
+* Introduction
+
+  Here, we investigate whether the distribution of gene expression across cells
+  is multi-modal.
+
 * Setup
 
   #+BEGIN_SRC emacs-lisp :exports none
