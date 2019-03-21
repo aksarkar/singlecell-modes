@@ -1,0 +1,195 @@
+#+TITLE: Comparison of expression deconvolution approaches
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  The fundamental question in modeling scRNA-seq count data for a single gene
+  \(j\) is what distributional assumptions are made on the relative abundances
+  \(\lambda_{1j}, \ldots, \lambda_{nj} \sim g_j(\cdot)\).
+
+  Here, we investigate the tradoeff between model complexity/flexibility and
+  generalization for different choices of \(g_j\) in real data.
+
+* Setup
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(mem="32G",partition="gpu2",venv="scmodes",opts="--gres=gpu:1") :dir /scratch/midway2/aksarkar/modes :exports none
+
+  #+RESULTS:
+  :RESULTS:
+  Submitted batch job 58781149
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+
+    import colorcet
+    import gzip
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+    import scipy.io
+    import scipy.stats as st
+    import scipy.special as sp
+
+    import rpy2.robjects.packages
+    import rpy2.robjects.pandas2ri
+    import rpy2.robjects.numpy2ri
+
+    rpy2.robjects.pandas2ri.activate()
+    rpy2.robjects.numpy2ri.activate()
+
+    descend = rpy2.robjects.packages.importr('descend')
+    ashr = rpy2.robjects.packages.importr('ashr')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[1]:
+  :END:
+
+* Methods
+** Distribution deconvolution
+
+   The general form of distribution deconvolution for scRNA-seq is:
+
+   \[ x_{ij} \sim \mathrm{Poisson}(\exp(\mathbf{z}_i' \mathbf{b}_j) \lambda_{ij}) \]
+
+   \[ \lambda_{ij} \sim g_j(\cdot) \]
+
+   where:
+
+   - \(x_{ij}\) is the count of molecules of gene \(j\) in cell \(i\)
+   - \(\mathbf{z}_i\) is a \(q\)-vector of covariates for cell \(i\)
+   - \(\mathbf{b}_j\) is a \(q\)-vector of confounding effects on gene \(j\)
+   - \(\lambda_{ij}\) is proportional to the relative abundance of gene \(j\)
+     in cell \(i\)
+
+   The primary inference goal is to recover \(g_j\). A secondary goal could be
+   to recover \(\lambda_{ij}\). We can trade off flexibility and complexity of
+   \(g_j\) for ease of implementation and speed.
+
+   1. *NB:* \(g_j = \mathrm{Gamma}(\cdot)\). Implemented in ~scqtl~.
+   2. *ZINB:* \(g_j = \pi_j \delta_0(\cdot) + (1 - \pi_j)
+      \mathrm{Gamma}(\cdot)\) Implemented in ~scqtl~.
+   3. *Unimodal:* \(g_j = \sum_k \pi_k \mathrm{Uniform}(\lambda_0, a_{jk})\),
+      where \(\lambda_0\) is the mode (jointly estimated from the
+      data). Implemented in ~ashR~.
+   4. *Spline:* \(g_j = \exp(\mathbf{Q}'\alpha - \phi(\alpha))\), where
+      \(\mathbf{Q}\) is a \(5 \times K\) discretized degree 5 cubic
+      spline. Implemented in ~DESCEND~.
+   5. *Nonparametric:* \(g_j = \sum_k \pi_k \mathrm{Uniform}(a_k, b_k)\), where
+      \(a_k, b_k\) define a uniform grid. Implemented in ~ashR~.
+
+   In order to evaluate methods on their ability to estimate \(g_j\), we hold
+   out samples in a cross-validation setting, and score methods on the log
+   likelihood of the held out data.
+
+   #+BEGIN_SRC ipython
+     def nb_nll(x, mean, inv_disp):
+       return (x * np.log(mean / inv_disp) -
+               x * np.log(1 + mean / inv_disp) -
+               inv_disp * np.log(1 + mean / inv_disp) +
+               sp.gammaln(x + inv_disp) -
+               sp.gammaln(inv_disp) -
+               sp.gammaln(x + 1))
+
+     def score_nb(x_train, x_test):
+       import scqtl
+       onehot = np.ones((x_train.shape[0], 1))
+       size_factor = x_train.sum(axis=0).reshape(-1, 1)
+       design = np.zeros((num_samples, 1))
+       log_mu, log_phi, *_ = scqtl.tf.fit(
+         umi=x_train.astype(np.float32),
+         onehot=onehot.astype(np.float32),
+         design=design.astype(np.float32),
+         size_factor=size_factor.astype(np.float32),
+         learning_rate=1e-3,
+         max_epochs=20000,
+         verbose=True)
+       return nb_nll(x_test, np.exp(log_mu), np.exp(-log_phi)).sum()
+
+     def softplus(x):
+       if x > 30:
+         return x
+       else:
+         return np.log(1 + np.exp(x))
+
+     def zinb_nll(x, mean, inv_disp, logodds):
+       case_zero = -softplus(-logodds) + softplus(nb_llik(x, mean, inv_disp) - logodds)
+       case_non_zero = -softplus(logodds) + nb_llik(x, mean, inv_disp)
+       return np.where(x < 1, case_zero, case_non_zero)
+
+     def score_zinb(x_train, x_test):
+       import scqtl
+       onehot = np.ones((x_train.shape[0], 1))
+       size_factor = x_train.sum(axis=0).reshape(-1, 1)
+       design = np.zeros((num_samples, 1))
+       init = scqtl.tf.fit(
+         umi=x_train.astype(np.float32),
+         onehot=onehot.astype(np.float32),
+         design=design.astype(np.float32),
+         size_factor=size_factor.astype(np.float32),
+         learning_rate=1e-3,
+         max_epochs=20000,
+         verbose=True)
+       log_mu, log_phi, logodds, nb_llik, zinb_llik = scqtl.tf.fit(
+         umi=umi.astype(np.float32),
+         onehot=onehot.astype(np.float32),
+         design=design.astype(np.float32),
+         size_factor=size_factor.astype(np.float32),
+         learning_rate=1e-3,
+         max_epochs=20000,
+         warm_start=init[:3],
+         verbose=True)
+       return zinb_nll(x_test, np.exp(logodds), np.exp(-log_phi), logodds).sum()
+
+     def score_ash(x_train, x_test):
+       pass
+   #+END_SRC
+
+* Results
+** Homogeneous cell populations
+
+   Use sorted cells from Zheng et al. 2016 as a baseline.
+
+   #+BEGIN_SRC ipython
+     def cd8_cytotoxic_t_cells(min_detect=0.25):
+       counts = scipy.io.mmread('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cd8+_cytotoxic_t_cells/filtered_matrices_mex/hg19/matrix.mtx.gz').tocsr()
+       counts = counts[((counts > 0).mean(axis=1) >= min_detect).A.ravel()].T.A.astype(np.int)
+       return counts
+
+     def cd19_b_cells(min_detect=0.25):
+       counts = scipy.io.mmread('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cd19+_b_cells/filtered_matrices_mex/hg19/matrix.mtx.gz').tocsr()
+       counts = counts[((counts > 0).mean(axis=1) >= min_detect).A.ravel()].T.A.astype(np.int)
+       return counts
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[2]:
+   :END:
+
+** Synthetic cell mixtures
+
+** Real cell mixtures
+
+   #+BEGIN_SRC ipython
+     def pbmcs_68k(min_detect=0.25):
+       counts = scipy.io.mmread('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/68k_pbmcs/filtered_matrices_mex/hg19/matrix.mtx.gz').tocsr()
+       counts = counts[((counts > 0).mean(axis=1) >= min_detect).A.ravel()].T.A.astype(np.int)
+       return counts
+
+     def cortex():
+       counts = pd.read_table('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', index_col=0)
+       # Follow scVI here
+       return counts.loc[counts.var(axis=1).sort_values(ascending=False).head(n=500).index].values.T
+   #+END_SRC

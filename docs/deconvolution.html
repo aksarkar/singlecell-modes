@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-03-21 Thu 13:51 -->
+<!-- 2019-03-21 Thu 19:42 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Estimating the number of modes</title>
+<title>Comparison of expression deconvolution approaches</title>
 <meta name="generator" content="Org mode">
 <meta name="author" content="Abhishek Sarkar">
 <style type="text/css">
@@ -252,36 +252,48 @@ for the JavaScript code in this tag.
 </head>
 <body>
 <div id="content">
-<h1 class="title">Estimating the number of modes</h1>
+<h1 class="title">Comparison of expression deconvolution approaches</h1>
 <div id="table-of-contents">
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
-<li><a href="#orgbfe4f89">Introduction</a></li>
-<li><a href="#org24ddfec">Setup</a></li>
-<li><a href="#org90e9643">Distribution of log CPM across cells</a></li>
-<li><a href="#org48bfff1">Pseudocount</a></li>
+<li><a href="#org7ba1eb0">Introduction</a></li>
+<li><a href="#orga732197">Setup</a></li>
+<li><a href="#orgb2252bb">Methods</a>
+<ul>
+<li><a href="#org4b51f6e">Distribution deconvolution</a></li>
+</ul>
+</li>
+<li><a href="#org1b135ab">Results</a>
+<ul>
+<li><a href="#orgd37e090">Homogeneous cell populations</a></li>
+<li><a href="#org439c6e2">Synthetic cell mixtures</a></li>
+<li><a href="#org0c2cae0">Real cell mixtures</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </div>
 
-<div id="outline-container-orgbfe4f89" class="outline-2">
-<h2 id="orgbfe4f89">Introduction</h2>
-<div class="outline-text-2" id="text-orgbfe4f89">
+<div id="outline-container-org7ba1eb0" class="outline-2">
+<h2 id="org7ba1eb0">Introduction</h2>
+<div class="outline-text-2" id="text-org7ba1eb0">
 <p>
-Here, we investigate whether the distribution of gene expression across cells
-is multi-modal.
+The fundamental question in modeling scRNA-seq count data for a single gene
+\(j\) is what distributional assumptions are made on the relative abundances
+\(\lambda_{1j}, \ldots, \lambda_{nj} \sim g_j(\cdot)\).
+</p>
+
+<p>
+Here, we investigate the tradoeff between model complexity/flexibility and
+generalization for different choices of \(g_j\) in real data.
 </p>
 </div>
 </div>
 
-<div id="outline-container-org24ddfec" class="outline-2">
-<h2 id="org24ddfec">Setup</h2>
-<div class="outline-text-2" id="text-org24ddfec">
-<p>
-Submitted batch job 58584169
-</p>
-
+<div id="outline-container-orga732197" class="outline-2">
+<h2 id="orga732197">Setup</h2>
+<div class="outline-text-2" id="text-orga732197">
 <div class="org-src-container">
 <pre class="src src-ipython">%matplotlib inline
 %config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
@@ -291,8 +303,9 @@ Submitted batch job 58584169
 <span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
 <span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scipy.io
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
-<span class="org-keyword">import</span> sklearn.neighbors <span class="org-keyword">as</span> skn
+<span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
 
 <span class="org-keyword">import</span> rpy2.robjects.packages
 <span class="org-keyword">import</span> rpy2.robjects.pandas2ri
@@ -300,201 +313,190 @@ Submitted batch job 58584169
 
 rpy2.robjects.pandas2ri.activate()
 rpy2.robjects.numpy2ri.activate()
-<span class="org-variable-name">mclust</span> = rpy2.robjects.packages.importr(<span class="org-string">'mclust'</span>)
+
+<span class="org-variable-name">descend</span> = rpy2.robjects.packages.importr(<span class="org-string">'descend'</span>)
+<span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
 </pre>
 </div>
 </div>
 </div>
 
-<div id="outline-container-org90e9643" class="outline-2">
-<h2 id="org90e9643">Distribution of log CPM across cells</h2>
-<div class="outline-text-2" id="text-org90e9643">
-<p>
-Reproduce <a href="https://media.springernature.com/lw785/springer-static/image/art%3A10.1186%2Fs13059-016-0927-y/MediaObjects/13059_2016_927_Fig1_HTML.gif">Fig 1C</a> from <a href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0927-y#Sec13">Bacher and Kendziorski 2016</a>.  
-</p>
-
-<p>
-Data set <i>sc2</i> is scRNA-Seq of hESCs generated in <a href="https://www.ncbi.nlm.nih.gov/pubmed/26301841">Leng et al 2015</a>.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-sh">curl -s -o GSE64016_H1andFUCCI_normalized_EC.csv.gz <span class="org-string">"https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE64016&amp;format=file&amp;file=GSE64016_H1andFUCCI_normalized_EC.csv.gz"</span>
-</pre>
+<div id="outline-container-orgb2252bb" class="outline-2">
+<h2 id="orgb2252bb">Methods</h2>
+<div class="outline-text-2" id="text-orgb2252bb">
 </div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">leng_tpm</span> = pd.read_table(<span class="org-string">'/scratch/midway2/aksarkar/modes/GSE64016_H1andFUCCI_normalized_EC.csv.gz'</span>, sep=<span class="org-string">','</span>, index_col=0)
-</pre>
-</div>
+<div id="outline-container-org4b51f6e" class="outline-3">
+<h3 id="org4b51f6e">Distribution deconvolution</h3>
+<div class="outline-text-3" id="text-org4b51f6e">
+<p>
+The general form of distribution deconvolution for scRNA-seq is:
+</p>
 
 <p>
-To estimate the number of modes, Bacher and Kendziorski fit a Gaussian
-mixture model to log-transformed expression, selecting the number of
-components which optimizes BIC.
+\[ x_{ij} \sim \mathrm{Poisson}(\exp(\mathbf{z}_i' \mathbf{b}_j) \lambda_{ij}) \]
+</p>
+
+<p>
+\[ \lambda_{ij} \sim g_j(\cdot) \]
+</p>
+
+<p>
+where:
+</p>
+
+<ul class="org-ul">
+<li>\(x_{ij}\) is the count of molecules of gene \(j\) in cell \(i\)</li>
+<li>\(\mathbf{z}_i\) is a \(q\)-vector of covariates for cell \(i\)</li>
+<li>\(\mathbf{b}_j\) is a \(q\)-vector of confounding effects on gene \(j\)</li>
+<li>\(\lambda_{ij}\) is proportional to the relative abundance of gene \(j\)
+in cell \(i\)</li>
+</ul>
+
+<p>
+The primary inference goal is to recover \(g_j\). A secondary goal could be
+to recover \(\lambda_{ij}\). We can trade off flexibility and complexity of
+\(g_j\) for ease of implementation and speed.
+</p>
+
+<ol class="org-ol">
+<li><b>NB:</b> \(g_j = \mathrm{Gamma}(\cdot)\). Implemented in <code>scqtl</code>.</li>
+<li><b>ZINB:</b> \(g_j = \pi_j \delta_0(\cdot) + (1 - \pi_j)
+      \mathrm{Gamma}(\cdot)\) Implemented in <code>scqtl</code>.</li>
+<li><b>Unimodal:</b> \(g_j = \sum_k \pi_k \mathrm{Uniform}(\lambda_0, a_{jk})\),
+where \(\lambda_0\) is the mode (jointly estimated from the
+data). Implemented in <code>ashR</code>.</li>
+<li><b>Spline:</b> \(g_j = \exp(\mathbf{Q}'\alpha - \phi(\alpha))\), where
+\(\mathbf{Q}\) is a \(5 \times K\) discretized degree 5 cubic
+spline. Implemented in <code>DESCEND</code>.</li>
+<li><b>Nonparametric:</b> \(g_j = \sum_k \pi_k \mathrm{Uniform}(a_k, b_k)\), where
+\(a_k, b_k\) define a uniform grid. Implemented in <code>ashR</code>.</li>
+</ol>
+
+<p>
+In order to evaluate methods on their ability to estimate \(g_j\), we hold
+out samples in a cross-validation setting, and score methods on the log
+likelihood of the held out data.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">naive_est_num_modes</span>(x):
-  <span class="org-variable-name">x</span> = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
-  <span class="org-keyword">if</span> x.shape[0] &gt; 1:
-    <span class="org-variable-name">res</span> = mclust.Mclust(x, verbose=<span class="org-constant">False</span>)
-    <span class="org-keyword">return</span> np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'mean'</span>)).shape[0]
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">nb_nll</span>(x, mean, inv_disp):
+  <span class="org-keyword">return</span> (x * np.log(mean / inv_disp) -
+          x * np.log(1 + mean / inv_disp) -
+          inv_disp * np.log(1 + mean / inv_disp) +
+          sp.gammaln(x + inv_disp) -
+          sp.gammaln(inv_disp) -
+          sp.gammaln(x + 1))
+
+<span class="org-keyword">def</span> <span class="org-function-name">score_nb</span>(x_train, x_test):
+  <span class="org-keyword">import</span> scqtl
+  <span class="org-variable-name">onehot</span> = np.ones((x_train.shape[0], 1))
+  <span class="org-variable-name">size_factor</span> = x_train.<span class="org-builtin">sum</span>(axis=0).reshape(-1, 1)
+  <span class="org-variable-name">design</span> = np.zeros((num_samples, 1))
+  log_mu, log_phi, *<span class="org-variable-name">_</span> = scqtl.tf.fit(
+    umi=x_train.astype(np.float32),
+    onehot=onehot.astype(np.float32),
+    design=design.astype(np.float32),
+    size_factor=size_factor.astype(np.float32),
+    learning_rate=1e-3,
+    max_epochs=20000,
+    verbose=<span class="org-constant">True</span>)
+  <span class="org-keyword">return</span> nb_nll(x_test, np.exp(log_mu), np.exp(-log_phi)).<span class="org-builtin">sum</span>()
+
+<span class="org-keyword">def</span> <span class="org-function-name">softplus</span>(x):
+  <span class="org-keyword">if</span> x &gt; 30:
+    <span class="org-keyword">return</span> x
   <span class="org-keyword">else</span>:
-    <span class="org-keyword">return</span> np.nan
+    <span class="org-keyword">return</span> np.log(1 + np.exp(x))
+
+<span class="org-keyword">def</span> <span class="org-function-name">zinb_nll</span>(x, mean, inv_disp, logodds):
+  <span class="org-variable-name">case_zero</span> = -softplus(-logodds) + softplus(nb_llik(x, mean, inv_disp) - logodds)
+  <span class="org-variable-name">case_non_zero</span> = -softplus(logodds) + nb_llik(x, mean, inv_disp)
+  <span class="org-keyword">return</span> np.where(x &lt; 1, case_zero, case_non_zero)
+
+<span class="org-keyword">def</span> <span class="org-function-name">score_zinb</span>(x_train, x_test):
+  <span class="org-keyword">import</span> scqtl
+  <span class="org-variable-name">onehot</span> = np.ones((x_train.shape[0], 1))
+  <span class="org-variable-name">size_factor</span> = x_train.<span class="org-builtin">sum</span>(axis=0).reshape(-1, 1)
+  <span class="org-variable-name">design</span> = np.zeros((num_samples, 1))
+  <span class="org-variable-name">init</span> = scqtl.tf.fit(
+    umi=x_train.astype(np.float32),
+    onehot=onehot.astype(np.float32),
+    design=design.astype(np.float32),
+    size_factor=size_factor.astype(np.float32),
+    learning_rate=1e-3,
+    max_epochs=20000,
+    verbose=<span class="org-constant">True</span>)
+  <span class="org-variable-name">log_mu</span>, <span class="org-variable-name">log_phi</span>, <span class="org-variable-name">logodds</span>, <span class="org-variable-name">nb_llik</span>, <span class="org-variable-name">zinb_llik</span> = scqtl.tf.fit(
+    umi=umi.astype(np.float32),
+    onehot=onehot.astype(np.float32),
+    design=design.astype(np.float32),
+    size_factor=size_factor.astype(np.float32),
+    learning_rate=1e-3,
+    max_epochs=20000,
+    warm_start=init[:3],
+    verbose=<span class="org-constant">True</span>)
+  <span class="org-keyword">return</span> zinb_nll(x_test, np.exp(logodds), np.exp(-log_phi), logodds).<span class="org-builtin">sum</span>()
+
+<span class="org-keyword">def</span> <span class="org-function-name">score_ash</span>(x_train, x_test):
+  <span class="org-keyword">pass</span>
 </pre>
 </div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">num_modes</span> = (leng_tpm
-             .loc[(leng_tpm &gt; 0).mean(axis=1) &gt; 0.75]
-             .sample(n=1000, random_state=0)
-             .<span class="org-builtin">apply</span>(naive_est_num_modes, axis=1))
-</pre>
+</div>
+</div>
 </div>
 
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(3, 3)
-plt.hist(num_modes, bins=np.arange(num_modes.dropna().<span class="org-builtin">max</span>()), color=<span class="org-string">'black'</span>)
-plt.xlabel(<span class="org-string">'Number of modes'</span>)
-<span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Number of genes'</span>)
-</pre>
+<div id="outline-container-org1b135ab" class="outline-2">
+<h2 id="org1b135ab">Results</h2>
+<div class="outline-text-2" id="text-org1b135ab">
 </div>
-
-
-<div class="figure">
-<p><img src="figure/pitfalls.org/gmm-mode-hist.png" alt="gmm-mode-hist.png">
-</p>
-</div>
-
+<div id="outline-container-orgd37e090" class="outline-3">
+<h3 id="orgd37e090">Homogeneous cell populations</h3>
+<div class="outline-text-3" id="text-orgd37e090">
 <p>
-Look at some examples.
+Use sorted cells from Zheng et al. 2016 as a baseline.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">plot_data_gmm</span>(x):
-  <span class="org-variable-name">x</span> = np.log(x.mask(x == 0).dropna()).values.reshape(-1, 1)
-  <span class="org-variable-name">res</span> = mclust.Mclust(x, verbose=<span class="org-constant">False</span>)
-  plt.clf()
-  plt.gcf().set_size_inches(3, 3)
-  <span class="org-variable-name">grid</span> = np.linspace(x.<span class="org-builtin">min</span>(), x.<span class="org-builtin">max</span>(), 100)
-  plt.hist(x, color=<span class="org-string">'.75'</span>, bins=50, density=<span class="org-constant">True</span>)
-  <span class="org-variable-name">means</span> = np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'mean'</span>)).reshape(-1, 1)
-  <span class="org-variable-name">variances</span> = np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'variance'</span>).rx2(<span class="org-string">'sigmasq'</span>)).reshape(-1, 1)
-  <span class="org-variable-name">F</span> = st.norm(loc=means, scale=np.sqrt(variances)).pdf(grid)
-  <span class="org-keyword">for</span> i, px <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(F):
-    plt.plot(grid, px, lw=1, label=<span class="org-string">'Component {}'</span>.<span class="org-builtin">format</span>(i + 1), ls=<span class="org-string">'--'</span>)
-  <span class="org-variable-name">weights</span> = np.array(res.rx2(<span class="org-string">'parameters'</span>).rx2(<span class="org-string">'pro'</span>))
-  plt.plot(grid, weights.dot(st.norm(loc=means, scale=np.sqrt(variances)).pdf(grid)), label=<span class="org-string">'Average density'</span>, lw=1, c=<span class="org-string">'k'</span>)
-  plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
-  plt.xlabel(<span class="org-string">'log TPM'</span>)
-  <span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Density'</span>)
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">cd8_cytotoxic_t_cells</span>(min_detect=0.25):
+  <span class="org-variable-name">counts</span> = scipy.io.mmread(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cd8+_cytotoxic_t_cells/filtered_matrices_mex/hg19/matrix.mtx.gz'</span>).tocsr()
+  <span class="org-variable-name">counts</span> = counts[((counts &gt; 0).mean(axis=1) &gt;= min_detect).A.ravel()].T.A.astype(np.<span class="org-builtin">int</span>)
+  <span class="org-keyword">return</span> counts
+
+<span class="org-keyword">def</span> <span class="org-function-name">cd19_b_cells</span>(min_detect=0.25):
+  <span class="org-variable-name">counts</span> = scipy.io.mmread(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cd19+_b_cells/filtered_matrices_mex/hg19/matrix.mtx.gz'</span>).tocsr()
+  <span class="org-variable-name">counts</span> = counts[((counts &gt; 0).mean(axis=1) &gt;= min_detect).A.ravel()].T.A.astype(np.<span class="org-builtin">int</span>)
+  <span class="org-keyword">return</span> counts
 </pre>
 </div>
+</div>
+</div>
 
-<p>
-<i>CDC6</i> was reported as a gene showing cyclical gene expression through the
-cell cycle in the original study.
-</p>
+<div id="outline-container-org439c6e2" class="outline-3">
+<h3 id="org439c6e2">Synthetic cell mixtures</h3>
+</div>
 
+<div id="outline-container-org0c2cae0" class="outline-3">
+<h3 id="org0c2cae0">Real cell mixtures</h3>
+<div class="outline-text-3" id="text-org0c2cae0">
 <div class="org-src-container">
-<pre class="src src-ipython">plot_data_gmm(leng_tpm.loc[<span class="org-string">'CDC6'</span>])
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">pbmcs_68k</span>(min_detect=0.25):
+  <span class="org-variable-name">counts</span> = scipy.io.mmread(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/68k_pbmcs/filtered_matrices_mex/hg19/matrix.mtx.gz'</span>).tocsr()
+  <span class="org-variable-name">counts</span> = counts[((counts &gt; 0).mean(axis=1) &gt;= min_detect).A.ravel()].T.A.astype(np.<span class="org-builtin">int</span>)
+  <span class="org-keyword">return</span> counts
+
+<span class="org-keyword">def</span> <span class="org-function-name">cortex</span>():
+  <span class="org-variable-name">counts</span> = pd.read_table(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz'</span>, index_col=0)
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Follow scVI here</span>
+  <span class="org-keyword">return</span> counts.loc[counts.var(axis=1).sort_values(ascending=<span class="org-constant">False</span>).head(n=500).index].values.T
 </pre>
 </div>
-
-
-<div class="figure">
-<p><img src="figure/pitfalls.org/gmm-cdc6.png" alt="gmm-cdc6.png">
-</p>
-</div>
-
-<p>
-Look at the gene with the most estimated modes.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">num_modes.idxmax()
-</pre>
-</div>
-
-<pre class="example">
-'SEPN1'
-
-</pre>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plot_data_gmm(leng_tpm.loc[<span class="org-string">'SEPN1'</span>])
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/pitfalls.org/gmm-sepn1.png" alt="gmm-sepn1.png">
-</p>
-</div>
-
-<p>
-The results suggest that Gaussian mixture modeling of log-transformed data
-does not give the right answer. Further, they suggest that GMM overfits the
-data (despite optimizing BIC).
-</p>
-</div>
-</div>
-<div id="outline-container-org48bfff1" class="outline-2">
-<h2 id="org48bfff1">Pseudocount</h2>
-<div class="outline-text-2" id="text-org48bfff1">
-<p>
-When computing log-transformed expression values, we need to introduce a
-pseudocount \(\epsilon\) to deal with observations of zero.
-</p>
-
-<p>
-Standard choices include \(\epsilon = 1\) and \(\epsilon = .5 / \bar{R}\),
-where \(\bar{R} = \frac{1}{n} \sum_i R_i\) (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3378882/">McCarthy et al 2012</a>).
-</p>
-
-<p>
-Clearly, the pseudocount will introduce a mode at zero, even when the data is
-Poisson distributed.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">x</span> = simulate_counts(num_cells=1000, num_genes=10000, size=1e5, seed=3)
-<span class="org-variable-name">R</span> = x.<span class="org-builtin">sum</span>(axis=1)
-<span class="org-comment-delimiter"># </span><span class="org-comment">Match edgeR</span>
-<span class="org-variable-name">eps</span> = .5 / R.mean()
-<span class="org-variable-name">y</span> = (np.log(x + eps) - np.log(R.reshape(-1, 1) + 2 * eps) + 6 * np.log(10)) / np.log(2)
-<span class="org-comment-delimiter"># </span><span class="org-comment">Get the simulated gene with most zeros</span>
-<span class="org-variable-name">idx</span> = np.argmax((x == 0).mean(axis=0))
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(5, 3)
-ax[0].hist(x[:,2], bins=np.arange(15), color=<span class="org-string">'k'</span>)
-ax[0].plot(.5 + np.arange(15), 1000 * st.poisson(mu=x[:,2].mean()).pmf(np.arange(15)), lw=1, c=<span class="org-string">'r'</span>)
-ax[0].set_xlabel(<span class="org-string">'Molecule count'</span>)
-ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
-
-ax[1].hist(y[:,2], bins=30, color=<span class="org-string">'k'</span>)
-ax[1].set_xlabel(<span class="org-string">'$\log_2(\mathrm{CPM})$'</span>)
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/pitfalls.org/log-cpm-modes.png" alt="log-cpm-modes.png">
-</p>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-03-21 Thu 13:51</p>
+<p class="date">Created: 2019-03-21 Thu 19:42</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

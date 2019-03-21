@@ -10,3 +10,4 @@ datasets, as well as researchers developing and benchmarking new methods.
 
 - [[file:pitfalls.org][Technical zero-generating mechanism in scRNA-seq data]]
 - [[file:modes.org][Estimating the number of modes]]
+- [[file:deconvolution.org][Comparison of distribution deconvolution methods]]
