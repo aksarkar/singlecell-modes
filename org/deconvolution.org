@@ -28,9 +28,6 @@
   :END:
 
   #+BEGIN_SRC ipython
-    %matplotlib inline
-    %config InlineBackend.figure_formats = set(['retina'])
-
     import colorcet
     import gzip
     import matplotlib.pyplot as plt
@@ -53,7 +50,18 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[17]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+    plt.rcParams['figure.facecolor'] = 'w'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[53]:
   :END:
 
 * Methods
@@ -77,17 +85,18 @@
    to recover \(\lambda_{ij}\). We can trade off flexibility and complexity of
    \(g_j\) for ease of implementation and speed.
 
-   1. *NB:* \(g_j = \mathrm{Gamma}(\cdot)\). Implemented in ~scqtl~.
-   2. *ZINB:* \(g_j = \pi_j \delta_0(\cdot) + (1 - \pi_j)
-      \mathrm{Gamma}(\cdot)\) Implemented in ~scqtl~.
-   3. *Unimodal:* \(g_j = \sum_k \pi_k \mathrm{Uniform}(\lambda_0, a_{jk})\),
+   1. *Poisson:* \(g_j = \delta_\mu\)
+   2. *NB:* \(g_j = \mathrm{Gamma}(\cdot)\)
+   3. *ZINB:* \(g_j = \pi_j \delta_0(\cdot) + (1 - \pi_j)
+      \mathrm{Gamma}(\cdot)\)
+   4. *Unimodal:* \(g_j = \sum_k \pi_k \mathrm{Uniform}(\lambda_0, a_{jk})\),
       where \(\lambda_0\) is the mode (jointly estimated from the
       data). Implemented in ~ashR~.
-   4. *Spline:* \(g_j = \exp(\mathbf{Q}'\alpha - \phi(\alpha))\), where
+   5. *Spline:* \(g_j = \exp(\mathbf{Q}'\alpha - \phi(\alpha))\), where
       \(\mathbf{Q}\) is a \(5 \times K\) discretized degree 5 cubic
       spline. Implemented in ~DESCEND~.
-   5. *Nonparametric:* \(g_j = \sum_k \pi_k \mathrm{Uniform}(a_k, b_k)\), where
-      \(a_k, b_k\) define a uniform grid. Implemented in ~ashR~.
+   6. *Nonparametric:* \(g_j = \sum_k \pi_k \mathrm{Uniform}(a_k, a_{k+1})\),
+      where \(a_1, \ldots, a_K\) define a uniform grid. Implemented in ~ashR~.
 
    In order to evaluate methods on their ability to estimate \(g_j\), we hold
    out samples in a cross-validation setting, and score methods on the log
@@ -156,6 +165,11 @@
        pass
    #+END_SRC
 
+   #+RESULTS:
+   :RESULTS:
+   # Out[3]:
+   :END:
+
 * Results
 ** Homogeneous cell populations
 
@@ -175,7 +189,45 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[2]:
+   # Out[23]:
+   :END:
+
+   Look at some examples.
+
+   #+BEGIN_SRC ipython
+     x = cd8_cytotoxic_t_cells()
+     xj = pd.Series(x[:,x.mean(axis=0).argmax()])
+     size_factor = pd.Series(x.sum(axis=1))
+     lam = xj / size_factor
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[94]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     res = ashr.ash_workhorse(
+       pd.Series(np.zeros(x.shape[0])),
+       pd.Series(np.ones(x.shape[0])),
+       lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
+       mode=lam.mean())
+     Fj = ashr.cdf_ash(res, np.linspace(lam.min(), lam.max(), 1000))
+     fig, ax = plt.subplots(2, 1)
+     ax[0].hist(xj, bins=100, color='k')
+     ax[0].set_xlabel('Molecule count')
+     ax[0].set_ylabel('Number of cells')
+
+     ax[1].plot(np.array(Fj.rx2('x'))[:-1], np.diff(np.array(Fj.rx2('y')).ravel()), c='k', lw=1)
+     ax[1].set_xlabel('$\lambda$')
+     ax[1].set_ylabel('Density')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[99]:
+   [[file:figure/deconvolution.org/ash-example.png]]
    :END:
 
 ** Synthetic cell mixtures

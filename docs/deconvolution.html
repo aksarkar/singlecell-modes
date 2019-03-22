@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-03-21 Thu 19:42 -->
+<!-- 2019-03-21 Thu 21:15 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -295,10 +295,7 @@ generalization for different choices of \(g_j\) in real data.
 <h2 id="orga732197">Setup</h2>
 <div class="outline-text-2" id="text-orga732197">
 <div class="org-src-container">
-<pre class="src src-ipython">%matplotlib inline
-%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
-
-<span class="org-keyword">import</span> colorcet
+<pre class="src src-ipython"><span class="org-keyword">import</span> colorcet
 <span class="org-keyword">import</span> gzip
 <span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
 <span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
@@ -316,6 +313,13 @@ rpy2.robjects.numpy2ri.activate()
 
 <span class="org-variable-name">descend</span> = rpy2.robjects.packages.importr(<span class="org-string">'descend'</span>)
 <span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
 </pre>
 </div>
 </div>
@@ -359,17 +363,18 @@ to recover \(\lambda_{ij}\). We can trade off flexibility and complexity of
 </p>
 
 <ol class="org-ol">
-<li><b>NB:</b> \(g_j = \mathrm{Gamma}(\cdot)\). Implemented in <code>scqtl</code>.</li>
+<li><b>Poisson:</b> \(g_j = \delta_\mu\)</li>
+<li><b>NB:</b> \(g_j = \mathrm{Gamma}(\cdot)\)</li>
 <li><b>ZINB:</b> \(g_j = \pi_j \delta_0(\cdot) + (1 - \pi_j)
-      \mathrm{Gamma}(\cdot)\) Implemented in <code>scqtl</code>.</li>
+      \mathrm{Gamma}(\cdot)\)</li>
 <li><b>Unimodal:</b> \(g_j = \sum_k \pi_k \mathrm{Uniform}(\lambda_0, a_{jk})\),
 where \(\lambda_0\) is the mode (jointly estimated from the
 data). Implemented in <code>ashR</code>.</li>
 <li><b>Spline:</b> \(g_j = \exp(\mathbf{Q}'\alpha - \phi(\alpha))\), where
 \(\mathbf{Q}\) is a \(5 \times K\) discretized degree 5 cubic
 spline. Implemented in <code>DESCEND</code>.</li>
-<li><b>Nonparametric:</b> \(g_j = \sum_k \pi_k \mathrm{Uniform}(a_k, b_k)\), where
-\(a_k, b_k\) define a uniform grid. Implemented in <code>ashR</code>.</li>
+<li><b>Nonparametric:</b> \(g_j = \sum_k \pi_k \mathrm{Uniform}(a_k, a_{k+1})\),
+where \(a_1, \ldots, a_K\) define a uniform grid. Implemented in <code>ashR</code>.</li>
 </ol>
 
 <p>
@@ -468,6 +473,43 @@ Use sorted cells from Zheng et al. 2016 as a baseline.
   <span class="org-keyword">return</span> counts
 </pre>
 </div>
+
+<p>
+Look at some examples.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = cd8_cytotoxic_t_cells()
+<span class="org-variable-name">xj</span> = pd.Series(x[:,x.mean(axis=0).argmax()])
+<span class="org-variable-name">size_factor</span> = pd.Series(x.<span class="org-builtin">sum</span>(axis=1))
+<span class="org-variable-name">lam</span> = xj / size_factor
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">res</span> = ashr.ash_workhorse(
+  pd.Series(np.zeros(x.shape[0])),
+  pd.Series(np.ones(x.shape[0])),
+  lik=ashr.lik_pois(y=xj, scale=size_factor, link=<span class="org-string">'identity'</span>),
+  mode=lam.mean())
+<span class="org-variable-name">Fj</span> = ashr.cdf_ash(res, np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000))
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
+ax[0].hist(xj, bins=100, color=<span class="org-string">'k'</span>)
+ax[0].set_xlabel(<span class="org-string">'Molecule count'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+
+ax[1].plot(np.array(Fj.rx2(<span class="org-string">'x'</span>))[:-1], np.diff(np.array(Fj.rx2(<span class="org-string">'y'</span>)).ravel()), c=<span class="org-string">'k'</span>, lw=1)
+ax[1].set_xlabel(<span class="org-string">'$\lambda$'</span>)
+ax[1].set_ylabel(<span class="org-string">'Density'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/ash-example.png" alt="ash-example.png">
+</p>
+</div>
 </div>
 </div>
 
@@ -496,7 +538,7 @@ Use sorted cells from Zheng et al. 2016 as a baseline.
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-03-21 Thu 19:42</p>
+<p class="date">Created: 2019-03-21 Thu 21:15</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
