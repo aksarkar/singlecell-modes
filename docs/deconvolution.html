@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-03-21 Thu 21:15 -->
+<!-- 2019-03-21 Thu 21:39 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -279,14 +279,18 @@ for the JavaScript code in this tag.
 <h2 id="org7ba1eb0">Introduction</h2>
 <div class="outline-text-2" id="text-org7ba1eb0">
 <p>
-The fundamental question in modeling scRNA-seq count data for a single gene
-\(j\) is what distributional assumptions are made on the relative abundances
-\(\lambda_{1j}, \ldots, \lambda_{nj} \sim g_j(\cdot)\).
+Suppose we have observations \(x_i \sim f(\theta_i), i = 1, \ldots, n\), and
+\(\theta_i \sim g(\cdot)\). <i>Distribution deconvolution</i> is the problem of
+estimating \(g \in \mathcal{G}\) from \(x_1, \ldots, x_n\), assuming \(f\) is known
+(<a href="https://academic.oup.com/biomet/article/103/1/1/2390141">Efron
+2016</a>).
 </p>
 
 <p>
-Here, we investigate the tradoeff between model complexity/flexibility and
-generalization for different choices of \(g_j\) in real data.
+Recent work suggests that scRNA-seq data follows this generative model
+(<a href="http://dx.doi.org/10.1073/pnas.1721085115">Wang et al. 2018</a>). Here, we
+investigate the trade-off between model complexity/flexibility and
+generalization for different choices of \(\mathcal{G}\) in real data.
 </p>
 </div>
 </div>
@@ -538,7 +542,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-03-21 Thu 21:15</p>
+<p class="date">Created: 2019-03-21 Thu 21:39</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

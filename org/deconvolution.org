@@ -3,12 +3,16 @@
 
 * Introduction
 
-  The fundamental question in modeling scRNA-seq count data for a single gene
-  \(j\) is what distributional assumptions are made on the relative abundances
-  \(\lambda_{1j}, \ldots, \lambda_{nj} \sim g_j(\cdot)\).
+  Suppose we have observations \(x_i \sim f(\theta_i), i = 1, \ldots, n\), and
+  \(\theta_i \sim g(\cdot)\). /Distribution deconvolution/ is the problem of
+  estimating \(g \in \mathcal{G}\) from \(x_1, \ldots, x_n\), assuming \(f\) is known
+  ([[https://academic.oup.com/biomet/article/103/1/1/2390141][Efron
+  2016]]).
 
-  Here, we investigate the tradoeff between model complexity/flexibility and
-  generalization for different choices of \(g_j\) in real data.
+  Recent work suggests that scRNA-seq data follows this generative model
+  ([[http://dx.doi.org/10.1073/pnas.1721085115][Wang et al. 2018]]). Here, we
+  investigate the trade-off between model complexity/flexibility and
+  generalization for different choices of \(\mathcal{G}\) in real data.
 
 * Setup
 
