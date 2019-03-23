@@ -28,7 +28,7 @@
 
   #+RESULTS:
   :RESULTS:
-  Submitted batch job 58810822
+  Submitted batch job 58824783
   :END:
 
   #+BEGIN_SRC ipython
@@ -65,7 +65,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[154]:
+  # Out[2]:
   :END:
 
 * Methods
@@ -117,7 +117,7 @@
      def score_nb(x_train, x_test):
        import scqtl
        onehot = np.ones((x_train.shape[0], 1))
-       size_factor = x_train.sum(axis=0).reshape(-1, 1)
+       size_factor = x_train.sum(axis=1).reshape(-1, 1)
        design = np.zeros((num_samples, 1))
        log_mu, log_phi, *_ = scqtl.tf.fit(
          umi=x_train.astype(np.float32),
@@ -125,7 +125,7 @@
          design=design.astype(np.float32),
          size_factor=size_factor.astype(np.float32),
          learning_rate=1e-3,
-         max_epochs=20000,
+         max_epochs=30000,
          verbose=True)
        return nb_nll(x_test, np.exp(log_mu), np.exp(-log_phi)).sum()
 
@@ -143,7 +143,7 @@
      def score_zinb(x_train, x_test):
        import scqtl
        onehot = np.ones((x_train.shape[0], 1))
-       size_factor = x_train.sum(axis=0).reshape(-1, 1)
+       size_factor = x_train.sum(axis=1).reshape(-1, 1)
        design = np.zeros((num_samples, 1))
        init = scqtl.tf.fit(
          umi=x_train.astype(np.float32),
@@ -151,7 +151,7 @@
          design=design.astype(np.float32),
          size_factor=size_factor.astype(np.float32),
          learning_rate=1e-3,
-         max_epochs=20000,
+         max_epochs=30000,
          verbose=True)
        log_mu, log_phi, logodds, nb_llik, zinb_llik = scqtl.tf.fit(
          umi=umi.astype(np.float32),
@@ -159,18 +159,41 @@
          design=design.astype(np.float32),
          size_factor=size_factor.astype(np.float32),
          learning_rate=1e-3,
-         max_epochs=20000,
+         max_epochs=30000,
          warm_start=init[:3],
          verbose=True)
        return zinb_nll(x_test, np.exp(logodds), np.exp(-log_phi), logodds).sum()
 
      def score_ash(x_train, x_test):
+       result = []
+       train_size_factor = pd.Series(x_train.sum(axis=1))
+       test_size_factor = pd.Series(x_test.sum(axis=1))
+       # Important: np iterates over rows
+       for train, test in zip(x_train.T, x_test.T):
+         lam = train / train_size_factor
+         res0 = ashr.ash_workhorse(
+           # Important: these are ignored by ash
+           pd.Series(np.zeros(train.shape)),
+           1,
+           # Important: numpy2ri doesn't DTRT, so we need to use pandas
+           lik=ashr.lik_pois(y=pd.Series(train), scale=train_size_factor, link='identity'),
+           mode=pd.Series([lam.min(), lam.max()]))
+         res = ashr.ash_workhorse(
+           pd.Series(np.zeros(test.shape)),
+           1,
+           lik=ashr.lik_pois(y=pd.Series(test), scale=test_size_factor, link='identity'),
+           fixg=True,
+           g=res0.rx2('fitted_g'))
+         result.append(np.array(res.rx2('loglik')))
+       return np.array(result).ravel()
+
+     def score_descend(x_train, x_test):
        pass
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[3]:
+   # Out[31]:
    :END:
 
 * Results
@@ -193,7 +216,7 @@
 
    #+RESULTS: read-zheng
    :RESULTS:
-   # Out[5]:
+   # Out[3]:
    :END:
 
    #+RESULTS:

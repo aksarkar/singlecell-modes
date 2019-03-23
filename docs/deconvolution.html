@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-03-22 Fri 23:17 -->
+<!-- 2019-03-23 Sat 18:57 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -398,7 +398,7 @@ out a validation set, and score methods on validation log likelihood.
 <span class="org-keyword">def</span> <span class="org-function-name">score_nb</span>(x_train, x_test):
   <span class="org-keyword">import</span> scqtl
   <span class="org-variable-name">onehot</span> = np.ones((x_train.shape[0], 1))
-  <span class="org-variable-name">size_factor</span> = x_train.<span class="org-builtin">sum</span>(axis=0).reshape(-1, 1)
+  <span class="org-variable-name">size_factor</span> = x_train.<span class="org-builtin">sum</span>(axis=1).reshape(-1, 1)
   <span class="org-variable-name">design</span> = np.zeros((num_samples, 1))
   log_mu, log_phi, *<span class="org-variable-name">_</span> = scqtl.tf.fit(
     umi=x_train.astype(np.float32),
@@ -406,7 +406,7 @@ out a validation set, and score methods on validation log likelihood.
     design=design.astype(np.float32),
     size_factor=size_factor.astype(np.float32),
     learning_rate=1e-3,
-    max_epochs=20000,
+    max_epochs=30000,
     verbose=<span class="org-constant">True</span>)
   <span class="org-keyword">return</span> nb_nll(x_test, np.exp(log_mu), np.exp(-log_phi)).<span class="org-builtin">sum</span>()
 
@@ -424,7 +424,7 @@ out a validation set, and score methods on validation log likelihood.
 <span class="org-keyword">def</span> <span class="org-function-name">score_zinb</span>(x_train, x_test):
   <span class="org-keyword">import</span> scqtl
   <span class="org-variable-name">onehot</span> = np.ones((x_train.shape[0], 1))
-  <span class="org-variable-name">size_factor</span> = x_train.<span class="org-builtin">sum</span>(axis=0).reshape(-1, 1)
+  <span class="org-variable-name">size_factor</span> = x_train.<span class="org-builtin">sum</span>(axis=1).reshape(-1, 1)
   <span class="org-variable-name">design</span> = np.zeros((num_samples, 1))
   <span class="org-variable-name">init</span> = scqtl.tf.fit(
     umi=x_train.astype(np.float32),
@@ -432,7 +432,7 @@ out a validation set, and score methods on validation log likelihood.
     design=design.astype(np.float32),
     size_factor=size_factor.astype(np.float32),
     learning_rate=1e-3,
-    max_epochs=20000,
+    max_epochs=30000,
     verbose=<span class="org-constant">True</span>)
   <span class="org-variable-name">log_mu</span>, <span class="org-variable-name">log_phi</span>, <span class="org-variable-name">logodds</span>, <span class="org-variable-name">nb_llik</span>, <span class="org-variable-name">zinb_llik</span> = scqtl.tf.fit(
     umi=umi.astype(np.float32),
@@ -440,12 +440,35 @@ out a validation set, and score methods on validation log likelihood.
     design=design.astype(np.float32),
     size_factor=size_factor.astype(np.float32),
     learning_rate=1e-3,
-    max_epochs=20000,
+    max_epochs=30000,
     warm_start=init[:3],
     verbose=<span class="org-constant">True</span>)
   <span class="org-keyword">return</span> zinb_nll(x_test, np.exp(logodds), np.exp(-log_phi), logodds).<span class="org-builtin">sum</span>()
 
 <span class="org-keyword">def</span> <span class="org-function-name">score_ash</span>(x_train, x_test):
+  <span class="org-variable-name">result</span> = []
+  <span class="org-variable-name">train_size_factor</span> = pd.Series(x_train.<span class="org-builtin">sum</span>(axis=1))
+  <span class="org-variable-name">test_size_factor</span> = pd.Series(x_test.<span class="org-builtin">sum</span>(axis=1))
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: np iterates over rows</span>
+  <span class="org-keyword">for</span> train, test <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(x_train.T, x_test.T):
+    <span class="org-variable-name">lam</span> = train / train_size_factor
+    <span class="org-variable-name">res0</span> = ashr.ash_workhorse(
+      <span class="org-comment-delimiter"># </span><span class="org-comment">Important: these are ignored by ash</span>
+      pd.Series(np.zeros(train.shape)),
+      1,
+      <span class="org-comment-delimiter"># </span><span class="org-comment">Important: numpy2ri doesn't DTRT, so we need to use pandas</span>
+      lik=ashr.lik_pois(y=pd.Series(train), scale=train_size_factor, link=<span class="org-string">'identity'</span>),
+      mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]))
+    <span class="org-variable-name">res</span> = ashr.ash_workhorse(
+      pd.Series(np.zeros(test.shape)),
+      1,
+      lik=ashr.lik_pois(y=pd.Series(test), scale=test_size_factor, link=<span class="org-string">'identity'</span>),
+      fixg=<span class="org-constant">True</span>,
+      g=res0.rx2(<span class="org-string">'fitted_g'</span>))
+    result.append(np.array(res.rx2(<span class="org-string">'loglik'</span>)))
+  <span class="org-keyword">return</span> np.array(result).ravel()
+
+<span class="org-keyword">def</span> <span class="org-function-name">score_descend</span>(x_train, x_test):
   <span class="org-keyword">pass</span>
 </pre>
 </div>
@@ -639,7 +662,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-03-22 Fri 23:17</p>
+<p class="date">Created: 2019-03-23 Sat 18:57</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
