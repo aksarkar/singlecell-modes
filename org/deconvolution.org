@@ -119,7 +119,9 @@
       and Mizera 2014]]).
 
    In order to evaluate methods on their ability to estimate \(g_j\), we hold
-   out a validation set, and score methods on validation log likelihood.
+   out a validation set, and compute the validation set log likelihood. To set
+   a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
+   = x_{ij}\).
 
    #+NAME: score-impl
    #+BEGIN_SRC ipython
@@ -256,11 +258,14 @@
          del res, res0
          gc.collect()
        return np.array(result).ravel()
+
+     def score_saturated(x_train, x_test):
+       return st.poisson(mu=x_test).logpmf(x_test).sum(axis=0)
    #+END_SRC
 
    #+RESULTS: score-impl
    :RESULTS:
-   # Out[31]:
+   # Out[43]:
    :END:
 
 * Results
@@ -284,11 +289,6 @@
    #+RESULTS: read-zheng
    :RESULTS:
    # Out[3]:
-   :END:
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[4]:
    :END:
 
    Look at some examples.

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-03-24 Sun 10:23 -->
+<!-- 2019-03-24 Sun 11:30 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -399,7 +399,9 @@ and Mizera 2014</a>).</li>
 
 <p>
 In order to evaluate methods on their ability to estimate \(g_j\), we hold
-out a validation set, and score methods on validation log likelihood.
+out a validation set, and compute the validation set log likelihood. To set
+a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
+   = x_{ij}\).
 </p>
 
 <div class="org-src-container">
@@ -536,6 +538,9 @@ out a validation set, and score methods on validation log likelihood.
     <span class="org-keyword">del</span> res, res0
     gc.collect()
   <span class="org-keyword">return</span> np.array(result).ravel()
+
+<span class="org-keyword">def</span> <span class="org-function-name">score_saturated</span>(x_train, x_test):
+  <span class="org-keyword">return</span> st.poisson(mu=x_test).logpmf(x_test).<span class="org-builtin">sum</span>(axis=0)
 </pre>
 </div>
 </div>
@@ -750,7 +755,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-03-24 Sun 10:23</p>
+<p class="date">Created: 2019-03-24 Sun 11:30</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
