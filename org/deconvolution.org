@@ -24,15 +24,16 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(mem="32G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
+  #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
   :RESULTS:
-  Submitted batch job 58829827
+  Submitted batch job 58839257
   :END:
 
   #+BEGIN_SRC ipython
     import colorcet
+    import gc
     import gzip
     import matplotlib.pyplot as plt
     import numpy as np
@@ -40,6 +41,7 @@
     import scipy.io
     import scipy.stats as st
     import scipy.special as sp
+    import sklearn.model_selection as skms
 
     import rpy2.robjects.packages
     import rpy2.robjects.pandas2ri
@@ -91,21 +93,26 @@
 
    1. *Point mass:* \(g_j = \delta_\mu\). We mention it for completeness.
    2. *Gamma:* \(g_j = \mathrm{Gamma}(\cdot)\). This leads to the negative
-      binomial marginal likelihood, and can be motivated by assuming \(g_j\)
-      is a point mass convolved with multiplicative Gamma noise.
+      binomial marginal likelihood, and can be motivated by the empirical
+      observation that the counts are overdispersed.
    3. *Point-Gamma:* \(g_j = \pi_j \delta_0(\cdot) + (1 - \pi_j)
       \mathrm{Gamma}(\cdot)\). This leads to the zero-inflated negative
       binomial marginal likelihood, which is still analytic and therefore
-      computationally favorable.
-   4. *Unimodal mixture of uniforms:* \(g_j = \sum_k \pi_k
-      \mathrm{Uniform}(\lambda_0, a_{jk})\), where \(\lambda_0\) is the mode
-      ([[http://dx.doi.org/10.1093/biostatistics/kxw041][Stephens 2016]])
+      computationally favorable. The inclusion of the point mass can be
+      motivated by theory suggesting a biological mechanism for bimodal gene
+      expression ([[http://dx.doi.org/10.1126/science.1216379][Munsky et
+      al. 2013]], [[http://dx.doi.org/10.1186/gb-2013-14-1-r7][Kim and Marioni
+      2013]]).
+   4. *Unimodal mixture of uniforms:* \(g_j = \pi_0 \delta_0(\cdot) + \sum_k
+      \pi_k \mathrm{Uniform}(\cdot; \lambda_0, a_{jk})\), where \(\lambda_0\)
+      is the mode ([[http://dx.doi.org/10.1093/biostatistics/kxw041][Stephens
+      2016]])
    5. *Spline:* \(g_j = \exp(\mathbf{Q}'\alpha - \phi(\alpha))\), where
       \(\mathbf{Q}\) is a discretized cubic spline
       ([[https://academic.oup.com/biomet/article/103/1/1/2390141][Efron 2016]],
       [[http://dx.doi.org/10.1073/pnas.1721085115][Wang et al. 2018]]).
-   6. *Nonparametric:* \(g_j = \sum_k \pi_k \mathrm{Uniform}(ak, a(k + 1))\),
-      where \(a\) is a fixed step size
+   6. *Nonparametric:* \(g_j = \sum_k \pi_k \mathrm{Uniform}(\cdot; ak, a(k +
+      1))\), where \(a\) is a fixed step size
       ([[https://projecteuclid.org/euclid.aoms/1177728066][Kiefer and Wolfowitz
       1956]],
       [[https://amstat.tandfonline.com/doi/abs/10.1080/01621459.2013.869224][Koenker
@@ -174,18 +181,18 @@
          verbose=True)
        return zinb_nll(x_test, np.exp(logodds), np.exp(-log_phi), logodds).sum(axis=0)
 
-     def score_ash(x_train, x_test):
+     def score_unimix(x_train, x_test):
        result = []
        train_size_factor = pd.Series(x_train.sum(axis=1))
        test_size_factor = pd.Series(x_test.sum(axis=1))
-       # Important: np iterates over rows
+       # np iterates over rows
        for train, test in zip(x_train.T, x_test.T):
          lam = train / train_size_factor
          res0 = ashr.ash_workhorse(
-           # Important: these are ignored by ash
+           # these are ignored by ash
            pd.Series(np.zeros(train.shape)),
            1,
-           # Important: numpy2ri doesn't DTRT, so we need to use pandas
+           # numpy2ri doesn't DTRT, so we need to use pandas
            lik=ashr.lik_pois(y=pd.Series(train), scale=train_size_factor, link='identity'),
            mode=pd.Series([lam.min(), lam.max()]))
          res = ashr.ash_workhorse(
@@ -195,19 +202,22 @@
            fixg=True,
            g=res0.rx2('fitted_g'))
          result.append(np.array(res.rx2('loglik')))
+         # R objects don't get GC'ed by python correctly
+         del res, res0
+         gc.collect()
        return np.array(result).ravel()
 
      def score_descend(x_train, x_test):
        result = []
-       # Important: numpy2ri doesn't DTRT, so we need to use pandas
+       # numpy2ri doesn't DTRT, so we need to use pandas
        train_size_factor = pd.Series(x_train.sum(axis=1))
        test_size_factor = x_test.sum(axis=1).reshape(-1, 1)
-       # Important: np iterates over rows
+       # np iterates over rows
        for train, test in zip(x_train.T, x_test.T):
          res = descend.deconvSingle(pd.Series(train), scaling_consts=train_size_factor, verbose=False)
          g = np.array(descend_res.slots['distribution'])[:,:2]
-         # Important: don't marginalize over lambda = 0 for x > 0, because p(x > 0 |
-         # lambda = 0) = 0
+         # Don't marginalize over lambda = 0 for x > 0, because p(x > 0 | lambda =
+         # 0) = 0
          case_nonzero = (st.poisson(mu=test_size_factor * g[1:,0])
                          .logpmf(test.reshape(-1, 1))
                          .dot(g[1:,1]))
@@ -216,12 +226,41 @@
                       .dot(g[:,1]))
          llik = np.where(test > 0, case_nonzero, case_zero).sum()
          result.append(llik)
+         # R objects don't get GC'ed by python correctly
+         del res
+         gc.collect()
+       return np.array(result).ravel()
+
+     def score_npmle(x_train, x_test):
+       result = []
+       train_size_factor = pd.Series(x_train.sum(axis=1))
+       test_size_factor = pd.Series(x_test.sum(axis=1))
+       # np iterates over rows
+       for train, test in zip(x_train.T, x_test.T):
+         lam = train / train_size_factor
+         res0 = ashr.ash_workhorse(
+           # these are ignored by ash
+           pd.Series(np.zeros(train.shape)),
+           1,
+           # numpy2ri doesn't DTRT, so we need to use pandas
+           lik=ashr.lik_pois(y=pd.Series(train), scale=train_size_factor, link='identity'),
+           g=ashr.unimix(pd.Series(np.ones(K) / K), pd.Series(grid[:-1]), pd.Series(grid[1:])))
+         res = ashr.ash_workhorse(
+           pd.Series(np.zeros(test.shape)),
+           1,
+           lik=ashr.lik_pois(y=pd.Series(test), scale=test_size_factor, link='identity'),
+           fixg=True,
+           g=res0.rx2('fitted_g'))
+         result.append(np.array(res.rx2('loglik')))
+         # R objects don't get GC'ed by python correctly
+         del res, res0
+         gc.collect()
        return np.array(result).ravel()
    #+END_SRC
 
-   #+RESULTS:
+   #+RESULTS: score-impl
    :RESULTS:
-   # Out[88]:
+   # Out[31]:
    :END:
 
 * Results
@@ -244,7 +283,7 @@
 
    #+RESULTS: read-zheng
    :RESULTS:
-   # Out[2]:
+   # Out[3]:
    :END:
 
    #+RESULTS:
@@ -263,47 +302,52 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[4]:
    :END:
 
    Fit Poisson ash.
 
    #+BEGIN_SRC ipython
-     ash_res = ashr.ash_workhorse(
+     unimix_res = ashr.ash_workhorse(
        pd.Series(np.zeros(x.shape[0])),
        1,
        lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
        mode=pd.Series([lam.min(), lam.max()]))
-     ash_cdf = ashr.cdf_ash(ash_res, np.linspace(lam.min(), lam.max(), 1000))
+     unimix_cdf = ashr.cdf_ash(unimix_res, np.linspace(lam.min(), lam.max(), 1000))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[50]:
+   # Out[7]:
    :END:
 
-   Fit non-parametric.
+   Fit NPMLE.
 
    #+BEGIN_SRC ipython
-     grid = np.linspace(lam.min(), lam.max(), 50)
+     K = 100
+     grid = np.linspace(lam.min(), lam.max(), K + 1)
      npmle_res = ashr.ash_workhorse(
        pd.Series(np.zeros(x.shape[0])),
        1,
        lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
-       g=ashr.unimix(np.ones(grid.shape[0] - 1), grid[:-1], grid[1:])
-       mode=pd.Series([lam.min(), lam.max()]))
+       g=ashr.unimix(pd.Series(np.ones(K) / K), pd.Series(grid[:-1]), pd.Series(grid[1:])))
      npmle_cdf = ashr.cdf_ash(npmle_res, np.linspace(lam.min(), lam.max(), 1000))
-   #+END_SRC
-
-   Fit DESCEND.
-
-   #+BEGIN_SRC ipython
-     descend_res = descend.deconvSingle(xj, scaling_consts=size_factor)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[51]:
+   # Out[12]:
+   :END:
+
+   Fit DESCEND.
+
+   #+BEGIN_SRC ipython
+     descend_res = descend.deconvSingle(xj, scaling_consts=size_factor, verbose=False)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[14]:
    :END:
 
    Fit NB/ZINB.
@@ -365,7 +409,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[102]:
+   # Out[15]:
    :END:
 
    #+BEGIN_SRC ipython
@@ -379,7 +423,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[117]:
+   # Out[16]:
    :END:
 
    Plot the observed counts and deconvolved distributions.
@@ -391,14 +435,16 @@
      ax[0].set_xlabel('Molecule count')
      ax[0].set_ylabel('Number of cells')
 
-     ax[1].plot(np.array(ash_cdf.rx2('x')),
-                np.array(ash_cdf.rx2('y')).ravel(), c=cm[0], lw=1, label='Unif mix')
+     ax[1].plot(np.linspace(lam.min(), lam.max(), 1000), gamma_cdf, color=cm[0], lw=1, label='Gamma')
+     ax[1].plot(np.linspace(lam.min(), lam.max(), 1000), point_gamma_cdf, color=cm[1], lw=1, label='Point-Gamma')
+     ax[1].plot(np.array(unimix_cdf.rx2('x')),
+                np.array(unimix_cdf.rx2('y')).ravel(), c=cm[2], lw=1, label='Unif mix')
      F = np.cumsum(np.array(descend_res.slots['density.points'])[:,1])
      ax[1].plot(np.array(descend_res.slots['density.points'])[:,0],
-                F / F.max(), c=cm[1], lw=1, label='DESCEND')
-     ax[1].plot(np.linspace(lam.min(), lam.max(), 1000), gamma_cdf, color=cm[2], lw=1, label='Gamma')
-     ax[1].plot(np.linspace(lam.min(), lam.max(), 1000), point_gamma_cdf, color=cm[3], lw=1, label='Point-Gamma')
-     ax[1].set_xlabel('$\lambda$')
+                F / F.max(), c=cm[3], lw=1, label='DESCEND')
+     ax[1].plot(np.array(npmle_cdf.rx2('x')),
+                np.array(npmle_cdf.rx2('y')).ravel(), c=cm[4], lw=1, label='NPMLE')
+     ax[1].set_xlabel('Latent gene expression')
      ax[1].set_ylabel('CDF')
 
      ax[1].legend(frameon=False)
@@ -408,7 +454,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[156]:
+   # Out[20]:
    [[file:figure/deconvolution.org/ash-example.png]]
    :END:
 

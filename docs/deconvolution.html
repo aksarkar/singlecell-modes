@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-03-24 Sun 00:28 -->
+<!-- 2019-03-24 Sun 10:23 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -300,6 +300,7 @@ generalization for different choices of \(\mathcal{G}\) in real data.
 <div class="outline-text-2" id="text-orga732197">
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-keyword">import</span> colorcet
+<span class="org-keyword">import</span> gc
 <span class="org-keyword">import</span> gzip
 <span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
 <span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
@@ -307,6 +308,7 @@ generalization for different choices of \(\mathcal{G}\) in real data.
 <span class="org-keyword">import</span> scipy.io
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 <span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
+<span class="org-keyword">import</span> sklearn.model_selection <span class="org-keyword">as</span> skms
 
 <span class="org-keyword">import</span> rpy2.robjects.packages
 <span class="org-keyword">import</span> rpy2.robjects.pandas2ri
@@ -369,21 +371,26 @@ to recover \(\lambda_{ij}\). We can trade off flexibility and complexity of
 <ol class="org-ol">
 <li><b>Point mass:</b> \(g_j = \delta_\mu\). We mention it for completeness.</li>
 <li><b>Gamma:</b> \(g_j = \mathrm{Gamma}(\cdot)\). This leads to the negative
-binomial marginal likelihood, and can be motivated by assuming \(g_j\)
-is a point mass convolved with multiplicative Gamma noise.</li>
+binomial marginal likelihood, and can be motivated by the empirical
+observation that the counts are overdispersed.</li>
 <li><b>Point-Gamma:</b> \(g_j = \pi_j \delta_0(\cdot) + (1 - \pi_j)
       \mathrm{Gamma}(\cdot)\). This leads to the zero-inflated negative
 binomial marginal likelihood, which is still analytic and therefore
-computationally favorable.</li>
-<li><b>Unimodal mixture of uniforms:</b> \(g_j = \sum_k \pi_k
-      \mathrm{Uniform}(\lambda_0, a_{jk})\), where \(\lambda_0\) is the mode
-(<a href="http://dx.doi.org/10.1093/biostatistics/kxw041">Stephens 2016</a>)</li>
+computationally favorable. The inclusion of the point mass can be
+motivated by theory suggesting a biological mechanism for bimodal gene
+expression (<a href="http://dx.doi.org/10.1126/science.1216379">Munsky et
+al. 2013</a>, <a href="http://dx.doi.org/10.1186/gb-2013-14-1-r7">Kim and Marioni
+2013</a>).</li>
+<li><b>Unimodal mixture of uniforms:</b> \(g_j = \pi_0 \delta_0(\cdot) + \sum_k
+      \pi_k \mathrm{Uniform}(\cdot; \lambda_0, a_{jk})\), where \(\lambda_0\)
+is the mode (<a href="http://dx.doi.org/10.1093/biostatistics/kxw041">Stephens
+2016</a>)</li>
 <li><b>Spline:</b> \(g_j = \exp(\mathbf{Q}'\alpha - \phi(\alpha))\), where
 \(\mathbf{Q}\) is a discretized cubic spline
 (<a href="https://academic.oup.com/biomet/article/103/1/1/2390141">Efron 2016</a>,
 <a href="http://dx.doi.org/10.1073/pnas.1721085115">Wang et al. 2018</a>).</li>
-<li><b>Nonparametric:</b> \(g_j = \sum_k \pi_k \mathrm{Uniform}(ak, a(k + 1))\),
-where \(a\) is a fixed step size
+<li><b>Nonparametric:</b> \(g_j = \sum_k \pi_k \mathrm{Uniform}(\cdot; ak, a(k +
+      1))\), where \(a\) is a fixed step size
 (<a href="https://projecteuclid.org/euclid.aoms/1177728066">Kiefer and Wolfowitz
 1956</a>,
 <a href="https://amstat.tandfonline.com/doi/abs/10.1080/01621459.2013.869224">Koenker
@@ -454,18 +461,18 @@ out a validation set, and score methods on validation log likelihood.
     verbose=<span class="org-constant">True</span>)
   <span class="org-keyword">return</span> zinb_nll(x_test, np.exp(logodds), np.exp(-log_phi), logodds).<span class="org-builtin">sum</span>(axis=0)
 
-<span class="org-keyword">def</span> <span class="org-function-name">score_ash</span>(x_train, x_test):
+<span class="org-keyword">def</span> <span class="org-function-name">score_unimix</span>(x_train, x_test):
   <span class="org-variable-name">result</span> = []
   <span class="org-variable-name">train_size_factor</span> = pd.Series(x_train.<span class="org-builtin">sum</span>(axis=1))
   <span class="org-variable-name">test_size_factor</span> = pd.Series(x_test.<span class="org-builtin">sum</span>(axis=1))
-  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: np iterates over rows</span>
+  <span class="org-comment-delimiter"># </span><span class="org-comment">np iterates over rows</span>
   <span class="org-keyword">for</span> train, test <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(x_train.T, x_test.T):
     <span class="org-variable-name">lam</span> = train / train_size_factor
     <span class="org-variable-name">res0</span> = ashr.ash_workhorse(
-      <span class="org-comment-delimiter"># </span><span class="org-comment">Important: these are ignored by ash</span>
+      <span class="org-comment-delimiter"># </span><span class="org-comment">these are ignored by ash</span>
       pd.Series(np.zeros(train.shape)),
       1,
-      <span class="org-comment-delimiter"># </span><span class="org-comment">Important: numpy2ri doesn't DTRT, so we need to use pandas</span>
+      <span class="org-comment-delimiter"># </span><span class="org-comment">numpy2ri doesn't DTRT, so we need to use pandas</span>
       lik=ashr.lik_pois(y=pd.Series(train), scale=train_size_factor, link=<span class="org-string">'identity'</span>),
       mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]))
     <span class="org-variable-name">res</span> = ashr.ash_workhorse(
@@ -475,19 +482,22 @@ out a validation set, and score methods on validation log likelihood.
       fixg=<span class="org-constant">True</span>,
       g=res0.rx2(<span class="org-string">'fitted_g'</span>))
     result.append(np.array(res.rx2(<span class="org-string">'loglik'</span>)))
+    <span class="org-comment-delimiter"># </span><span class="org-comment">R objects don't get GC'ed by python correctly</span>
+    <span class="org-keyword">del</span> res, res0
+    gc.collect()
   <span class="org-keyword">return</span> np.array(result).ravel()
 
 <span class="org-keyword">def</span> <span class="org-function-name">score_descend</span>(x_train, x_test):
   <span class="org-variable-name">result</span> = []
-  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: numpy2ri doesn't DTRT, so we need to use pandas</span>
+  <span class="org-comment-delimiter"># </span><span class="org-comment">numpy2ri doesn't DTRT, so we need to use pandas</span>
   <span class="org-variable-name">train_size_factor</span> = pd.Series(x_train.<span class="org-builtin">sum</span>(axis=1))
   <span class="org-variable-name">test_size_factor</span> = x_test.<span class="org-builtin">sum</span>(axis=1).reshape(-1, 1)
-  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: np iterates over rows</span>
+  <span class="org-comment-delimiter"># </span><span class="org-comment">np iterates over rows</span>
   <span class="org-keyword">for</span> train, test <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(x_train.T, x_test.T):
     <span class="org-variable-name">res</span> = descend.deconvSingle(pd.Series(train), scaling_consts=train_size_factor, verbose=<span class="org-constant">False</span>)
     <span class="org-variable-name">g</span> = np.array(descend_res.slots[<span class="org-string">'distribution'</span>])[:,:2]
-    <span class="org-comment-delimiter"># </span><span class="org-comment">Important: don't marginalize over lambda = 0 for x &gt; 0, because p(x &gt; 0 |</span>
-    <span class="org-comment-delimiter"># </span><span class="org-comment">lambda = 0) = 0</span>
+    <span class="org-comment-delimiter"># </span><span class="org-comment">Don't marginalize over lambda = 0 for x &gt; 0, because p(x &gt; 0 | lambda =</span>
+    <span class="org-comment-delimiter"># </span><span class="org-comment">0) = 0</span>
     <span class="org-variable-name">case_nonzero</span> = (st.poisson(mu=test_size_factor * g[1:,0])
                     .logpmf(test.reshape(-1, 1))
                     .dot(g[1:,1]))
@@ -496,6 +506,35 @@ out a validation set, and score methods on validation log likelihood.
                  .dot(g[:,1]))
     <span class="org-variable-name">llik</span> = np.where(test &gt; 0, case_nonzero, case_zero).<span class="org-builtin">sum</span>()
     result.append(llik)
+    <span class="org-comment-delimiter"># </span><span class="org-comment">R objects don't get GC'ed by python correctly</span>
+    <span class="org-keyword">del</span> res
+    gc.collect()
+  <span class="org-keyword">return</span> np.array(result).ravel()
+
+<span class="org-keyword">def</span> <span class="org-function-name">score_npmle</span>(x_train, x_test):
+  <span class="org-variable-name">result</span> = []
+  <span class="org-variable-name">train_size_factor</span> = pd.Series(x_train.<span class="org-builtin">sum</span>(axis=1))
+  <span class="org-variable-name">test_size_factor</span> = pd.Series(x_test.<span class="org-builtin">sum</span>(axis=1))
+  <span class="org-comment-delimiter"># </span><span class="org-comment">np iterates over rows</span>
+  <span class="org-keyword">for</span> train, test <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(x_train.T, x_test.T):
+    <span class="org-variable-name">lam</span> = train / train_size_factor
+    <span class="org-variable-name">res0</span> = ashr.ash_workhorse(
+      <span class="org-comment-delimiter"># </span><span class="org-comment">these are ignored by ash</span>
+      pd.Series(np.zeros(train.shape)),
+      1,
+      <span class="org-comment-delimiter"># </span><span class="org-comment">numpy2ri doesn't DTRT, so we need to use pandas</span>
+      lik=ashr.lik_pois(y=pd.Series(train), scale=train_size_factor, link=<span class="org-string">'identity'</span>),
+      g=ashr.unimix(pd.Series(np.ones(K) / K), pd.Series(grid[:-1]), pd.Series(grid[1:])))
+    <span class="org-variable-name">res</span> = ashr.ash_workhorse(
+      pd.Series(np.zeros(test.shape)),
+      1,
+      lik=ashr.lik_pois(y=pd.Series(test), scale=test_size_factor, link=<span class="org-string">'identity'</span>),
+      fixg=<span class="org-constant">True</span>,
+      g=res0.rx2(<span class="org-string">'fitted_g'</span>))
+    result.append(np.array(res.rx2(<span class="org-string">'loglik'</span>)))
+    <span class="org-comment-delimiter"># </span><span class="org-comment">R objects don't get GC'ed by python correctly</span>
+    <span class="org-keyword">del</span> res, res0
+    gc.collect()
   <span class="org-keyword">return</span> np.array(result).ravel()
 </pre>
 </div>
@@ -544,27 +583,27 @@ Fit Poisson ash.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">ash_res</span> = ashr.ash_workhorse(
+<pre class="src src-ipython"><span class="org-variable-name">unimix_res</span> = ashr.ash_workhorse(
   pd.Series(np.zeros(x.shape[0])),
   1,
   lik=ashr.lik_pois(y=xj, scale=size_factor, link=<span class="org-string">'identity'</span>),
   mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]))
-<span class="org-variable-name">ash_cdf</span> = ashr.cdf_ash(ash_res, np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000))
+<span class="org-variable-name">unimix_cdf</span> = ashr.cdf_ash(unimix_res, np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000))
 </pre>
 </div>
 
 <p>
-Fit non-parametric.
+Fit NPMLE.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 50)
+<pre class="src src-ipython"><span class="org-variable-name">K</span> = 100
+<span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), K + 1)
 <span class="org-variable-name">npmle_res</span> = ashr.ash_workhorse(
   pd.Series(np.zeros(x.shape[0])),
   1,
   lik=ashr.lik_pois(y=xj, scale=size_factor, link=<span class="org-string">'identity'</span>),
-  g=ashr.unimix(np.ones(grid.shape[0] - 1), grid[:-1], grid[1:])
-  mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]))
+  g=ashr.unimix(pd.Series(np.ones(K) / K), pd.Series(grid[:-1]), pd.Series(grid[1:])))
 <span class="org-variable-name">npmle_cdf</span> = ashr.cdf_ash(npmle_res, np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000))
 </pre>
 </div>
@@ -574,7 +613,7 @@ Fit DESCEND.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">descend_res</span> = descend.deconvSingle(xj, scaling_consts=size_factor)
+<pre class="src src-ipython"><span class="org-variable-name">descend_res</span> = descend.deconvSingle(xj, scaling_consts=size_factor, verbose=<span class="org-constant">False</span>)
 </pre>
 </div>
 
@@ -660,14 +699,16 @@ ax[0].hist(xj, bins=100, color=<span class="org-string">'k'</span>)
 ax[0].set_xlabel(<span class="org-string">'Molecule count'</span>)
 ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
 
-ax[1].plot(np.array(ash_cdf.rx2(<span class="org-string">'x'</span>)),
-           np.array(ash_cdf.rx2(<span class="org-string">'y'</span>)).ravel(), c=cm[0], lw=1, label=<span class="org-string">'Unif mix'</span>)
+ax[1].plot(np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000), gamma_cdf, color=cm[0], lw=1, label=<span class="org-string">'Gamma'</span>)
+ax[1].plot(np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000), point_gamma_cdf, color=cm[1], lw=1, label=<span class="org-string">'Point-Gamma'</span>)
+ax[1].plot(np.array(unimix_cdf.rx2(<span class="org-string">'x'</span>)),
+           np.array(unimix_cdf.rx2(<span class="org-string">'y'</span>)).ravel(), c=cm[2], lw=1, label=<span class="org-string">'Unif mix'</span>)
 <span class="org-variable-name">F</span> = np.cumsum(np.array(descend_res.slots[<span class="org-string">'density.points'</span>])[:,1])
 ax[1].plot(np.array(descend_res.slots[<span class="org-string">'density.points'</span>])[:,0],
-           F / F.<span class="org-builtin">max</span>(), c=cm[1], lw=1, label=<span class="org-string">'DESCEND'</span>)
-ax[1].plot(np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000), gamma_cdf, color=cm[2], lw=1, label=<span class="org-string">'Gamma'</span>)
-ax[1].plot(np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000), point_gamma_cdf, color=cm[3], lw=1, label=<span class="org-string">'Point-Gamma'</span>)
-ax[1].set_xlabel(<span class="org-string">'$\lambda$'</span>)
+           F / F.<span class="org-builtin">max</span>(), c=cm[3], lw=1, label=<span class="org-string">'DESCEND'</span>)
+ax[1].plot(np.array(npmle_cdf.rx2(<span class="org-string">'x'</span>)),
+           np.array(npmle_cdf.rx2(<span class="org-string">'y'</span>)).ravel(), c=cm[4], lw=1, label=<span class="org-string">'NPMLE'</span>)
+ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
 ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
 
 ax[1].legend(frameon=<span class="org-constant">False</span>)
@@ -709,7 +750,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-03-24 Sun 00:28</p>
+<p class="date">Created: 2019-03-24 Sun 10:23</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
