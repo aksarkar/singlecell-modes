@@ -24,11 +24,11 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(mem="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
+  #+CALL: ipython3(mem="32G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
   :RESULTS:
-  Submitted batch job 58824783
+  Submitted batch job 58829827
   :END:
 
   #+BEGIN_SRC ipython
@@ -188,12 +188,30 @@
        return np.array(result).ravel()
 
      def score_descend(x_train, x_test):
-       pass
+       result = []
+       # Important: numpy2ri doesn't DTRT, so we need to use pandas
+       train_size_factor = pd.Series(x_train.sum(axis=1))
+       test_size_factor = x_test.sum(axis=1).reshape(-1, 1)
+       # Important: np iterates over rows
+       for train, test in zip(x_train.T, x_test.T):
+         res = descend.deconvSingle(pd.Series(train), scaling_consts=train_size_factor, verbose=False)
+         g = np.array(descend_res.slots['distribution'])[:,:2]
+         # Important: don't marginalize over lambda = 0 for x > 0, because p(x > 0 |
+         # lambda = 0) = 0
+         case_nonzero = (st.poisson(mu=test_size_factor * g[1:,0])
+                         .logpmf(test.reshape(-1, 1))
+                         .dot(g[1:,1]))
+         case_zero = (st.poisson(mu=test_size_factor * g[:,0])
+                      .logpmf(test.reshape(-1, 1))
+                      .dot(g[:,1]))
+         llik = np.where(test > 0, case_nonzero, case_zero).sum()
+         result.append(llik)
+       return np.array(result).ravel()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[31]:
+   # Out[88]:
    :END:
 
 * Results
@@ -216,7 +234,7 @@
 
    #+RESULTS: read-zheng
    :RESULTS:
-   # Out[3]:
+   # Out[2]:
    :END:
 
    #+RESULTS:
