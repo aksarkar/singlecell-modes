@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-03-23 Sat 23:13 -->
+<!-- 2019-03-24 Sun 00:28 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -367,18 +367,27 @@ to recover \(\lambda_{ij}\). We can trade off flexibility and complexity of
 </p>
 
 <ol class="org-ol">
-<li><b>Poisson:</b> \(g_j = \delta_\mu\)</li>
-<li><b>NB:</b> \(g_j = \mathrm{Gamma}(\cdot)\)</li>
-<li><b>ZINB:</b> \(g_j = \pi_j \delta_0(\cdot) + (1 - \pi_j)
-      \mathrm{Gamma}(\cdot)\)</li>
-<li><b>Generalized adaptive shrinkage:</b> \(g_j = \sum_k \pi_k
+<li><b>Point mass:</b> \(g_j = \delta_\mu\). We mention it for completeness.</li>
+<li><b>Gamma:</b> \(g_j = \mathrm{Gamma}(\cdot)\). This leads to the negative
+binomial marginal likelihood, and can be motivated by assuming \(g_j\)
+is a point mass convolved with multiplicative Gamma noise.</li>
+<li><b>Point-Gamma:</b> \(g_j = \pi_j \delta_0(\cdot) + (1 - \pi_j)
+      \mathrm{Gamma}(\cdot)\). This leads to the zero-inflated negative
+binomial marginal likelihood, which is still analytic and therefore
+computationally favorable.</li>
+<li><b>Unimodal mixture of uniforms:</b> \(g_j = \sum_k \pi_k
       \mathrm{Uniform}(\lambda_0, a_{jk})\), where \(\lambda_0\) is the mode
-(jointly estimated from the data).</li>
-<li><b>DESCEND:</b> \(g_j = \exp(\mathbf{Q}'\alpha - \phi(\alpha))\), where
-\(\mathbf{Q}\) is a \(5 \times K\) discretized degree 5 cubic
-spline.</li>
+(<a href="http://dx.doi.org/10.1093/biostatistics/kxw041">Stephens 2016</a>)</li>
+<li><b>Spline:</b> \(g_j = \exp(\mathbf{Q}'\alpha - \phi(\alpha))\), where
+\(\mathbf{Q}\) is a discretized cubic spline
+(<a href="https://academic.oup.com/biomet/article/103/1/1/2390141">Efron 2016</a>,
+<a href="http://dx.doi.org/10.1073/pnas.1721085115">Wang et al. 2018</a>).</li>
 <li><b>Nonparametric:</b> \(g_j = \sum_k \pi_k \mathrm{Uniform}(ak, a(k + 1))\),
-where \(a\) is a step size.</li>
+where \(a\) is a fixed step size
+(<a href="https://projecteuclid.org/euclid.aoms/1177728066">Kiefer and Wolfowitz
+1956</a>,
+<a href="https://amstat.tandfonline.com/doi/abs/10.1080/01621459.2013.869224">Koenker
+and Mizera 2014</a>).</li>
 </ol>
 
 <p>
@@ -387,7 +396,7 @@ out a validation set, and score methods on validation log likelihood.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">nb_nll</span>(x, mean, inv_disp):
+<pre class="src src-ipython" id="org685384c"><span class="org-keyword">def</span> <span class="org-function-name">nb_nll</span>(x, mean, inv_disp):
   <span class="org-keyword">return</span> (x * np.log(mean / inv_disp) -
           x * np.log(1 + mean / inv_disp) -
           inv_disp * np.log(1 + mean / inv_disp) +
@@ -408,7 +417,7 @@ out a validation set, and score methods on validation log likelihood.
     learning_rate=1e-3,
     max_epochs=30000,
     verbose=<span class="org-constant">True</span>)
-  <span class="org-keyword">return</span> nb_nll(x_test, np.exp(log_mu), np.exp(-log_phi)).<span class="org-builtin">sum</span>()
+  <span class="org-keyword">return</span> nb_nll(x_test, np.exp(log_mu), np.exp(-log_phi)).<span class="org-builtin">sum</span>(axis=0)
 
 <span class="org-keyword">def</span> <span class="org-function-name">softplus</span>(x):
   <span class="org-keyword">if</span> x &gt; 30:
@@ -435,7 +444,7 @@ out a validation set, and score methods on validation log likelihood.
     max_epochs=30000,
     verbose=<span class="org-constant">True</span>)
   <span class="org-variable-name">log_mu</span>, <span class="org-variable-name">log_phi</span>, <span class="org-variable-name">logodds</span>, <span class="org-variable-name">nb_llik</span>, <span class="org-variable-name">zinb_llik</span> = scqtl.tf.fit(
-    umi=umi.astype(np.float32),
+    umi=x_train.astype(np.float32),
     onehot=onehot.astype(np.float32),
     design=design.astype(np.float32),
     size_factor=size_factor.astype(np.float32),
@@ -443,7 +452,7 @@ out a validation set, and score methods on validation log likelihood.
     max_epochs=30000,
     warm_start=init[:3],
     verbose=<span class="org-constant">True</span>)
-  <span class="org-keyword">return</span> zinb_nll(x_test, np.exp(logodds), np.exp(-log_phi), logodds).<span class="org-builtin">sum</span>()
+  <span class="org-keyword">return</span> zinb_nll(x_test, np.exp(logodds), np.exp(-log_phi), logodds).<span class="org-builtin">sum</span>(axis=0)
 
 <span class="org-keyword">def</span> <span class="org-function-name">score_ash</span>(x_train, x_test):
   <span class="org-variable-name">result</span> = []
@@ -545,6 +554,22 @@ Fit Poisson ash.
 </div>
 
 <p>
+Fit non-parametric.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 50)
+<span class="org-variable-name">npmle_res</span> = ashr.ash_workhorse(
+  pd.Series(np.zeros(x.shape[0])),
+  1,
+  lik=ashr.lik_pois(y=xj, scale=size_factor, link=<span class="org-string">'identity'</span>),
+  g=ashr.unimix(np.ones(grid.shape[0] - 1), grid[:-1], grid[1:])
+  mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]))
+<span class="org-variable-name">npmle_cdf</span> = ashr.cdf_ash(npmle_res, np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000))
+</pre>
+</div>
+
+<p>
 Fit DESCEND.
 </p>
 
@@ -624,6 +649,10 @@ Submitted batch job 58803475
 </pre>
 </div>
 
+<p>
+Plot the observed counts and deconvolved distributions.
+</p>
+
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>).colors
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
@@ -680,7 +709,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-03-23 Sat 23:13</p>
+<p class="date">Created: 2019-03-24 Sun 00:28</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

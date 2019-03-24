@@ -89,22 +89,32 @@
    to recover \(\lambda_{ij}\). We can trade off flexibility and complexity of
    \(g_j\) for ease of implementation and speed.
 
-   1. *Poisson:* \(g_j = \delta_\mu\)
-   2. *NB:* \(g_j = \mathrm{Gamma}(\cdot)\)
-   3. *ZINB:* \(g_j = \pi_j \delta_0(\cdot) + (1 - \pi_j)
-      \mathrm{Gamma}(\cdot)\)
-   4. *Generalized adaptive shrinkage:* \(g_j = \sum_k \pi_k
+   1. *Point mass:* \(g_j = \delta_\mu\). We mention it for completeness.
+   2. *Gamma:* \(g_j = \mathrm{Gamma}(\cdot)\). This leads to the negative
+      binomial marginal likelihood, and can be motivated by assuming \(g_j\)
+      is a point mass convolved with multiplicative Gamma noise.
+   3. *Point-Gamma:* \(g_j = \pi_j \delta_0(\cdot) + (1 - \pi_j)
+      \mathrm{Gamma}(\cdot)\). This leads to the zero-inflated negative
+      binomial marginal likelihood, which is still analytic and therefore
+      computationally favorable.
+   4. *Unimodal mixture of uniforms:* \(g_j = \sum_k \pi_k
       \mathrm{Uniform}(\lambda_0, a_{jk})\), where \(\lambda_0\) is the mode
-      (jointly estimated from the data).
-   5. *DESCEND:* \(g_j = \exp(\mathbf{Q}'\alpha - \phi(\alpha))\), where
-      \(\mathbf{Q}\) is a \(5 \times K\) discretized degree 5 cubic
-      spline.
+      ([[http://dx.doi.org/10.1093/biostatistics/kxw041][Stephens 2016]])
+   5. *Spline:* \(g_j = \exp(\mathbf{Q}'\alpha - \phi(\alpha))\), where
+      \(\mathbf{Q}\) is a discretized cubic spline
+      ([[https://academic.oup.com/biomet/article/103/1/1/2390141][Efron 2016]],
+      [[http://dx.doi.org/10.1073/pnas.1721085115][Wang et al. 2018]]).
    6. *Nonparametric:* \(g_j = \sum_k \pi_k \mathrm{Uniform}(ak, a(k + 1))\),
-      where \(a\) is a step size.
+      where \(a\) is a fixed step size
+      ([[https://projecteuclid.org/euclid.aoms/1177728066][Kiefer and Wolfowitz
+      1956]],
+      [[https://amstat.tandfonline.com/doi/abs/10.1080/01621459.2013.869224][Koenker
+      and Mizera 2014]]).
 
    In order to evaluate methods on their ability to estimate \(g_j\), we hold
    out a validation set, and score methods on validation log likelihood.
 
+   #+NAME: score-impl
    #+BEGIN_SRC ipython
      def nb_nll(x, mean, inv_disp):
        return (x * np.log(mean / inv_disp) -
@@ -127,7 +137,7 @@
          learning_rate=1e-3,
          max_epochs=30000,
          verbose=True)
-       return nb_nll(x_test, np.exp(log_mu), np.exp(-log_phi)).sum()
+       return nb_nll(x_test, np.exp(log_mu), np.exp(-log_phi)).sum(axis=0)
 
      def softplus(x):
        if x > 30:
@@ -154,7 +164,7 @@
          max_epochs=30000,
          verbose=True)
        log_mu, log_phi, logodds, nb_llik, zinb_llik = scqtl.tf.fit(
-         umi=umi.astype(np.float32),
+         umi=x_train.astype(np.float32),
          onehot=onehot.astype(np.float32),
          design=design.astype(np.float32),
          size_factor=size_factor.astype(np.float32),
@@ -162,7 +172,7 @@
          max_epochs=30000,
          warm_start=init[:3],
          verbose=True)
-       return zinb_nll(x_test, np.exp(logodds), np.exp(-log_phi), logodds).sum()
+       return zinb_nll(x_test, np.exp(logodds), np.exp(-log_phi), logodds).sum(axis=0)
 
      def score_ash(x_train, x_test):
        result = []
@@ -272,6 +282,19 @@
    # Out[50]:
    :END:
 
+   Fit non-parametric.
+
+   #+BEGIN_SRC ipython
+     grid = np.linspace(lam.min(), lam.max(), 50)
+     npmle_res = ashr.ash_workhorse(
+       pd.Series(np.zeros(x.shape[0])),
+       1,
+       lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
+       g=ashr.unimix(np.ones(grid.shape[0] - 1), grid[:-1], grid[1:])
+       mode=pd.Series([lam.min(), lam.max()]))
+     npmle_cdf = ashr.cdf_ash(npmle_res, np.linspace(lam.min(), lam.max(), 1000))
+   #+END_SRC
+
    Fit DESCEND.
 
    #+BEGIN_SRC ipython
@@ -358,6 +381,8 @@
    :RESULTS:
    # Out[117]:
    :END:
+
+   Plot the observed counts and deconvolved distributions.
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ash-example.png
      cm = plt.get_cmap('Dark2').colors
