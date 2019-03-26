@@ -27,15 +27,11 @@
   #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  :RESULTS:
-  Submitted batch job 58839257
-  :END:
+  : Submitted batch job 58921727
 
-  #+BEGIN_SRC ipython
-    import colorcet
+  #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
     import gc
     import gzip
-    import matplotlib.pyplot as plt
     import numpy as np
     import pandas as pd
     import scipy.io
@@ -62,12 +58,14 @@
   #+BEGIN_SRC ipython
     %matplotlib inline
     %config InlineBackend.figure_formats = set(['retina'])
+    import colorcet
+    import matplotlib.pyplot as plt
     plt.rcParams['figure.facecolor'] = 'w'
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[3]:
   :END:
 
 * Methods
@@ -106,11 +104,21 @@
    4. *Unimodal mixture of uniforms:* \(g_j = \pi_0 \delta_0(\cdot) + \sum_k
       \pi_k \mathrm{Uniform}(\cdot; \lambda_0, a_{jk})\), where \(\lambda_0\)
       is the mode ([[http://dx.doi.org/10.1093/biostatistics/kxw041][Stephens
-      2016]])
-   5. *Spline:* \(g_j = \exp(\mathbf{Q}'\alpha - \phi(\alpha))\), where
-      \(\mathbf{Q}\) is a discretized cubic spline
-      ([[https://academic.oup.com/biomet/article/103/1/1/2390141][Efron 2016]],
-      [[http://dx.doi.org/10.1073/pnas.1721085115][Wang et al. 2018]]).
+      2016]]). The inclusion of the point mass technically makes this
+      distribution bimodal.
+   5. *Exponential family:* \(g_j = \exp(\mathbf{Q}\alpha - \phi(\alpha))\),
+      where \(\mathbf{Q}\) is a [[https://en.wikipedia.org/wiki/B-spline][B
+      spline spline basis matrix]] for a
+      [[https://en.wikipedia.org/wiki/Cubic_Hermite_spline][natural cubic
+      spline]]
+      ([[https://www.rdocumentation.org/packages/splines/topics/ns][~ns~
+      function]];
+      [[https://academic.oup.com/biomet/article/103/1/1/2390141][Efron
+      2016]]). The key idea of the method is use spline regression to find the
+      sufficient statistic and natural parameters which maximizes the penalized
+      likelihood of the observed data. The method has been extended to include
+      a point mass on zero ([[http://dx.doi.org/10.1073/pnas.1721085115][Wang
+      et al. 2018]]).
    6. *Nonparametric:* \(g_j = \sum_k \pi_k \mathrm{Uniform}(\cdot; ak, a(k +
       1))\), where \(a\) is a fixed step size
       ([[https://projecteuclid.org/euclid.aoms/1177728066][Kiefer and Wolfowitz
@@ -124,8 +132,8 @@
    = x_{ij}\).
 
    #+NAME: score-impl
-   #+BEGIN_SRC ipython
-     def nb_nll(x, mean, inv_disp):
+   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
+     def nb_llik(x, mean, inv_disp):
        return (x * np.log(mean / inv_disp) -
                x * np.log(1 + mean / inv_disp) -
                inv_disp * np.log(1 + mean / inv_disp) +
@@ -137,51 +145,47 @@
        import scqtl
        onehot = np.ones((x_train.shape[0], 1))
        size_factor = x_train.sum(axis=1).reshape(-1, 1)
-       design = np.zeros((num_samples, 1))
+       design = np.zeros((x_train.shape[0], 1))
        log_mu, log_phi, *_ = scqtl.tf.fit(
          umi=x_train.astype(np.float32),
          onehot=onehot.astype(np.float32),
          design=design.astype(np.float32),
          size_factor=size_factor.astype(np.float32),
          learning_rate=1e-3,
-         max_epochs=30000,
-         verbose=True)
-       return nb_nll(x_test, np.exp(log_mu), np.exp(-log_phi)).sum(axis=0)
+         max_epochs=30000)
+       return nb_llik(x_test, x_test.sum(axis=1, keepdims=True) * np.exp(log_mu), np.exp(-log_phi)).sum(axis=0)
 
      def softplus(x):
-       if x > 30:
-         return x
-       else:
-         return np.log(1 + np.exp(x))
+       return np.where(x > 30, x, np.log(1 + np.exp(x)))
 
-     def zinb_nll(x, mean, inv_disp, logodds):
+     def zinb_llik(x, mean, inv_disp, logodds):
        case_zero = -softplus(-logodds) + softplus(nb_llik(x, mean, inv_disp) - logodds)
+       assert case_zero.shape == x.shape
        case_non_zero = -softplus(logodds) + nb_llik(x, mean, inv_disp)
+       assert case_non_zero.shape == x.shape
        return np.where(x < 1, case_zero, case_non_zero)
 
      def score_zinb(x_train, x_test):
        import scqtl
        onehot = np.ones((x_train.shape[0], 1))
        size_factor = x_train.sum(axis=1).reshape(-1, 1)
-       design = np.zeros((num_samples, 1))
+       design = np.zeros((x_train.shape[0], 1))
        init = scqtl.tf.fit(
          umi=x_train.astype(np.float32),
          onehot=onehot.astype(np.float32),
          design=design.astype(np.float32),
          size_factor=size_factor.astype(np.float32),
          learning_rate=1e-3,
-         max_epochs=30000,
-         verbose=True)
-       log_mu, log_phi, logodds, nb_llik, zinb_llik = scqtl.tf.fit(
+         max_epochs=30000)
+       log_mu, log_phi, logodds, *_ = scqtl.tf.fit(
          umi=x_train.astype(np.float32),
          onehot=onehot.astype(np.float32),
          design=design.astype(np.float32),
          size_factor=size_factor.astype(np.float32),
          learning_rate=1e-3,
          max_epochs=30000,
-         warm_start=init[:3],
-         verbose=True)
-       return zinb_nll(x_test, np.exp(logodds), np.exp(-log_phi), logodds).sum(axis=0)
+         warm_start=init[:3])
+       return zinb_llik(x_test, np.exp(logodds), np.exp(-log_phi), logodds).sum(axis=0)
 
      def score_unimix(x_train, x_test):
        result = []
@@ -217,7 +221,11 @@
        # np iterates over rows
        for train, test in zip(x_train.T, x_test.T):
          res = descend.deconvSingle(pd.Series(train), scaling_consts=train_size_factor, verbose=False)
-         g = np.array(descend_res.slots['distribution'])[:,:2]
+         # DESCEND returns NA on errors
+         if tuple(res.rclass) != ('DESCEND',):
+           result.append(-np.inf)
+           continue
+         g = np.array(res.slots['distribution'])[:,:2]
          # Don't marginalize over lambda = 0 for x > 0, because p(x > 0 | lambda =
          # 0) = 0
          case_nonzero = (st.poisson(mu=test_size_factor * g[1:,0])
@@ -233,13 +241,14 @@
          gc.collect()
        return np.array(result).ravel()
 
-     def score_npmle(x_train, x_test):
+     def score_npmle(x_train, x_test, K=100):
        result = []
        train_size_factor = pd.Series(x_train.sum(axis=1))
        test_size_factor = pd.Series(x_test.sum(axis=1))
        # np iterates over rows
        for train, test in zip(x_train.T, x_test.T):
          lam = train / train_size_factor
+         grid = np.linspace(lam.min(), 2 * lam.max(), K + 1)
          res0 = ashr.ash_workhorse(
            # these are ignored by ash
            pd.Series(np.zeros(train.shape)),
@@ -261,20 +270,29 @@
 
      def score_saturated(x_train, x_test):
        return st.poisson(mu=x_test).logpmf(x_test).sum(axis=0)
+
+     def evaluate_generalization(x, val_size=0.1, seed=0):
+       result = {}
+       train, val = skms.train_test_split(x, test_size=val_size, random_state=seed)
+       methods = ['nb', 'zinb', 'unimix', 'descend', 'npmle', 'saturated']
+       for m in methods:
+         # Hack: get functions by name
+         result[m] = globals()[f'score_{m}'](train, val)
+       return pd.DataFrame.from_dict(result, orient='columns')
    #+END_SRC
 
    #+RESULTS: score-impl
    :RESULTS:
-   # Out[43]:
+   # Out[12]:
    :END:
 
 * Results
 ** Homogeneous cell populations
 
-   Use sorted cells from Zheng et al. 2016 as a baseline.
+   Use sorted cells from Zheng et al. 2016.
 
    #+NAME: read-zheng
-   #+BEGIN_SRC ipython
+   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
      def cd8_cytotoxic_t_cells(min_detect=0.25):
        counts = scipy.io.mmread('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cd8+_cytotoxic_t_cells/filtered_matrices_mex/hg19/matrix.mtx.gz').tocsr()
        counts = counts[((counts > 0).mean(axis=1) >= min_detect).A.ravel()].T.A.astype(np.int)
@@ -288,7 +306,7 @@
 
    #+RESULTS: read-zheng
    :RESULTS:
-   # Out[3]:
+   # Out[4]:
    :END:
 
    Look at some examples.
@@ -394,9 +412,7 @@
    #+END_SRC
 
    #+RESULTS:
-   :RESULTS:
-   Submitted batch job 58803475
-   :END:
+   : Submitted batch job 58803475
 
    #+BEGIN_SRC ipython
      j = str(x.mean(axis=0).argmax())
@@ -458,11 +474,29 @@
    [[file:figure/deconvolution.org/ash-example.png]]
    :END:
 
+   Run the benchmark.
+
+   #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=8:00:00 --job-name=benchmark --output=benchmark.out
+     #!/bin/bash
+     module load cuda/9.0
+     source activate scmodes
+     python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
+     for data in ('cd8_cytotoxic_t_cells', 'cd19_b_cells'):
+         x = globals()[data]()
+         res = evaluate_generalization(x)
+         res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', compression='gzip', sep='\t')
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 58924957
+
 ** Synthetic cell mixtures
 
 ** Real cell mixtures
 
-   #+BEGIN_SRC ipython
+   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
      def pbmcs_68k(min_detect=0.25):
        counts = scipy.io.mmread('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/68k_pbmcs/filtered_matrices_mex/hg19/matrix.mtx.gz').tocsr()
        counts = counts[((counts > 0).mean(axis=1) >= min_detect).A.ravel()].T.A.astype(np.int)
