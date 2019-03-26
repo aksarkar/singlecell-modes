@@ -23,9 +23,9 @@ dependencies:
   - certifi=2019.3.9=py36_0
   - cffi=1.12.2=py36h2e261b9_1
   - colorcet=1.0.0=py36_0
-  - cudatoolkit=9.2=0
-  - cudnn=7.3.1=cuda9.2_0
-  - cupti=9.2.148=0
+  - cudatoolkit=9.0=h13b8566_0
+  - cudnn=7.3.1=cuda9.0_0
+  - cupti=9.0.176=0
   - curl=7.64.0=hbc83047_2
   - cycler=0.10.0=py36_0
   - dbus=1.13.6=h746ee38_0
@@ -97,6 +97,7 @@ dependencies:
   - natsort=6.0.0=py_0
   - nbconvert=5.4.1=py_2
   - nbformat=4.4.0=py36_0
+  - nccl=1.3.5=cuda9.0_0
   - ncurses=6.1=he6710b0_1
   - ninja=1.8.2=py36h6bb024c_1
   - notebook=5.7.6=py36_0
@@ -124,13 +125,14 @@ dependencies:
   - pyrsistent=0.14.11=py36h7b6447c_0
   - python=3.6.8=h0371630_0
   - python-dateutil=2.8.0=py36_0
-  - pytorch=1.0.1=cuda92py36h65efead_0
+  - pytorch=1.0.1=cuda90py36h8b0c50b_0
   - pytz=2018.9=py36_0
   - pyzmq=18.0.0=py36he6710b0_0
   - qt=5.9.7=h5867ecd_1
   - qtconsole=4.4.3=py36_0
   - r-ashr=2.2_32=r351h29659fb_0
   - r-assertthat=0.2.0=r351h6115d3f_0
+  - r-backports=1.1.2=r351h96ca727_0
   - r-base=3.5.1=h1e0a451_2
   - r-bh=1.66.0_1=r351h6115d3f_0
   - r-bindr=0.1.1=r351h6115d3f_0
@@ -138,13 +140,19 @@ dependencies:
   - r-bit=1.1_14=r351hd10c6a6_0
   - r-bit64=0.9_7=r351hd10c6a6_0
   - r-blob=1.1.1=r351hf348343_0
+  - r-brew=1.0_6=r351h6115d3f_4
+  - r-callr=2.0.4=r351h6115d3f_0
   - r-cli=1.0.0=r351h6115d3f_1
   - r-codetools=0.2_15=r351h6115d3f_0
   - r-colorspace=1.3_2=r351h96ca727_0
+  - r-commonmark=1.5=r351h96ca727_0
   - r-crayon=1.3.4=r351h6115d3f_0
+  - r-curl=3.2=r351hadc6856_1
   - r-dbi=1.0.0=r351h6115d3f_0
   - r-dbplyr=1.2.2=r351hf348343_0
+  - r-desc=1.2.0=r351h6115d3f_0
   - r-descend=0.0.0.9000=r351_0
+  - r-devtools=1.13.6=r351h6115d3f_0
   - r-dichromat=2.0_0=r351h6115d3f_4
   - r-digest=0.6.15=r351h96ca727_0
   - r-doparallel=1.0.11=r351h6115d3f_0
@@ -154,9 +162,12 @@ dependencies:
   - r-flashr=0.6_3=r351_0
   - r-foreach=1.4.4=r351h6115d3f_0
   - r-ggplot2=3.0.0=r351h6115d3f_0
+  - r-git2r=0.23.0=r351h96ca727_1
   - r-glue=1.3.0=r351h96ca727_0
   - r-gtable=0.2.0=r351h6115d3f_0
+  - r-httr=1.3.1=r351h6115d3f_1
   - r-iterators=1.0.10=r351h6115d3f_0
+  - r-jsonlite=1.5=r351h96ca727_0
   - r-labeling=0.3=r351h6115d3f_4
   - r-lattice=0.20_35=r351h96ca727_0
   - r-lazyeval=0.2.1=r351h96ca727_0
@@ -167,14 +178,20 @@ dependencies:
   - r-mclust=5.4.3=r351ha65eedd_0
   - r-memoise=1.1.0=r351h6115d3f_0
   - r-mgcv=1.8_24=r351h96ca727_0
+  - r-mime=0.5=r351h96ca727_0
   - r-mixsqp=0.1_97=r351h29659fb_0
   - r-munsell=0.5.0=r351h6115d3f_0
   - r-nlme=3.1_137=r351ha65eedd_0
+  - r-openssl=1.0.2=r351h96ca727_1
   - r-pillar=1.3.0=r351h6115d3f_0
+  - r-pkgbuild=1.0.0=r351h6115d3f_0
   - r-pkgconfig=2.0.1=r351h6115d3f_0
+  - r-pkgload=1.0.0=r351h29659fb_0
   - r-plogr=0.2.0=r351h6115d3f_0
   - r-plyr=1.8.4=r351h29659fb_0
+  - r-praise=1.0.0=r351h6115d3f_4
   - r-prettyunits=1.0.2=r351hf348343_0
+  - r-processx=3.1.0=r351h29659fb_0
   - r-pscl=1.5.2=r351h96ca727_0
   - r-purrr=0.2.5=r351h96ca727_0
   - r-quantreg=5.36=r351ha65eedd_0
@@ -184,19 +201,25 @@ dependencies:
   - r-rcpparmadillo=0.8.600.0.0=r351h29659fb_0
   - r-reshape2=1.4.3=r351h29659fb_0
   - r-rlang=0.2.1=r351h96ca727_0
+  - r-roxygen2=6.1.0=r351h29659fb_0
+  - r-rprojroot=1.3_2=r351h6115d3f_0
   - r-rsqlite=2.1.1=r351h29659fb_0
+  - r-rstudioapi=0.7=r351h6115d3f_0
   - r-scales=0.5.0=r351h29659fb_0
   - r-softimpute=1.4=r351ha65eedd_0
   - r-sparsem=1.77=r351ha65eedd_0
   - r-squarem=2017.10_1=r351h6115d3f_0
   - r-stringi=1.2.4=r351h29659fb_0
   - r-stringr=1.3.1=r351h6115d3f_0
+  - r-testthat=2.0.0=r351h29659fb_0
   - r-tibble=1.4.2=r351h96ca727_0
   - r-tidyselect=0.2.4=r351h29659fb_0
   - r-truncnorm=1.0_8=r351h96ca727_0
   - r-utf8=1.1.4=r351h96ca727_0
   - r-viridislite=0.3.0=r351h6115d3f_0
+  - r-whisker=0.3_2=r351hf348343_4
   - r-withr=2.1.2=r351h6115d3f_0
+  - r-xml2=1.2.0=r351h29659fb_0
   - readline=7.0=h7b6447c_5
   - rpy2=2.9.1=py36r351h035aef0_0
   - scikit-learn=0.20.3=py36hd81dba3_0
@@ -208,8 +231,8 @@ dependencies:
   - six=1.12.0=py36_0
   - sqlite=3.27.2=h7b6447c_0
   - tensorboard=1.12.2=py36he6710b0_0
-  - tensorflow=1.12.0=gpu_py36he74679b_0
-  - tensorflow-base=1.12.0=gpu_py36had579c0_0
+  - tensorflow=1.12.0=gpu_py36he68c306_0
+  - tensorflow-base=1.12.0=gpu_py36h8e0ae2d_0
   - tensorflow-gpu=1.12.0=h0d30ee6_0
   - termcolor=1.1.0=py36_1
   - terminado=0.8.1=py36_1
