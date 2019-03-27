@@ -494,7 +494,22 @@
 
 ** Synthetic cell mixtures
 
-** Real cell mixtures
+   Create a synthetic heterogeneous population of cells by combining sorted
+   CD8+ T cells and CD19+ B cells from Zheng et al. 2016.
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark.out
+     #!/bin/bash
+     module load cuda/9.0
+     source activate scmodes
+     python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
+     x = np.vstack((cd8_cytotoxic_t_cells(), cd19_b_cells()))
+     res = evaluate_generalization(x)
+     res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cd8-cd19-mix.txt.gz', compression='gzip', sep='\t')
+     EOF
+   #+END_SRC
+
+** Heterogeneous cell populations
 
    #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
      def pbmcs_68k(min_detect=0.25):
