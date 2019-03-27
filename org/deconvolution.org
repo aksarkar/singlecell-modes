@@ -27,7 +27,7 @@
   #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 58921727
+  : Submitted batch job 58953190
 
   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
     import gc
@@ -65,7 +65,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[27]:
   :END:
 
 * Methods
@@ -160,32 +160,27 @@
 
      def zinb_llik(x, mean, inv_disp, logodds):
        case_zero = -softplus(-logodds) + softplus(nb_llik(x, mean, inv_disp) - logodds)
-       assert case_zero.shape == x.shape
        case_non_zero = -softplus(logodds) + nb_llik(x, mean, inv_disp)
-       assert case_non_zero.shape == x.shape
        return np.where(x < 1, case_zero, case_non_zero)
 
      def score_zinb(x_train, x_test):
        import scqtl
        onehot = np.ones((x_train.shape[0], 1))
        size_factor = x_train.sum(axis=1).reshape(-1, 1)
-       design = np.zeros((x_train.shape[0], 1))
        init = scqtl.tf.fit(
          umi=x_train.astype(np.float32),
          onehot=onehot.astype(np.float32),
-         design=design.astype(np.float32),
          size_factor=size_factor.astype(np.float32),
          learning_rate=1e-3,
          max_epochs=30000)
        log_mu, log_phi, logodds, *_ = scqtl.tf.fit(
          umi=x_train.astype(np.float32),
          onehot=onehot.astype(np.float32),
-         design=design.astype(np.float32),
          size_factor=size_factor.astype(np.float32),
          learning_rate=1e-3,
          max_epochs=30000,
          warm_start=init[:3])
-       return zinb_llik(x_test, np.exp(logodds), np.exp(-log_phi), logodds).sum(axis=0)
+       return zinb_llik(x_test, x_test.sum(axis=1, keepdims=True) * np.exp(log_mu), np.exp(-log_phi), logodds).sum(axis=0)
 
      def score_unimix(x_train, x_test):
        result = []
@@ -476,26 +471,72 @@
 
    Run the benchmark.
 
-   #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=8:00:00 --job-name=benchmark --output=benchmark.out
+   #+NAME: run-homogeneous-benchmark
+   #+BEGIN_SRC ipython
+     for data in ('cd8_cytotoxic_t_cells', 'cd19_b_cells'):
+       x = globals()[data]()
+       res = evaluate_generalization(x)
+       res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', compression='gzip', sep='\t')
+   #+END_SRC
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=5:00:00 --job-name=benchmark --output=benchmark.out
      #!/bin/bash
      module load cuda/9.0
      source activate scmodes
      python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
-     for data in ('cd8_cytotoxic_t_cells', 'cd19_b_cells'):
-         x = globals()[data]()
-         res = evaluate_generalization(x)
-         res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', compression='gzip', sep='\t')
+     <<run-homogeneous-benchmark>>
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 58924957
+   : Submitted batch job 58942737
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     benchmark = {}
+     for data in ('cd8_cytotoxic_t_cells', 'cd19_b_cells'):
+       benchmark[data] = pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', sep='\t', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[19]:
+   :END:
+
+   Plot the generalization performance of each method.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/homogeneous-benchmark-deviance.png
+     fig, ax = plt.subplots(1, 2, sharey=True)
+     fig.set_size_inches(5, 3)
+     for i, k in enumerate(sorted(benchmark.keys())):
+       ax[i].boxplot((benchmark[f'{k}']['saturated'].values.reshape(-1, 1) - benchmark[f'{k}'].values)[:,:-1],
+                     widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+       ax[i].set_xticklabels(benchmark[f'{k}'].columns[:-1], rotation=90)
+       ax[i].set_xlabel('Method')
+       ax[i].set_title(k)
+     ax[0].set_ylabel('Validation set deviance')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[50]:
+   [[file:figure/deconvolution.org/homogeneous-benchmark-deviance.png]]
+   :END:
 
 ** Synthetic cell mixtures
 
    Create a synthetic heterogeneous population of cells by combining sorted
    CD8+ T cells and CD19+ B cells from Zheng et al. 2016.
+
+   #+NAME: run-synthetic-mix-benchmark
+   #+BEGIN_SRC ipython :eval never
+     x = np.vstack((cd8_cytotoxic_t_cells(), cd19_b_cells()))
+     res = evaluate_generalization(x)
+     res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cd8-cd19-mix.txt.gz', compression='gzip', sep='\t')
+   #+END_SRC
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
      sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark.out
@@ -503,9 +544,7 @@
      module load cuda/9.0
      source activate scmodes
      python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
-     x = np.vstack((cd8_cytotoxic_t_cells(), cd19_b_cells()))
-     res = evaluate_generalization(x)
-     res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cd8-cd19-mix.txt.gz', compression='gzip', sep='\t')
+     <<run-synthetic-mix-benchmark>>
      EOF
    #+END_SRC
 
