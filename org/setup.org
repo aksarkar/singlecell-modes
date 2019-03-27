@@ -4,7 +4,7 @@
 #+HTML_DOCTYPE: html5
 #+HTML_HEAD: <link href="css/bootstrap.min.css" rel="stylesheet" />
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="css/supp.css"/>
 #+HTML_HEAD: <style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
-#+PROPERTY: header-args:ipython+ :session kernel-scmodes.json :results raw drawer :eval never-export :exports both
-#+PROPERTY: header-args:shell+ :results raw drawer :eval never-export :exports both
-#+PROPERTY: header-args:sh :eval never-export :results output :exports both
+#+PROPERTY: header-args:ipython :session kernel-scmodes.json :results raw drawer :eval never-export :exports both
+#+PROPERTY: header-args:sh :eval never-export :results output :exports code
