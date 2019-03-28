@@ -27,7 +27,7 @@
   #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 58953190
+  : Submitted batch job 58986993
 
   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
     import gc
@@ -65,7 +65,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[27]:
+  # Out[10]:
   :END:
 
 * Methods
@@ -476,11 +476,45 @@
    [[file:figure/deconvolution.org/ash-example.png]]
    :END:
 
+   Use iPSCs derived from Yoruba LCLs
+   ([[https://www.biorxiv.org/content/early/2018/09/23/424192][Sarkar et
+   al. 2018]]). The data were sequenced on the Fluidigm C1 platform to much
+   greater depth, allowing many more genes to be detected (especially lower
+   expressed genes), potentially including genes with bimodal steady state gene
+   expression.
+
+   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
+     def ipsc(return_df=False):
+       annotations = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt', sep='\t')
+       keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', sep='\t', index_col=0, header=None)
+       keep_genes = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/genes-pass-filter.txt', sep='\t', index_col=0, header=None)
+       annotations = annotations.loc[keep_samples.values.ravel()]
+       result = []
+       for chunk in pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-counts.txt.gz', sep='\t', index_col=0, chunksize=100):
+          x = (chunk
+               .loc[:,keep_samples.values.ravel()]
+               .loc[:,(annotations['chip_id'] == 'NA18507').values]
+               .filter(items=keep_genes[keep_genes.values.ravel()].index, axis='index'))
+          if not x.empty:
+            result.append(x)
+       result = pd.concat(result)
+       # Return samples x genes
+       if return_df:
+         return result.T
+       else:
+         return result.values.T
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[23]:
+   :END:
+
    Run the benchmark.
 
    #+NAME: run-homogeneous-benchmark
-   #+BEGIN_SRC ipython
-     for data in ('cd8_cytotoxic_t_cells', 'cd19_b_cells'):
+   #+BEGIN_SRC ipython :eval never
+     for data in ('ipsc',):
        x = globals()[data]()
        res = evaluate_generalization(x, test_size=0.1, random_state=0)
        res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', compression='gzip', sep='\t')
@@ -497,7 +531,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 58942737
+   : Submitted batch job 58987904
 
    Read the results.
 
