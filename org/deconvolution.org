@@ -266,9 +266,9 @@
      def score_saturated(x_train, x_test):
        return st.poisson(mu=x_test).logpmf(x_test).sum(axis=0)
 
-     def evaluate_generalization(x, val_size=0.1, seed=0):
+     def evaluate_generalization(x, **kwargs):
        result = {}
-       train, val = skms.train_test_split(x, test_size=val_size, random_state=seed)
+       train, val = skms.train_test_split(x, **kwargs)
        methods = ['nb', 'zinb', 'unimix', 'descend', 'npmle', 'saturated']
        for m in methods:
          # Hack: get functions by name
@@ -284,24 +284,31 @@
 * Results
 ** Homogeneous cell populations
 
-   Use sorted cells from Zheng et al. 2016.
+   Use sorted cells from [[https://www.nature.com/articles/ncomms14049][Zheng
+   et al. 2017]].
 
    #+NAME: read-zheng
    #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
-     def cd8_cytotoxic_t_cells(min_detect=0.25):
-       counts = scipy.io.mmread('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cd8+_cytotoxic_t_cells/filtered_matrices_mex/hg19/matrix.mtx.gz').tocsr()
-       counts = counts[((counts > 0).mean(axis=1) >= min_detect).A.ravel()].T.A.astype(np.int)
-       return counts
+     def read_10x(prefix, min_detect=0.25, return_df=False):
+       counts = scipy.io.mmread(f'{prefix}/matrix.mtx.gz').tocsr()
+       keep = ((counts > 0).mean(axis=1) >= min_detect).A.ravel()
+       counts = counts[keep].T.A.astype(np.int)
+       if return_df:
+         genes = pd.read_csv(f'{prefix}/genes.tsv.gz', sep='\t', header=None)
+         return pd.DataFrame(counts, columns=genes.loc[keep, 0])
+       else:
+         return counts
 
-     def cd19_b_cells(min_detect=0.25):
-       counts = scipy.io.mmread('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cd19+_b_cells/filtered_matrices_mex/hg19/matrix.mtx.gz').tocsr()
-       counts = counts[((counts > 0).mean(axis=1) >= min_detect).A.ravel()].T.A.astype(np.int)
-       return counts
+     def cd8_cytotoxic_t_cells(**kwargs):
+       return read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cd8+_cytotoxic_t_cells/filtered_matrices_mex/hg19', **kwargs)
+
+     def cd19_b_cells(**kwargs):
+       return read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cd19+_b_cells/filtered_matrices_mex/hg19/', **kwargs)
    #+END_SRC
 
    #+RESULTS: read-zheng
    :RESULTS:
-   # Out[4]:
+   # Out[74]:
    :END:
 
    Look at some examples.
@@ -475,7 +482,7 @@
    #+BEGIN_SRC ipython
      for data in ('cd8_cytotoxic_t_cells', 'cd19_b_cells'):
        x = globals()[data]()
-       res = evaluate_generalization(x)
+       res = evaluate_generalization(x, test_size=0.1, random_state=0)
        res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', compression='gzip', sep='\t')
    #+END_SRC
 
@@ -529,14 +536,24 @@
 ** Synthetic cell mixtures
 
    Create a synthetic heterogeneous population of cells by combining sorted
-   CD8+ T cells and CD19+ B cells from Zheng et al. 2016.
+   CD8+ T cells and CD19+ B cells from
+   [[https://www.nature.com/articles/ncomms14049][Zheng et al. 2017]].
 
    #+NAME: run-synthetic-mix-benchmark
    #+BEGIN_SRC ipython :eval never
-     x = np.vstack((cd8_cytotoxic_t_cells(), cd19_b_cells()))
-     res = evaluate_generalization(x)
+     cd8 = cd8_cytotoxic_t_cells(return_df=True)
+     cd19 = cd19_b_cells(return_df=True)
+     x = pd.concat([cd8, cd19], axis='index', join='inner')
+     y = np.zeros(x.shape[0]).astype(int)
+     y[:cd8.shape[0]] = 1
+     res = evaluate_generalization(x.values, stratify=y, train_size=0.5, test_size=0.1, random_state=0)
      res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cd8-cd19-mix.txt.gz', compression='gzip', sep='\t')
    #+END_SRC
+
+   #+RESULTS: run-synthetic-mix-benchmark
+   :RESULTS:
+   # Out[82]:
+   :END:
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
      sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark.out
@@ -548,13 +565,48 @@
      EOF
    #+END_SRC
 
+   #+RESULTS:
+   : Submitted batch job 58958403
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     benchmark = {}
+     for data in ('cd8-cd19-mix',):
+       benchmark[data] = pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', sep='\t', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   Plot the results.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/synthetic-benchmark-deviance.png
+     plt.gcf().set_size_inches(3, 3)
+     for i, k in enumerate(sorted(benchmark.keys())):
+       plt.gca().boxplot((benchmark[f'{k}']['saturated'].values.reshape(-1, 1) - benchmark[f'{k}'].values)[:,:-1],
+                     widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+       plt.gca().set_xticklabels(benchmark[f'{k}'].columns[:-1], rotation=90)
+       plt.gca().set_xlabel('Method')
+       plt.gca().set_title(k)
+     plt.gca().set_ylabel('Validation set deviance')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[12]:
+   [[file:figure/deconvolution.org/synthetic-benchmark-deviance.png]]
+   :END:
+   
+
 ** Heterogeneous cell populations
 
    #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
-     def pbmcs_68k(min_detect=0.25):
-       counts = scipy.io.mmread('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/68k_pbmcs/filtered_matrices_mex/hg19/matrix.mtx.gz').tocsr()
-       counts = counts[((counts > 0).mean(axis=1) >= min_detect).A.ravel()].T.A.astype(np.int)
-       return counts
+     def pbmcs_68k(**kwargs):
+       return read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/68k_pbmcs/filtered_matrices_mex/hg19/', **kwargs)
 
      def cortex():
        counts = pd.read_table('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', index_col=0)
