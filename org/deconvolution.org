@@ -24,14 +24,16 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
+  #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes",opts="-c4") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 58986993
+  : Submitted batch job 59007048
 
   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
+    import functools as ft
     import gc
     import gzip
+    import multiprocessing as mp
     import numpy as np
     import pandas as pd
     import scipy.io
@@ -141,7 +143,7 @@
                sp.gammaln(inv_disp) -
                sp.gammaln(x + 1))
 
-     def score_nb(x_train, x_test):
+     def score_nb(x_train, x_test, **kwargs):
        import scqtl
        onehot = np.ones((x_train.shape[0], 1))
        size_factor = x_train.sum(axis=1).reshape(-1, 1)
@@ -163,7 +165,7 @@
        case_non_zero = -softplus(logodds) + nb_llik(x, mean, inv_disp)
        return np.where(x < 1, case_zero, case_non_zero)
 
-     def score_zinb(x_train, x_test):
+     def score_zinb(x_train, x_test, **kwargs):
        import scqtl
        onehot = np.ones((x_train.shape[0], 1))
        size_factor = x_train.sum(axis=1).reshape(-1, 1)
@@ -182,68 +184,76 @@
          warm_start=init[:3])
        return zinb_llik(x_test, x_test.sum(axis=1, keepdims=True) * np.exp(log_mu), np.exp(-log_phi), logodds).sum(axis=0)
 
-     def score_unimix(x_train, x_test):
-       result = []
-       train_size_factor = pd.Series(x_train.sum(axis=1))
-       test_size_factor = pd.Series(x_test.sum(axis=1))
-       # np iterates over rows
-       for train, test in zip(x_train.T, x_test.T):
-         lam = train / train_size_factor
+     def _score_unimix(train, test, train_size_factor, test_size_factor):
+       lam = train / train_size_factor
+       try:
          res0 = ashr.ash_workhorse(
            # these are ignored by ash
            pd.Series(np.zeros(train.shape)),
            1,
            # numpy2ri doesn't DTRT, so we need to use pandas
            lik=ashr.lik_pois(y=pd.Series(train), scale=train_size_factor, link='identity'),
-           mode=pd.Series([lam.min(), lam.max()]))
+           # Search 2 sds around plausible latent expression values
+           mode=pd.Series([lam.min(), lam.max() + 2 * np.sqrt(lam.max())]))
          res = ashr.ash_workhorse(
            pd.Series(np.zeros(test.shape)),
            1,
            lik=ashr.lik_pois(y=pd.Series(test), scale=test_size_factor, link='identity'),
            fixg=True,
            g=res0.rx2('fitted_g'))
-         result.append(np.array(res.rx2('loglik')))
+         ret = np.array(res.rx2('loglik'))
          # R objects don't get GC'ed by python correctly
          del res, res0
          gc.collect()
+       except:
+         ret = -np.inf
+         gc.collect()
+       return ret
+
+     def score_unimix(x_train, x_test, pool, **kwargs):
+       result = []
+       train_size_factor = pd.Series(x_train.sum(axis=1))
+       test_size_factor = pd.Series(x_test.sum(axis=1))
+       f = ft.partial(_score_unimix, train_size_factor=train_size_factor,
+                      test_size_factor=test_size_factor)
+       # np iterates over rows
+       result = pool.starmap(f, zip(x_train.T, x_test.T))
        return np.array(result).ravel()
 
-     def score_descend(x_train, x_test):
+     def _score_descend(train, test, train_size_factor, test_size_factor):
+       res = descend.deconvSingle(pd.Series(train), scaling_consts=train_size_factor, verbose=False)
+       # DESCEND returns NA on errors
+       if tuple(res.rclass) != ('DESCEND',):
+         return -np.inf
+       g = np.array(res.slots['distribution'])[:,:2]
+       # Don't marginalize over lambda = 0 for x > 0, because p(x > 0 | lambda =
+       # 0) = 0
+       case_nonzero = (st.poisson(mu=test_size_factor * g[1:,0])
+                       .logpmf(test.reshape(-1, 1))
+                       .dot(g[1:,1]))
+       case_zero = (st.poisson(mu=test_size_factor * g[:,0])
+                    .logpmf(test.reshape(-1, 1))
+                    .dot(g[:,1]))
+       llik = np.where(test > 0, case_nonzero, case_zero).sum()
+       # R objects don't get GC'ed by python correctly
+       del res
+       gc.collect()
+       return llik
+
+     def score_descend(x_train, x_test, pool, **kwargs):
        result = []
        # numpy2ri doesn't DTRT, so we need to use pandas
        train_size_factor = pd.Series(x_train.sum(axis=1))
        test_size_factor = x_test.sum(axis=1).reshape(-1, 1)
-       # np iterates over rows
-       for train, test in zip(x_train.T, x_test.T):
-         res = descend.deconvSingle(pd.Series(train), scaling_consts=train_size_factor, verbose=False)
-         # DESCEND returns NA on errors
-         if tuple(res.rclass) != ('DESCEND',):
-           result.append(-np.inf)
-           continue
-         g = np.array(res.slots['distribution'])[:,:2]
-         # Don't marginalize over lambda = 0 for x > 0, because p(x > 0 | lambda =
-         # 0) = 0
-         case_nonzero = (st.poisson(mu=test_size_factor * g[1:,0])
-                         .logpmf(test.reshape(-1, 1))
-                         .dot(g[1:,1]))
-         case_zero = (st.poisson(mu=test_size_factor * g[:,0])
-                      .logpmf(test.reshape(-1, 1))
-                      .dot(g[:,1]))
-         llik = np.where(test > 0, case_nonzero, case_zero).sum()
-         result.append(llik)
-         # R objects don't get GC'ed by python correctly
-         del res
-         gc.collect()
+       f = ft.partial(_score_descend, train_size_factor=train_size_factor,
+                      test_size_factor=test_size_factor)
+       result = pool.starmap(f, zip(x_train.T, x_test.T))
        return np.array(result).ravel()
 
-     def score_npmle(x_train, x_test, K=100):
-       result = []
-       train_size_factor = pd.Series(x_train.sum(axis=1))
-       test_size_factor = pd.Series(x_test.sum(axis=1))
-       # np iterates over rows
-       for train, test in zip(x_train.T, x_test.T):
-         lam = train / train_size_factor
-         grid = np.linspace(lam.min(), 2 * lam.max(), K + 1)
+     def _score_npmle(train, test, train_size_factor, test_size_factor, K):
+       lam = train / train_size_factor
+       grid = np.linspace(lam.min(), 2 * lam.max(), K + 1)
+       try:
          res0 = ashr.ash_workhorse(
            # these are ignored by ash
            pd.Series(np.zeros(train.shape)),
@@ -257,28 +267,40 @@
            lik=ashr.lik_pois(y=pd.Series(test), scale=test_size_factor, link='identity'),
            fixg=True,
            g=res0.rx2('fitted_g'))
-         result.append(np.array(res.rx2('loglik')))
+         ret = res.rx2('loglik')
          # R objects don't get GC'ed by python correctly
          del res, res0
          gc.collect()
+       except:
+         ret = -np.inf
+         gc.collect()
+       return ret
+
+     def score_npmle(x_train, x_test, pool, K=100, **kwargs):
+       result = []
+       train_size_factor = pd.Series(x_train.sum(axis=1))
+       test_size_factor = pd.Series(x_test.sum(axis=1))
+       f = ft.partial(_score_npmle, train_size_factor=train_size_factor,
+                      test_size_factor=test_size_factor, K=K)
+       result = pool.starmap(f, zip(x_train.T, x_test.T))
        return np.array(result).ravel()
 
-     def score_saturated(x_train, x_test):
+     def score_saturated(x_train, x_test, **kwargs):
        return st.poisson(mu=x_test).logpmf(x_test).sum(axis=0)
 
-     def evaluate_generalization(x, **kwargs):
+     def evaluate_generalization(x, pool, **kwargs):
        result = {}
        train, val = skms.train_test_split(x, **kwargs)
        methods = ['nb', 'zinb', 'unimix', 'descend', 'npmle', 'saturated']
        for m in methods:
          # Hack: get functions by name
-         result[m] = globals()[f'score_{m}'](train, val)
+         result[m] = globals()[f'score_{m}'](train, val, pool=pool)
        return pd.DataFrame.from_dict(result, orient='columns')
    #+END_SRC
 
    #+RESULTS: score-impl
    :RESULTS:
-   # Out[12]:
+   # Out[4]:
    :END:
 
 * Results
@@ -483,17 +505,17 @@
    expressed genes), potentially including genes with bimodal steady state gene
    expression.
 
+   #+NAME: read-ipsc
    #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
-     def ipsc(return_df=False):
-       annotations = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt', sep='\t')
-       keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', sep='\t', index_col=0, header=None)
-       keep_genes = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/genes-pass-filter.txt', sep='\t', index_col=0, header=None)
+     def ipsc(prefix='/project2/mstephens/aksarkar/projects/singlecell-qtl/data', return_df=False, n=500, seed=0):
+       annotations = pd.read_csv(f'{prefix}/scqtl-annotation.txt', sep='\t')
+       keep_samples = pd.read_csv(f'{prefix}/quality-single-cells.txt', sep='\t', index_col=0, header=None)
+       keep_genes = pd.read_csv(f'{prefix}/genes-pass-filter.txt', sep='\t', index_col=0, header=None).sample(n=n, random_state=seed)
        annotations = annotations.loc[keep_samples.values.ravel()]
        result = []
-       for chunk in pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-counts.txt.gz', sep='\t', index_col=0, chunksize=100):
+       for chunk in pd.read_csv(f'{prefix}/scqtl-counts.txt.gz', sep='\t', index_col=0, chunksize=100):
           x = (chunk
                .loc[:,keep_samples.values.ravel()]
-               .loc[:,(annotations['chip_id'] == 'NA18507').values]
                .filter(items=keep_genes[keep_genes.values.ravel()].index, axis='index'))
           if not x.empty:
             result.append(x)
@@ -505,23 +527,24 @@
          return result.values.T
    #+END_SRC
 
-   #+RESULTS:
+   #+RESULTS: read-ipsc
    :RESULTS:
-   # Out[23]:
+   # Out[8]:
    :END:
 
    Run the benchmark.
 
    #+NAME: run-homogeneous-benchmark
    #+BEGIN_SRC ipython :eval never
-     for data in ('ipsc',):
-       x = globals()[data]()
-       res = evaluate_generalization(x, test_size=0.1, random_state=0)
-       res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', compression='gzip', sep='\t')
+     with mp.Pool() as pool:
+       for data in ('ipsc',):
+         x = globals()[data]()
+         res = evaluate_generalization(x, pool=pool, test_size=0.1, random_state=0)
+         res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', compression='gzip', sep='\t')
    #+END_SRC
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=5:00:00 --job-name=benchmark --output=benchmark.out
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=32G -n1 -c4 --time=12:00:00 --job-name=benchmark --output=benchmark.out
      #!/bin/bash
      module load cuda/9.0
      source activate scmodes
@@ -531,7 +554,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 58996485
+   : Submitted batch job 59171435
 
    Read the results.
 
