@@ -531,7 +531,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 58987904
+   : Submitted batch job 58996485
 
    Read the results.
 
@@ -635,7 +635,6 @@
    [[file:figure/deconvolution.org/synthetic-benchmark-deviance.png]]
    :END:
    
-
 ** Heterogeneous cell populations
 
    #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
