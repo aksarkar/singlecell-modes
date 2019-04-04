@@ -1,5 +1,6 @@
 #+TITLE: Comparison of expression deconvolution approaches
 #+SETUPFILE: setup.org
+#+OPTIONS: toc:2
 
 * Introduction
 
@@ -24,10 +25,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes",opts="-c4") :dir /scratch/midway2/aksarkar/modes :exports none
+  #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59007048
+  : Submitted batch job 59221591
 
   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
     import functools as ft
@@ -305,6 +306,10 @@
 
 * Results
 ** Homogeneous cell populations
+*** Examples
+    :PROPERTIES:
+    :CUSTOM_ID: examples
+    :END:
 
    Use sorted cells from [[https://www.nature.com/articles/ncomms14049][Zheng
    et al. 2017]].
@@ -498,6 +503,26 @@
    [[file:figure/deconvolution.org/ash-example.png]]
    :END:
 
+*** Speed up ash mode estimation
+    :PROPERTIES:
+    :CUSTOM_ID: mode-estimation
+    :END:
+
+    To estimate the mode for gene \(j\), we optimize:
+
+    \[ \sum_i \sum_k \int \pi_{jk} f(x_{ij} \mid g_{jk}, \lambda_0)\ dg_{jk}(\cdot \mid \lambda_0) \]
+
+    using
+    [[https://www.rdocumentation.org/packages/stats/versions/3.5.3/topics/optimize][golden
+    section search]]. We have to solve an ~ash~ subproblem for each
+    query. Investigate how much loss we incur for downsampling to make the
+    subproblem easier.
+
+*** Run the benchmark
+    :PROPERTIES:
+    :CUSTOM_ID: homogeneous-results
+    :END:
+
    Use iPSCs derived from Yoruba LCLs
    ([[https://www.biorxiv.org/content/early/2018/09/23/424192][Sarkar et
    al. 2018]]). The data were sequenced on the Fluidigm C1 platform to much
@@ -536,11 +561,20 @@
 
    #+NAME: run-homogeneous-benchmark
    #+BEGIN_SRC ipython :eval never
-     with mp.Pool() as pool:
+     with mp.Pool(maxtasksperchild=10) as pool:
        for data in ('ipsc',):
          x = globals()[data]()
          res = evaluate_generalization(x, pool=pool, test_size=0.1, random_state=0)
          res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', compression='gzip', sep='\t')
+   #+END_SRC
+
+   #+BEGIN_SRC sh
+     python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
+     with mp.Pool(maxtasksperchild=10) as pool:
+       x = ipsc(n=100)
+       train, val = skms.train_test_split(x)
+       res = score_unimix(train, val, pool=pool)
+     EOF
    #+END_SRC
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/

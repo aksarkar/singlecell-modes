@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-03-28 Thu 19:18 -->
+<!-- 2019-04-04 Thu 12:10 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -300,8 +300,10 @@ generalization for different choices of \(\mathcal{G}\) in real data.
 <h2 id="orga732197">Setup</h2>
 <div class="outline-text-2" id="text-orga732197">
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> gc
+<pre class="src src-ipython"><span class="org-keyword">import</span> functools <span class="org-keyword">as</span> ft
+<span class="org-keyword">import</span> gc
 <span class="org-keyword">import</span> gzip
+<span class="org-keyword">import</span> multiprocessing <span class="org-keyword">as</span> mp
 <span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
 <span class="org-keyword">import</span> scipy.io
@@ -424,7 +426,7 @@ a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
           sp.gammaln(inv_disp) -
           sp.gammaln(x + 1))
 
-<span class="org-keyword">def</span> <span class="org-function-name">score_nb</span>(x_train, x_test):
+<span class="org-keyword">def</span> <span class="org-function-name">score_nb</span>(x_train, x_test, **kwargs):
   <span class="org-keyword">import</span> scqtl
   <span class="org-variable-name">onehot</span> = np.ones((x_train.shape[0], 1))
   <span class="org-variable-name">size_factor</span> = x_train.<span class="org-builtin">sum</span>(axis=1).reshape(-1, 1)
@@ -446,7 +448,7 @@ a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
   <span class="org-variable-name">case_non_zero</span> = -softplus(logodds) + nb_llik(x, mean, inv_disp)
   <span class="org-keyword">return</span> np.where(x &lt; 1, case_zero, case_non_zero)
 
-<span class="org-keyword">def</span> <span class="org-function-name">score_zinb</span>(x_train, x_test):
+<span class="org-keyword">def</span> <span class="org-function-name">score_zinb</span>(x_train, x_test, **kwargs):
   <span class="org-keyword">import</span> scqtl
   <span class="org-variable-name">onehot</span> = np.ones((x_train.shape[0], 1))
   <span class="org-variable-name">size_factor</span> = x_train.<span class="org-builtin">sum</span>(axis=1).reshape(-1, 1)
@@ -465,68 +467,76 @@ a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
     warm_start=init[:3])
   <span class="org-keyword">return</span> zinb_llik(x_test, x_test.<span class="org-builtin">sum</span>(axis=1, keepdims=<span class="org-constant">True</span>) * np.exp(log_mu), np.exp(-log_phi), logodds).<span class="org-builtin">sum</span>(axis=0)
 
-<span class="org-keyword">def</span> <span class="org-function-name">score_unimix</span>(x_train, x_test):
-  <span class="org-variable-name">result</span> = []
-  <span class="org-variable-name">train_size_factor</span> = pd.Series(x_train.<span class="org-builtin">sum</span>(axis=1))
-  <span class="org-variable-name">test_size_factor</span> = pd.Series(x_test.<span class="org-builtin">sum</span>(axis=1))
-  <span class="org-comment-delimiter"># </span><span class="org-comment">np iterates over rows</span>
-  <span class="org-keyword">for</span> train, test <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(x_train.T, x_test.T):
-    <span class="org-variable-name">lam</span> = train / train_size_factor
+<span class="org-keyword">def</span> <span class="org-function-name">_score_unimix</span>(train, test, train_size_factor, test_size_factor):
+  <span class="org-variable-name">lam</span> = train / train_size_factor
+  <span class="org-keyword">try</span>:
     <span class="org-variable-name">res0</span> = ashr.ash_workhorse(
       <span class="org-comment-delimiter"># </span><span class="org-comment">these are ignored by ash</span>
       pd.Series(np.zeros(train.shape)),
       1,
       <span class="org-comment-delimiter"># </span><span class="org-comment">numpy2ri doesn't DTRT, so we need to use pandas</span>
       lik=ashr.lik_pois(y=pd.Series(train), scale=train_size_factor, link=<span class="org-string">'identity'</span>),
-      mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]))
+      <span class="org-comment-delimiter"># </span><span class="org-comment">Search 2 sds around plausible latent expression values</span>
+      mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>() + 2 * np.sqrt(lam.<span class="org-builtin">max</span>())]))
     <span class="org-variable-name">res</span> = ashr.ash_workhorse(
       pd.Series(np.zeros(test.shape)),
       1,
       lik=ashr.lik_pois(y=pd.Series(test), scale=test_size_factor, link=<span class="org-string">'identity'</span>),
       fixg=<span class="org-constant">True</span>,
       g=res0.rx2(<span class="org-string">'fitted_g'</span>))
-    result.append(np.array(res.rx2(<span class="org-string">'loglik'</span>)))
+    <span class="org-variable-name">ret</span> = np.array(res.rx2(<span class="org-string">'loglik'</span>))
     <span class="org-comment-delimiter"># </span><span class="org-comment">R objects don't get GC'ed by python correctly</span>
     <span class="org-keyword">del</span> res, res0
     gc.collect()
+  <span class="org-keyword">except</span>:
+    <span class="org-variable-name">ret</span> = -np.inf
+    gc.collect()
+  <span class="org-keyword">return</span> ret
+
+<span class="org-keyword">def</span> <span class="org-function-name">score_unimix</span>(x_train, x_test, pool, **kwargs):
+  <span class="org-variable-name">result</span> = []
+  <span class="org-variable-name">train_size_factor</span> = pd.Series(x_train.<span class="org-builtin">sum</span>(axis=1))
+  <span class="org-variable-name">test_size_factor</span> = pd.Series(x_test.<span class="org-builtin">sum</span>(axis=1))
+  <span class="org-variable-name">f</span> = ft.partial(_score_unimix, train_size_factor=train_size_factor,
+                 test_size_factor=test_size_factor)
+  <span class="org-comment-delimiter"># </span><span class="org-comment">np iterates over rows</span>
+  <span class="org-variable-name">result</span> = pool.starmap(f, <span class="org-builtin">zip</span>(x_train.T, x_test.T))
   <span class="org-keyword">return</span> np.array(result).ravel()
 
-<span class="org-keyword">def</span> <span class="org-function-name">score_descend</span>(x_train, x_test):
+<span class="org-keyword">def</span> <span class="org-function-name">_score_descend</span>(train, test, train_size_factor, test_size_factor):
+  <span class="org-variable-name">res</span> = descend.deconvSingle(pd.Series(train), scaling_consts=train_size_factor, verbose=<span class="org-constant">False</span>)
+  <span class="org-comment-delimiter"># </span><span class="org-comment">DESCEND returns NA on errors</span>
+  <span class="org-keyword">if</span> <span class="org-builtin">tuple</span>(res.rclass) != (<span class="org-string">'DESCEND'</span>,):
+    <span class="org-keyword">return</span> -np.inf
+  <span class="org-variable-name">g</span> = np.array(res.slots[<span class="org-string">'distribution'</span>])[:,:2]
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Don't marginalize over lambda = 0 for x &gt; 0, because p(x &gt; 0 | lambda =</span>
+  <span class="org-comment-delimiter"># </span><span class="org-comment">0) = 0</span>
+  <span class="org-variable-name">case_nonzero</span> = (st.poisson(mu=test_size_factor * g[1:,0])
+                  .logpmf(test.reshape(-1, 1))
+                  .dot(g[1:,1]))
+  <span class="org-variable-name">case_zero</span> = (st.poisson(mu=test_size_factor * g[:,0])
+               .logpmf(test.reshape(-1, 1))
+               .dot(g[:,1]))
+  <span class="org-variable-name">llik</span> = np.where(test &gt; 0, case_nonzero, case_zero).<span class="org-builtin">sum</span>()
+  <span class="org-comment-delimiter"># </span><span class="org-comment">R objects don't get GC'ed by python correctly</span>
+  <span class="org-keyword">del</span> res
+  gc.collect()
+  <span class="org-keyword">return</span> llik
+
+<span class="org-keyword">def</span> <span class="org-function-name">score_descend</span>(x_train, x_test, pool, **kwargs):
   <span class="org-variable-name">result</span> = []
   <span class="org-comment-delimiter"># </span><span class="org-comment">numpy2ri doesn't DTRT, so we need to use pandas</span>
   <span class="org-variable-name">train_size_factor</span> = pd.Series(x_train.<span class="org-builtin">sum</span>(axis=1))
   <span class="org-variable-name">test_size_factor</span> = x_test.<span class="org-builtin">sum</span>(axis=1).reshape(-1, 1)
-  <span class="org-comment-delimiter"># </span><span class="org-comment">np iterates over rows</span>
-  <span class="org-keyword">for</span> train, test <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(x_train.T, x_test.T):
-    <span class="org-variable-name">res</span> = descend.deconvSingle(pd.Series(train), scaling_consts=train_size_factor, verbose=<span class="org-constant">False</span>)
-    <span class="org-comment-delimiter"># </span><span class="org-comment">DESCEND returns NA on errors</span>
-    <span class="org-keyword">if</span> <span class="org-builtin">tuple</span>(res.rclass) != (<span class="org-string">'DESCEND'</span>,):
-      result.append(-np.inf)
-      <span class="org-keyword">continue</span>
-    <span class="org-variable-name">g</span> = np.array(res.slots[<span class="org-string">'distribution'</span>])[:,:2]
-    <span class="org-comment-delimiter"># </span><span class="org-comment">Don't marginalize over lambda = 0 for x &gt; 0, because p(x &gt; 0 | lambda =</span>
-    <span class="org-comment-delimiter"># </span><span class="org-comment">0) = 0</span>
-    <span class="org-variable-name">case_nonzero</span> = (st.poisson(mu=test_size_factor * g[1:,0])
-                    .logpmf(test.reshape(-1, 1))
-                    .dot(g[1:,1]))
-    <span class="org-variable-name">case_zero</span> = (st.poisson(mu=test_size_factor * g[:,0])
-                 .logpmf(test.reshape(-1, 1))
-                 .dot(g[:,1]))
-    <span class="org-variable-name">llik</span> = np.where(test &gt; 0, case_nonzero, case_zero).<span class="org-builtin">sum</span>()
-    result.append(llik)
-    <span class="org-comment-delimiter"># </span><span class="org-comment">R objects don't get GC'ed by python correctly</span>
-    <span class="org-keyword">del</span> res
-    gc.collect()
+  <span class="org-variable-name">f</span> = ft.partial(_score_descend, train_size_factor=train_size_factor,
+                 test_size_factor=test_size_factor)
+  <span class="org-variable-name">result</span> = pool.starmap(f, <span class="org-builtin">zip</span>(x_train.T, x_test.T))
   <span class="org-keyword">return</span> np.array(result).ravel()
 
-<span class="org-keyword">def</span> <span class="org-function-name">score_npmle</span>(x_train, x_test, K=100):
-  <span class="org-variable-name">result</span> = []
-  <span class="org-variable-name">train_size_factor</span> = pd.Series(x_train.<span class="org-builtin">sum</span>(axis=1))
-  <span class="org-variable-name">test_size_factor</span> = pd.Series(x_test.<span class="org-builtin">sum</span>(axis=1))
-  <span class="org-comment-delimiter"># </span><span class="org-comment">np iterates over rows</span>
-  <span class="org-keyword">for</span> train, test <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(x_train.T, x_test.T):
-    <span class="org-variable-name">lam</span> = train / train_size_factor
-    <span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), 2 * lam.<span class="org-builtin">max</span>(), K + 1)
+<span class="org-keyword">def</span> <span class="org-function-name">_score_npmle</span>(train, test, train_size_factor, test_size_factor, K):
+  <span class="org-variable-name">lam</span> = train / train_size_factor
+  <span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), 2 * lam.<span class="org-builtin">max</span>(), K + 1)
+  <span class="org-keyword">try</span>:
     <span class="org-variable-name">res0</span> = ashr.ash_workhorse(
       <span class="org-comment-delimiter"># </span><span class="org-comment">these are ignored by ash</span>
       pd.Series(np.zeros(train.shape)),
@@ -540,22 +550,34 @@ a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
       lik=ashr.lik_pois(y=pd.Series(test), scale=test_size_factor, link=<span class="org-string">'identity'</span>),
       fixg=<span class="org-constant">True</span>,
       g=res0.rx2(<span class="org-string">'fitted_g'</span>))
-    result.append(np.array(res.rx2(<span class="org-string">'loglik'</span>)))
+    <span class="org-variable-name">ret</span> = res.rx2(<span class="org-string">'loglik'</span>)
     <span class="org-comment-delimiter"># </span><span class="org-comment">R objects don't get GC'ed by python correctly</span>
     <span class="org-keyword">del</span> res, res0
     gc.collect()
+  <span class="org-keyword">except</span>:
+    <span class="org-variable-name">ret</span> = -np.inf
+    gc.collect()
+  <span class="org-keyword">return</span> ret
+
+<span class="org-keyword">def</span> <span class="org-function-name">score_npmle</span>(x_train, x_test, pool, K=100, **kwargs):
+  <span class="org-variable-name">result</span> = []
+  <span class="org-variable-name">train_size_factor</span> = pd.Series(x_train.<span class="org-builtin">sum</span>(axis=1))
+  <span class="org-variable-name">test_size_factor</span> = pd.Series(x_test.<span class="org-builtin">sum</span>(axis=1))
+  <span class="org-variable-name">f</span> = ft.partial(_score_npmle, train_size_factor=train_size_factor,
+                 test_size_factor=test_size_factor, K=K)
+  <span class="org-variable-name">result</span> = pool.starmap(f, <span class="org-builtin">zip</span>(x_train.T, x_test.T))
   <span class="org-keyword">return</span> np.array(result).ravel()
 
-<span class="org-keyword">def</span> <span class="org-function-name">score_saturated</span>(x_train, x_test):
+<span class="org-keyword">def</span> <span class="org-function-name">score_saturated</span>(x_train, x_test, **kwargs):
   <span class="org-keyword">return</span> st.poisson(mu=x_test).logpmf(x_test).<span class="org-builtin">sum</span>(axis=0)
 
-<span class="org-keyword">def</span> <span class="org-function-name">evaluate_generalization</span>(x, **kwargs):
+<span class="org-keyword">def</span> <span class="org-function-name">evaluate_generalization</span>(x, pool, **kwargs):
   <span class="org-variable-name">result</span> = {}
   <span class="org-variable-name">train</span>, <span class="org-variable-name">val</span> = skms.train_test_split(x, **kwargs)
   <span class="org-variable-name">methods</span> = [<span class="org-string">'nb'</span>, <span class="org-string">'zinb'</span>, <span class="org-string">'unimix'</span>, <span class="org-string">'descend'</span>, <span class="org-string">'npmle'</span>, <span class="org-string">'saturated'</span>]
   <span class="org-keyword">for</span> m <span class="org-keyword">in</span> methods:
     <span class="org-comment-delimiter"># </span><span class="org-comment">Hack: get functions by name</span>
-    <span class="org-variable-name">result</span>[m] = <span class="org-builtin">globals</span>()[f<span class="org-string">'score_{m}'</span>](train, val)
+    <span class="org-variable-name">result</span>[m] = <span class="org-builtin">globals</span>()[f<span class="org-string">'score_{m}'</span>](train, val, pool=pool)
   <span class="org-keyword">return</span> pd.DataFrame.from_dict(result, orient=<span class="org-string">'columns'</span>)
 </pre>
 </div>
@@ -570,6 +592,10 @@ a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
 <div id="outline-container-orgd37e090" class="outline-3">
 <h3 id="orgd37e090">Homogeneous cell populations</h3>
 <div class="outline-text-3" id="text-orgd37e090">
+</div>
+<div id="outline-container-orgfd77e7b" class="outline-4">
+<h4 id="examples"><a id="orgfd77e7b"></a>Examples</h4>
+<div class="outline-text-4" id="text-examples">
 <p>
 Use sorted cells from <a href="https://www.nature.com/articles/ncomms14049">Zheng
 et al. 2017</a>.
@@ -746,7 +772,33 @@ fig.tight_layout()
 <p><img src="figure/deconvolution.org/ash-example.png" alt="ash-example.png">
 </p>
 </div>
+</div>
+</div>
 
+<div id="outline-container-orgee66cd7" class="outline-4">
+<h4 id="mode-estimation"><a id="orgee66cd7"></a>Speed up ash mode estimation</h4>
+<div class="outline-text-4" id="text-mode-estimation">
+<p>
+To estimate the mode for gene \(j\), we optimize:
+</p>
+
+<p>
+\[ \sum_i \sum_k \int \pi_{jk} f(x_{ij} \mid g_{jk}, \lambda_0)\ dg_{jk}(\cdot \mid \lambda_0) \]
+</p>
+
+<p>
+using
+<a href="https://www.rdocumentation.org/packages/stats/versions/3.5.3/topics/optimize">golden
+section search</a>. We have to solve an <code>ash</code> subproblem for each
+query. Investigate how much loss we incur for downsampling to make the
+subproblem easier.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org081818b" class="outline-4">
+<h4 id="homogeneous-results"><a id="org081818b"></a>Run the benchmark</h4>
+<div class="outline-text-4" id="text-homogeneous-results">
 <p>
 Use iPSCs derived from Yoruba LCLs
 (<a href="https://www.biorxiv.org/content/early/2018/09/23/424192">Sarkar et
@@ -757,16 +809,15 @@ expression.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">ipsc</span>(return_df=<span class="org-constant">False</span>):
-  <span class="org-variable-name">annotations</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt'</span>, sep=<span class="org-string">'\t'</span>)
-  <span class="org-variable-name">keep_samples</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, header=<span class="org-constant">None</span>)
-  <span class="org-variable-name">keep_genes</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/genes-pass-filter.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, header=<span class="org-constant">None</span>)
+<pre class="src src-ipython" id="org90b8764"><span class="org-keyword">def</span> <span class="org-function-name">ipsc</span>(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data'</span>, return_df=<span class="org-constant">False</span>, n=500, seed=0):
+  <span class="org-variable-name">annotations</span> = pd.read_csv(f<span class="org-string">'{prefix}/scqtl-annotation.txt'</span>, sep=<span class="org-string">'\t'</span>)
+  <span class="org-variable-name">keep_samples</span> = pd.read_csv(f<span class="org-string">'{prefix}/quality-single-cells.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, header=<span class="org-constant">None</span>)
+  <span class="org-variable-name">keep_genes</span> = pd.read_csv(f<span class="org-string">'{prefix}/genes-pass-filter.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, header=<span class="org-constant">None</span>).sample(n=n, random_state=seed)
   <span class="org-variable-name">annotations</span> = annotations.loc[keep_samples.values.ravel()]
   <span class="org-variable-name">result</span> = []
-  <span class="org-keyword">for</span> chunk <span class="org-keyword">in</span> pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-counts.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, chunksize=100):
+  <span class="org-keyword">for</span> chunk <span class="org-keyword">in</span> pd.read_csv(f<span class="org-string">'{prefix}/scqtl-counts.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, chunksize=100):
      <span class="org-variable-name">x</span> = (chunk
           .loc[:,keep_samples.values.ravel()]
-          .loc[:,(annotations[<span class="org-string">'chip_id'</span>] == <span class="org-string">'NA18507'</span>).values]
           .<span class="org-builtin">filter</span>(items=keep_genes[keep_genes.values.ravel()].index, axis=<span class="org-string">'index'</span>))
      <span class="org-keyword">if</span> <span class="org-keyword">not</span> x.empty:
        result.append(x)
@@ -784,15 +835,26 @@ Run the benchmark.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org3069ce8"><span class="org-keyword">for</span> data <span class="org-keyword">in</span> (<span class="org-string">'ipsc'</span>,):
-  <span class="org-variable-name">x</span> = <span class="org-builtin">globals</span>()[data]()
-  <span class="org-variable-name">res</span> = evaluate_generalization(x, test_size=0.1, random_state=0)
-  res.to_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
+<pre class="src src-ipython" id="org3069ce8"><span class="org-keyword">with</span> mp.Pool(maxtasksperchild=10) <span class="org-keyword">as</span> pool:
+  <span class="org-keyword">for</span> data <span class="org-keyword">in</span> (<span class="org-string">'ipsc'</span>,):
+    <span class="org-variable-name">x</span> = <span class="org-builtin">globals</span>()[data]()
+    <span class="org-variable-name">res</span> = evaluate_generalization(x, pool=pool, test_size=0.1, random_state=0)
+    res.to_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=5:00:00 --job-name=benchmark --output=benchmark.out
+<pre class="src src-sh">python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py &lt;&lt;EOF
+<span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=10) as pool:</span>
+<span class="org-sh-heredoc">  x = ipsc(n=100)</span>
+<span class="org-sh-heredoc">  train, val = skms.train_test_split(x)</span>
+<span class="org-sh-heredoc">  res = score_unimix(train, val, pool=pool)</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=32G -n1 -c4 --time=12:00:00 --job-name=benchmark --output=benchmark.out
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 module load cuda/9.0
 <span class="org-builtin">source</span> activate scmodes
@@ -835,6 +897,7 @@ fig.tight_layout()
 <div class="figure">
 <p><img src="figure/deconvolution.org/homogeneous-benchmark-deviance.png" alt="homogeneous-benchmark-deviance.png">
 </p>
+</div>
 </div>
 </div>
 </div>
@@ -925,7 +988,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-03-28 Thu 19:18</p>
+<p class="date">Created: 2019-04-04 Thu 12:10</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
