@@ -28,7 +28,7 @@
   #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59230071
+  : Submitted batch job 59245646
 
   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
     import functools as ft
@@ -194,8 +194,7 @@
            1,
            # numpy2ri doesn't DTRT, so we need to use pandas
            lik=ashr.lik_pois(y=pd.Series(train), scale=train_size_factor, link='identity'),
-           # Search 2 sds around plausible latent expression values
-           mode=pd.Series([lam.min(), lam.max() + 2 * np.sqrt(lam.max())]))
+           mode=pd.Series([lam.min(), lam.max()]))
          res = ashr.ash_workhorse(
            pd.Series(np.zeros(test.shape)),
            1,
@@ -203,12 +202,8 @@
            fixg=True,
            g=res0.rx2('fitted_g'))
          ret = np.array(res.rx2('loglik'))
-         # R objects don't get GC'ed by python correctly
-         del res, res0
-         gc.collect()
        except:
          ret = -np.inf
-         gc.collect()
        return ret
 
      def score_unimix(x_train, x_test, pool, **kwargs):
@@ -236,9 +231,6 @@
                     .logpmf(test.reshape(-1, 1))
                     .dot(g[:,1]))
        llik = np.where(test > 0, case_nonzero, case_zero).sum()
-       # R objects don't get GC'ed by python correctly
-       del res
-       gc.collect()
        return llik
 
      def score_descend(x_train, x_test, pool, **kwargs):
@@ -269,12 +261,8 @@
            fixg=True,
            g=res0.rx2('fitted_g'))
          ret = res.rx2('loglik')
-         # R objects don't get GC'ed by python correctly
-         del res, res0
-         gc.collect()
        except:
          ret = -np.inf
-         gc.collect()
        return ret
 
      def score_npmle(x_train, x_test, pool, K=100, **kwargs):
@@ -289,10 +277,11 @@
      def score_saturated(x_train, x_test, **kwargs):
        return st.poisson(mu=x_test).logpmf(x_test).sum(axis=0)
 
-     def evaluate_generalization(x, pool, **kwargs):
+     def evaluate_generalization(x, pool, methods=None, **kwargs):
        result = {}
        train, val = skms.train_test_split(x, **kwargs)
-       methods = ['nb', 'zinb', 'unimix', 'descend', 'npmle', 'saturated']
+       if methods is None:
+         methods = ['nb', 'zinb', 'unimix', 'descend', 'npmle', 'saturated']
        for m in methods:
          # Hack: get functions by name
          result[m] = globals()[f'score_{m}'](train, val, pool=pool)
@@ -673,14 +662,17 @@
    al. 2018]]). The data were sequenced on the Fluidigm C1 platform to much
    greater depth, allowing many more genes to be detected (especially lower
    expressed genes), potentially including genes with bimodal steady state gene
-   expression.
+   expression. Because many more genes are detected, we need to randomly
+   subsample genes for CPU-based methods to complete in a reasonable budget.
 
    #+NAME: read-ipsc
    #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
-     def ipsc(prefix='/project2/mstephens/aksarkar/projects/singlecell-qtl/data', return_df=False, n=500, seed=0):
+     def ipsc(prefix='/project2/mstephens/aksarkar/projects/singlecell-qtl/data', return_df=False, n=None, seed=0):
        annotations = pd.read_csv(f'{prefix}/scqtl-annotation.txt', sep='\t')
        keep_samples = pd.read_csv(f'{prefix}/quality-single-cells.txt', sep='\t', index_col=0, header=None)
-       keep_genes = pd.read_csv(f'{prefix}/genes-pass-filter.txt', sep='\t', index_col=0, header=None).sample(n=n, random_state=seed)
+       keep_genes = pd.read_csv(f'{prefix}/genes-pass-filter.txt', sep='\t', index_col=0, header=None)
+       if n is not None:
+         keep_genes = keep_genes.sample(n=n, random_state=seed)
        annotations = annotations.loc[keep_samples.values.ravel()]
        result = []
        for chunk in pd.read_csv(f'{prefix}/scqtl-counts.txt.gz', sep='\t', index_col=0, chunksize=100):
@@ -704,36 +696,51 @@
 
    Run the benchmark.
 
-   #+NAME: run-homogeneous-benchmark
+   #+NAME: run-homogeneous-benchmark-cpu
    #+BEGIN_SRC ipython :eval never
+     import os
+     cpu_methods = ['unimix', 'descend', 'npmle', 'saturated']
+     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
      with mp.Pool(maxtasksperchild=10) as pool:
-       for data in ('ipsc',):
-         x = globals()[data]()
-         res = evaluate_generalization(x, pool=pool, test_size=0.1, random_state=0)
-         res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', compression='gzip', sep='\t')
-   #+END_SRC
-
-   #+BEGIN_SRC sh
-     python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
-     with mp.Pool(maxtasksperchild=10) as pool:
-       x = ipsc(n=100)
-       train, val = skms.train_test_split(x)
-       res = score_unimix(train, val, pool=pool)
-     EOF
+       x = ipsc(n=100, return_df=True)
+       res = evaluate_generalization(x.values, pool=pool, test_size=0.1, random_state=0, methods=cpu_methods[task:task + 1])
+       res.index = x.columns
+       res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-{cpu_methods[task]}.txt.gz', compression='gzip', sep='\t')
    #+END_SRC
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=32G -n1 -c4 --time=12:00:00 --job-name=benchmark --output=benchmark.out
+     sbatch --partition=broadwl --mem=32G -a 0-3 -n1 -c28 --exclusive --time=6:00:00 --job-name=benchmark --output=benchmark-cpu.out
      #!/bin/bash
      module load cuda/9.0
      source activate scmodes
      python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
-     <<run-homogeneous-benchmark>>
+     <<run-homogeneous-benchmark-cpu>>
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 59171435
+   : Submitted batch job 59234912
+
+   #+NAME: run-homogeneous-benchmark-gpu
+   #+BEGIN_SRC ipython :eval never
+     x = ipsc(return_df=True)
+     res = evaluate_generalization(x.values, pool=None, test_size=0.1, random_state=0, methods=['nb', 'zinb'])
+     res.index = x.columns
+     res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz', compression='gzip', sep='\t')
+   #+END_SRC
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=12:00:00 --job-name=benchmark --output=benchmark-gpu.out
+     #!/bin/bash
+     module load cuda/9.0
+     source activate scmodes
+     python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
+     <<run-homogeneous-benchmark-gpu>>
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 59246091
 
    Read the results.
 
@@ -745,14 +752,29 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[19]:
+   # Out[3]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     benchmark['ipsc'] = (
+       pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz', index_col=0, sep='\t')
+       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-unimix.txt.gz', index_col=0, sep='\t'), on='gene')
+       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-descend.txt.gz', sep='\t'), on='gene')
+       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-npmle.txt.gz', index_col=0, sep='\t'), on='gene')
+       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-saturated.txt.gz', index_col=0, sep='\t'), on='gene')
+       .set_index('gene'))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[12]:
    :END:
 
    Plot the generalization performance of each method.
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/homogeneous-benchmark-deviance.png
-     fig, ax = plt.subplots(1, 2, sharey=True)
-     fig.set_size_inches(5, 3)
+     fig, ax = plt.subplots(1, 3, sharey=True)
+     fig.set_size_inches(7, 3)
      for i, k in enumerate(sorted(benchmark.keys())):
        ax[i].boxplot((benchmark[f'{k}']['saturated'].values.reshape(-1, 1) - benchmark[f'{k}'].values)[:,:-1],
                      widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
@@ -765,9 +787,22 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[50]:
+   # Out[13]:
    [[file:figure/deconvolution.org/homogeneous-benchmark-deviance.png]]
    :END:
+
+   The results suggest that NB (assuming Gamma-distributed latent gene
+   expression) is adequate to accurately estimate \(g\) from the data.
+
+   Of note, ~ash~ is >10\(\times\) slower than ~descend~, and ~descend~ is
+   faster on small data sets than GPU-based methods. 
+
+   Try to find a case in the full iPSC data where ZINB is required, by relying on the GPU
+   implementation.
+
+   #+BEGIN_SRC ipython :eval never
+   
+   #+END_SRC
 
 ** Synthetic cell mixtures
 

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-04 Thu 20:37 -->
+<!-- 2019-04-05 Fri 10:36 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -476,8 +476,7 @@ a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
       1,
       <span class="org-comment-delimiter"># </span><span class="org-comment">numpy2ri doesn't DTRT, so we need to use pandas</span>
       lik=ashr.lik_pois(y=pd.Series(train), scale=train_size_factor, link=<span class="org-string">'identity'</span>),
-      <span class="org-comment-delimiter"># </span><span class="org-comment">Search 2 sds around plausible latent expression values</span>
-      mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>() + 2 * np.sqrt(lam.<span class="org-builtin">max</span>())]))
+      mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]))
     <span class="org-variable-name">res</span> = ashr.ash_workhorse(
       pd.Series(np.zeros(test.shape)),
       1,
@@ -485,12 +484,8 @@ a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
       fixg=<span class="org-constant">True</span>,
       g=res0.rx2(<span class="org-string">'fitted_g'</span>))
     <span class="org-variable-name">ret</span> = np.array(res.rx2(<span class="org-string">'loglik'</span>))
-    <span class="org-comment-delimiter"># </span><span class="org-comment">R objects don't get GC'ed by python correctly</span>
-    <span class="org-keyword">del</span> res, res0
-    gc.collect()
   <span class="org-keyword">except</span>:
     <span class="org-variable-name">ret</span> = -np.inf
-    gc.collect()
   <span class="org-keyword">return</span> ret
 
 <span class="org-keyword">def</span> <span class="org-function-name">score_unimix</span>(x_train, x_test, pool, **kwargs):
@@ -518,9 +513,6 @@ a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
                .logpmf(test.reshape(-1, 1))
                .dot(g[:,1]))
   <span class="org-variable-name">llik</span> = np.where(test &gt; 0, case_nonzero, case_zero).<span class="org-builtin">sum</span>()
-  <span class="org-comment-delimiter"># </span><span class="org-comment">R objects don't get GC'ed by python correctly</span>
-  <span class="org-keyword">del</span> res
-  gc.collect()
   <span class="org-keyword">return</span> llik
 
 <span class="org-keyword">def</span> <span class="org-function-name">score_descend</span>(x_train, x_test, pool, **kwargs):
@@ -551,12 +543,8 @@ a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
       fixg=<span class="org-constant">True</span>,
       g=res0.rx2(<span class="org-string">'fitted_g'</span>))
     <span class="org-variable-name">ret</span> = res.rx2(<span class="org-string">'loglik'</span>)
-    <span class="org-comment-delimiter"># </span><span class="org-comment">R objects don't get GC'ed by python correctly</span>
-    <span class="org-keyword">del</span> res, res0
-    gc.collect()
   <span class="org-keyword">except</span>:
     <span class="org-variable-name">ret</span> = -np.inf
-    gc.collect()
   <span class="org-keyword">return</span> ret
 
 <span class="org-keyword">def</span> <span class="org-function-name">score_npmle</span>(x_train, x_test, pool, K=100, **kwargs):
@@ -571,10 +559,11 @@ a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
 <span class="org-keyword">def</span> <span class="org-function-name">score_saturated</span>(x_train, x_test, **kwargs):
   <span class="org-keyword">return</span> st.poisson(mu=x_test).logpmf(x_test).<span class="org-builtin">sum</span>(axis=0)
 
-<span class="org-keyword">def</span> <span class="org-function-name">evaluate_generalization</span>(x, pool, **kwargs):
+<span class="org-keyword">def</span> <span class="org-function-name">evaluate_generalization</span>(x, pool, methods=<span class="org-constant">None</span>, **kwargs):
   <span class="org-variable-name">result</span> = {}
   <span class="org-variable-name">train</span>, <span class="org-variable-name">val</span> = skms.train_test_split(x, **kwargs)
-  <span class="org-variable-name">methods</span> = [<span class="org-string">'nb'</span>, <span class="org-string">'zinb'</span>, <span class="org-string">'unimix'</span>, <span class="org-string">'descend'</span>, <span class="org-string">'npmle'</span>, <span class="org-string">'saturated'</span>]
+  <span class="org-keyword">if</span> methods <span class="org-keyword">is</span> <span class="org-constant">None</span>:
+    <span class="org-variable-name">methods</span> = [<span class="org-string">'nb'</span>, <span class="org-string">'zinb'</span>, <span class="org-string">'unimix'</span>, <span class="org-string">'descend'</span>, <span class="org-string">'npmle'</span>, <span class="org-string">'saturated'</span>]
   <span class="org-keyword">for</span> m <span class="org-keyword">in</span> methods:
     <span class="org-comment-delimiter"># </span><span class="org-comment">Hack: get functions by name</span>
     <span class="org-variable-name">result</span>[m] = <span class="org-builtin">globals</span>()[f<span class="org-string">'score_{m}'</span>](train, val, pool=pool)
@@ -955,14 +944,17 @@ Use iPSCs derived from Yoruba LCLs
 al. 2018</a>). The data were sequenced on the Fluidigm C1 platform to much
 greater depth, allowing many more genes to be detected (especially lower
 expressed genes), potentially including genes with bimodal steady state gene
-expression.
+expression. Because many more genes are detected, we need to randomly
+subsample genes for CPU-based methods to complete in a reasonable budget.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org90b8764"><span class="org-keyword">def</span> <span class="org-function-name">ipsc</span>(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data'</span>, return_df=<span class="org-constant">False</span>, n=500, seed=0):
+<pre class="src src-ipython" id="org90b8764"><span class="org-keyword">def</span> <span class="org-function-name">ipsc</span>(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data'</span>, return_df=<span class="org-constant">False</span>, n=<span class="org-constant">None</span>, seed=0):
   <span class="org-variable-name">annotations</span> = pd.read_csv(f<span class="org-string">'{prefix}/scqtl-annotation.txt'</span>, sep=<span class="org-string">'\t'</span>)
   <span class="org-variable-name">keep_samples</span> = pd.read_csv(f<span class="org-string">'{prefix}/quality-single-cells.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, header=<span class="org-constant">None</span>)
-  <span class="org-variable-name">keep_genes</span> = pd.read_csv(f<span class="org-string">'{prefix}/genes-pass-filter.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, header=<span class="org-constant">None</span>).sample(n=n, random_state=seed)
+  <span class="org-variable-name">keep_genes</span> = pd.read_csv(f<span class="org-string">'{prefix}/genes-pass-filter.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, header=<span class="org-constant">None</span>)
+  <span class="org-keyword">if</span> n <span class="org-keyword">is</span> <span class="org-keyword">not</span> <span class="org-constant">None</span>:
+    <span class="org-variable-name">keep_genes</span> = keep_genes.sample(n=n, random_state=seed)
   <span class="org-variable-name">annotations</span> = annotations.loc[keep_samples.values.ravel()]
   <span class="org-variable-name">result</span> = []
   <span class="org-keyword">for</span> chunk <span class="org-keyword">in</span> pd.read_csv(f<span class="org-string">'{prefix}/scqtl-counts.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, chunksize=100):
@@ -985,31 +977,43 @@ Run the benchmark.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org3069ce8"><span class="org-keyword">with</span> mp.Pool(maxtasksperchild=10) <span class="org-keyword">as</span> pool:
-  <span class="org-keyword">for</span> data <span class="org-keyword">in</span> (<span class="org-string">'ipsc'</span>,):
-    <span class="org-variable-name">x</span> = <span class="org-builtin">globals</span>()[data]()
-    <span class="org-variable-name">res</span> = evaluate_generalization(x, pool=pool, test_size=0.1, random_state=0)
-    res.to_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
+<pre class="src src-ipython" id="org4f2505a"><span class="org-keyword">import</span> os
+<span class="org-variable-name">cpu_methods</span> = [<span class="org-string">'unimix'</span>, <span class="org-string">'descend'</span>, <span class="org-string">'npmle'</span>, <span class="org-string">'saturated'</span>]
+<span class="org-variable-name">task</span> = <span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])
+<span class="org-keyword">with</span> mp.Pool(maxtasksperchild=10) <span class="org-keyword">as</span> pool:
+  <span class="org-variable-name">x</span> = ipsc(n=100, return_df=<span class="org-constant">True</span>)
+  <span class="org-variable-name">res</span> = evaluate_generalization(x.values, pool=pool, test_size=0.1, random_state=0, methods=cpu_methods[task:task + 1])
+  <span class="org-variable-name">res.index</span> = x.columns
+  res.to_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-{cpu_methods[task]}.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py &lt;&lt;EOF
-<span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=10) as pool:</span>
-<span class="org-sh-heredoc">  x = ipsc(n=100)</span>
-<span class="org-sh-heredoc">  train, val = skms.train_test_split(x)</span>
-<span class="org-sh-heredoc">  res = score_unimix(train, val, pool=pool)</span>
-<span class="org-sh-heredoc">EOF</span>
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=32G -n1 -c4 --time=12:00:00 --job-name=benchmark --output=benchmark.out
+<pre class="src src-sh">sbatch --partition=broadwl --mem=32G -a 0-3 -n1 -c28 --exclusive --time=6:00:00 --job-name=benchmark --output=benchmark-cpu.out
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 module load cuda/9.0
 <span class="org-builtin">source</span> activate scmodes
 python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py &lt;&lt;EOF
-<span class="org-sh-heredoc">&lt;&lt;run-homogeneous-benchmark&gt;&gt;</span>
+<span class="org-sh-heredoc">&lt;&lt;run-homogeneous-benchmark-cpu&gt;&gt;</span>
+EOF
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="orgbcaa397"><span class="org-variable-name">x</span> = ipsc(return_df=<span class="org-constant">True</span>)
+<span class="org-variable-name">res</span> = evaluate_generalization(x.values, pool=<span class="org-constant">None</span>, test_size=0.1, random_state=0, methods=[<span class="org-string">'nb'</span>, <span class="org-string">'zinb'</span>])
+<span class="org-variable-name">res.index</span> = x.columns
+res.to_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=12:00:00 --job-name=benchmark --output=benchmark-gpu.out
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+module load cuda/9.0
+<span class="org-builtin">source</span> activate scmodes
+python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;run-homogeneous-benchmark-gpu&gt;&gt;</span>
 EOF
 </pre>
 </div>
@@ -1025,13 +1029,24 @@ Read the results.
 </pre>
 </div>
 
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">benchmark</span>[<span class="org-string">'ipsc'</span>] = (
+  pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
+  .merge(pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-unimix.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>), on=<span class="org-string">'gene'</span>)
+  .merge(pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-descend.txt.gz'</span>, sep=<span class="org-string">'\t'</span>), on=<span class="org-string">'gene'</span>)
+  .merge(pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-npmle.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>), on=<span class="org-string">'gene'</span>)
+  .merge(pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-saturated.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>), on=<span class="org-string">'gene'</span>)
+  .set_index(<span class="org-string">'gene'</span>))
+</pre>
+</div>
+
 <p>
 Plot the generalization performance of each method.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(5, 3)
+<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(7, 3)
 <span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">sorted</span>(benchmark.keys())):
   ax[i].boxplot((benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'saturated'</span>].values.reshape(-1, 1) - benchmark[f<span class="org-string">'{k}'</span>].values)[:,:-1],
                 widths=0.25, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
@@ -1047,6 +1062,26 @@ fig.tight_layout()
 <div class="figure">
 <p><img src="figure/deconvolution.org/homogeneous-benchmark-deviance.png" alt="homogeneous-benchmark-deviance.png">
 </p>
+</div>
+
+<p>
+The results suggest that NB (assuming Gamma-distributed latent gene
+expression) is adequate to accurately estimate \(g\) from the data.
+</p>
+
+<p>
+Of note, <code>ash</code> is &gt;10\(\times\) slower than <code>descend</code>, and <code>descend</code> is
+faster on small data sets than GPU-based methods. 
+</p>
+
+<p>
+Try to find a case in the full iPSC data where ZINB is required, by relying on the GPU
+implementation.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">
+</pre>
 </div>
 </div>
 </div>
@@ -1138,7 +1173,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-04 Thu 20:37</p>
+<p class="date">Created: 2019-04-05 Fri 10:36</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
