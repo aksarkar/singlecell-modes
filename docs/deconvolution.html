@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-05 Fri 10:36 -->
+<!-- 2019-04-05 Fri 19:08 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -258,27 +258,27 @@ for the JavaScript code in this tag.
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
-<li><a href="#org7ba1eb0">Introduction</a></li>
-<li><a href="#orga732197">Setup</a></li>
-<li><a href="#orgb2252bb">Methods</a>
+<li><a href="#orgdd973c4">Introduction</a></li>
+<li><a href="#org8316ba8">Setup</a></li>
+<li><a href="#orga35b51b">Methods</a>
 <ul>
-<li><a href="#org4b51f6e">Distribution deconvolution</a></li>
+<li><a href="#orga21875c">Distribution deconvolution</a></li>
 </ul>
 </li>
-<li><a href="#org1b135ab">Results</a>
+<li><a href="#org030a59b">Results</a>
 <ul>
-<li><a href="#orgd37e090">Homogeneous cell populations</a></li>
-<li><a href="#org439c6e2">Synthetic cell mixtures</a></li>
-<li><a href="#orga452897">Heterogeneous cell populations</a></li>
+<li><a href="#org6ebc2bf">Homogeneous cell populations</a></li>
+<li><a href="#orgf65a0fe">Synthetic cell mixtures</a></li>
+<li><a href="#orgae913a7">Heterogeneous cell populations</a></li>
 </ul>
 </li>
 </ul>
 </div>
 </div>
 
-<div id="outline-container-org7ba1eb0" class="outline-2">
-<h2 id="org7ba1eb0">Introduction</h2>
-<div class="outline-text-2" id="text-org7ba1eb0">
+<div id="outline-container-orgdd973c4" class="outline-2">
+<h2 id="orgdd973c4">Introduction</h2>
+<div class="outline-text-2" id="text-orgdd973c4">
 <p>
 Suppose we have observations \(x_i \sim f(\theta_i), i = 1, \ldots, n\), and
 \(\theta_i \sim g(\cdot)\). <i>Distribution deconvolution</i> is the problem of
@@ -296,9 +296,9 @@ generalization for different choices of \(\mathcal{G}\) in real data.
 </div>
 </div>
 
-<div id="outline-container-orga732197" class="outline-2">
-<h2 id="orga732197">Setup</h2>
-<div class="outline-text-2" id="text-orga732197">
+<div id="outline-container-org8316ba8" class="outline-2">
+<h2 id="org8316ba8">Setup</h2>
+<div class="outline-text-2" id="text-org8316ba8">
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-keyword">import</span> functools <span class="org-keyword">as</span> ft
 <span class="org-keyword">import</span> gc
@@ -334,13 +334,13 @@ rpy2.robjects.numpy2ri.activate()
 </div>
 </div>
 
-<div id="outline-container-orgb2252bb" class="outline-2">
-<h2 id="orgb2252bb">Methods</h2>
-<div class="outline-text-2" id="text-orgb2252bb">
+<div id="outline-container-orga35b51b" class="outline-2">
+<h2 id="orga35b51b">Methods</h2>
+<div class="outline-text-2" id="text-orga35b51b">
 </div>
-<div id="outline-container-org4b51f6e" class="outline-3">
-<h3 id="org4b51f6e">Distribution deconvolution</h3>
-<div class="outline-text-3" id="text-org4b51f6e">
+<div id="outline-container-orga21875c" class="outline-3">
+<h3 id="orga21875c">Distribution deconvolution</h3>
+<div class="outline-text-3" id="text-orga21875c">
 <p>
 The general form of distribution deconvolution for scRNA-seq is:
 </p>
@@ -418,7 +418,7 @@ a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org685384c"><span class="org-keyword">def</span> <span class="org-function-name">nb_llik</span>(x, mean, inv_disp):
+<pre class="src src-ipython" id="orgf2fd497"><span class="org-keyword">def</span> <span class="org-function-name">nb_llik</span>(x, mean, inv_disp):
   <span class="org-keyword">return</span> (x * np.log(mean / inv_disp) -
           x * np.log(1 + mean / inv_disp) -
           inv_disp * np.log(1 + mean / inv_disp) +
@@ -574,16 +574,16 @@ a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
 </div>
 </div>
 
-<div id="outline-container-org1b135ab" class="outline-2">
-<h2 id="org1b135ab">Results</h2>
-<div class="outline-text-2" id="text-org1b135ab">
+<div id="outline-container-org030a59b" class="outline-2">
+<h2 id="org030a59b">Results</h2>
+<div class="outline-text-2" id="text-org030a59b">
 </div>
-<div id="outline-container-orgd37e090" class="outline-3">
-<h3 id="orgd37e090">Homogeneous cell populations</h3>
-<div class="outline-text-3" id="text-orgd37e090">
+<div id="outline-container-org6ebc2bf" class="outline-3">
+<h3 id="org6ebc2bf">Homogeneous cell populations</h3>
+<div class="outline-text-3" id="text-org6ebc2bf">
 </div>
-<div id="outline-container-orgfd77e7b" class="outline-4">
-<h4 id="examples"><a id="orgfd77e7b"></a>Examples</h4>
+<div id="outline-container-org0366370" class="outline-4">
+<h4 id="examples"><a id="org0366370"></a>Examples</h4>
 <div class="outline-text-4" id="text-examples">
 <p>
 Use sorted cells from <a href="https://www.nature.com/articles/ncomms14049">Zheng
@@ -591,7 +591,7 @@ et al. 2017</a>.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org0201dc2"><span class="org-keyword">def</span> <span class="org-function-name">read_10x</span>(prefix, min_detect=0.25, return_df=<span class="org-constant">False</span>):
+<pre class="src src-ipython" id="orgd873068"><span class="org-keyword">def</span> <span class="org-function-name">read_10x</span>(prefix, min_detect=0.25, return_df=<span class="org-constant">False</span>):
   <span class="org-variable-name">counts</span> = scipy.io.mmread(f<span class="org-string">'{prefix}/matrix.mtx.gz'</span>).tocsr()
   <span class="org-variable-name">keep</span> = ((counts &gt; 0).mean(axis=1) &gt;= min_detect).A.ravel()
   <span class="org-variable-name">counts</span> = counts[keep].T.A.astype(np.<span class="org-builtin">int</span>)
@@ -764,8 +764,8 @@ fig.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-orgee66cd7" class="outline-4">
-<h4 id="mode-estimation"><a id="orgee66cd7"></a>Speed up ash mode estimation</h4>
+<div id="outline-container-org1e18387" class="outline-4">
+<h4 id="mode-estimation"><a id="org1e18387"></a>Speed up ash mode estimation</h4>
 <div class="outline-text-4" id="text-mode-estimation">
 <p>
 To estimate the mode \(\lambda_{0j}\) for gene \(j\), we find:
@@ -935,8 +935,8 @@ not pursue that strategy to speed up the model estimation.
 </div>
 </div>
 
-<div id="outline-container-org081818b" class="outline-4">
-<h4 id="homogeneous-results"><a id="org081818b"></a>Run the benchmark</h4>
+<div id="outline-container-org2ccef52" class="outline-4">
+<h4 id="homogeneous-results"><a id="org2ccef52"></a>Run the benchmark</h4>
 <div class="outline-text-4" id="text-homogeneous-results">
 <p>
 Use iPSCs derived from Yoruba LCLs
@@ -949,10 +949,12 @@ subsample genes for CPU-based methods to complete in a reasonable budget.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org90b8764"><span class="org-keyword">def</span> <span class="org-function-name">ipsc</span>(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data'</span>, return_df=<span class="org-constant">False</span>, n=<span class="org-constant">None</span>, seed=0):
+<pre class="src src-ipython" id="org4a81530"><span class="org-keyword">def</span> <span class="org-function-name">ipsc</span>(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data'</span>, return_df=<span class="org-constant">False</span>, query=<span class="org-constant">None</span>, n=<span class="org-constant">None</span>, seed=0):
   <span class="org-variable-name">annotations</span> = pd.read_csv(f<span class="org-string">'{prefix}/scqtl-annotation.txt'</span>, sep=<span class="org-string">'\t'</span>)
   <span class="org-variable-name">keep_samples</span> = pd.read_csv(f<span class="org-string">'{prefix}/quality-single-cells.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, header=<span class="org-constant">None</span>)
   <span class="org-variable-name">keep_genes</span> = pd.read_csv(f<span class="org-string">'{prefix}/genes-pass-filter.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, header=<span class="org-constant">None</span>)
+  <span class="org-keyword">if</span> query <span class="org-keyword">is</span> <span class="org-keyword">not</span> <span class="org-constant">None</span>:
+    <span class="org-variable-name">keep_genes</span> = keep_genes[keep_genes.index.isin(query)]
   <span class="org-keyword">if</span> n <span class="org-keyword">is</span> <span class="org-keyword">not</span> <span class="org-constant">None</span>:
     <span class="org-variable-name">keep_genes</span> = keep_genes.sample(n=n, random_state=seed)
   <span class="org-variable-name">annotations</span> = annotations.loc[keep_samples.values.ravel()]
@@ -977,7 +979,7 @@ Run the benchmark.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org4f2505a"><span class="org-keyword">import</span> os
+<pre class="src src-ipython" id="org9c255de"><span class="org-keyword">import</span> os
 <span class="org-variable-name">cpu_methods</span> = [<span class="org-string">'unimix'</span>, <span class="org-string">'descend'</span>, <span class="org-string">'npmle'</span>, <span class="org-string">'saturated'</span>]
 <span class="org-variable-name">task</span> = <span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])
 <span class="org-keyword">with</span> mp.Pool(maxtasksperchild=10) <span class="org-keyword">as</span> pool:
@@ -1000,7 +1002,7 @@ EOF
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="orgbcaa397"><span class="org-variable-name">x</span> = ipsc(return_df=<span class="org-constant">True</span>)
+<pre class="src src-ipython" id="orgacd8d98"><span class="org-variable-name">x</span> = ipsc(return_df=<span class="org-constant">True</span>)
 <span class="org-variable-name">res</span> = evaluate_generalization(x.values, pool=<span class="org-constant">None</span>, test_size=0.1, random_state=0, methods=[<span class="org-string">'nb'</span>, <span class="org-string">'zinb'</span>])
 <span class="org-variable-name">res.index</span> = x.columns
 res.to_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
@@ -1073,23 +1075,115 @@ expression) is adequate to accurately estimate \(g\) from the data.
 Of note, <code>ash</code> is &gt;10\(\times\) slower than <code>descend</code>, and <code>descend</code> is
 faster on small data sets than GPU-based methods. 
 </p>
+</div>
+</div>
 
+<div id="outline-container-org17b0735" class="outline-4">
+<h4 id="bimodal-example-ipsc"><a id="org17b0735"></a>Investigate ZINB vs. NB in high-depth data</h4>
+<div class="outline-text-4" id="text-bimodal-example-ipsc">
 <p>
-Try to find a case in the full iPSC data where ZINB is required, by relying on the GPU
-implementation.
+Try to find a case in the full iPSC data where ZINB is required, by
+performing likelihood ratio tests against NB. Use Bonferroni correction to
+control FWER.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">
+<pre class="src src-ipython"><span class="org-variable-name">ipsc_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
+<span class="org-variable-name">lrt</span> = st.chi2(1).sf(-2 * (ipsc_res[<span class="org-string">'nb'</span>] - ipsc_res[<span class="org-string">'zinb'</span>]))
+ipsc_res[lrt &lt; .05 / lrt.shape[0]]
 </pre>
+</div>
+
+<pre class="example">
+nb         zinb
+gene
+ENSG00000112530 -2017.717750 -1987.894352
+ENSG00000129824 -1803.651932 -1789.106410
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">ipsc_counts</span> = ipsc(query=<span class="org-builtin">list</span>(ipsc_res[lrt &lt; .05 / lrt.shape[0]].index), return_df=<span class="org-constant">True</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gene_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2)
+fig.set_size_inches(6, 3)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, ipsc_counts):
+  a.hist(ipsc_counts[k], bins=ipsc_counts[k].<span class="org-builtin">max</span>() + 1, color=<span class="org-string">'k'</span>)
+  a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>])
+  a.set_xlabel(<span class="org-string">'Number of molecules'</span>)
+  a.set_ylabel(<span class="org-string">'Number of cells'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/ipsc-zinb.png" alt="ipsc-zinb.png">
+</p>
+</div>
+
+<p>
+<i>PACRG</i> (<a href="https://www.omim.org/entry/608427">Parkin coregulated gene</a>)
+shares a promoter with <i>PKRG</i> (<i>PARK2</i>;
+<a href="https://www.omim.org/entry/602544?search=park2&amp;highlight=park2">Parkin</a>). PARKIN
+is involved in a <a href="https://www.pnas.org/content/115/2/E180">signaling
+pathway for mitochondria damage</a>, and mitochrondrial damage appears to be
+relevant to neurodegenerative disease etiology
+(<a href="https://www.ncbi.nlm.nih.gov/pubmed/29414602">Alzheimer's disease</a> and
+<a href="https://www.pnas.org/content/115/2/E180">Parkinson's disease</a>).
+Mitochrondrial damage could explain the bimodal distribution of <i>PACRG</i> in
+the iPSC data: the reprogramming protocol could induce oxidative stress on
+some of the cells, resulting in damage.
+</p>
+
+<p>
+<i>RPS4Y1</i> (<a href="https://www.omim.org/entry/470000">Ribosomal protein S4,
+Y-linked</a>) is on the Y chromosome, and therefore we should expect it to
+only be expressed in males. The homologous gene on the X chromosome
+(<a href="https://www.omim.org/entry/312760"><i>RPS4X</i></a>) has a different coding
+sequence. Sex-linkage should fully explain why this gene exhibits bimodal
+gene expression.
+</p>
+
+<p>
+Look at the full benchmark results for NB vs. ZINB (only the GPU
+implementation is suitable for this).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.plot([ipsc_res[<span class="org-string">'nb'</span>].<span class="org-builtin">min</span>(), ipsc_res[<span class="org-string">'nb'</span>].<span class="org-builtin">max</span>()], [ipsc_res[<span class="org-string">'nb'</span>].<span class="org-builtin">min</span>(), ipsc_res[<span class="org-string">'nb'</span>].<span class="org-builtin">max</span>()], c=<span class="org-string">'r'</span>, ls=<span class="org-string">'--'</span>, lw=1)
+plt.scatter(ipsc_res[<span class="org-string">'nb'</span>], ipsc_res[<span class="org-string">'zinb'</span>], c=<span class="org-string">'k'</span>, s=2, alpha=.25)
+plt.xlabel(<span class="org-string">'NB validation log lik.'</span>)
+plt.ylabel(<span class="org-string">'ZINB validation log lik.'</span>)
+</pre>
+</div>
+
+<pre class="example">
+Text(0, 0.5, 'ZINB validation log lik.')
+
+</pre>
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/homogeneous-nb-zinb-benchmark.png" alt="homogeneous-nb-zinb-benchmark.png">
+</p>
 </div>
 </div>
 </div>
 </div>
 
-<div id="outline-container-org439c6e2" class="outline-3">
-<h3 id="org439c6e2">Synthetic cell mixtures</h3>
-<div class="outline-text-3" id="text-org439c6e2">
+<div id="outline-container-orgf65a0fe" class="outline-3">
+<h3 id="orgf65a0fe">Synthetic cell mixtures</h3>
+<div class="outline-text-3" id="text-orgf65a0fe">
 <p>
 Create a synthetic heterogeneous population of cells by combining sorted
 CD8+ T cells and CD19+ B cells from
@@ -1097,7 +1191,7 @@ CD8+ T cells and CD19+ B cells from
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="orgdd42b42"><span class="org-variable-name">cd8</span> = cd8_cytotoxic_t_cells(return_df=<span class="org-constant">True</span>)
+<pre class="src src-ipython" id="org8d144fb"><span class="org-variable-name">cd8</span> = cd8_cytotoxic_t_cells(return_df=<span class="org-constant">True</span>)
 <span class="org-variable-name">cd19</span> = cd19_b_cells(return_df=<span class="org-constant">True</span>)
 <span class="org-variable-name">x</span> = pd.concat([cd8, cd19], axis=<span class="org-string">'index'</span>, join=<span class="org-string">'inner'</span>)
 <span class="org-variable-name">y</span> = np.zeros(x.shape[0]).astype(<span class="org-builtin">int</span>)
@@ -1154,9 +1248,9 @@ fig.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-orga452897" class="outline-3">
-<h3 id="orga452897">Heterogeneous cell populations</h3>
-<div class="outline-text-3" id="text-orga452897">
+<div id="outline-container-orgae913a7" class="outline-3">
+<h3 id="orgae913a7">Heterogeneous cell populations</h3>
+<div class="outline-text-3" id="text-orgae913a7">
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">pbmcs_68k</span>(**kwargs):
   <span class="org-keyword">return</span> read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/68k_pbmcs/filtered_matrices_mex/hg19/'</span>, **kwargs)
@@ -1173,7 +1267,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-05 Fri 10:36</p>
+<p class="date">Created: 2019-04-05 Fri 19:08</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

@@ -25,10 +25,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
+  #+CALL: ipython3(mem="32G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59245646
+  : Submitted batch job 59263525
 
   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
     import functools as ft
@@ -68,7 +68,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[9]:
+  # Out[10]:
   :END:
 
 * Methods
@@ -667,10 +667,12 @@
 
    #+NAME: read-ipsc
    #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
-     def ipsc(prefix='/project2/mstephens/aksarkar/projects/singlecell-qtl/data', return_df=False, n=None, seed=0):
+     def ipsc(prefix='/project2/mstephens/aksarkar/projects/singlecell-qtl/data', return_df=False, query=None, n=None, seed=0):
        annotations = pd.read_csv(f'{prefix}/scqtl-annotation.txt', sep='\t')
        keep_samples = pd.read_csv(f'{prefix}/quality-single-cells.txt', sep='\t', index_col=0, header=None)
        keep_genes = pd.read_csv(f'{prefix}/genes-pass-filter.txt', sep='\t', index_col=0, header=None)
+       if query is not None:
+         keep_genes = keep_genes[keep_genes.index.isin(query)]
        if n is not None:
          keep_genes = keep_genes.sample(n=n, random_state=seed)
        annotations = annotations.loc[keep_samples.values.ravel()]
@@ -691,7 +693,7 @@
 
    #+RESULTS: read-ipsc
    :RESULTS:
-   # Out[8]:
+   # Out[3]:
    :END:
 
    Run the benchmark.
@@ -797,12 +799,105 @@
    Of note, ~ash~ is >10\(\times\) slower than ~descend~, and ~descend~ is
    faster on small data sets than GPU-based methods. 
 
-   Try to find a case in the full iPSC data where ZINB is required, by relying on the GPU
-   implementation.
+*** Investigate ZINB vs. NB in high-depth data
+    :PROPERTIES:
+    :CUSTOM_ID: bimodal-example-ipsc
+    :END:
 
-   #+BEGIN_SRC ipython :eval never
-   
+   Try to find a case in the full iPSC data where ZINB is required, by
+   performing likelihood ratio tests against NB. Use Bonferroni correction to
+   control FWER.
+
+   #+BEGIN_SRC ipython
+     ipsc_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz', index_col=0, sep='\t')
+     lrt = st.chi2(1).sf(-2 * (ipsc_res['nb'] - ipsc_res['zinb']))
+     ipsc_res[lrt < .05 / lrt.shape[0]]
    #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   #+BEGIN_EXAMPLE
+     nb         zinb
+     gene
+     ENSG00000112530 -2017.717750 -1987.894352
+     ENSG00000129824 -1803.651932 -1789.106410
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     ipsc_counts = ipsc(query=list(ipsc_res[lrt < .05 / lrt.shape[0]].index), return_df=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[16]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-zinb.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 2)
+     fig.set_size_inches(6, 3)
+     for a, k in zip(ax, ipsc_counts):
+       a.hist(ipsc_counts[k], bins=ipsc_counts[k].max() + 1, color='k')
+       a.set_title(gene_info.loc[k, 'name'])
+       a.set_xlabel('Number of molecules')
+       a.set_ylabel('Number of cells')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[54]:
+   [[file:figure/deconvolution.org/ipsc-zinb.png]]
+   :END:
+
+   /PACRG/ ([[https://www.omim.org/entry/608427][Parkin coregulated gene]])
+   shares a promoter with /PKRG/ (/PARK2/;
+   [[https://www.omim.org/entry/602544?search=park2&highlight=park2][Parkin]]). PARKIN
+   is involved in a [[https://www.pnas.org/content/115/2/E180][signaling
+   pathway for mitochondria damage]], and mitochrondrial damage appears to be
+   relevant to neurodegenerative disease etiology
+   ([[https://www.ncbi.nlm.nih.gov/pubmed/29414602][Alzheimer's disease]] and
+   [[https://www.pnas.org/content/115/2/E180][Parkinson's disease]]).
+   Mitochrondrial damage could explain the bimodal distribution of /PACRG/ in
+   the iPSC data: the reprogramming protocol could induce oxidative stress on
+   some of the cells, resulting in damage.
+
+   /RPS4Y1/ ([[https://www.omim.org/entry/470000][Ribosomal protein S4,
+   Y-linked]]) is on the Y chromosome, and therefore we should expect it to
+   only be expressed in males. The homologous gene on the X chromosome
+   ([[https://www.omim.org/entry/312760][/RPS4X/]]) has a different coding
+   sequence. Sex-linkage should fully explain why this gene exhibits bimodal
+   gene expression.
+
+   Look at the full benchmark results for NB vs. ZINB (only the GPU
+   implementation is suitable for this).
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/homogeneous-nb-zinb-benchmark.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.plot([ipsc_res['nb'].min(), ipsc_res['nb'].max()], [ipsc_res['nb'].min(), ipsc_res['nb'].max()], c='r', ls='--', lw=1)
+     plt.scatter(ipsc_res['nb'], ipsc_res['zinb'], c='k', s=2, alpha=.25)
+     plt.xlabel('NB validation log lik.')
+     plt.ylabel('ZINB validation log lik.')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[49]:
+   : Text(0, 0.5, 'ZINB validation log lik.')
+   [[file:figure/deconvolution.org/homogeneous-nb-zinb-benchmark.png]]
+   :END:
 
 ** Synthetic cell mixtures
 
@@ -883,3 +978,4 @@
        # Follow scVI here
        return counts.loc[counts.var(axis=1).sort_values(ascending=False).head(n=500).index].values.T
    #+END_SRC
+
