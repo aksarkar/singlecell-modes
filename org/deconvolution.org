@@ -25,10 +25,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(mem="32G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
+  #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59263525
+  : Submitted batch job 59268548
 
   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
     import functools as ft
@@ -324,7 +324,7 @@
 
    #+RESULTS: read-zheng
    :RESULTS:
-   # Out[3]:
+   # Out[4]:
    :END:
 
    Look at some examples.
@@ -900,6 +900,7 @@
    :END:
 
 ** Synthetic cell mixtures
+*** T cell-B cell mixture
 
    Create a synthetic heterogeneous population of cells by combining sorted
    CD8+ T cells and CD19+ B cells from
@@ -934,30 +935,85 @@
    #+RESULTS:
    : Submitted batch job 58958403
 
-   Read the results.
+*** Naive/activated T cell mixture
 
-   #+BEGIN_SRC ipython
-     benchmark = {}
-     for data in ('cd8-cd19-mix',):
-       benchmark[data] = pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', sep='\t', index_col=0)
+   Create a synthetic mixture of cells by combining sorted
+   CD8+ cytotoxic T cells and CD8+/CD45RA+ naive cytotoxic T cells
+   [[https://www.nature.com/articles/ncomms14049][Zheng et al. 2017]].
+
+   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
+     def cyto_naive_t_mix():
+       cyto = read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19', return_df=True)
+       naive = read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_cytotoxic/filtered_matrices_mex/hg19', return_df=True)
+       x = pd.concat([cyto, naive], axis='index', join='inner')
+       y = np.zeros(x.shape[0]).astype(int)
+       y[:cyto.shape[0]] = 1
+       return x, y
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[8]:
    :END:
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark-gpu.out
+     #!/bin/bash
+     source activate scmodes
+     python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
+     x, y = cyto_naive_t_mix()
+     res = evaluate_generalization(x.values, pool=None, stratify=y, train_size=0.5, test_size=0.1, random_state=0, methods=['nb', 'zinb'])
+     res.index = x.columns
+     res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-gpu.txt.gz', compression='gzip', sep='\t')
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 59268870
+
+   #+BEGIN_SRC sh
+     sbatch --partition=broadwl -a 0-3 -n1 -c28 --exclusive --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark-cpu.out
+     #!/bin/bash
+     source activate scmodes
+     python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
+     import os
+     cpu_methods = ['unimix', 'descend', 'npmle', 'saturated']
+     task = int(os.environ['SLURM_ARRAY_TASK_ID'])
+     with mp.Pool(maxtasksperchild=10) as pool:
+       x, y = cyto_naive_t_mix()
+       res = evaluate_generalization(x.values, pool=pool, stratify=y, train_size=0.5, test_size=0.1, random_state=0, methods=cpu_methods[task:task + 1])
+       res.index = x.columns
+       res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-{cpu_methods[task]}.txt.gz', compression='gzip', sep='\t')
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 59268928
+
+   #+BEGIN_SRC ipython
+     benchmark = {}
+     benchmark['cd8-cd19-mix'] = pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', sep='\t', index_col=0)
+     benchmark['cyto-naive-t-mix'] = (
+       pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto_naive_t_mix-gpu.txt.gz', index_col=0, sep='\t')
+       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto_naive_t_mix-unimix.txt.gz', index_col=0, sep='\t'), on='gene')
+       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto_naive_t_mix-descend.txt.gz', sep='\t'), on='gene')
+       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto_naive_t_mix-npmle.txt.gz', index_col=0, sep='\t'), on='gene')
+       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto_naive_t_mix-saturated.txt.gz', index_col=0, sep='\t'), on='gene')
+       .set_index('gene'))
+   #+END_SRC
 
    Plot the results.
 
-   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/synthetic-benchmark-deviance.png
-     plt.gcf().set_size_inches(3, 3)
-     for i, k in enumerate(sorted(benchmark.keys())):
-       plt.gca().boxplot((benchmark[f'{k}']['saturated'].values.reshape(-1, 1) - benchmark[f'{k}'].values)[:,:-1],
-                     widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       plt.gca().set_xticklabels(benchmark[f'{k}'].columns[:-1], rotation=90)
-       plt.gca().set_xlabel('Method')
-       plt.gca().set_title(k)
-     plt.gca().set_ylabel('Validation set deviance')
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/synthetic-mix-benchmark.png
+     fig, ax = plt.subplots(1, 2, sharey=True)
+     fig.set_size_inches(5, 3)
+     for a, k in zip(ax, sorted(benchmark.keys())):
+       a.boxplot((benchmark[f'{k}']['saturated'].values.reshape(-1, 1) - benchmark[f'{k}'].values)[:,:-1],
+                 widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+       a.set_xticklabels(benchmark[f'{k}'].columns[:-1], rotation=90)
+       a.set_xlabel('Method')
+       a.set_title(k)
+     ax[0].set_ylabel('Validation set deviance')
      fig.tight_layout()
    #+END_SRC
 
@@ -966,7 +1022,8 @@
    # Out[12]:
    [[file:figure/deconvolution.org/synthetic-benchmark-deviance.png]]
    :END:
-   
+
+
 ** Heterogeneous cell populations
 
    #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
