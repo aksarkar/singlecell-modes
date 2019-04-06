@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-06 Sat 16:21 -->
+<!-- 2019-04-06 Sat 16:45 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -1188,7 +1188,7 @@ In B cells, several genes are better fit by DESCEND than other methods.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">b_cells</span> = read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/'</span>)
+<pre class="src src-ipython"><span class="org-variable-name">b_cells</span> = read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
 </pre>
 </div>
 
@@ -1196,9 +1196,14 @@ In B cells, several genes are better fit by DESCEND than other methods.
 <pre class="src src-ipython"><span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cd19_b_cells'</span>][benchmark[<span class="org-string">'cd19_b_cells'</span>][<span class="org-string">'descend'</span>] &gt; benchmark[<span class="org-string">'cd19_b_cells'</span>][<span class="org-string">'nb'</span>]].index
 plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(6, 6, sharey=<span class="org-constant">True</span>, sharex=<span class="org-constant">True</span>)
-fig.set_size_inches(8, 8)
+fig.set_size_inches(9, 9)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
-  a.hist(b_cells[:,k], bins=b_cells[:,k].<span class="org-builtin">max</span>(), color=<span class="org-string">'k'</span>)
+  a.hist(b_cells.iloc[:,k], bins=b_cells.iloc[:,k].<span class="org-builtin">max</span>(), color=<span class="org-string">'k'</span>)
+  a.set_title(gene_info.loc[b_cells.columns[k], <span class="org-string">'name'</span>] <span class="org-keyword">if</span> b_cells.columns[k] <span class="org-keyword">in</span> gene_info.index <span class="org-keyword">else</span> b_cells.columns[k])
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
 fig.tight_layout()
 </pre>
 </div>
@@ -1227,6 +1232,10 @@ fig.set_size_inches(6, 4)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
   a.hist(ipsc_counts.loc[:,k], bins=ipsc_counts.loc[:,k].<span class="org-builtin">max</span>(), color=<span class="org-string">'k'</span>)
   a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>])
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
 fig.tight_layout()
 </pre>
 </div>
@@ -1250,6 +1259,10 @@ fig.set_size_inches(6, 4)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
   a.hist(ipsc_counts.loc[:,k], bins=ipsc_counts.loc[:,k].<span class="org-builtin">max</span>(), color=<span class="org-string">'k'</span>)
   a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>])
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
 fig.tight_layout()
 </pre>
 </div>
@@ -1282,11 +1295,18 @@ CD8+ T cells and CD19+ B cells from
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org8d144fb"><span class="org-variable-name">cd8</span> = cd8_cytotoxic_t_cells(return_df=<span class="org-constant">True</span>)
-<span class="org-variable-name">cd19</span> = cd19_b_cells(return_df=<span class="org-constant">True</span>)
-<span class="org-variable-name">x</span> = pd.concat([cd8, cd19], axis=<span class="org-string">'index'</span>, join=<span class="org-string">'inner'</span>)
-<span class="org-variable-name">y</span> = np.zeros(x.shape[0]).astype(<span class="org-builtin">int</span>)
-y[:cd8.shape[0]] = 1
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">cd8_cd19_mix</span>():
+  <span class="org-variable-name">cd8</span> = cd8_cytotoxic_t_cells(return_df=<span class="org-constant">True</span>)
+  <span class="org-variable-name">cd19</span> = cd19_b_cells(return_df=<span class="org-constant">True</span>)
+  <span class="org-variable-name">x</span> = pd.concat([cd8, cd19], axis=<span class="org-string">'index'</span>, join=<span class="org-string">'inner'</span>)
+  <span class="org-variable-name">y</span> = np.zeros(x.shape[0]).astype(<span class="org-builtin">int</span>)
+  y[:cd8.shape[0]] = 1
+  <span class="org-keyword">return</span> x, y
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="org8d144fb"><span class="org-variable-name">x</span>, <span class="org-variable-name">y</span> = cd8_cd19_mix()
 <span class="org-variable-name">res</span> = evaluate_generalization(x.values, stratify=y, train_size=0.5, test_size=0.1, random_state=0)
 res.to_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cd8-cd19-mix.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
 </pre>
@@ -1397,6 +1417,56 @@ fig.tight_layout()
 </div>
 </div>
 </div>
+
+<div id="outline-container-orgcdbbb38" class="outline-4">
+<h4 id="orgcdbbb38">Investigate genes favoring more complex models</h4>
+<div class="outline-text-4" id="text-orgcdbbb38">
+<p>
+Read the data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">mix1</span>, <span class="org-variable-name">y1</span> = cd8_cd19_mix()
+<span class="org-variable-name">mix2</span>, <span class="org-variable-name">y2</span> = cyto_naive_t_mix()
+</pre>
+</div>
+
+<p>
+Look at genes where NPMLE has higher validation set log likelihood than NB.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cd8-cd19-mix'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'cd8-cd19-mix'</span>][<span class="org-string">'nb'</span>]
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cd8-cd19-mix'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=4).index].index
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 4)
+fig.set_size_inches(8, 2)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(mix1.iloc[:,k], bins=mix1.iloc[:,k].<span class="org-builtin">max</span>(), color=<span class="org-string">'k'</span>)
+  a.set_title(gene_info.loc[mix1.columns[k], <span class="org-string">'name'</span>] <span class="org-keyword">if</span> mix1.columns[k] <span class="org-keyword">in</span> gene_info.index <span class="org-keyword">else</span> mix1.columns[k])
+  a.set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/cd8-cd19-mix-npmle-examples.png" alt="cd8-cd19-mix-npmle-examples.png">
+</p>
+</div>
+
+<p>
+<i>CD74</i> appears to be the first good example of a gene (so far) showing
+bimodal gene expression as predicted by a simple kinetic model (Munsky et
+al. 2013, Kim and Marioni 2013).
+</p>
+</div>
+</div>
 </div>
 
 <div id="outline-container-orgae913a7" class="outline-3">
@@ -1418,7 +1488,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-06 Sat 16:21</p>
+<p class="date">Created: 2019-04-06 Sat 16:45</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
