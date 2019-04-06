@@ -316,10 +316,10 @@
          return counts
 
      def cd8_cytotoxic_t_cells(**kwargs):
-       return read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cd8+_cytotoxic_t_cells/filtered_matrices_mex/hg19', **kwargs)
+       return read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19', **kwargs)
 
      def cd19_b_cells(**kwargs):
-       return read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cd19+_b_cells/filtered_matrices_mex/hg19/', **kwargs)
+       return read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', **kwargs)
    #+END_SRC
 
    #+RESULTS: read-zheng
