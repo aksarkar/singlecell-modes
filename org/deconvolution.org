@@ -28,7 +28,7 @@
   #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59268548
+  : Submitted batch job 59283152
 
   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
     import functools as ft
@@ -61,6 +61,14 @@
   #+BEGIN_SRC ipython
     %matplotlib inline
     %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
     import colorcet
     import matplotlib.pyplot as plt
     plt.rcParams['figure.facecolor'] = 'w'
@@ -68,7 +76,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[10]:
+  # Out[3]:
   :END:
 
 * Methods
@@ -324,7 +332,7 @@
 
    #+RESULTS: read-zheng
    :RESULTS:
-   # Out[4]:
+   # Out[20]:
    :END:
 
    Look at some examples.
@@ -693,7 +701,7 @@
 
    #+RESULTS: read-ipsc
    :RESULTS:
-   # Out[3]:
+   # Out[47]:
    :END:
 
    Run the benchmark.
@@ -750,14 +758,6 @@
      benchmark = {}
      for data in ('cd8_cytotoxic_t_cells', 'cd19_b_cells'):
        benchmark[data] = pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', sep='\t', index_col=0)
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[3]:
-   :END:
-
-   #+BEGIN_SRC ipython
      benchmark['ipsc'] = (
        pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz', index_col=0, sep='\t')
        .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-unimix.txt.gz', index_col=0, sep='\t'), on='gene')
@@ -769,28 +769,28 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
+   # Out[17]:
    :END:
 
    Plot the generalization performance of each method.
 
-   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/homogeneous-benchmark-deviance.png
-     fig, ax = plt.subplots(1, 3, sharey=True)
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/homogeneous-benchmark.png
+     fig, ax = plt.subplots(1, 3)
      fig.set_size_inches(7, 3)
      for i, k in enumerate(sorted(benchmark.keys())):
-       ax[i].boxplot((benchmark[f'{k}']['saturated'].values.reshape(-1, 1) - benchmark[f'{k}'].values)[:,:-1],
+       ax[i].boxplot((benchmark[f'{k}'].values - benchmark[f'{k}']['nb'].values.reshape(-1, 1))[:,1:-1],
                      widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       ax[i].set_xticklabels(benchmark[f'{k}'].columns[:-1], rotation=90)
+       ax[i].set_xticklabels(benchmark[f'{k}'].columns[1:-1], rotation=90)
        ax[i].set_xlabel('Method')
        ax[i].set_title(k)
-     ax[0].set_ylabel('Validation set deviance')
+     ax[0].set_ylabel('Diff val set log lik from NB')
      fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[13]:
-   [[file:figure/deconvolution.org/homogeneous-benchmark-deviance.png]]
+   # Out[19]:
+   [[file:figure/deconvolution.org/homogeneous-benchmark.png]]
    :END:
 
    The results suggest that NB (assuming Gamma-distributed latent gene
@@ -840,7 +840,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[16]:
+   # Out[66]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-zinb.png
@@ -898,6 +898,82 @@
    : Text(0, 0.5, 'ZINB validation log lik.')
    [[file:figure/deconvolution.org/homogeneous-nb-zinb-benchmark.png]]
    :END:
+
+*** Investigate genes with support for more complex models
+
+    In B cells, several genes are better fit by DESCEND than other methods.
+
+    #+BEGIN_SRC ipython
+      b_cells = read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/')
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[21]:
+    :END:
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/b-cell-descend-examples.png
+      query = benchmark['cd19_b_cells'][benchmark['cd19_b_cells']['descend'] > benchmark['cd19_b_cells']['nb']].index
+      plt.clf()
+      fig, ax = plt.subplots(6, 6, sharey=True, sharex=True)
+      fig.set_size_inches(8, 8)
+      for a, k in zip(ax.ravel(), query):
+        a.hist(b_cells[:,k], bins=b_cells[:,k].max(), color='k')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[55]:
+    [[file:figure/deconvolution.org/b-cell-descend-examples.png]]
+    :END:
+
+    In iPSC, several genes appear to be better fit by mixture of uniforms than
+    other methods.
+
+    #+BEGIN_SRC ipython :async t
+      ipsc_counts = ipsc(n=100, return_df=True)
+    #+END_SRC
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-unimix-examples.png
+      query = benchmark['ipsc'][benchmark['ipsc']['unimix'] > benchmark['ipsc']['nb']].index
+      plt.clf()
+      fig, ax = plt.subplots(2, 3)
+      fig.set_size_inches(6, 4)
+      for a, k in zip(ax.ravel(), query):
+        a.hist(ipsc_counts.loc[:,k], bins=ipsc_counts.loc[:,k].max(), color='k')
+        a.set_title(gene_info.loc[k, 'name'])
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[67]:
+    [[file:figure/deconvolution.org/ipsc-unimix-examples.png]]
+    :END:
+
+    In iPSC, several genes appear to be better fit by NPMLE than other methods.
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-npmle-examples.png
+      llik_diff = benchmark['ipsc']['npmle'] - benchmark['ipsc']['nb']
+      query = benchmark['ipsc'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
+      plt.clf()
+      fig, ax = plt.subplots(3, 4)
+      fig.set_size_inches(6, 4)
+      for a, k in zip(ax.ravel(), query):
+        a.hist(ipsc_counts.loc[:,k], bins=ipsc_counts.loc[:,k].max(), color='k')
+        a.set_title(gene_info.loc[k, 'name'])
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[77]:
+    [[file:figure/deconvolution.org/ipsc-npmle-examples.png]]
+    :END:
+
+    Overall, these examples suggest flexibility is needed for accurately
+    modeling the tails of the distribution.
 
 ** Synthetic cell mixtures
 *** T cell-B cell mixture
@@ -990,17 +1066,24 @@
    #+RESULTS:
    : Submitted batch job 59268928
 
+   Read the results.
+
    #+BEGIN_SRC ipython
      benchmark = {}
-     benchmark['cd8-cd19-mix'] = pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz', sep='\t', index_col=0)
+     benchmark['cd8-cd19-mix'] = pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cd8-cd19-mix.txt.gz', sep='\t', index_col=0)
      benchmark['cyto-naive-t-mix'] = (
-       pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto_naive_t_mix-gpu.txt.gz', index_col=0, sep='\t')
-       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto_naive_t_mix-unimix.txt.gz', index_col=0, sep='\t'), on='gene')
-       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto_naive_t_mix-descend.txt.gz', sep='\t'), on='gene')
-       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto_naive_t_mix-npmle.txt.gz', index_col=0, sep='\t'), on='gene')
-       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto_naive_t_mix-saturated.txt.gz', index_col=0, sep='\t'), on='gene')
-       .set_index('gene'))
+       pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-gpu.txt.gz', sep='\t')
+       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-unimix.txt.gz', sep='\t'), on='0')
+       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-descend.txt.gz', sep='\t'), on='0')
+       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-npmle.txt.gz', sep='\t'), on='0')
+       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-saturated.txt.gz', sep='\t'), on='0')
+       .set_index('0'))
    #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   :END:
 
    Plot the results.
 
@@ -1008,21 +1091,20 @@
      fig, ax = plt.subplots(1, 2, sharey=True)
      fig.set_size_inches(5, 3)
      for a, k in zip(ax, sorted(benchmark.keys())):
-       a.boxplot((benchmark[f'{k}']['saturated'].values.reshape(-1, 1) - benchmark[f'{k}'].values)[:,:-1],
+       a.boxplot((benchmark[f'{k}'].values - benchmark[f'{k}']['nb'].values.reshape(-1, 1))[:,1:-1],
                  widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       a.set_xticklabels(benchmark[f'{k}'].columns[:-1], rotation=90)
+       a.set_xticklabels(benchmark[f'{k}'].columns[1:-1], rotation=90)
        a.set_xlabel('Method')
        a.set_title(k)
-     ax[0].set_ylabel('Validation set deviance')
+     ax[0].set_ylabel('Diff val set log lik from NB')
      fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
-   [[file:figure/deconvolution.org/synthetic-benchmark-deviance.png]]
+   # Out[16]:
+   [[file:figure/deconvolution.org/synthetic-mix-benchmark.png]]
    :END:
-
 
 ** Heterogeneous cell populations
 

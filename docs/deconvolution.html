@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-05 Fri 20:59 -->
+<!-- 2019-04-06 Sat 16:21 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -326,7 +326,11 @@ rpy2.robjects.numpy2ri.activate()
 <div class="org-src-container">
 <pre class="src src-ipython">%matplotlib inline
 %config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
-<span class="org-keyword">import</span> colorcet
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> colorcet
 <span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
 <span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
 </pre>
@@ -1028,11 +1032,7 @@ Read the results.
 <pre class="src src-ipython"><span class="org-variable-name">benchmark</span> = {}
 <span class="org-keyword">for</span> data <span class="org-keyword">in</span> (<span class="org-string">'cd8_cytotoxic_t_cells'</span>, <span class="org-string">'cd19_b_cells'</span>):
   <span class="org-variable-name">benchmark</span>[data] = pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">benchmark</span>[<span class="org-string">'ipsc'</span>] = (
+<span class="org-variable-name">benchmark</span>[<span class="org-string">'ipsc'</span>] = (
   pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
   .merge(pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-unimix.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>), on=<span class="org-string">'gene'</span>)
   .merge(pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-descend.txt.gz'</span>, sep=<span class="org-string">'\t'</span>), on=<span class="org-string">'gene'</span>)
@@ -1047,22 +1047,22 @@ Plot the generalization performance of each method.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3, sharey=<span class="org-constant">True</span>)
+<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3)
 fig.set_size_inches(7, 3)
 <span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">sorted</span>(benchmark.keys())):
-  ax[i].boxplot((benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'saturated'</span>].values.reshape(-1, 1) - benchmark[f<span class="org-string">'{k}'</span>].values)[:,:-1],
+  ax[i].boxplot((benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'nb'</span>].values.reshape(-1, 1))[:,1:-1],
                 widths=0.25, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
-  ax[i].set_xticklabels(benchmark[f<span class="org-string">'{k}'</span>].columns[:-1], rotation=90)
+  ax[i].set_xticklabels(benchmark[f<span class="org-string">'{k}'</span>].columns[1:-1], rotation=90)
   ax[i].set_xlabel(<span class="org-string">'Method'</span>)
   ax[i].set_title(k)
-ax[0].set_ylabel(<span class="org-string">'Validation set deviance'</span>)
+ax[0].set_ylabel(<span class="org-string">'Diff val set log lik from NB'</span>)
 fig.tight_layout()
 </pre>
 </div>
 
 
 <div class="figure">
-<p><img src="figure/deconvolution.org/homogeneous-benchmark-deviance.png" alt="homogeneous-benchmark-deviance.png">
+<p><img src="figure/deconvolution.org/homogeneous-benchmark.png" alt="homogeneous-benchmark.png">
 </p>
 </div>
 
@@ -1179,11 +1179,102 @@ Text(0, 0.5, 'ZINB validation log lik.')
 </div>
 </div>
 </div>
+
+<div id="outline-container-org2d2ec8d" class="outline-4">
+<h4 id="org2d2ec8d">Investigate genes with support for more complex models</h4>
+<div class="outline-text-4" id="text-org2d2ec8d">
+<p>
+In B cells, several genes are better fit by DESCEND than other methods.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">b_cells</span> = read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cd19_b_cells'</span>][benchmark[<span class="org-string">'cd19_b_cells'</span>][<span class="org-string">'descend'</span>] &gt; benchmark[<span class="org-string">'cd19_b_cells'</span>][<span class="org-string">'nb'</span>]].index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(6, 6, sharey=<span class="org-constant">True</span>, sharex=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 8)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(b_cells[:,k], bins=b_cells[:,k].<span class="org-builtin">max</span>(), color=<span class="org-string">'k'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/b-cell-descend-examples.png" alt="b-cell-descend-examples.png">
+</p>
+</div>
+
+<p>
+In iPSC, several genes appear to be better fit by mixture of uniforms than
+other methods.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">ipsc_counts</span> = ipsc(n=100, return_df=<span class="org-constant">True</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">query</span> = benchmark[<span class="org-string">'ipsc'</span>][benchmark[<span class="org-string">'ipsc'</span>][<span class="org-string">'unimix'</span>] &gt; benchmark[<span class="org-string">'ipsc'</span>][<span class="org-string">'nb'</span>]].index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3)
+fig.set_size_inches(6, 4)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(ipsc_counts.loc[:,k], bins=ipsc_counts.loc[:,k].<span class="org-builtin">max</span>(), color=<span class="org-string">'k'</span>)
+  a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>])
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/ipsc-unimix-examples.png" alt="ipsc-unimix-examples.png">
+</p>
+</div>
+
+<p>
+In iPSC, several genes appear to be better fit by NPMLE than other methods.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'ipsc'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'ipsc'</span>][<span class="org-string">'nb'</span>]
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'ipsc'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 4)
+fig.set_size_inches(6, 4)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(ipsc_counts.loc[:,k], bins=ipsc_counts.loc[:,k].<span class="org-builtin">max</span>(), color=<span class="org-string">'k'</span>)
+  a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>])
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/ipsc-npmle-examples.png" alt="ipsc-npmle-examples.png">
+</p>
+</div>
+
+<p>
+Overall, these examples suggest flexibility is needed for accurately
+modeling the tails of the distribution.
+</p>
+</div>
+</div>
 </div>
 
 <div id="outline-container-orgf65a0fe" class="outline-3">
 <h3 id="orgf65a0fe">Synthetic cell mixtures</h3>
 <div class="outline-text-3" id="text-orgf65a0fe">
+</div>
+<div id="outline-container-org118a8dd" class="outline-4">
+<h4 id="org118a8dd">T cell-B cell mixture</h4>
+<div class="outline-text-4" id="text-org118a8dd">
 <p>
 Create a synthetic heterogeneous population of cells by combining sorted
 CD8+ T cells and CD19+ B cells from
@@ -1211,6 +1302,58 @@ python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.
 EOF
 </pre>
 </div>
+</div>
+</div>
+
+<div id="outline-container-org42727dd" class="outline-4">
+<h4 id="org42727dd">Naive/activated T cell mixture</h4>
+<div class="outline-text-4" id="text-org42727dd">
+<p>
+Create a synthetic mixture of cells by combining sorted
+CD8+ cytotoxic T cells and CD8+/CD45RA+ naive cytotoxic T cells
+<a href="https://www.nature.com/articles/ncomms14049">Zheng et al. 2017</a>.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">cyto_naive_t_mix</span>():
+  <span class="org-variable-name">cyto</span> = read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>)
+  <span class="org-variable-name">naive</span> = read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_cytotoxic/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>)
+  <span class="org-variable-name">x</span> = pd.concat([cyto, naive], axis=<span class="org-string">'index'</span>, join=<span class="org-string">'inner'</span>)
+  <span class="org-variable-name">y</span> = np.zeros(x.shape[0]).astype(<span class="org-builtin">int</span>)
+  y[:cyto.shape[0]] = 1
+  <span class="org-keyword">return</span> x, y
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark-gpu.out
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py &lt;&lt;EOF
+<span class="org-sh-heredoc">x, y = cyto_naive_t_mix()</span>
+<span class="org-sh-heredoc">res = evaluate_generalization(x.values, pool=None, stratify=y, train_size=0.5, test_size=0.1, random_state=0, methods=['nb', 'zinb'])</span>
+<span class="org-sh-heredoc">res.index = x.columns</span>
+<span class="org-sh-heredoc">res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-gpu.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=broadwl -a 0-3 -n1 -c28 --exclusive --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark-cpu.out
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py &lt;&lt;EOF
+<span class="org-sh-heredoc">import os</span>
+<span class="org-sh-heredoc">cpu_methods = ['unimix', 'descend', 'npmle', 'saturated']</span>
+<span class="org-sh-heredoc">task = int(os.environ['SLURM_ARRAY_TASK_ID'])</span>
+<span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=10) as pool:</span>
+<span class="org-sh-heredoc">  x, y = cyto_naive_t_mix()</span>
+<span class="org-sh-heredoc">  res = evaluate_generalization(x.values, pool=pool, stratify=y, train_size=0.5, test_size=0.1, random_state=0, methods=cpu_methods[task:task + 1])</span>
+<span class="org-sh-heredoc">  res.index = x.columns</span>
+<span class="org-sh-heredoc">  res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-{cpu_methods[task]}.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
 
 <p>
 Read the results.
@@ -1218,8 +1361,14 @@ Read the results.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">benchmark</span> = {}
-<span class="org-keyword">for</span> data <span class="org-keyword">in</span> (<span class="org-string">'cd8-cd19-mix'</span>,):
-  <span class="org-variable-name">benchmark</span>[data] = pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<span class="org-variable-name">benchmark</span>[<span class="org-string">'cd8-cd19-mix'</span>] = pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cd8-cd19-mix.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<span class="org-variable-name">benchmark</span>[<span class="org-string">'cyto-naive-t-mix'</span>] = (
+  pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-gpu.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
+  .merge(pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-unimix.txt.gz'</span>, sep=<span class="org-string">'\t'</span>), on=<span class="org-string">'0'</span>)
+  .merge(pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-descend.txt.gz'</span>, sep=<span class="org-string">'\t'</span>), on=<span class="org-string">'0'</span>)
+  .merge(pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-npmle.txt.gz'</span>, sep=<span class="org-string">'\t'</span>), on=<span class="org-string">'0'</span>)
+  .merge(pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-saturated.txt.gz'</span>, sep=<span class="org-string">'\t'</span>), on=<span class="org-string">'0'</span>)
+  .set_index(<span class="org-string">'0'</span>))
 </pre>
 </div>
 
@@ -1228,22 +1377,24 @@ Plot the results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">plt.gcf().set_size_inches(3, 3)
-<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">sorted</span>(benchmark.keys())):
-  plt.gca().boxplot((benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'saturated'</span>].values.reshape(-1, 1) - benchmark[f<span class="org-string">'{k}'</span>].values)[:,:-1],
-                widths=0.25, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
-  plt.gca().set_xticklabels(benchmark[f<span class="org-string">'{k}'</span>].columns[:-1], rotation=90)
-  plt.gca().set_xlabel(<span class="org-string">'Method'</span>)
-  plt.gca().set_title(k)
-plt.gca().set_ylabel(<span class="org-string">'Validation set deviance'</span>)
+<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(5, 3)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, <span class="org-builtin">sorted</span>(benchmark.keys())):
+  a.boxplot((benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'nb'</span>].values.reshape(-1, 1))[:,1:-1],
+            widths=0.25, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
+  a.set_xticklabels(benchmark[f<span class="org-string">'{k}'</span>].columns[1:-1], rotation=90)
+  a.set_xlabel(<span class="org-string">'Method'</span>)
+  a.set_title(k)
+ax[0].set_ylabel(<span class="org-string">'Diff val set log lik from NB'</span>)
 fig.tight_layout()
 </pre>
 </div>
 
 
 <div class="figure">
-<p><img src="figure/deconvolution.org/synthetic-benchmark-deviance.png" alt="synthetic-benchmark-deviance.png">
+<p><img src="figure/deconvolution.org/synthetic-mix-benchmark.png" alt="synthetic-mix-benchmark.png">
 </p>
+</div>
 </div>
 </div>
 </div>
@@ -1267,7 +1418,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-05 Fri 20:59</p>
+<p class="date">Created: 2019-04-06 Sat 16:21</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
