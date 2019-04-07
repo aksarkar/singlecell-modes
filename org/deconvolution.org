@@ -28,7 +28,7 @@
   #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59283152
+  : Submitted batch job 59287046
 
   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
     import functools as ft
@@ -138,9 +138,8 @@
       and Mizera 2014]]).
 
    In order to evaluate methods on their ability to estimate \(g_j\), we hold
-   out a validation set, and compute the validation set log likelihood. To set
-   a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
-   = x_{ij}\).
+   out a validation set, and compute the validation set log likelihood. Based
+   on our preliminary experiments, we compare all methods against Gamma.
 
    #+NAME: score-impl
    #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
@@ -834,9 +833,15 @@
    # Out[7]:
    :END:
 
+   #+NAME: read-gene-info
    #+BEGIN_SRC ipython
      gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
    #+END_SRC
+
+   #+RESULTS: read-gene-info
+   :RESULTS:
+   # Out[2]:
+   :END:
 
    #+RESULTS:
    :RESULTS:
@@ -879,6 +884,10 @@
    ([[https://www.omim.org/entry/312760][/RPS4X/]]) has a different coding
    sequence. Sex-linkage should fully explain why this gene exhibits bimodal
    gene expression.
+
+   #+BEGIN_SRC ipython
+     donor_info = pd.read_csv('http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20130606_sample_info/20130606_sample_info.txt', sep='\t')
+   #+END_SRC
 
    Look at the full benchmark results for NB vs. ZINB (only the GPU
    implementation is suitable for this).
@@ -960,6 +969,16 @@
     # Out[114]:
     [[file:figure/deconvolution.org/ipsc-unimix-examples.png]]
     :END:
+
+    - /SLC25A5/ ([[https://www.omim.org/entry/300150][Solute carrier family 25
+      member 5]]) codes for a mitochrondrial membrane protein
+      ([[https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5789311/][Rocha et
+      al. 2018]]), and is altered in Parkinson's disease
+    - /TXNDC17/ ([[https://www.omim.org/entry/616967][Thioredoxin
+      domain-containing protein 17]]) appears to be involved in oxidative
+      stress
+    - /PCBP2/ ([[https://www.omim.org/entry/601210][Poly(rC)-binding protein
+      2]]) is involved in post-transcriptional regulation
 
     In iPSC, several genes appear to be better fit by NPMLE than other methods.
 

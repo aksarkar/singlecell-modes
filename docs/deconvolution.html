@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-06 Sat 16:45 -->
+<!-- 2019-04-06 Sat 23:15 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -416,9 +416,8 @@ and Mizera 2014</a>).</li>
 
 <p>
 In order to evaluate methods on their ability to estimate \(g_j\), we hold
-out a validation set, and compute the validation set log likelihood. To set
-a common baseline, we compare against the saturated model \(\hat\lambda_{ij}
-   = x_{ij}\).
+out a validation set, and compute the validation set log likelihood. Based
+on our preliminary experiments, we compare all methods against Gamma.
 </p>
 
 <div class="org-src-container">
@@ -1107,7 +1106,7 @@ ENSG00000129824 -1803.651932 -1789.106410
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">gene_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<pre class="src src-ipython" id="orgbbc0733"><span class="org-variable-name">gene_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
 </pre>
 </div>
 
@@ -1152,6 +1151,11 @@ only be expressed in males. The homologous gene on the X chromosome
 sequence. Sex-linkage should fully explain why this gene exhibits bimodal
 gene expression.
 </p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">donor_info</span> = pd.read_csv(<span class="org-string">'http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20130606_sample_info/20130606_sample_info.txt'</span>, sep=<span class="org-string">'\t'</span>)
+</pre>
+</div>
 
 <p>
 Look at the full benchmark results for NB vs. ZINB (only the GPU
@@ -1245,6 +1249,18 @@ fig.tight_layout()
 <p><img src="figure/deconvolution.org/ipsc-unimix-examples.png" alt="ipsc-unimix-examples.png">
 </p>
 </div>
+
+<ul class="org-ul">
+<li><i>SLC25A5</i> (<a href="https://www.omim.org/entry/300150">Solute carrier family 25
+member 5</a>) codes for a mitochrondrial membrane protein
+(<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5789311/">Rocha et
+al. 2018</a>), and is altered in Parkinson's disease</li>
+<li><i>TXNDC17</i> (<a href="https://www.omim.org/entry/616967">Thioredoxin
+domain-containing protein 17</a>) appears to be involved in oxidative
+stress</li>
+<li><i>PCBP2</i> (<a href="https://www.omim.org/entry/601210">Poly(rC)-binding protein
+2</a>) is involved in post-transcriptional regulation</li>
+</ul>
 
 <p>
 In iPSC, several genes appear to be better fit by NPMLE than other methods.
@@ -1488,7 +1504,7 @@ al. 2013, Kim and Marioni 2013).
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-06 Sat 16:45</p>
+<p class="date">Created: 2019-04-06 Sat 23:15</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
