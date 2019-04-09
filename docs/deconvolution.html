@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-06 Sat 23:15 -->
+<!-- 2019-04-08 Mon 23:31 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -388,15 +388,15 @@ motivated by theory suggesting a biological mechanism for bimodal gene
 expression (<a href="http://dx.doi.org/10.1126/science.1216379">Munsky et
 al. 2013</a>, <a href="http://dx.doi.org/10.1186/gb-2013-14-1-r7">Kim and Marioni
 2013</a>).</li>
-<li><b>Unimodal mixture of uniforms:</b> \(g_j = \pi_0 \delta_0(\cdot) + \sum_k
-      \pi_k \mathrm{Uniform}(\cdot; \lambda_0, a_{jk})\), where \(\lambda_0\)
-is the mode (<a href="http://dx.doi.org/10.1093/biostatistics/kxw041">Stephens
-2016</a>). The inclusion of the point mass technically makes this
-distribution bimodal.</li>
-<li><b>Exponential family:</b> \(g_j = \exp(\mathbf{Q}\alpha - \phi(\alpha))\),
-where \(\mathbf{Q}\) is a <a href="https://en.wikipedia.org/wiki/B-spline">B
-spline spline basis matrix</a> for a
-<a href="https://en.wikipedia.org/wiki/Cubic_Hermite_spline">natural cubic
+<li><b>Unimodal:</b> \(g_j\) is some unimodal distribution over non-negative
+reals. In practice, we represent this family of distribution as \(g_j =
+      \sum_k \pi_k \mathrm{Uniform}(\cdot; \lambda_0, a_{jk})\), where \(k = 1,
+      \ldots, K\) are sufficiently many and \(\lambda_0\) is the mode
+(<a href="http://dx.doi.org/10.1093/biostatistics/kxw041">Stephens 2016</a>).</li>
+<li><b>Zero-inflated exponential family:</b> \(g_j = \exp(\mathbf{Q}\alpha -
+      \phi(\alpha))\), where \(\mathbf{Q}\) is a
+<a href="https://en.wikipedia.org/wiki/B-spline">B spline spline basis matrix</a>
+for a <a href="https://en.wikipedia.org/wiki/Cubic_Hermite_spline">natural cubic
 spline</a>
 (<a href="https://www.rdocumentation.org/packages/splines/topics/ns"><code>ns</code>
 function</a>;
@@ -406,12 +406,14 @@ sufficient statistic and natural parameters which maximizes the penalized
 likelihood of the observed data. The method has been extended to include
 a point mass on zero (<a href="http://dx.doi.org/10.1073/pnas.1721085115">Wang
 et al. 2018</a>).</li>
-<li><b>Nonparametric:</b> \(g_j = \sum_k \pi_k \mathrm{Uniform}(\cdot; ak, a(k +
-      1))\), where \(a\) is a fixed step size
+<li><b>Nonparametric:</b> \(g_j\) is some distribution over non-negative reals. In
+practice, we discretize the representation
 (<a href="https://projecteuclid.org/euclid.aoms/1177728066">Kiefer and Wolfowitz
 1956</a>,
 <a href="https://amstat.tandfonline.com/doi/abs/10.1080/01621459.2013.869224">Koenker
-and Mizera 2014</a>).</li>
+and Mizera 2014</a>). In full detail, we use the representation \(g_j =
+      \sum_k \pi_k \mathrm{Uniform}(\cdot; ak, a(k + 1))\), where \(a\) is a
+fixed step size, which allows us to re-use the <code>ash</code> implementation.</li>
 </ol>
 
 <p>
@@ -723,7 +725,7 @@ python /project2/mstephens/aksarkar/projects/singlecell-modes/code/fit-nb.py
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">zinb_log_mu</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/zheng-cd8-zinb-log-mu.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
 <span class="org-variable-name">zinb_log_phi</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/zheng-cd8-zinb-log-phi.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
-<span class="org-variable-name">zinb_logodds</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/zheng-cd8-zinb-log-phi.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
+<span class="org-variable-name">zinb_logodds</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/zheng-cd8-zinb-logodds.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
 <span class="org-variable-name">point_gamma_cdf</span> = st.gamma(a=np.exp(-zinb_log_phi[j]), scale=np.exp(zinb_log_mu[j] + zinb_log_phi[j])).cdf(np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000))
 <span class="org-variable-name">point_gamma_cdf</span> *= sp.expit(-zinb_logodds[j].values)
 <span class="org-variable-name">point_gamma_cdf</span> += sp.expit(zinb_logodds[j].values)
@@ -737,17 +739,17 @@ Plot the observed counts and deconvolved distributions.
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>).colors
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
-ax[0].hist(xj, bins=100, color=<span class="org-string">'k'</span>)
+<span class="org-variable-name">h</span> = ax[0].hist(xj, bins=np.arange(xj.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
 ax[0].set_xlabel(<span class="org-string">'Molecule count'</span>)
 ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
 
 ax[1].plot(np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000), gamma_cdf, color=cm[0], lw=1, label=<span class="org-string">'Gamma'</span>)
 ax[1].plot(np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000), point_gamma_cdf, color=cm[1], lw=1, label=<span class="org-string">'Point-Gamma'</span>)
 ax[1].plot(np.array(unimix_cdf.rx2(<span class="org-string">'x'</span>)),
-           np.array(unimix_cdf.rx2(<span class="org-string">'y'</span>)).ravel(), c=cm[2], lw=1, label=<span class="org-string">'Unif mix'</span>)
+           np.array(unimix_cdf.rx2(<span class="org-string">'y'</span>)).ravel(), c=cm[2], lw=1, label=<span class="org-string">'Unimodal'</span>)
 <span class="org-variable-name">F</span> = np.cumsum(np.array(descend_res.slots[<span class="org-string">'density.points'</span>])[:,1])
 ax[1].plot(np.array(descend_res.slots[<span class="org-string">'density.points'</span>])[:,0],
-           F / F.<span class="org-builtin">max</span>(), c=cm[3], lw=1, label=<span class="org-string">'DESCEND'</span>)
+           F / F.<span class="org-builtin">max</span>(), c=cm[3], lw=1, label=<span class="org-string">'ZIEF'</span>)
 ax[1].plot(np.array(npmle_cdf.rx2(<span class="org-string">'x'</span>)),
            np.array(npmle_cdf.rx2(<span class="org-string">'y'</span>)).ravel(), c=cm[4], lw=1, label=<span class="org-string">'NPMLE'</span>)
 ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
@@ -761,9 +763,128 @@ fig.tight_layout()
 
 
 <div class="figure">
-<p><img src="figure/deconvolution.org/ash-example.png" alt="ash-example.png">
+<p><img src="figure/deconvolution.org/deconv-example.png" alt="deconv-example.png">
 </p>
 </div>
+
+<p>
+Print out the histogram for inspection.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.vstack((h[1][:-1], h[0])).T
+</pre>
+</div>
+
+<pre class="example">
+array([[  0.,   0.],
+[  1.,   1.],
+[  2.,   1.],
+[  3.,   0.],
+[  4.,   0.],
+[  5.,   0.],
+[  6.,   1.],
+[  7.,   0.],
+[  8.,   1.],
+[  9.,   5.],
+[ 10.,   8.],
+[ 11.,   4.],
+[ 12.,   9.],
+[ 13.,   9.],
+[ 14.,   8.],
+[ 15.,  20.],
+[ 16.,  17.],
+[ 17.,  24.],
+[ 18.,  31.],
+[ 19.,  44.],
+[ 20.,  39.],
+[ 21.,  41.],
+[ 22.,  46.],
+[ 23.,  72.],
+[ 24.,  68.],
+[ 25.,  74.],
+[ 26.,  74.],
+[ 27.,  86.],
+[ 28.,  94.],
+[ 29., 114.],
+[ 30.,  96.],
+[ 31., 102.],
+[ 32., 120.],
+[ 33., 132.],
+[ 34., 161.],
+[ 35., 138.],
+[ 36., 159.],
+[ 37., 197.],
+[ 38., 186.],
+[ 39., 210.],
+[ 40., 232.],
+[ 41., 244.],
+[ 42., 284.],
+[ 43., 309.],
+[ 44., 321.],
+[ 45., 332.],
+[ 46., 342.],
+[ 47., 371.],
+[ 48., 349.],
+[ 49., 356.],
+[ 50., 317.],
+[ 51., 343.],
+[ 52., 347.],
+[ 53., 342.],
+[ 54., 308.],
+[ 55., 294.],
+[ 56., 274.],
+[ 57., 272.],
+[ 58., 241.],
+[ 59., 219.],
+[ 60., 191.],
+[ 61., 164.],
+[ 62., 145.],
+[ 63., 144.],
+[ 64., 120.],
+[ 65., 121.],
+[ 66., 100.],
+[ 67.,  95.],
+[ 68.,  69.],
+[ 69.,  62.],
+[ 70.,  53.],
+[ 71.,  47.],
+[ 72.,  52.],
+[ 73.,  32.],
+[ 74.,  35.],
+[ 75.,  36.],
+[ 76.,  30.],
+[ 77.,  28.],
+[ 78.,  20.],
+[ 79.,  27.],
+[ 80.,  26.],
+[ 81.,  21.],
+[ 82.,  12.],
+[ 83.,  12.],
+[ 84.,   9.],
+[ 85.,   7.],
+[ 86.,  12.],
+[ 87.,   8.],
+[ 88.,   9.],
+[ 89.,   6.],
+[ 90.,   4.],
+[ 91.,   5.],
+[ 92.,   2.],
+[ 93.,   2.],
+[ 94.,   2.],
+[ 95.,   3.],
+[ 96.,   1.],
+[ 97.,   2.],
+[ 98.,   2.],
+[ 99.,   0.],
+[100.,   0.],
+[101.,   0.],
+[102.,   1.],
+[103.,   1.],
+[104.,   0.],
+[105.,   0.],
+[106.,   2.]])
+</pre>
 </div>
 </div>
 
@@ -1051,8 +1172,8 @@ fig.set_size_inches(7, 3)
 <span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">sorted</span>(benchmark.keys())):
   ax[i].boxplot((benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'nb'</span>].values.reshape(-1, 1))[:,1:-1],
                 widths=0.25, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
-  ax[i].set_xticklabels(benchmark[f<span class="org-string">'{k}'</span>].columns[1:-1], rotation=90)
-  ax[i].set_xlabel(<span class="org-string">'Method'</span>)
+  ax[i].set_xticklabels([<span class="org-string">'ZINB'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
+  ax[i].set_xlabel(<span class="org-string">'Assumed latent dist'</span>)
   ax[i].set_title(k)
 ax[0].set_ylabel(<span class="org-string">'Diff val set log lik from NB'</span>)
 fig.tight_layout()
@@ -1062,6 +1183,32 @@ fig.tight_layout()
 
 <div class="figure">
 <p><img src="figure/deconvolution.org/homogeneous-benchmark.png" alt="homogeneous-benchmark.png">
+</p>
+</div>
+
+<p>
+Zoom in on the relevant part of the plot.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3)
+fig.set_size_inches(7, 3)
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">sorted</span>(benchmark.keys())):
+  <span class="org-variable-name">T</span> = (benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'nb'</span>].values.reshape(-1, 1))[:,1:-1]
+  ax[i].boxplot(T, widths=0.25, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
+  ax[i].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
+  ax[i].set_xticklabels([<span class="org-string">'ZINB'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
+  ax[i].set_xlabel(<span class="org-string">'Assumed latent dist'</span>)
+  ax[i].set_ylim(-20, 1.05 * T.<span class="org-builtin">max</span>())
+  ax[i].set_title(k)
+ax[0].set_ylabel(<span class="org-string">'Diff val set log lik from NB'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/homogeneous-benchmark-inset.png" alt="homogeneous-benchmark-inset.png">
 </p>
 </div>
 
@@ -1115,7 +1262,7 @@ ENSG00000129824 -1803.651932 -1789.106410
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2)
 fig.set_size_inches(6, 3)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, ipsc_counts):
-  a.hist(ipsc_counts[k], bins=ipsc_counts[k].<span class="org-builtin">max</span>() + 1, color=<span class="org-string">'k'</span>)
+  <span class="org-variable-name">h</span> = a.hist(ipsc_counts[k], bins=np.arange(ipsc_counts[k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
   a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>])
   a.set_xlabel(<span class="org-string">'Number of molecules'</span>)
   a.set_ylabel(<span class="org-string">'Number of cells'</span>)
@@ -1128,6 +1275,84 @@ fig.tight_layout()
 <p><img src="figure/deconvolution.org/ipsc-zinb.png" alt="ipsc-zinb.png">
 </p>
 </div>
+
+<p>
+Print out the histogram for <i>RPS4Y1</i> for inspection.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.vstack((h[1][:-1], h[0])).T
+</pre>
+</div>
+
+<pre class="example">
+array([[  0., 803.],
+[  1., 309.],
+[  2., 435.],
+[  3., 407.],
+[  4., 383.],
+[  5., 323.],
+[  6., 323.],
+[  7., 239.],
+[  8., 163.],
+[  9., 166.],
+[ 10., 132.],
+[ 11.,  98.],
+[ 12.,  97.],
+[ 13., 106.],
+[ 14.,  95.],
+[ 15.,  95.],
+[ 16.,  94.],
+[ 17., 109.],
+[ 18.,  92.],
+[ 19.,  89.],
+[ 20.,  87.],
+[ 21.,  83.],
+[ 22., 100.],
+[ 23.,  75.],
+[ 24.,  71.],
+[ 25.,  60.],
+[ 26.,  61.],
+[ 27.,  60.],
+[ 28.,  60.],
+[ 29.,  34.],
+[ 30.,  50.],
+[ 31.,  41.],
+[ 32.,  34.],
+[ 33.,  38.],
+[ 34.,  28.],
+[ 35.,  23.],
+[ 36.,  19.],
+[ 37.,  18.],
+[ 38.,  11.],
+[ 39.,   7.],
+[ 40.,  17.],
+[ 41.,   8.],
+[ 42.,  12.],
+[ 43.,   7.],
+[ 44.,   4.],
+[ 45.,  11.],
+[ 46.,   4.],
+[ 47.,   2.],
+[ 48.,   1.],
+[ 49.,   3.],
+[ 50.,   1.],
+[ 51.,   1.],
+[ 52.,   2.],
+[ 53.,   1.],
+[ 54.,   1.],
+[ 55.,   1.],
+[ 56.,   2.],
+[ 57.,   0.],
+[ 58.,   0.],
+[ 59.,   0.],
+[ 60.,   0.],
+[ 61.,   0.],
+[ 62.,   0.],
+[ 63.,   0.],
+[ 64.,   0.],
+[ 65.,   1.]])
+</pre>
 
 <p>
 <i>PACRG</i> (<a href="https://www.omim.org/entry/608427">Parkin coregulated gene</a>)
@@ -1153,9 +1378,37 @@ gene expression.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">donor_info</span> = pd.read_csv(<span class="org-string">'http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20130606_sample_info/20130606_sample_info.txt'</span>, sep=<span class="org-string">'\t'</span>)
+<pre class="src src-sh">curl -OL <span class="org-string">'http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20130606_sample_info/20130606_sample_info.txt'</span>
 </pre>
 </div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">donor_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/20130606_sample_info.txt'</span>, sep=<span class="org-string">'\t'</span>)
+</pre>
+</div>
+
+<p>
+Count how many cells come from females.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">prefix</span> = <span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>
+<span class="org-variable-name">annotations</span> = pd.read_csv(f<span class="org-string">'{prefix}/scqtl-annotation.txt'</span>, sep=<span class="org-string">'\t'</span>)
+<span class="org-variable-name">keep_samples</span> = pd.read_csv(f<span class="org-string">'{prefix}/quality-single-cells.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, header=<span class="org-constant">None</span>)
+<span class="org-variable-name">annotations</span> = annotations.loc[keep_samples.values.ravel()]
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">annotations.merge(donor_info, left_on=<span class="org-string">'chip_id'</span>, right_on=<span class="org-string">'Sample'</span>)[<span class="org-string">'Gender'</span>].value_counts()
+</pre>
+</div>
+
+<pre class="example">
+female    3109
+male      2369
+Name: Gender, dtype: int64
+</pre>
 
 <p>
 Look at the full benchmark results for NB vs. ZINB (only the GPU
@@ -1165,22 +1418,53 @@ implementation is suitable for this).
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
 plt.gcf().set_size_inches(3, 3)
-plt.plot([ipsc_res[<span class="org-string">'nb'</span>].<span class="org-builtin">min</span>(), ipsc_res[<span class="org-string">'nb'</span>].<span class="org-builtin">max</span>()], [ipsc_res[<span class="org-string">'nb'</span>].<span class="org-builtin">min</span>(), ipsc_res[<span class="org-string">'nb'</span>].<span class="org-builtin">max</span>()], c=<span class="org-string">'r'</span>, ls=<span class="org-string">'--'</span>, lw=1)
-plt.scatter(ipsc_res[<span class="org-string">'nb'</span>], ipsc_res[<span class="org-string">'zinb'</span>], c=<span class="org-string">'k'</span>, s=2, alpha=.25)
-plt.xlabel(<span class="org-string">'NB validation log lik.'</span>)
-plt.ylabel(<span class="org-string">'ZINB validation log lik.'</span>)
+<span class="org-variable-name">h</span> = plt.hist(ipsc_res[<span class="org-string">'zinb'</span>] - ipsc_res[<span class="org-string">'nb'</span>], color=<span class="org-string">'k'</span>, bins=np.arange(-10, 40, 2))
+plt.xlabel(<span class="org-string">'Diff val set log lik from NB'</span>)
+<span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Number of genes'</span>)
 </pre>
 </div>
 
-<pre class="example">
-Text(0, 0.5, 'ZINB validation log lik.')
-
-</pre>
 
 <div class="figure">
 <p><img src="figure/deconvolution.org/homogeneous-nb-zinb-benchmark.png" alt="homogeneous-nb-zinb-benchmark.png">
 </p>
 </div>
+
+<p>
+Print the histogram for inspection.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.vstack((h[1][:-1], h[0])).T.astype(<span class="org-builtin">int</span>)
+</pre>
+</div>
+
+<pre class="example">
+array([[ -10,    0],
+[  -8,    0],
+[  -6,    0],
+[  -4,    0],
+[  -2, 4977],
+[   0, 4973],
+[   2,    2],
+[   4,    3],
+[   6,    0],
+[   8,    0],
+[  10,    0],
+[  12,    0],
+[  14,    1],
+[  16,    0],
+[  18,    0],
+[  20,    0],
+[  22,    0],
+[  24,    0],
+[  26,    0],
+[  28,    1],
+[  30,    0],
+[  32,    0],
+[  34,    0],
+[  36,    0]])
+</pre>
 </div>
 </div>
 
@@ -1202,7 +1486,12 @@ plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(6, 6, sharey=<span class="org-constant">True</span>, sharex=<span class="org-constant">True</span>)
 fig.set_size_inches(9, 9)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
-  a.hist(b_cells.iloc[:,k], bins=b_cells.iloc[:,k].<span class="org-builtin">max</span>(), color=<span class="org-string">'k'</span>)
+  a.hist(b_cells.iloc[:,k], bins=np.arange(b_cells.iloc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.9, y=.9,
+         s=f<span class="org-string">"$\Delta L$={benchmark['cd19_b_cells']['descend'].loc[k] - benchmark['cd19_b_cells']['nb'].loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
   a.set_title(gene_info.loc[b_cells.columns[k], <span class="org-string">'name'</span>] <span class="org-keyword">if</span> b_cells.columns[k] <span class="org-keyword">in</span> gene_info.index <span class="org-keyword">else</span> b_cells.columns[k])
 <span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
   ax[y][0].set_ylabel(<span class="org-string">'Number of cells'</span>)
@@ -1215,6 +1504,42 @@ fig.tight_layout()
 
 <div class="figure">
 <p><img src="figure/deconvolution.org/b-cell-descend-examples.png" alt="b-cell-descend-examples.png">
+</p>
+</div>
+
+<p>
+For comparison, consider the gene with the largest difference in validation
+set log likelihood. Deconvolve its gene expression assuming \(g_j =
+    \delta_\mu(\cdot)\), using the fact:
+</p>
+
+<p>
+\[ \textstyle\sum_i x_i \sim \mathrm{Poisson}\left(\textstyle\sum_i R_i \mu\right) \]
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">diff</span> = benchmark[<span class="org-string">'cd19_b_cells'</span>][<span class="org-string">'descend'</span>] - benchmark[<span class="org-string">'cd19_b_cells'</span>][<span class="org-string">'nb'</span>]
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(5, 2)
+np.random.seed(1)
+<span class="org-variable-name">x</span> = b_cells.iloc[:,diff.idxmax()]
+<span class="org-variable-name">scale</span> = b_cells.<span class="org-builtin">sum</span>(axis=1)
+<span class="org-variable-name">mu</span> = x.<span class="org-builtin">sum</span>() / scale.<span class="org-builtin">sum</span>()
+<span class="org-variable-name">y</span> = np.random.poisson(lam=scale * mu)
+ax[0].hist(y, bins=np.arange(y.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+ax[0].set_title(<span class="org-string">'Point mass'</span>)
+ax[1].hist(x, bins=np.arange(x.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+ax[1].set_title(<span class="org-string">'ZIEF'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a.set_xlabel(<span class="org-string">'Molecule count'</span>)
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/b-cell-descend-pois.example.png" alt="b-cell-descend-pois.example.png">
 </p>
 </div>
 
@@ -1234,7 +1559,12 @@ plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3)
 fig.set_size_inches(6, 4)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
-  a.hist(ipsc_counts.loc[:,k], bins=ipsc_counts.loc[:,k].<span class="org-builtin">max</span>(), color=<span class="org-string">'k'</span>)
+  <span class="org-variable-name">h</span> = a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.9, y=.9,
+         s=f<span class="org-string">"$\Delta L$={benchmark['ipsc']['unimix'].loc[k] - benchmark['ipsc']['nb'].loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
   a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>])
 <span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
   ax[y][0].set_ylabel(<span class="org-string">'Number of cells'</span>)
@@ -1249,6 +1579,82 @@ fig.tight_layout()
 <p><img src="figure/deconvolution.org/ipsc-unimix-examples.png" alt="ipsc-unimix-examples.png">
 </p>
 </div>
+
+<p>
+Print out the last histogram for inspection
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.vstack((h[1][:-1], h[0])).T.astype(<span class="org-builtin">int</span>)
+</pre>
+</div>
+
+<pre class="example">
+array([[  0,   9],
+[  1,  32],
+[  2,  65],
+[  3,  89],
+[  4, 127],
+[  5, 149],
+[  6, 199],
+[  7, 195],
+[  8, 221],
+[  9, 239],
+[ 10, 277],
+[ 11, 288],
+[ 12, 293],
+[ 13, 293],
+[ 14, 281],
+[ 15, 263],
+[ 16, 321],
+[ 17, 247],
+[ 18, 236],
+[ 19, 236],
+[ 20, 191],
+[ 21, 178],
+[ 22, 168],
+[ 23, 154],
+[ 24, 126],
+[ 25, 124],
+[ 26, 100],
+[ 27,  81],
+[ 28,  67],
+[ 29,  72],
+[ 30,  47],
+[ 31,  41],
+[ 32,  33],
+[ 33,  35],
+[ 34,  21],
+[ 35,  15],
+[ 36,  18],
+[ 37,  13],
+[ 38,   6],
+[ 39,   5],
+[ 40,   7],
+[ 41,   7],
+[ 42,   5],
+[ 43,   5],
+[ 44,   6],
+[ 45,   3],
+[ 46,   3],
+[ 47,   0],
+[ 48,   2],
+[ 49,   0],
+[ 50,   0],
+[ 51,   1],
+[ 52,   0],
+[ 53,   0],
+[ 54,   0],
+[ 55,   1],
+[ 56,   0],
+[ 57,   0],
+[ 58,   0],
+[ 59,   0],
+[ 60,   0],
+[ 61,   0],
+[ 62,   0],
+[ 63,   2]])
+</pre>
 
 <ul class="org-ul">
 <li><i>SLC25A5</i> (<a href="https://www.omim.org/entry/300150">Solute carrier family 25
@@ -1271,9 +1677,14 @@ In iPSC, several genes appear to be better fit by NPMLE than other methods.
 <span class="org-variable-name">query</span> = benchmark[<span class="org-string">'ipsc'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
 plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 4)
-fig.set_size_inches(6, 4)
+fig.set_size_inches(7, 5)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
-  a.hist(ipsc_counts.loc[:,k], bins=ipsc_counts.loc[:,k].<span class="org-builtin">max</span>(), color=<span class="org-string">'k'</span>)
+  a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta L$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
   a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>])
 <span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
   ax[y][0].set_ylabel(<span class="org-string">'Number of cells'</span>)
@@ -1418,8 +1829,8 @@ fig.set_size_inches(5, 3)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, <span class="org-builtin">sorted</span>(benchmark.keys())):
   a.boxplot((benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'nb'</span>].values.reshape(-1, 1))[:,1:-1],
             widths=0.25, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
-  a.set_xticklabels(benchmark[f<span class="org-string">'{k}'</span>].columns[1:-1], rotation=90)
-  a.set_xlabel(<span class="org-string">'Method'</span>)
+  a.set_xticklabels([<span class="org-string">'ZINB'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
+  a.set_xlabel(<span class="org-string">'Assumed latent dist'</span>)
   a.set_title(k)
 ax[0].set_ylabel(<span class="org-string">'Diff val set log lik from NB'</span>)
 fig.tight_layout()
@@ -1429,6 +1840,32 @@ fig.tight_layout()
 
 <div class="figure">
 <p><img src="figure/deconvolution.org/synthetic-mix-benchmark.png" alt="synthetic-mix-benchmark.png">
+</p>
+</div>
+
+<p>
+Zoom in on the relevant part of the plot.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2)
+fig.set_size_inches(5, 3)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, <span class="org-builtin">sorted</span>(benchmark.keys())):
+  <span class="org-variable-name">T</span> = (benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'nb'</span>].values.reshape(-1, 1))[:,1:-1]
+  a.boxplot(T, widths=0.25, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
+  a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
+  a.set_xticklabels([<span class="org-string">'ZINB'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
+  a.set_xlabel(<span class="org-string">'Assumed latent dist'</span>)
+  a.set_ylim(-20, 1.05 * T.<span class="org-builtin">max</span>())
+  a.set_title(k)
+ax[0].set_ylabel(<span class="org-string">'Diff val set log lik from NB'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/synthetic-mix-benchmark-inset.png" alt="synthetic-mix-benchmark-inset.png">
 </p>
 </div>
 </div>
@@ -1453,19 +1890,25 @@ Look at genes where NPMLE has higher validation set log likelihood than NB.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cd8-cd19-mix'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'cd8-cd19-mix'</span>][<span class="org-string">'nb'</span>]
-<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cd8-cd19-mix'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=4).index].index
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cd8-cd19-mix'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
 </pre>
 </div>
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 4)
-fig.set_size_inches(8, 2)
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 4)
+fig.set_size_inches(8, 6)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
-  a.hist(mix1.iloc[:,k], bins=mix1.iloc[:,k].<span class="org-builtin">max</span>(), color=<span class="org-string">'k'</span>)
+  a.hist(mix1.iloc[:,k], bins=np.arange(mix1.iloc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta L$={benchmark['cd8-cd19-mix']['npmle'].loc[k] - benchmark['cd8-cd19-mix']['nb'].loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
   a.set_title(gene_info.loc[mix1.columns[k], <span class="org-string">'name'</span>] <span class="org-keyword">if</span> mix1.columns[k] <span class="org-keyword">in</span> gene_info.index <span class="org-keyword">else</span> mix1.columns[k])
   a.set_xlabel(<span class="org-string">'Number of molecules'</span>)
-ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
 fig.tight_layout()
 </pre>
 </div>
@@ -1477,10 +1920,30 @@ fig.tight_layout()
 </div>
 
 <p>
-<i>CD74</i> appears to be the first good example of a gene (so far) showing
-bimodal gene expression as predicted by a simple kinetic model (Munsky et
-al. 2013, Kim and Marioni 2013).
+Look at <i>CD74</i> gene expression, stratified by known cell type.
 </p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(5, 2)
+<span class="org-keyword">for</span> i, a <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(ax):
+  a.hist(mix1.loc[y1 == i,mix1.columns[query[0]]], bins=np.arange(mix1.loc[:,mix1.columns[query[0]]].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.set_title([<span class="org-string">'T cells'</span>, <span class="org-string">'B cells'</span>][i])
+  a.set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+</pre>
+</div>
+
+<pre class="example">
+Text(0, 0.5, 'Number of cells')
+
+</pre>
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/cd74-example.png" alt="cd74-example.png">
+</p>
+</div>
 </div>
 </div>
 </div>
@@ -1490,12 +1953,58 @@ al. 2013, Kim and Marioni 2013).
 <div class="outline-text-3" id="text-orgae913a7">
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">pbmcs_68k</span>(**kwargs):
-  <span class="org-keyword">return</span> read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/68k_pbmcs/filtered_matrices_mex/hg19/'</span>, **kwargs)
+  <span class="org-keyword">return</span> read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19'</span>, **kwargs)
 
-<span class="org-keyword">def</span> <span class="org-function-name">cortex</span>():
-  <span class="org-variable-name">counts</span> = pd.read_table(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz'</span>, index_col=0)
+<span class="org-keyword">def</span> <span class="org-function-name">cortex</span>(return_df=<span class="org-constant">False</span>):
+  <span class="org-variable-name">counts</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
   <span class="org-comment-delimiter"># </span><span class="org-comment">Follow scVI here</span>
-  <span class="org-keyword">return</span> counts.loc[counts.var(axis=1).sort_values(ascending=<span class="org-constant">False</span>).head(n=500).index].values.T
+  <span class="org-variable-name">subset</span> = counts.loc[counts.var(axis=1).sort_values(ascending=<span class="org-constant">False</span>).head(n=500).index].T
+  <span class="org-keyword">if</span> return_df:
+    <span class="org-keyword">return</span> subset
+  <span class="org-keyword">else</span>:
+    <span class="org-keyword">return</span> subset.values
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="org0b7641e"><span class="org-keyword">for</span> data <span class="org-keyword">in</span> (<span class="org-string">'pbmcs_68k'</span>, <span class="org-string">'cortex'</span>):
+  <span class="org-variable-name">x</span> = <span class="org-builtin">globals</span>()[data](return_df=<span class="org-constant">True</span>)
+  <span class="org-variable-name">res</span> = evaluate_generalization(x.values, pool=<span class="org-constant">None</span>, test_size=0.1, random_state=0, methods=[<span class="org-string">'nb'</span>, <span class="org-string">'zinb'</span>])
+  <span class="org-variable-name">res.index</span> = x.columns
+  res.to_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark-gpu.out
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;heterogeneous-benchmark-gpu&gt;&gt;</span>
+EOF
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="orgc2b3179"><span class="org-keyword">import</span> os
+<span class="org-variable-name">datasets</span> = [<span class="org-string">'pbmcs_68k'</span>, <span class="org-string">'cortex'</span>]
+<span class="org-variable-name">cpu_methods</span> = [<span class="org-string">'unimix'</span>, <span class="org-string">'descend'</span>, <span class="org-string">'npmle'</span>, <span class="org-string">'saturated'</span>]
+<span class="org-variable-name">tasks</span> = [(d, c) <span class="org-keyword">for</span> d <span class="org-keyword">in</span> datasets <span class="org-keyword">for</span> c <span class="org-keyword">in</span> cpu_methods]
+<span class="org-variable-name">data</span>, <span class="org-variable-name">method</span> = tasks[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
+<span class="org-variable-name">x</span> = <span class="org-builtin">globals</span>()[data](return_df=<span class="org-constant">True</span>)
+<span class="org-variable-name">res</span> = evaluate_generalization(x.values, pool=<span class="org-constant">None</span>, stratify=y, train_size=0.5, test_size=0.1, random_state=0, methods=[method])
+<span class="org-variable-name">res.index</span> = x.columns
+res.to_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-{method}.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=broadwl -a 0-7 -n1 -c28 --exclusive --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark-cpu.out
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;heterogeneous-benchmark-cpu&gt;&gt;</span>
+EOF
 </pre>
 </div>
 </div>
@@ -1504,7 +2013,7 @@ al. 2013, Kim and Marioni 2013).
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-06 Sat 23:15</p>
+<p class="date">Created: 2019-04-08 Mon 23:31</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

@@ -25,10 +25,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(mem="8G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
+  #+CALL: ipython3(mem="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59287046
+  : Submitted batch job 59324840
 
   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
     import functools as ft
@@ -55,7 +55,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[10]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -65,7 +65,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[11]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -76,7 +76,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[12]:
   :END:
 
 * Methods
@@ -112,15 +112,15 @@
       expression ([[http://dx.doi.org/10.1126/science.1216379][Munsky et
       al. 2013]], [[http://dx.doi.org/10.1186/gb-2013-14-1-r7][Kim and Marioni
       2013]]).
-   4. *Unimodal mixture of uniforms:* \(g_j = \pi_0 \delta_0(\cdot) + \sum_k
-      \pi_k \mathrm{Uniform}(\cdot; \lambda_0, a_{jk})\), where \(\lambda_0\)
-      is the mode ([[http://dx.doi.org/10.1093/biostatistics/kxw041][Stephens
-      2016]]). The inclusion of the point mass technically makes this
-      distribution bimodal.
-   5. *Exponential family:* \(g_j = \exp(\mathbf{Q}\alpha - \phi(\alpha))\),
-      where \(\mathbf{Q}\) is a [[https://en.wikipedia.org/wiki/B-spline][B
-      spline spline basis matrix]] for a
-      [[https://en.wikipedia.org/wiki/Cubic_Hermite_spline][natural cubic
+   4. *Unimodal:* \(g_j\) is some unimodal distribution over non-negative
+      reals. In practice, we represent this family of distribution as \(g_j =
+      \sum_k \pi_k \mathrm{Uniform}(\cdot; \lambda_0, a_{jk})\), where \(k = 1,
+      \ldots, K\) are sufficiently many and \(\lambda_0\) is the mode
+      ([[http://dx.doi.org/10.1093/biostatistics/kxw041][Stephens 2016]]).
+   5. *Zero-inflated exponential family:* \(g_j = \exp(\mathbf{Q}\alpha -
+      \phi(\alpha))\), where \(\mathbf{Q}\) is a
+      [[https://en.wikipedia.org/wiki/B-spline][B spline spline basis matrix]]
+      for a [[https://en.wikipedia.org/wiki/Cubic_Hermite_spline][natural cubic
       spline]]
       ([[https://www.rdocumentation.org/packages/splines/topics/ns][~ns~
       function]];
@@ -130,12 +130,14 @@
       likelihood of the observed data. The method has been extended to include
       a point mass on zero ([[http://dx.doi.org/10.1073/pnas.1721085115][Wang
       et al. 2018]]).
-   6. *Nonparametric:* \(g_j = \sum_k \pi_k \mathrm{Uniform}(\cdot; ak, a(k +
-      1))\), where \(a\) is a fixed step size
+   6. *Nonparametric:* \(g_j\) is some distribution over non-negative reals. In
+      practice, we discretize the representation
       ([[https://projecteuclid.org/euclid.aoms/1177728066][Kiefer and Wolfowitz
       1956]],
       [[https://amstat.tandfonline.com/doi/abs/10.1080/01621459.2013.869224][Koenker
-      and Mizera 2014]]).
+      and Mizera 2014]]). In full detail, we use the representation \(g_j =
+      \sum_k \pi_k \mathrm{Uniform}(\cdot; ak, a(k + 1))\), where \(a\) is a
+      fixed step size, which allows us to re-use the ~ash~ implementation.
 
    In order to evaluate methods on their ability to estimate \(g_j\), we hold
    out a validation set, and compute the validation set log likelihood. Based
@@ -331,7 +333,7 @@
 
    #+RESULTS: read-zheng
    :RESULTS:
-   # Out[20]:
+   # Out[6]:
    :END:
 
    Look at some examples.
@@ -345,7 +347,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[5]:
    :END:
 
    Fit Poisson ash.
@@ -361,7 +363,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[6]:
    :END:
 
    Fit NPMLE.
@@ -379,7 +381,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
+   # Out[7]:
    :END:
 
    Fit DESCEND.
@@ -390,7 +392,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[14]:
+   # Out[8]:
    :END:
 
    Fit NB/ZINB.
@@ -450,13 +452,13 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[15]:
+   # Out[9]:
    :END:
 
    #+BEGIN_SRC ipython
      zinb_log_mu = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/zheng-cd8-zinb-log-mu.txt.gz', sep='\t')
      zinb_log_phi = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/zheng-cd8-zinb-log-phi.txt.gz', sep='\t')
-     zinb_logodds = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/zheng-cd8-zinb-log-phi.txt.gz', sep='\t')
+     zinb_logodds = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/zheng-cd8-zinb-logodds.txt.gz', sep='\t')
      point_gamma_cdf = st.gamma(a=np.exp(-zinb_log_phi[j]), scale=np.exp(zinb_log_mu[j] + zinb_log_phi[j])).cdf(np.linspace(lam.min(), lam.max(), 1000))
      point_gamma_cdf *= sp.expit(-zinb_logodds[j].values)
      point_gamma_cdf += sp.expit(zinb_logodds[j].values)
@@ -464,25 +466,25 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[16]:
+   # Out[54]:
    :END:
 
    Plot the observed counts and deconvolved distributions.
 
-   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ash-example.png
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/deconv-example.png
      cm = plt.get_cmap('Dark2').colors
      fig, ax = plt.subplots(2, 1)
-     ax[0].hist(xj, bins=100, color='k')
+     h = ax[0].hist(xj, bins=np.arange(xj.max() + 1), color='k')
      ax[0].set_xlabel('Molecule count')
      ax[0].set_ylabel('Number of cells')
 
      ax[1].plot(np.linspace(lam.min(), lam.max(), 1000), gamma_cdf, color=cm[0], lw=1, label='Gamma')
      ax[1].plot(np.linspace(lam.min(), lam.max(), 1000), point_gamma_cdf, color=cm[1], lw=1, label='Point-Gamma')
      ax[1].plot(np.array(unimix_cdf.rx2('x')),
-                np.array(unimix_cdf.rx2('y')).ravel(), c=cm[2], lw=1, label='Unif mix')
+                np.array(unimix_cdf.rx2('y')).ravel(), c=cm[2], lw=1, label='Unimodal')
      F = np.cumsum(np.array(descend_res.slots['density.points'])[:,1])
      ax[1].plot(np.array(descend_res.slots['density.points'])[:,0],
-                F / F.max(), c=cm[3], lw=1, label='DESCEND')
+                F / F.max(), c=cm[3], lw=1, label='ZIEF')
      ax[1].plot(np.array(npmle_cdf.rx2('x')),
                 np.array(npmle_cdf.rx2('y')).ravel(), c=cm[4], lw=1, label='NPMLE')
      ax[1].set_xlabel('Latent gene expression')
@@ -495,8 +497,128 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[20]:
-   [[file:figure/deconvolution.org/ash-example.png]]
+   # Out[56]:
+   [[file:figure/deconvolution.org/deconv-example.png]]
+   :END:
+
+   Print out the histogram for inspection.
+
+   #+BEGIN_SRC ipython
+     np.vstack((h[1][:-1], h[0])).T
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[52]:
+   #+BEGIN_EXAMPLE
+     array([[  0.,   0.],
+     [  1.,   1.],
+     [  2.,   1.],
+     [  3.,   0.],
+     [  4.,   0.],
+     [  5.,   0.],
+     [  6.,   1.],
+     [  7.,   0.],
+     [  8.,   1.],
+     [  9.,   5.],
+     [ 10.,   8.],
+     [ 11.,   4.],
+     [ 12.,   9.],
+     [ 13.,   9.],
+     [ 14.,   8.],
+     [ 15.,  20.],
+     [ 16.,  17.],
+     [ 17.,  24.],
+     [ 18.,  31.],
+     [ 19.,  44.],
+     [ 20.,  39.],
+     [ 21.,  41.],
+     [ 22.,  46.],
+     [ 23.,  72.],
+     [ 24.,  68.],
+     [ 25.,  74.],
+     [ 26.,  74.],
+     [ 27.,  86.],
+     [ 28.,  94.],
+     [ 29., 114.],
+     [ 30.,  96.],
+     [ 31., 102.],
+     [ 32., 120.],
+     [ 33., 132.],
+     [ 34., 161.],
+     [ 35., 138.],
+     [ 36., 159.],
+     [ 37., 197.],
+     [ 38., 186.],
+     [ 39., 210.],
+     [ 40., 232.],
+     [ 41., 244.],
+     [ 42., 284.],
+     [ 43., 309.],
+     [ 44., 321.],
+     [ 45., 332.],
+     [ 46., 342.],
+     [ 47., 371.],
+     [ 48., 349.],
+     [ 49., 356.],
+     [ 50., 317.],
+     [ 51., 343.],
+     [ 52., 347.],
+     [ 53., 342.],
+     [ 54., 308.],
+     [ 55., 294.],
+     [ 56., 274.],
+     [ 57., 272.],
+     [ 58., 241.],
+     [ 59., 219.],
+     [ 60., 191.],
+     [ 61., 164.],
+     [ 62., 145.],
+     [ 63., 144.],
+     [ 64., 120.],
+     [ 65., 121.],
+     [ 66., 100.],
+     [ 67.,  95.],
+     [ 68.,  69.],
+     [ 69.,  62.],
+     [ 70.,  53.],
+     [ 71.,  47.],
+     [ 72.,  52.],
+     [ 73.,  32.],
+     [ 74.,  35.],
+     [ 75.,  36.],
+     [ 76.,  30.],
+     [ 77.,  28.],
+     [ 78.,  20.],
+     [ 79.,  27.],
+     [ 80.,  26.],
+     [ 81.,  21.],
+     [ 82.,  12.],
+     [ 83.,  12.],
+     [ 84.,   9.],
+     [ 85.,   7.],
+     [ 86.,  12.],
+     [ 87.,   8.],
+     [ 88.,   9.],
+     [ 89.,   6.],
+     [ 90.,   4.],
+     [ 91.,   5.],
+     [ 92.,   2.],
+     [ 93.,   2.],
+     [ 94.,   2.],
+     [ 95.,   3.],
+     [ 96.,   1.],
+     [ 97.,   2.],
+     [ 98.,   2.],
+     [ 99.,   0.],
+     [100.,   0.],
+     [101.,   0.],
+     [102.,   1.],
+     [103.,   1.],
+     [104.,   0.],
+     [105.,   0.],
+     [106.,   2.]])
+   #+END_EXAMPLE
    :END:
 
 *** Speed up ash mode estimation
@@ -700,7 +822,7 @@
 
    #+RESULTS: read-ipsc
    :RESULTS:
-   # Out[47]:
+   # Out[85]:
    :END:
 
    Run the benchmark.
@@ -768,7 +890,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[106]:
+   # Out[57]:
    :END:
 
    Plot the generalization performance of each method.
@@ -779,8 +901,8 @@
      for i, k in enumerate(sorted(benchmark.keys())):
        ax[i].boxplot((benchmark[f'{k}'].values - benchmark[f'{k}']['nb'].values.reshape(-1, 1))[:,1:-1],
                      widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       ax[i].set_xticklabels(benchmark[f'{k}'].columns[1:-1], rotation=90)
-       ax[i].set_xlabel('Method')
+       ax[i].set_xticklabels(['ZINB', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+       ax[i].set_xlabel('Assumed latent dist')
        ax[i].set_title(k)
      ax[0].set_ylabel('Diff val set log lik from NB')
      fig.tight_layout()
@@ -788,8 +910,31 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[19]:
+   # Out[79]:
    [[file:figure/deconvolution.org/homogeneous-benchmark.png]]
+   :END:
+
+   Zoom in on the relevant part of the plot.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/homogeneous-benchmark-inset.png
+     fig, ax = plt.subplots(1, 3)
+     fig.set_size_inches(7, 3)
+     for i, k in enumerate(sorted(benchmark.keys())):
+       T = (benchmark[f'{k}'].values - benchmark[f'{k}']['nb'].values.reshape(-1, 1))[:,1:-1]
+       ax[i].boxplot(T, widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+       ax[i].axhline(y=0, ls=':', lw=1, c='k')
+       ax[i].set_xticklabels(['ZINB', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+       ax[i].set_xlabel('Assumed latent dist')
+       ax[i].set_ylim(-20, 1.05 * T.max())
+       ax[i].set_title(k)
+     ax[0].set_ylabel('Diff val set log lik from NB')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[81]:
+   [[file:figure/deconvolution.org/homogeneous-benchmark-inset.png]]
    :END:
 
    The results suggest that NB (assuming Gamma-distributed latent gene
@@ -815,7 +960,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[83]:
    #+BEGIN_EXAMPLE
      nb         zinb
      gene
@@ -830,7 +975,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[86]:
    :END:
 
    #+NAME: read-gene-info
@@ -840,12 +985,7 @@
 
    #+RESULTS: read-gene-info
    :RESULTS:
-   # Out[2]:
-   :END:
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[66]:
+   # Out[15]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-zinb.png
@@ -853,7 +993,7 @@
      fig, ax = plt.subplots(1, 2)
      fig.set_size_inches(6, 3)
      for a, k in zip(ax, ipsc_counts):
-       a.hist(ipsc_counts[k], bins=ipsc_counts[k].max() + 1, color='k')
+       h = a.hist(ipsc_counts[k], bins=np.arange(ipsc_counts[k].max() + 1), color='k')
        a.set_title(gene_info.loc[k, 'name'])
        a.set_xlabel('Number of molecules')
        a.set_ylabel('Number of cells')
@@ -862,8 +1002,87 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[54]:
+   # Out[89]:
    [[file:figure/deconvolution.org/ipsc-zinb.png]]
+   :END:
+
+   Print out the histogram for /RPS4Y1/ for inspection.
+
+   #+BEGIN_SRC ipython
+     np.vstack((h[1][:-1], h[0])).T
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[91]:
+   #+BEGIN_EXAMPLE
+     array([[  0., 803.],
+     [  1., 309.],
+     [  2., 435.],
+     [  3., 407.],
+     [  4., 383.],
+     [  5., 323.],
+     [  6., 323.],
+     [  7., 239.],
+     [  8., 163.],
+     [  9., 166.],
+     [ 10., 132.],
+     [ 11.,  98.],
+     [ 12.,  97.],
+     [ 13., 106.],
+     [ 14.,  95.],
+     [ 15.,  95.],
+     [ 16.,  94.],
+     [ 17., 109.],
+     [ 18.,  92.],
+     [ 19.,  89.],
+     [ 20.,  87.],
+     [ 21.,  83.],
+     [ 22., 100.],
+     [ 23.,  75.],
+     [ 24.,  71.],
+     [ 25.,  60.],
+     [ 26.,  61.],
+     [ 27.,  60.],
+     [ 28.,  60.],
+     [ 29.,  34.],
+     [ 30.,  50.],
+     [ 31.,  41.],
+     [ 32.,  34.],
+     [ 33.,  38.],
+     [ 34.,  28.],
+     [ 35.,  23.],
+     [ 36.,  19.],
+     [ 37.,  18.],
+     [ 38.,  11.],
+     [ 39.,   7.],
+     [ 40.,  17.],
+     [ 41.,   8.],
+     [ 42.,  12.],
+     [ 43.,   7.],
+     [ 44.,   4.],
+     [ 45.,  11.],
+     [ 46.,   4.],
+     [ 47.,   2.],
+     [ 48.,   1.],
+     [ 49.,   3.],
+     [ 50.,   1.],
+     [ 51.,   1.],
+     [ 52.,   2.],
+     [ 53.,   1.],
+     [ 54.,   1.],
+     [ 55.,   1.],
+     [ 56.,   2.],
+     [ 57.,   0.],
+     [ 58.,   0.],
+     [ 59.,   0.],
+     [ 60.,   0.],
+     [ 61.,   0.],
+     [ 62.,   0.],
+     [ 63.,   0.],
+     [ 64.,   0.],
+     [ 65.,   1.]])
+   #+END_EXAMPLE
    :END:
 
    /PACRG/ ([[https://www.omim.org/entry/608427][Parkin coregulated gene]])
@@ -885,9 +1104,48 @@
    sequence. Sex-linkage should fully explain why this gene exhibits bimodal
    gene expression.
 
-   #+BEGIN_SRC ipython
-     donor_info = pd.read_csv('http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20130606_sample_info/20130606_sample_info.txt', sep='\t')
+   #+BEGIN_SRC sh :dir /project2/mstephens/aksarkar/projects/singlecell-modes/data/
+     curl -OL 'http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20130606_sample_info/20130606_sample_info.txt'
    #+END_SRC
+
+   #+RESULTS:
+
+   #+BEGIN_SRC ipython :async t
+     donor_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/20130606_sample_info.txt', sep='\t')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[93]:
+   :END:
+
+   Count how many cells come from females.
+
+   #+BEGIN_SRC ipython
+     prefix = '/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'
+     annotations = pd.read_csv(f'{prefix}/scqtl-annotation.txt', sep='\t')
+     keep_samples = pd.read_csv(f'{prefix}/quality-single-cells.txt', sep='\t', index_col=0, header=None)
+     annotations = annotations.loc[keep_samples.values.ravel()]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[95]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     annotations.merge(donor_info, left_on='chip_id', right_on='Sample')['Gender'].value_counts()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[100]:
+   #+BEGIN_EXAMPLE
+     female    3109
+     male      2369
+     Name: Gender, dtype: int64
+   #+END_EXAMPLE
+   :END:
 
    Look at the full benchmark results for NB vs. ZINB (only the GPU
    implementation is suitable for this).
@@ -895,17 +1153,52 @@
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/homogeneous-nb-zinb-benchmark.png
      plt.clf()
      plt.gcf().set_size_inches(3, 3)
-     plt.plot([ipsc_res['nb'].min(), ipsc_res['nb'].max()], [ipsc_res['nb'].min(), ipsc_res['nb'].max()], c='r', ls='--', lw=1)
-     plt.scatter(ipsc_res['nb'], ipsc_res['zinb'], c='k', s=2, alpha=.25)
-     plt.xlabel('NB validation log lik.')
-     plt.ylabel('ZINB validation log lik.')
+     h = plt.hist(ipsc_res['zinb'] - ipsc_res['nb'], color='k', bins=np.arange(-10, 40, 2))
+     plt.xlabel('Diff val set log lik from NB')
+     _ = plt.ylabel('Number of genes')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[49]:
-   : Text(0, 0.5, 'ZINB validation log lik.')
+   # Out[135]:
    [[file:figure/deconvolution.org/homogeneous-nb-zinb-benchmark.png]]
+   :END:
+
+   Print the histogram for inspection.
+
+   #+BEGIN_SRC ipython
+     np.vstack((h[1][:-1], h[0])).T.astype(int)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[137]:
+   #+BEGIN_EXAMPLE
+     array([[ -10,    0],
+     [  -8,    0],
+     [  -6,    0],
+     [  -4,    0],
+     [  -2, 4977],
+     [   0, 4973],
+     [   2,    2],
+     [   4,    3],
+     [   6,    0],
+     [   8,    0],
+     [  10,    0],
+     [  12,    0],
+     [  14,    1],
+     [  16,    0],
+     [  18,    0],
+     [  20,    0],
+     [  22,    0],
+     [  24,    0],
+     [  26,    0],
+     [  28,    1],
+     [  30,    0],
+     [  32,    0],
+     [  34,    0],
+     [  36,    0]])
+   #+END_EXAMPLE
    :END:
 
 *** Investigate genes with support for more complex models
@@ -918,7 +1211,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[110]:
+    # Out[146]:
     :END:
 
     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/b-cell-descend-examples.png
@@ -927,7 +1220,12 @@
       fig, ax = plt.subplots(6, 6, sharey=True, sharex=True)
       fig.set_size_inches(9, 9)
       for a, k in zip(ax.ravel(), query):
-        a.hist(b_cells.iloc[:,k], bins=b_cells.iloc[:,k].max(), color='k')
+        a.hist(b_cells.iloc[:,k], bins=np.arange(b_cells.iloc[:,k].max() + 1), color='k')
+        a.text(x=.9, y=.9,
+               s=f"$\Delta L$={benchmark['cd19_b_cells']['descend'].loc[k] - benchmark['cd19_b_cells']['nb'].loc[k]:.1f}",
+               horizontalalignment='right',
+               verticalalignment='top',
+               transform=a.transAxes)
         a.set_title(gene_info.loc[b_cells.columns[k], 'name'] if b_cells.columns[k] in gene_info.index else b_cells.columns[k])
       for y in range(ax.shape[0]):
         ax[y][0].set_ylabel('Number of cells')
@@ -938,8 +1236,39 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[112]:
+    # Out[179]:
     [[file:figure/deconvolution.org/b-cell-descend-examples.png]]
+    :END:
+
+    For comparison, consider the gene with the largest difference in validation
+    set log likelihood. Deconvolve its gene expression assuming \(g_j =
+    \delta_\mu(\cdot)\), using the fact:
+
+    \[ \textstyle\sum_i x_i \sim \mathrm{Poisson}\left(\textstyle\sum_i R_i \mu\right) \]
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/b-cell-descend-pois.example.png
+      diff = benchmark['cd19_b_cells']['descend'] - benchmark['cd19_b_cells']['nb']
+      plt.clf()
+      fig, ax = plt.subplots(1, 2, sharey=True)
+      fig.set_size_inches(5, 2)
+      np.random.seed(1)
+      x = b_cells.iloc[:,diff.idxmax()]
+      scale = b_cells.sum(axis=1)
+      mu = x.sum() / scale.sum()
+      y = np.random.poisson(lam=scale * mu)
+      ax[0].hist(y, bins=np.arange(y.max() + 1), color='k')
+      ax[0].set_title('Point mass')
+      ax[1].hist(x, bins=np.arange(x.max() + 1), color='k')
+      ax[1].set_title('ZIEF')
+      ax[0].set_ylabel('Number of cells')
+      for a in ax:
+        a.set_xlabel('Molecule count')
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[174]:
+    [[file:figure/deconvolution.org/b-cell-descend-pois.example.png]]
     :END:
 
     In iPSC, several genes appear to be better fit by mixture of uniforms than
@@ -949,13 +1278,23 @@
       ipsc_counts = ipsc(n=100, return_df=True)
     #+END_SRC
 
+    #+RESULTS:
+    :RESULTS:
+    # Out[175]:
+    :END:
+
     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-unimix-examples.png
       query = benchmark['ipsc'][benchmark['ipsc']['unimix'] > benchmark['ipsc']['nb']].index
       plt.clf()
       fig, ax = plt.subplots(2, 3)
       fig.set_size_inches(6, 4)
       for a, k in zip(ax.ravel(), query):
-        a.hist(ipsc_counts.loc[:,k], bins=ipsc_counts.loc[:,k].max(), color='k')
+        h = a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].max() + 1), color='k')
+        a.text(x=.9, y=.9,
+               s=f"$\Delta L$={benchmark['ipsc']['unimix'].loc[k] - benchmark['ipsc']['nb'].loc[k]:.1f}",
+               horizontalalignment='right',
+               verticalalignment='top',
+               transform=a.transAxes)
         a.set_title(gene_info.loc[k, 'name'])
       for y in range(ax.shape[0]):
         ax[y][0].set_ylabel('Number of cells')
@@ -966,8 +1305,85 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[114]:
+    # Out[186]:
     [[file:figure/deconvolution.org/ipsc-unimix-examples.png]]
+    :END:
+
+    Print out the last histogram for inspection
+
+    #+BEGIN_SRC ipython
+      np.vstack((h[1][:-1], h[0])).T.astype(int)
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[189]:
+    #+BEGIN_EXAMPLE
+      array([[  0,   9],
+      [  1,  32],
+      [  2,  65],
+      [  3,  89],
+      [  4, 127],
+      [  5, 149],
+      [  6, 199],
+      [  7, 195],
+      [  8, 221],
+      [  9, 239],
+      [ 10, 277],
+      [ 11, 288],
+      [ 12, 293],
+      [ 13, 293],
+      [ 14, 281],
+      [ 15, 263],
+      [ 16, 321],
+      [ 17, 247],
+      [ 18, 236],
+      [ 19, 236],
+      [ 20, 191],
+      [ 21, 178],
+      [ 22, 168],
+      [ 23, 154],
+      [ 24, 126],
+      [ 25, 124],
+      [ 26, 100],
+      [ 27,  81],
+      [ 28,  67],
+      [ 29,  72],
+      [ 30,  47],
+      [ 31,  41],
+      [ 32,  33],
+      [ 33,  35],
+      [ 34,  21],
+      [ 35,  15],
+      [ 36,  18],
+      [ 37,  13],
+      [ 38,   6],
+      [ 39,   5],
+      [ 40,   7],
+      [ 41,   7],
+      [ 42,   5],
+      [ 43,   5],
+      [ 44,   6],
+      [ 45,   3],
+      [ 46,   3],
+      [ 47,   0],
+      [ 48,   2],
+      [ 49,   0],
+      [ 50,   0],
+      [ 51,   1],
+      [ 52,   0],
+      [ 53,   0],
+      [ 54,   0],
+      [ 55,   1],
+      [ 56,   0],
+      [ 57,   0],
+      [ 58,   0],
+      [ 59,   0],
+      [ 60,   0],
+      [ 61,   0],
+      [ 62,   0],
+      [ 63,   2]])
+    #+END_EXAMPLE
     :END:
 
     - /SLC25A5/ ([[https://www.omim.org/entry/300150][Solute carrier family 25
@@ -987,9 +1403,14 @@
       query = benchmark['ipsc'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
       plt.clf()
       fig, ax = plt.subplots(3, 4)
-      fig.set_size_inches(6, 4)
+      fig.set_size_inches(7, 5)
       for a, k in zip(ax.ravel(), query):
-        a.hist(ipsc_counts.loc[:,k], bins=ipsc_counts.loc[:,k].max(), color='k')
+        a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].max() + 1), color='k')
+        a.text(x=.95, y=.95,
+               s=f"$\Delta L$={llik_diff.loc[k]:.1f}",
+               horizontalalignment='right',
+               verticalalignment='top',
+               transform=a.transAxes)
         a.set_title(gene_info.loc[k, 'name'])
       for y in range(ax.shape[0]):
         ax[y][0].set_ylabel('Number of cells')
@@ -1000,7 +1421,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[113]:
+    # Out[192]:
     [[file:figure/deconvolution.org/ipsc-npmle-examples.png]]
     :END:
 
@@ -1026,7 +1447,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[79]:
+   # Out[2]:
    :END:
 
    #+NAME: run-synthetic-mix-benchmark
@@ -1072,7 +1493,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[80]:
+   # Out[3]:
    :END:
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
@@ -1125,7 +1546,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[78]:
+   # Out[4]:
    :END:
 
    Plot the results.
@@ -1136,8 +1557,8 @@
      for a, k in zip(ax, sorted(benchmark.keys())):
        a.boxplot((benchmark[f'{k}'].values - benchmark[f'{k}']['nb'].values.reshape(-1, 1))[:,1:-1],
                  widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       a.set_xticklabels(benchmark[f'{k}'].columns[1:-1], rotation=90)
-       a.set_xlabel('Method')
+       a.set_xticklabels(['ZINB', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+       a.set_xlabel('Assumed latent dist')
        a.set_title(k)
      ax[0].set_ylabel('Diff val set log lik from NB')
      fig.tight_layout()
@@ -1145,8 +1566,31 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[16]:
+   # Out[197]:
    [[file:figure/deconvolution.org/synthetic-mix-benchmark.png]]
+   :END:
+
+   Zoom in on the relevant part of the plot.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/synthetic-mix-benchmark-inset.png
+     fig, ax = plt.subplots(1, 2)
+     fig.set_size_inches(5, 3)
+     for a, k in zip(ax, sorted(benchmark.keys())):
+       T = (benchmark[f'{k}'].values - benchmark[f'{k}']['nb'].values.reshape(-1, 1))[:,1:-1]
+       a.boxplot(T, widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+       a.axhline(y=0, ls=':', lw=1, c='k')
+       a.set_xticklabels(['ZINB', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+       a.set_xlabel('Assumed latent dist')
+       a.set_ylim(-20, 1.05 * T.max())
+       a.set_title(k)
+     ax[0].set_ylabel('Diff val set log lik from NB')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[202]:
+   [[file:figure/deconvolution.org/synthetic-mix-benchmark-inset.png]]
    :END:
 
 *** Investigate genes favoring more complex models
@@ -1160,52 +1604,129 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[81]:
+    # Out[7]:
     :END:
 
     Look at genes where NPMLE has higher validation set log likelihood than NB.
 
     #+BEGIN_SRC ipython
       llik_diff = benchmark['cd8-cd19-mix']['npmle'] - benchmark['cd8-cd19-mix']['nb']
-      query = benchmark['cd8-cd19-mix'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=4).index].index
+      query = benchmark['cd8-cd19-mix'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[82]:
+    # Out[23]:
     :END:
 
     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cd8-cd19-mix-npmle-examples.png
       plt.clf()
-      fig, ax = plt.subplots(1, 4)
-      fig.set_size_inches(8, 2)
+      fig, ax = plt.subplots(3, 4)
+      fig.set_size_inches(8, 6)
       for a, k in zip(ax.ravel(), query):
-        a.hist(mix1.iloc[:,k], bins=mix1.iloc[:,k].max(), color='k')
+        a.hist(mix1.iloc[:,k], bins=np.arange(mix1.iloc[:,k].max() + 1), color='k')
+        a.text(x=.95, y=.95,
+               s=f"$\Delta L$={benchmark['cd8-cd19-mix']['npmle'].loc[k] - benchmark['cd8-cd19-mix']['nb'].loc[k]:.1f}",
+               horizontalalignment='right',
+               verticalalignment='top',
+               transform=a.transAxes)
         a.set_title(gene_info.loc[mix1.columns[k], 'name'] if mix1.columns[k] in gene_info.index else mix1.columns[k])
         a.set_xlabel('Number of molecules')
-      ax[0].set_ylabel('Number of cells')
+      for a in ax:
+        a[0].set_ylabel('Number of cells')
       fig.tight_layout()
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[104]:
+    # Out[25]:
     [[file:figure/deconvolution.org/cd8-cd19-mix-npmle-examples.png]]
     :END:
 
-    /CD74/ appears to be the first good example of a gene (so far) showing
-    bimodal gene expression as predicted by a simple kinetic model (Munsky et
-    al. 2013, Kim and Marioni 2013).
+    Look at /CD74/ gene expression, stratified by known cell type.
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cd74-example.png
+      plt.clf()
+      fig, ax = plt.subplots(1, 2, sharey=True)
+      fig.set_size_inches(5, 2)
+      for i, a in enumerate(ax):
+        a.hist(mix1.loc[y1 == i,mix1.columns[query[0]]], bins=np.arange(mix1.loc[:,mix1.columns[query[0]]].max() + 1), color='k')
+        a.set_title(['T cells', 'B cells'][i])
+        a.set_xlabel('Number of molecules')
+      ax[0].set_ylabel('Number of cells')
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[31]:
+    : Text(0, 0.5, 'Number of cells')
+    [[file:figure/deconvolution.org/cd74-example.png]]
+    :END:
 
 ** Heterogeneous cell populations
 
    #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
      def pbmcs_68k(**kwargs):
-       return read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/68k_pbmcs/filtered_matrices_mex/hg19/', **kwargs)
+       return read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19', **kwargs)
 
-     def cortex():
-       counts = pd.read_table('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', index_col=0)
+     def cortex(return_df=False):
+       counts = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', index_col=0, sep='\t')
        # Follow scVI here
-       return counts.loc[counts.var(axis=1).sort_values(ascending=False).head(n=500).index].values.T
+       subset = counts.loc[counts.var(axis=1).sort_values(ascending=False).head(n=500).index].T
+       if return_df:
+         return subset
+       else:
+         return subset.values
    #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[3]:
+   :END:
+
+   #+NAME: heterogeneous-benchmark-gpu
+   #+BEGIN_SRC ipython :eval never
+     for data in ('pbmcs_68k', 'cortex'):
+       x = globals()[data](return_df=True)
+       res = evaluate_generalization(x.values, pool=None, test_size=0.1, random_state=0, methods=['nb', 'zinb'])
+       res.index = x.columns
+       res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', compression='gzip', sep='\t')
+   #+END_SRC
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark-gpu.out
+     #!/bin/bash
+     source activate scmodes
+     python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
+     <<heterogeneous-benchmark-gpu>>
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 59288128
+
+   #+NAME: heterogeneous-benchmark-cpu
+   #+BEGIN_SRC ipython :eval never
+     import os
+     datasets = ['pbmcs_68k', 'cortex']
+     cpu_methods = ['unimix', 'descend', 'npmle', 'saturated']
+     tasks = [(d, c) for d in datasets for c in cpu_methods]
+     data, method = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     x = globals()[data](return_df=True)
+     res = evaluate_generalization(x.values, pool=None, stratify=y, train_size=0.5, test_size=0.1, random_state=0, methods=[method])
+     res.index = x.columns
+     res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-{method}.txt.gz', compression='gzip', sep='\t')
+   #+END_SRC
+
+   #+BEGIN_SRC sh
+     sbatch --partition=broadwl -a 0-7 -n1 -c28 --exclusive --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark-cpu.out
+     #!/bin/bash
+     source activate scmodes
+     python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
+     <<heterogeneous-benchmark-cpu>>
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 59326195
 

@@ -1,4 +1,4 @@
-pre.src {
+pre.src, pre.example {
     max-height: 12em;
     overflow: auto;
 }
