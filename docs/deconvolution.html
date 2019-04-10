@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-09 Tue 18:55 -->
+<!-- 2019-04-09 Tue 19:10 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -1517,6 +1517,36 @@ fig.tight_layout()
 <p><img src="figure/deconvolution.org/ipsc-point-gamma-cdf-pacrg.png" alt="ipsc-point-gamma-cdf-pacrg.png">
 </p>
 </div>
+
+<p>
+Plot the estimated <i>RPS4Y1</i> latent gene expression, stratified by donor sex.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">colors</span> = {k: <span class="org-string">'r'</span> <span class="org-keyword">if</span> v == <span class="org-string">'male'</span> <span class="org-keyword">else</span> <span class="org-string">'b'</span> <span class="org-keyword">for</span> k, v <span class="org-keyword">in</span>
+          donor_info.set_index(<span class="org-string">'Sample'</span>)
+          .<span class="org-builtin">filter</span>(items=<span class="org-builtin">list</span>(ipsc_log_mu.columns), axis=0)
+          [<span class="org-string">'Gender'</span>]
+          .iteritems()}
+plt.clf()
+plt.gcf().set_size_inches(3, 2)
+<span class="org-keyword">for</span> f, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(cdfs[1], ipsc_log_mu.columns):
+  plt.xlim(0, 2e-4)
+  plt.xticks(np.linspace(0, 2e-4, 3))
+  plt.plot(grid, f, lw=1, alpha=0.2, c=colors.get(k, <span class="org-string">'k'</span>))
+  <span class="org-variable-name">dummy</span> = [plt.Line2D([0], [0], c=<span class="org-string">'r'</span>), plt.Line2D([0], [0], c=<span class="org-string">'b'</span>)]
+  plt.legend(dummy, [<span class="org-string">'Male'</span>, <span class="org-string">'Female'</span>], frameon=<span class="org-constant">False</span>)
+  plt.title(<span class="org-string">'RPS4Y1'</span>)
+  plt.ylabel(<span class="org-string">'CDF'</span>)
+  plt.xlabel(<span class="org-string">'Latent gene expression'</span>)
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/ipsc-point-gamma-cdf-rps4y1.png" alt="ipsc-point-gamma-cdf-rps4y1.png">
+</p>
+</div>
 </div>
 </div>
 
@@ -2065,7 +2095,7 @@ EOF
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-09 Tue 18:55</p>
+<p class="date">Created: 2019-04-09 Tue 19:10</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

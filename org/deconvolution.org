@@ -1116,7 +1116,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[93]:
+   # Out[64]:
    :END:
 
    Count how many cells come from females.
@@ -1256,6 +1256,33 @@
    :RESULTS:
    # Out[63]:
    [[file:figure/deconvolution.org/ipsc-point-gamma-cdf-pacrg.png]]
+   :END:
+
+   Plot the estimated /RPS4Y1/ latent gene expression, stratified by donor sex.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-point-gamma-cdf-rps4y1.png
+     colors = {k: 'r' if v == 'male' else 'b' for k, v in
+               donor_info.set_index('Sample')
+               .filter(items=list(ipsc_log_mu.columns), axis=0)
+               ['Gender']
+               .iteritems()}
+     plt.clf()
+     plt.gcf().set_size_inches(3, 2)
+     for f, k in zip(cdfs[1], ipsc_log_mu.columns):
+       plt.xlim(0, 2e-4)
+       plt.xticks(np.linspace(0, 2e-4, 3))
+       plt.plot(grid, f, lw=1, alpha=0.2, c=colors.get(k, 'k'))
+       dummy = [plt.Line2D([0], [0], c='r'), plt.Line2D([0], [0], c='b')]
+       plt.legend(dummy, ['Male', 'Female'], frameon=False)
+       plt.title('RPS4Y1')
+       plt.ylabel('CDF')
+       plt.xlabel('Latent gene expression')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[99]:
+   [[file:figure/deconvolution.org/ipsc-point-gamma-cdf-rps4y1.png]]
    :END:
 
 *** Investigate genes with support for more complex models
