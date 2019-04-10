@@ -28,7 +28,7 @@
   #+CALL: ipython3(mem="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59338596
+  : Submitted batch job 59340343
 
   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
     import functools as ft
@@ -201,6 +201,7 @@
            # these are ignored by ash
            pd.Series(np.zeros(train.shape)),
            1,
+           outputlevel='fitted_g',
            # numpy2ri doesn't DTRT, so we need to use pandas
            lik=ashr.lik_pois(y=pd.Series(train), scale=train_size_factor, link='identity'),
            mode=pd.Series([lam.min(), lam.max()]))
@@ -260,6 +261,7 @@
            # these are ignored by ash
            pd.Series(np.zeros(train.shape)),
            1,
+           outputlevel='fitted_g',
            # numpy2ri doesn't DTRT, so we need to use pandas
            lik=ashr.lik_pois(y=pd.Series(train), scale=train_size_factor, link='identity'),
            g=ashr.unimix(pd.Series(np.ones(K) / K), pd.Series(grid[:-1]), pd.Series(grid[1:])))
@@ -333,7 +335,7 @@
 
    #+RESULTS: read-zheng
    :RESULTS:
-   # Out[6]:
+   # Out[4]:
    :END:
 
    Look at some examples.
@@ -350,20 +352,34 @@
    # Out[5]:
    :END:
 
-   Fit Poisson ash.
+   Fit a point mass.
 
    #+BEGIN_SRC ipython
+     mu = xj.sum() / size_factor.sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   :END:
+
+   Fit Poisson ash.
+
+   #+BEGIN_SRC ipython :async t
      unimix_res = ashr.ash_workhorse(
        pd.Series(np.zeros(x.shape[0])),
        1,
        lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
-       mode=pd.Series([lam.min(), lam.max()]))
+       outputlevel='fitted_g',
+       mixsd=pd.Series(np.geomspace(lam.min(), lam.max(), 25)),
+       # This is a hack
+       mode=mu)
      unimix_cdf = ashr.cdf_ash(unimix_res, np.linspace(lam.min(), lam.max(), 1000))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[32]:
    :END:
 
    Fit NPMLE.
@@ -381,7 +397,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[6]:
    :END:
 
    Fit DESCEND.
@@ -392,7 +408,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[7]:
    :END:
 
    Fit NB/ZINB.
@@ -452,7 +468,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[9]:
+   # Out[25]:
    :END:
 
    #+BEGIN_SRC ipython
@@ -466,7 +482,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[54]:
+   # Out[26]:
    :END:
 
    Plot the observed counts and deconvolved distributions.
@@ -497,7 +513,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[56]:
+   # Out[33]:
    [[file:figure/deconvolution.org/deconv-example.png]]
    :END:
 
@@ -1796,14 +1812,15 @@
      cpu_methods = ['unimix', 'descend', 'npmle', 'saturated']
      tasks = [(d, c) for d in datasets for c in cpu_methods]
      data, method = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-     x = globals()[data](return_df=True)
-     res = evaluate_generalization(x.values, pool=None, stratify=y, train_size=0.5, test_size=0.1, random_state=0, methods=[method])
-     res.index = x.columns
-     res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-{method}.txt.gz', compression='gzip', sep='\t')
+     with mp.Pool() as pool:
+       x = globals()[data](return_df=True)
+       res = evaluate_generalization(x.values, pool=pool, train_size=0.5, test_size=0.1, random_state=0, methods=[method])
+       res.index = x.columns
+       res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-{method}.txt.gz', compression='gzip', sep='\t')
    #+END_SRC
 
-   #+BEGIN_SRC sh
-     sbatch --partition=broadwl -a 0-7 -n1 -c28 --exclusive --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark-cpu.out
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -a 0 -n1 -c28 --exclusive --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark-cpu.out
      #!/bin/bash
      source activate scmodes
      python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
@@ -1812,5 +1829,5 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 59326195
+   : Submitted batch job 59340657
 
