@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2019-04-10 Wed 22:28 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speed up ash mode estimation</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Speed up ash mode estimation</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org2d39c1f">Setup</a></li>
+<li><a href="#org0093589">Results</a></li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org2d39c1f" class="outline-2">
+<h2 id="org2d39c1f">Setup</h2>
+<div class="outline-text-2" id="text-org2d39c1f">
+<div class="org-src-container">
+<pre class="src src-ipython" id="org46856b1"><span class="org-keyword">import</span> functools <span class="org-keyword">as</span> ft
+<span class="org-keyword">import</span> multiprocessing <span class="org-keyword">as</span> mp
+<span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+<span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
+<span class="org-keyword">import</span> scmodes
+<span class="org-keyword">import</span> sklearn.model_selection <span class="org-keyword">as</span> skms
+
+<span class="org-keyword">import</span> rpy2.robjects.packages
+<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
+<span class="org-keyword">import</span> rpy2.robjects.numpy2ri
+
+rpy2.robjects.pandas2ri.activate()
+rpy2.robjects.numpy2ri.activate()
+
+<span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
+<span class="org-variable-name">descend</span> = rpy2.robjects.packages.importr(<span class="org-string">'descend'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> colorcet
+<span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+</pre>
+</div>
+</div>
+</div>
+
+
+<div id="outline-container-org0093589" class="outline-2">
+<h2 id="org0093589">Results</h2>
+<div class="outline-text-2" id="text-org0093589">
+<p>
+To estimate the mode \(\lambda_{0j}\) for gene \(j\), we find:
+</p>
+
+<p>
+\[ \lambda_{0j}^* = \arg\max_{\lambda_{0j}} \sum_i \int f(x_i \mid \lambda_i) g_j(\lambda_i \mid \pi, \lambda_{0j})\ d\lambda_i \]
+</p>
+
+<p>
+using
+<a href="https://www.rdocumentation.org/packages/stats/versions/3.5.3/topics/optimize">golden
+section search</a>. Investigate two issues:
+</p>
+
+<p>
+<b>First,</b> Mengyin Liu claimed this problem is convex in \(\lambda_{0j}\),
+However, on the above example, the quality of the result depends on the
+bounds of the search. Is this problem actually convex?
+</p>
+
+<p>
+By default, the bounds are \([\min(x_i), \max(x_i)]\), which can be
+extremely large. However, we need to remove the scaling factor, so should
+we instead search over \([\min(x_i / R_i), \max(x_i / R_i)]\)? The motivation for the
+proposed alternative is to only look over plausible values of
+\(\lambda_i\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">grid</span> = np.geomspace(1e-3, xj.<span class="org-builtin">max</span>(), 100)
+<span class="org-variable-name">llik</span> = np.array([np.array(
+  ashr.ash(
+    pd.Series(np.zeros(xj.shape)),
+    1,
+    lik=ashr.lik_pois(y=xj, scale=size_factor, link=<span class="org-string">'identity'</span>),
+    mode=lam0,
+    outputlevel=<span class="org-string">'loglik'</span>).rx2(<span class="org-string">'loglik'</span>)) <span class="org-keyword">for</span> lam0 <span class="org-keyword">in</span> grid]).ravel()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">res0</span> = ashr.ash(
+  pd.Series(np.zeros(xj.shape)),
+  1,
+  lik=ashr.lik_pois(y=xj, scale=size_factor, link=<span class="org-string">'identity'</span>),
+  mode=<span class="org-string">'estimate'</span>)
+<span class="org-variable-name">res1</span> = ashr.ash(
+  pd.Series(np.zeros(x.shape[0])),
+  1,
+  lik=ashr.lik_pois(y=xj, scale=size_factor, link=<span class="org-string">'identity'</span>),
+  mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]))
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.xscale(<span class="org-string">'log'</span>)
+plt.plot(grid, np.array(llik).ravel(), lw=1, c=<span class="org-string">'k'</span>)
+plt.axvline(x=np.array(res0.rx2(<span class="org-string">'fitted_g'</span>).rx2(<span class="org-string">'a'</span>))[0], c=<span class="org-string">'k'</span>, lw=1, ls=<span class="org-string">':'</span>, label=<span class="org-string">'Default'</span>)
+plt.axvline(x=np.array(res1.rx2(<span class="org-string">'fitted_g'</span>).rx2(<span class="org-string">'a'</span>))[0], c=<span class="org-string">'r'</span>, lw=1, ls=<span class="org-string">':'</span>, label=<span class="org-string">'Restricted'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+plt.xlabel(<span class="org-string">'Mode $\lambda_0$'</span>)
+<span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Marginal likelihood'</span>)
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/mode-est.png" alt="mode-est.png">
+</p>
+</div>
+
+<p>
+It appears the problem is actually non-convex. Surprisingly, it appears
+non-convex even for a case where the data are not bimodal. For bimodal
+data, we might expect that choice of the mode would change the weight
+on/near zero and result in a non-convex objective.
+</p>
+
+<p>
+According to the documentation, the search can fail for poor choice of
+initial query, which depends entirely on the initial interval. In this
+example, the initial interval does not contain the mode, and therefore the
+search finds the correct local optimum within the interval, but fails to
+find the global optimum.
+</p>
+
+<p>
+This result does not necessarily mean that our proposed alternative, to
+search over \([\min(x_i / R_i), \max(x_i / R_i)]\) will work, because
+Poisson noise could mean the true \(\lambda_i > x_i / R_i\) for some sample
+\(i\). 
+</p>
+
+<p>
+Should we search further to be reasonably certain we haven't missed the
+mode? Intuitively, the largest \(\hat\lambda_i\) value we do observe should
+be "overestimated"; if it were not, then we should expect higher density of
+\(g\) around it, and values larger than it in the observed data.
+</p>
+
+<p>
+<b>Second,</b> we have to solve an <code>ash</code> subproblem for each query
+\(\lambda_0\), which becomes extremely expensive for large data sets. We
+can speed up the procedure by downsampling the data for mode
+estimation. How much worse is the fitted model?
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">score_mode_estimation</span>(data, seed=0, p=0.1):
+  <span class="org-variable-name">temp</span> = data.sample(random_state=seed, frac=p)
+  <span class="org-variable-name">res0</span> = ashr.ash(
+    pd.Series(np.zeros(temp.shape[0])),
+    1,
+    lik=ashr.lik_pois(y=temp[<span class="org-string">'x'</span>], scale=temp[<span class="org-string">'scale'</span>], link=<span class="org-string">'identity'</span>),
+    mode=pd.Series([temp[<span class="org-string">'lam'</span>].<span class="org-builtin">min</span>(), temp[<span class="org-string">'lam'</span>].<span class="org-builtin">max</span>()]))
+  <span class="org-variable-name">lam0</span> = np.array(res0.rx2(<span class="org-string">'fitted_g'</span>).rx2(<span class="org-string">'a'</span>))[0]
+  <span class="org-variable-name">res</span> = ashr.ash(
+    pd.Series(np.zeros(data.shape[0])),
+    1,
+    lik=ashr.lik_pois(y=data[<span class="org-string">'x'</span>], scale=data[<span class="org-string">'scale'</span>], link=<span class="org-string">'identity'</span>),
+    mode=lam0)
+  <span class="org-keyword">return</span> lam0, np.array(res.rx2(<span class="org-string">'loglik'</span>))[0]
+
+<span class="org-keyword">def</span> <span class="org-function-name">evaluate_mode_estimation</span>(data, num_trials):
+  <span class="org-variable-name">result</span> = []
+  <span class="org-keyword">for</span> p <span class="org-keyword">in</span> (0.1, 0.25, 0.5):
+    <span class="org-keyword">for</span> trial <span class="org-keyword">in</span> <span class="org-builtin">range</span>(num_trials):
+      <span class="org-variable-name">lam0</span>, <span class="org-variable-name">llik</span> = score_mode_estimation(data, seed=trial, p=p)
+      result.append([p, trial, lam0, llik])
+  <span class="org-variable-name">result</span> = pd.DataFrame(result, columns=[<span class="org-string">'p'</span>, <span class="org-string">'trial'</span>, <span class="org-string">'lam0'</span>, <span class="org-string">'llik'</span>])
+  <span class="org-keyword">return</span> result
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">mode_estimation_result</span> = evaluate_mode_estimation(pd.DataFrame({<span class="org-string">'x'</span>: xj, <span class="org-string">'scale'</span>: size_factor, <span class="org-string">'lam'</span>: lam}), num_trials=10)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.scatter(mode_estimation_result[<span class="org-string">'p'</span>], mode_estimation_result[<span class="org-string">'llik'</span>], s=4, c=<span class="org-string">'k'</span>)
+plt.axhline(y=np.array(res1.rx2(<span class="org-string">'loglik'</span>))[0], c=<span class="org-string">'k'</span>, lw=1, ls=<span class="org-string">':'</span>)
+plt.xlabel(<span class="org-string">'Fraction of original data'</span>)
+plt.ylabel(<span class="org-string">'Training log likelihood'</span>)
+</pre>
+</div>
+
+<pre class="example">
+Text(0, 0.5, 'Training log likelihood')
+
+</pre>
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/downsampling-mode-estimation.png" alt="downsampling-mode-estimation.png">
+</p>
+</div>
+
+<p>
+Downsampling is likely to result in a <b>much</b> worse model fit, so we should
+not pursue that strategy to speed up the model estimation.
+</p>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2019-04-10 Wed 22:28</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>
