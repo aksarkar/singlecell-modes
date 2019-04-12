@@ -64,28 +64,55 @@
   # Out[3]:
   :END:
 
-
 * Results
 
-    To estimate the mode \(\lambda_{0j}\) for gene \(j\), we find:
+  We want to deconvolve scRNA-seq data assuming \(g_j\) is some unimodal
+  distribution over non-negative reals. In practice, we represent this family
+  of distribution as
 
-    \[ \lambda_{0j}^* = \arg\max_{\lambda_{0j}} \sum_i \int f(x_i \mid \lambda_i) g_j(\lambda_i \mid \pi, \lambda_{0j})\ d\lambda_i \]
+  \[ g_j = \sum_{k=1}^K \pi_k \mathrm{Uniform}(\cdot; \lambda_0,  a_{jk}) \]
 
-    using
-    [[https://www.rdocumentation.org/packages/stats/versions/3.5.3/topics/optimize][golden
-    section search]]. Investigate two issues:
+  where \(K\) is sufficiently large and \(\lambda_0\) is the mode
+  ([[http://dx.doi.org/10.1093/biostatistics/kxw041][Stephens 2016]]).
 
-    *First,* Mengyin Liu claimed this problem is convex in \(\lambda_{0j}\),
-    However, on the above example, the quality of the result depends on the
-    bounds of the search. Is this problem actually convex?
+  As an example, use the highest expressed genes in 10K sorted CD8+ cytotoxic
+  T cells [[https://www.nature.com/articles/ncomms14049][Zheng et al. 2017]].
 
-    By default, the bounds are \([\min(x_i), \max(x_i)]\), which can be
-    extremely large. However, we need to remove the scaling factor, so should
-    we instead search over \([\min(x_i / R_i), \max(x_i / R_i)]\)? The motivation for the
-    proposed alternative is to only look over plausible values of
-    \(\lambda_i\).
+  #+BEGIN_SRC ipython
+    x = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19')
+    xj = pd.Series(x[:,x.mean(axis=0).argmax()])
+    size_factor = pd.Series(x.sum(axis=1))
+    lam = xj / size_factor
+  #+END_SRC
 
-    #+BEGIN_SRC ipython :async t
+  #+RESULTS:
+  :RESULTS:
+  # Out[4]:
+  :END:
+
+  [[file:figure/deconvolution.org/deconv-example.png]]
+
+  To estimate the mode \(\lambda_{0j}\) for gene \(j\), we find:
+
+  \[ \lambda_{0j}^* = \arg\max_{\lambda_{0j}} \sum_i \int f(x_i \mid \lambda_i) g_j(\lambda_i \mid \pi, \lambda_{0j})\ d\lambda_i \]
+
+  using
+  [[https://www.rdocumentation.org/packages/stats/versions/3.5.3/topics/optimize][golden
+  section search]].
+
+** Convexity
+
+  Mengyin Liu claimed this problem is convex in \(\lambda_{0j}\), However, on
+  the above example, the quality of the result depends on the bounds of the
+  search. Is this problem actually convex?
+
+  By default, the bounds are \([\min(x_i), \max(x_i)]\), which can be
+  extremely large. However, we need to remove the scaling factor, so should
+  we instead search over \([\min(x_i / R_i), \max(x_i / R_i)]\)? The
+  motivation for the proposed alternative is to only look over plausible
+  values of \(\lambda_i\).
+
+  #+BEGIN_SRC ipython :async t
       grid = np.geomspace(1e-3, xj.max(), 100)
       llik = np.array([np.array(
         ashr.ash(
@@ -94,32 +121,32 @@
           lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
           mode=lam0,
           outputlevel='loglik').rx2('loglik')) for lam0 in grid]).ravel()
-    #+END_SRC
+  #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[12]:
-    :END:
+  #+RESULTS:
+  :RESULTS:
+  # Out[12]:
+  :END:
 
-    #+BEGIN_SRC ipython
-      res0 = ashr.ash(
-        pd.Series(np.zeros(xj.shape)),
-        1,
-        lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
-        mode='estimate')
-      res1 = ashr.ash(
-        pd.Series(np.zeros(x.shape[0])),
-        1,
-        lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
-        mode=pd.Series([lam.min(), lam.max()]))
-    #+END_SRC
+  #+BEGIN_SRC ipython
+    res0 = ashr.ash(
+      pd.Series(np.zeros(xj.shape)),
+      1,
+      lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
+      mode='estimate')
+    res1 = ashr.ash(
+      pd.Series(np.zeros(x.shape[0])),
+      1,
+      lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
+      mode=pd.Series([lam.min(), lam.max()]))
+  #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[17]:
-    :END:
+  #+RESULTS:
+  :RESULTS:
+  # Out[17]:
+  :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/mode-est.png
+  #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/mode-est.png
       plt.clf()
       plt.gcf().set_size_inches(3, 3)
       plt.xscale('log')
@@ -129,95 +156,97 @@
       plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
       plt.xlabel('Mode $\lambda_0$')
       _ = plt.ylabel('Marginal likelihood')
-    #+END_SRC
+  #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[22]:
-    [[file:figure/deconvolution.org/mode-est.png]]
-    :END:
+  #+RESULTS:
+  :RESULTS:
+  # Out[22]:
+  [[file:figure/deconvolution.org/mode-est.png]]
+  :END:
 
-    It appears the problem is actually non-convex. Surprisingly, it appears
-    non-convex even for a case where the data are not bimodal. For bimodal
-    data, we might expect that choice of the mode would change the weight
-    on/near zero and result in a non-convex objective.
+  It appears the problem is actually non-convex. Surprisingly, it appears
+  non-convex even for a case where the data are not bimodal. For bimodal
+  data, we might expect that choice of the mode would change the weight
+  on/near zero and result in a non-convex objective.
 
-    According to the documentation, the search can fail for poor choice of
-    initial query, which depends entirely on the initial interval. In this
-    example, the initial interval does not contain the mode, and therefore the
-    search finds the correct local optimum within the interval, but fails to
-    find the global optimum.
+  According to the documentation, the search can fail for poor choice of
+  initial query, which depends entirely on the initial interval. In this
+  example, the initial interval does not contain the mode, and therefore the
+  search finds the correct local optimum within the interval, but fails to
+  find the global optimum.
 
-    This result does not necessarily mean that our proposed alternative, to
-    search over \([\min(x_i / R_i), \max(x_i / R_i)]\) will work, because
-    Poisson noise could mean the true \(\lambda_i > x_i / R_i\) for some sample
-    \(i\). 
+  This result does not necessarily mean that our proposed alternative, to
+  search over \([\min(x_i / R_i), \max(x_i / R_i)]\) will work, because
+  Poisson noise could mean the true \(\lambda_i > x_i / R_i\) for some sample
+  \(i\). 
 
-    Should we search further to be reasonably certain we haven't missed the
-    mode? Intuitively, the largest \(\hat\lambda_i\) value we do observe should
-    be "overestimated"; if it were not, then we should expect higher density of
-    \(g\) around it, and values larger than it in the observed data.
+  Should we search further to be reasonably certain we haven't missed the
+  mode? Intuitively, the largest \(\hat\lambda_i\) value we do observe should
+  be "overestimated"; if it were not, then we should expect higher density of
+  \(g\) around it, and values larger than it in the observed data.
 
-    *Second,* we have to solve an ~ash~ subproblem for each query
-    \(\lambda_0\), which becomes extremely expensive for large data sets. We
-    can speed up the procedure by downsampling the data for mode
-    estimation. How much worse is the fitted model?
+** Speed
 
-    #+BEGIN_SRC ipython
-      def score_mode_estimation(data, seed=0, p=0.1):
-        temp = data.sample(random_state=seed, frac=p)
-        res0 = ashr.ash(
-          pd.Series(np.zeros(temp.shape[0])),
-          1,
-          lik=ashr.lik_pois(y=temp['x'], scale=temp['scale'], link='identity'),
-          mode=pd.Series([temp['lam'].min(), temp['lam'].max()]))
-        lam0 = np.array(res0.rx2('fitted_g').rx2('a'))[0]
-        res = ashr.ash(
-          pd.Series(np.zeros(data.shape[0])),
-          1,
-          lik=ashr.lik_pois(y=data['x'], scale=data['scale'], link='identity'),
-          mode=lam0)
-        return lam0, np.array(res.rx2('loglik'))[0]
+  We have to solve an ~ash~ subproblem for each query \(\lambda_0\), which
+  becomes extremely expensive for large data sets. We can speed up the
+  procedure by downsampling the data for mode estimation. How much worse is the
+  fitted model?
 
-      def evaluate_mode_estimation(data, num_trials):
-        result = []
-        for p in (0.1, 0.25, 0.5):
-          for trial in range(num_trials):
-            lam0, llik = score_mode_estimation(data, seed=trial, p=p)
-            result.append([p, trial, lam0, llik])
-        result = pd.DataFrame(result, columns=['p', 'trial', 'lam0', 'llik'])
-        return result
-    #+END_SRC
+  #+BEGIN_SRC ipython
+    def score_mode_estimation(data, seed=0, p=0.1):
+      temp = data.sample(random_state=seed, frac=p)
+      res0 = ashr.ash(
+        pd.Series(np.zeros(temp.shape[0])),
+        1,
+        lik=ashr.lik_pois(y=temp['x'], scale=temp['scale'], link='identity'),
+        mode=pd.Series([temp['lam'].min(), temp['lam'].max()]))
+      lam0 = np.array(res0.rx2('fitted_g').rx2('a'))[0]
+      res = ashr.ash(
+        pd.Series(np.zeros(data.shape[0])),
+        1,
+        lik=ashr.lik_pois(y=data['x'], scale=data['scale'], link='identity'),
+        mode=lam0)
+      return lam0, np.array(res.rx2('loglik'))[0]
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[58]:
-    :END:
+    def evaluate_mode_estimation(data, num_trials):
+      result = []
+      for p in (0.1, 0.25, 0.5):
+        for trial in range(num_trials):
+          lam0, llik = score_mode_estimation(data, seed=trial, p=p)
+          result.append([p, trial, lam0, llik])
+      result = pd.DataFrame(result, columns=['p', 'trial', 'lam0', 'llik'])
+      return result
+  #+END_SRC
 
-    #+BEGIN_SRC ipython :async t
-      mode_estimation_result = evaluate_mode_estimation(pd.DataFrame({'x': xj, 'scale': size_factor, 'lam': lam}), num_trials=10)
-    #+END_SRC
+  #+RESULTS:
+  :RESULTS:
+  # Out[58]:
+  :END:
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[59]:
-    :END:
+  #+BEGIN_SRC ipython :async t
+    mode_estimation_result = evaluate_mode_estimation(pd.DataFrame({'x': xj, 'scale': size_factor, 'lam': lam}), num_trials=10)
+  #+END_SRC
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/downsampling-mode-estimation.png
-      plt.clf()
-      plt.gcf().set_size_inches(3, 3)
-      plt.scatter(mode_estimation_result['p'], mode_estimation_result['llik'], s=4, c='k')
-      plt.axhline(y=np.array(res1.rx2('loglik'))[0], c='k', lw=1, ls=':')
-      plt.xlabel('Fraction of original data')
-      plt.ylabel('Training log likelihood')
-    #+END_SRC
+  #+RESULTS:
+  :RESULTS:
+  # Out[59]:
+  :END:
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[66]:
-    : Text(0, 0.5, 'Training log likelihood')
-    [[file:figure/deconvolution.org/downsampling-mode-estimation.png]]
-    :END:
+  #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/downsampling-mode-estimation.png
+    plt.clf()
+    plt.gcf().set_size_inches(3, 3)
+    plt.scatter(mode_estimation_result['p'], mode_estimation_result['llik'], s=4, c='k')
+    plt.axhline(y=np.array(res1.rx2('loglik'))[0], c='k', lw=1, ls=':')
+    plt.xlabel('Fraction of original data')
+    plt.ylabel('Training log likelihood')
+  #+END_SRC
 
-    Downsampling is likely to result in a *much* worse model fit, so we should
-    not pursue that strategy to speed up the model estimation.
+  #+RESULTS:
+  :RESULTS:
+  # Out[66]:
+  : Text(0, 0.5, 'Training log likelihood')
+  [[file:figure/deconvolution.org/downsampling-mode-estimation.png]]
+  :END:
+
+  Downsampling is likely to result in a *much* worse model fit, so we should
+  not pursue that strategy to speed up the model estimation.

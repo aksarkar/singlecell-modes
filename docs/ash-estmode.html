@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-10 Wed 22:28 -->
+<!-- 2019-04-11 Thu 19:09 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Speed up ash mode estimation</title>
@@ -259,7 +259,12 @@ for the JavaScript code in this tag.
 <div id="text-table-of-contents">
 <ul>
 <li><a href="#org2d39c1f">Setup</a></li>
-<li><a href="#org0093589">Results</a></li>
+<li><a href="#org0093589">Results</a>
+<ul>
+<li><a href="#org212ef0e">Convexity</a></li>
+<li><a href="#org5df3abe">Speed</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </div>
@@ -304,10 +309,43 @@ rpy2.robjects.numpy2ri.activate()
 </div>
 </div>
 
-
 <div id="outline-container-org0093589" class="outline-2">
 <h2 id="org0093589">Results</h2>
 <div class="outline-text-2" id="text-org0093589">
+<p>
+We want to deconvolve scRNA-seq data assuming \(g_j\) is some unimodal
+distribution over non-negative reals. In practice, we represent this family
+of distribution as
+</p>
+
+<p>
+\[ g_j = \sum_{k=1}^K \pi_k \mathrm{Uniform}(\cdot; \lambda_0,  a_{jk}) \]
+</p>
+
+<p>
+where \(K\) is sufficiently large and \(\lambda_0\) is the mode
+(<a href="http://dx.doi.org/10.1093/biostatistics/kxw041">Stephens 2016</a>).
+</p>
+
+<p>
+As an example, use the highest expressed genes in 10K sorted CD8+ cytotoxic
+T cells <a href="https://www.nature.com/articles/ncomms14049">Zheng et al. 2017</a>.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19'</span>)
+<span class="org-variable-name">xj</span> = pd.Series(x[:,x.mean(axis=0).argmax()])
+<span class="org-variable-name">size_factor</span> = pd.Series(x.<span class="org-builtin">sum</span>(axis=1))
+<span class="org-variable-name">lam</span> = xj / size_factor
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/deconv-example.png" alt="deconv-example.png">
+</p>
+</div>
+
 <p>
 To estimate the mode \(\lambda_{0j}\) for gene \(j\), we find:
 </p>
@@ -319,21 +357,25 @@ To estimate the mode \(\lambda_{0j}\) for gene \(j\), we find:
 <p>
 using
 <a href="https://www.rdocumentation.org/packages/stats/versions/3.5.3/topics/optimize">golden
-section search</a>. Investigate two issues:
+section search</a>.
 </p>
+</div>
 
+<div id="outline-container-org212ef0e" class="outline-3">
+<h3 id="org212ef0e">Convexity</h3>
+<div class="outline-text-3" id="text-org212ef0e">
 <p>
-<b>First,</b> Mengyin Liu claimed this problem is convex in \(\lambda_{0j}\),
-However, on the above example, the quality of the result depends on the
-bounds of the search. Is this problem actually convex?
+Mengyin Liu claimed this problem is convex in \(\lambda_{0j}\), However, on
+the above example, the quality of the result depends on the bounds of the
+search. Is this problem actually convex?
 </p>
 
 <p>
 By default, the bounds are \([\min(x_i), \max(x_i)]\), which can be
 extremely large. However, we need to remove the scaling factor, so should
-we instead search over \([\min(x_i / R_i), \max(x_i / R_i)]\)? The motivation for the
-proposed alternative is to only look over plausible values of
-\(\lambda_i\).
+we instead search over \([\min(x_i / R_i), \max(x_i / R_i)]\)? The
+motivation for the proposed alternative is to only look over plausible
+values of \(\lambda_i\).
 </p>
 
 <div class="org-src-container">
@@ -409,12 +451,17 @@ mode? Intuitively, the largest \(\hat\lambda_i\) value we do observe should
 be "overestimated"; if it were not, then we should expect higher density of
 \(g\) around it, and values larger than it in the observed data.
 </p>
+</div>
+</div>
 
+<div id="outline-container-org5df3abe" class="outline-3">
+<h3 id="org5df3abe">Speed</h3>
+<div class="outline-text-3" id="text-org5df3abe">
 <p>
-<b>Second,</b> we have to solve an <code>ash</code> subproblem for each query
-\(\lambda_0\), which becomes extremely expensive for large data sets. We
-can speed up the procedure by downsampling the data for mode
-estimation. How much worse is the fitted model?
+We have to solve an <code>ash</code> subproblem for each query \(\lambda_0\), which
+becomes extremely expensive for large data sets. We can speed up the
+procedure by downsampling the data for mode estimation. How much worse is the
+fitted model?
 </p>
 
 <div class="org-src-container">
@@ -476,9 +523,10 @@ not pursue that strategy to speed up the model estimation.
 </div>
 </div>
 </div>
+</div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-10 Wed 22:28</p>
+<p class="date">Created: 2019-04-11 Thu 19:09</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
