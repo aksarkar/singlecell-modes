@@ -129,11 +129,10 @@
       likelihood of the observed data. The method has been extended to include
       a point mass on zero ([[http://dx.doi.org/10.1073/pnas.1721085115][Wang
       et al. 2018]]).
-   6. *Nonparametric:* \(g_j\) is some distribution over non-negative reals. In
-      practice, we discretize the representation
+   6. *Nonparametric:* \(g_j\) is some distribution over non-negative reals
       ([[https://projecteuclid.org/euclid.aoms/1177728066][Kiefer and Wolfowitz
-      1956]],
-      [[https://amstat.tandfonline.com/doi/abs/10.1080/01621459.2013.869224][Koenker
+      1956]]). In practice, we discretize the representation
+      ([[https://amstat.tandfonline.com/doi/abs/10.1080/01621459.2013.869224][Koenker
       and Mizera 2014]]). In full detail, we use the representation \(g_j =
       \sum_k \pi_k \mathrm{Uniform}(\cdot; ak, a(k + 1))\), where \(a\) is a
       fixed step size, which allows us to re-use the ~ash~ implementation.
@@ -143,7 +142,7 @@
    on our preliminary experiments, we compare all methods against Gamma.
 
    The benchmarking code is implemented in the Python package
-   [[https://github.com/aksarkar/scmodes][~scmodes~]].
+   [[https://github.com/aksarkar/scmodes][scmodes]].
 
 ** Benchmarking data
 
@@ -524,12 +523,12 @@
       data = {
         'cytotoxic_t': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True),
         'b_cells': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True),
-        'ipsc': lambda: scmodes.dataset.ipsc(n=100, return_df=True),
+        'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', n=100, return_df=True),
       }
       cpu_methods = ['unimodal', 'zief', 'npmle']
       tasks = [(d, c) for d in data for c in cpu_methods]
       task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-      with mp.Pool(maxtasksperchild=10) as pool:
+      with mp.Pool(maxtasksperchild=20) as pool:
         # Important: this needs to be done after initializing the pool to avoid
         # memory duplication
         x = data[task[0]]()
@@ -539,7 +538,7 @@
     #+END_SRC
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=broadwl --mem=32G -a 1-5 -n1 -c28 --exclusive --time=6:00:00 --job-name=benchmark --output=benchmark-cpu.out
+      sbatch --partition=broadwl --mem=32G -a 6-8 -n1 -c28 --exclusive --time=12:00:00 --job-name=benchmark --output=benchmark-cpu.out
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -548,36 +547,38 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 59358742
+    : Submitted batch job 59511459
 
     #+NAME: run-homogeneous-benchmark-gpu
     #+BEGIN_SRC ipython :eval never
+      <<imports>>
       import os
       data = {
-        'cytotoxic_t': lambda: scmodes.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True),
-        'b_cells': lambda: scmodes.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True),
-        'ipsc': lambda: scmodes.ipsc(n=100, return_df=True),
+        'cytotoxic_t': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True),
+        'b_cells': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True),
+        # Important: run the benchmark on all genes
+        'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', return_df=True),
       }
       tasks = list(data.keys())
       task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-      x = data[task]
-      res = evaluate_generalization(x.values, pool=None, test_size=0.1, random_state=0, methods=['gamma', 'point_gamma'])
+      x = data[task]()
+      res = scmodes.benchmark.evaluate_deconv_generalization(x.values, pool=None, test_size=0.1, random_state=0, methods=['gamma', 'point_gamma'])
       res.index = x.columns
-      res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{task}-gpu.txt.gz', compression='gzip', sep='\t')
+      res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/{task}-gpu.txt.gz', compression='gzip', sep='\t')
     #+END_SRC
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=12:00:00 --job-name=benchmark --output=benchmark-gpu.out
+      sbatch --partition=gpu2 --gres=gpu:1 -a 2 --mem=16G --time=12:00:00 --job-name=benchmark --output=benchmark-gpu.out
       #!/bin/bash
       module load cuda/9.0
       source activate scmodes
-      python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
+      python <<EOF
       <<run-homogeneous-benchmark-gpu>>
       EOF
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 59246091
+    : Submitted batch job 59503539
 
     Read the results.
 
@@ -1225,26 +1226,13 @@
     CD8+ T cells and CD19+ B cells from
     [[https://www.nature.com/articles/ncomms14049][Zheng et al. 2017]].
 
-    #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
-     def cd8_cd19_mix():
-       cd8 = cd8_cytotoxic_t_cells(return_df=True)
-       cd19 = cd19_b_cells(return_df=True)
-       x = pd.concat([cd8, cd19], axis='index', join='inner')
-       y = np.zeros(x.shape[0]).astype(int)
-       y[:cd8.shape[0]] = 1
-       return x, y
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[2]:
-    :END:
-
-    #+NAME: run-synthetic-mix-benchmark
+    #+NAME: run-synthetic-mix-benchmark-gpu
     #+BEGIN_SRC ipython :eval never
-     x, y = cd8_cd19_mix()
-     res = evaluate_generalization(x.values, stratify=y, train_size=0.5, test_size=0.1, random_state=0)
-     res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cd8-cd19-mix.txt.gz', compression='gzip', sep='\t')
+      t_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
+      b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True)
+      x, y = scmodes.dataset.synthetic_mix(t_cells, b_cells)
+      res = evaluate_generalization(x.values, stratify=y, train_size=0.5, test_size=0.1, random_state=0, methods=['gamma', 'point_gamma'])
+      res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cd8-cd19-mix-gpu.txt.gz', compression='gzip', sep='\t')
     #+END_SRC
 
     #+RESULTS: run-synthetic-mix-benchmark
@@ -1257,13 +1245,13 @@
      #!/bin/bash
      module load cuda/9.0
      source activate scmodes
-     python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
-     <<run-synthetic-mix-benchmark>>
+     python -i <<EOF
+     <<run-synthetic-mix-benchmark-gpu>>
      EOF
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 58958403
+    : Submitted batch job 59493577
 
 *** Naive/activated T cell mixture
 
