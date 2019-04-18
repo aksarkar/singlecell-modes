@@ -732,6 +732,43 @@
     [[file:figure/deconvolution.org/b-cell-descend-pois.example.png]]
     :END:
 
+    In T cells, several genes appear to be best fit by ZIEF.
+
+    #+BEGIN_SRC ipython
+      cytotoxic_t = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[52]:
+    :END:
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cytotoxic-t-zief-examples.png
+      query = benchmark['cytotoxic_t'][benchmark['cytotoxic_t']['zief'] > benchmark['cytotoxic_t']['gamma']].index
+      plt.clf()
+      fig, ax = plt.subplots(6, 5, sharey=True, sharex=True)
+      fig.set_size_inches(7, 7)
+      for a, k in zip(ax.ravel(), query):
+        a.hist(cytotoxic_t.loc[:,k], bins=np.arange(cytotoxic_t.loc[:,k].max() + 1), color='k')
+        a.text(x=.95, y=.95,
+               s=f"$\Delta l$={benchmark['cytotoxic_t']['zief'].loc[k] - benchmark['cytotoxic_t']['gamma'].loc[k]:.1f}",
+               horizontalalignment='right',
+               verticalalignment='top',
+               transform=a.transAxes)
+        a.set_title(gene_info.loc[k, 'name'] if k in gene_info.index else k)
+      for y in range(ax.shape[0]):
+        ax[y][0].set_ylabel('Num cells')
+      for x in range(ax.shape[1]):
+        ax[-1][x].set_xlabel('Num mols')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[56]:
+    [[file:figure/deconvolution.org/cytotoxic-t-zief-examples.png]]
+    :END:
+
     In iPSCs, several genes appear to be better fit by unimodal/NPMLE.
 
     #+BEGIN_SRC ipython :async t
@@ -809,7 +846,8 @@
     *Conclusions:*
 
     - ZIEF does better for genes which appear very close to Poisson. This could
-      be because it the estimation algorithm can better estimate a point mass
+      be because it the estimation algorithm can better estimate a point mass,
+      or because two point masses (one zero and one non-zero) would be optimal.
     - When NPMLE does better than Gamma, unimodal does comparably well. The
       genes where this happens quite clearly exhibit unimodal gene expression.
 

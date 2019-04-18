@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-18 Thu 15:41 -->
+<!-- 2019-04-18 Thu 15:47 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -1031,6 +1031,42 @@ ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
 </div>
 
 <p>
+In T cells, several genes appear to be best fit by ZIEF.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cytotoxic_t</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cytotoxic_t'</span>][benchmark[<span class="org-string">'cytotoxic_t'</span>][<span class="org-string">'zief'</span>] &gt; benchmark[<span class="org-string">'cytotoxic_t'</span>][<span class="org-string">'gamma'</span>]].index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(6, 5, sharey=<span class="org-constant">True</span>, sharex=<span class="org-constant">True</span>)
+fig.set_size_inches(7, 7)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(cytotoxic_t.loc[:,k], bins=np.arange(cytotoxic_t.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={benchmark['cytotoxic_t']['zief'].loc[k] - benchmark['cytotoxic_t']['gamma'].loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+  a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>] <span class="org-keyword">if</span> k <span class="org-keyword">in</span> gene_info.index <span class="org-keyword">else</span> k)
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/cytotoxic-t-zief-examples.png" alt="cytotoxic-t-zief-examples.png">
+</p>
+</div>
+
+<p>
 In iPSCs, several genes appear to be better fit by unimodal/NPMLE.
 </p>
 
@@ -1112,7 +1148,8 @@ fig.tight_layout()
 
 <ul class="org-ul">
 <li>ZIEF does better for genes which appear very close to Poisson. This could
-be because it the estimation algorithm can better estimate a point mass</li>
+be because it the estimation algorithm can better estimate a point mass,
+or because two point masses (one zero and one non-zero) would be optimal.</li>
 <li>When NPMLE does better than Gamma, unimodal does comparably well. The
 genes where this happens quite clearly exhibit unimodal gene expression.</li>
 </ul>
@@ -1762,7 +1799,7 @@ EOF
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-18 Thu 15:41</p>
+<p class="date">Created: 2019-04-18 Thu 15:47</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
