@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-18 Thu 15:47 -->
+<!-- 2019-04-18 Thu 16:05 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -939,14 +939,17 @@ fig.tight_layout()
 </div>
 
 <p>
-The results suggest that NB (assuming Gamma-distributed latent gene
-expression) is adequate to accurately estimate \(g\) from the data.
+<b>Conclusions:</b>
 </p>
 
-<p>
-Of note, <code>ash</code> is &gt;10\(\times\) slower than <code>descend</code>, and <code>descend</code> is
-faster on small data sets than GPU-based methods. 
-</p>
+<ul class="org-ul">
+<li>ZIEF overfits most genes</li>
+<li>Gamma is adequate for many genes</li>
+<li>The choice of unimodal discretization matters for computational
+speed. The default in <code>ashr</code> is flawed;
+<a href="https://github.com/aksarkar/scmodes/blob/4d84236888daba32a7fee60642f3addd5a34ff9c/scmodes/benchmark/deconvolution.py#L83">our
+choice</a> makes the method considerably slower</li>
+</ul>
 </div>
 </div>
 
@@ -1799,7 +1802,7 @@ EOF
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-18 Thu 15:47</p>
+<p class="date">Created: 2019-04-18 Thu 16:05</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

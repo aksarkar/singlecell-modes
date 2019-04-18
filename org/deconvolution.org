@@ -646,11 +646,14 @@
     [[file:figure/deconvolution.org/homogeneous-benchmark-inset.png]]
     :END:
 
-    The results suggest that NB (assuming Gamma-distributed latent gene
-    expression) is adequate to accurately estimate \(g\) from the data.
+    *Conclusions:*
 
-    Of note, ~ash~ is >10\(\times\) slower than ~descend~, and ~descend~ is
-    faster on small data sets than GPU-based methods. 
+    - ZIEF overfits most genes
+    - Gamma is adequate for many genes
+    - The choice of unimodal discretization matters for computational
+      speed. The default in ~ashr~ is flawed;
+      [[https://github.com/aksarkar/scmodes/blob/4d84236888daba32a7fee60642f3addd5a34ff9c/scmodes/benchmark/deconvolution.py#L83][our
+      choice]] makes the method considerably slower
 
 *** Investigate genes with support for more complex models
 
