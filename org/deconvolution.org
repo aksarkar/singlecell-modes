@@ -28,7 +28,7 @@
   #+CALL: ipython3(mem="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59557880
+  : Submitted batch job 59643048
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -859,6 +859,60 @@
     :CUSTOM_ID: bimodal-example-ipsc
     :END:
 
+    Look at the full benchmark results for NB vs. ZINB (only the GPU
+    implementation is suitable for this).
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/homogeneous-nb-zinb-benchmark.png
+      plt.clf()
+      plt.gcf().set_size_inches(3, 3)
+      h = plt.hist(ipsc_res['zinb'] - ipsc_res['nb'], color='k', bins=np.arange(-10, 40, 2))
+      plt.xlabel('Diff val set log lik from NB')
+      _ = plt.ylabel('Number of genes')
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[135]:
+    [[file:figure/deconvolution.org/homogeneous-nb-zinb-benchmark.png]]
+    :END:
+
+    Print the histogram for inspection.
+
+    #+BEGIN_SRC ipython
+      np.vstack((h[1][:-1], h[0])).T.astype(int)
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[137]:
+    #+BEGIN_EXAMPLE
+      array([[ -10,    0],
+      [  -8,    0],
+      [  -6,    0],
+      [  -4,    0],
+      [  -2, 4977],
+      [   0, 4973],
+      [   2,    2],
+      [   4,    3],
+      [   6,    0],
+      [   8,    0],
+      [  10,    0],
+      [  12,    0],
+      [  14,    1],
+      [  16,    0],
+      [  18,    0],
+      [  20,    0],
+      [  22,    0],
+      [  24,    0],
+      [  26,    0],
+      [  28,    1],
+      [  30,    0],
+      [  32,    0],
+      [  34,    0],
+      [  36,    0]])
+    #+END_EXAMPLE
+    :END:
+
     Try to find a case in the full iPSC data where point-Gamma (ZINB) is
     required, by performing likelihood ratio tests against Gamma (NB). Use
     Bonferroni correction to control FWER.
@@ -1045,60 +1099,6 @@
       female    3109
       male      2369
       Name: Gender, dtype: int64
-    #+END_EXAMPLE
-    :END:
-
-    Look at the full benchmark results for NB vs. ZINB (only the GPU
-    implementation is suitable for this).
-
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/homogeneous-nb-zinb-benchmark.png
-      plt.clf()
-      plt.gcf().set_size_inches(3, 3)
-      h = plt.hist(ipsc_res['zinb'] - ipsc_res['nb'], color='k', bins=np.arange(-10, 40, 2))
-      plt.xlabel('Diff val set log lik from NB')
-      _ = plt.ylabel('Number of genes')
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[135]:
-    [[file:figure/deconvolution.org/homogeneous-nb-zinb-benchmark.png]]
-    :END:
-
-    Print the histogram for inspection.
-
-    #+BEGIN_SRC ipython
-      np.vstack((h[1][:-1], h[0])).T.astype(int)
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[137]:
-    #+BEGIN_EXAMPLE
-      array([[ -10,    0],
-      [  -8,    0],
-      [  -6,    0],
-      [  -4,    0],
-      [  -2, 4977],
-      [   0, 4973],
-      [   2,    2],
-      [   4,    3],
-      [   6,    0],
-      [   8,    0],
-      [  10,    0],
-      [  12,    0],
-      [  14,    1],
-      [  16,    0],
-      [  18,    0],
-      [  20,    0],
-      [  22,    0],
-      [  24,    0],
-      [  26,    0],
-      [  28,    1],
-      [  30,    0],
-      [  32,    0],
-      [  34,    0],
-      [  36,    0]])
     #+END_EXAMPLE
     :END:
 
@@ -1301,62 +1301,60 @@
 
     #+BEGIN_SRC ipython
       benchmark = {}
-      for data in ('cd8-cd19-mix', 'cyto-naive-t-mix'):
+      for data in ('cd8-cd19-mix',):
         benchmark[data] = (
-          pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', sep='\t')
-          .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimix.txt.gz', sep='\t'), on='0')
-          .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-descend.txt.gz', sep='\t'), on='0')
-          .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', sep='\t'), on='0')
-          .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-saturated.txt.gz', sep='\t'), on='0')
-          .set_index('0'))
+          pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', index_col=0, sep='\t')
+          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
+          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-zief.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
+          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True))
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[4]:
+    # Out[9]:
     :END:
 
     Plot the results.
 
     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/synthetic-mix-benchmark.png
-     fig, ax = plt.subplots(1, 2, sharey=True)
-     fig.set_size_inches(5, 3)
-     for a, k in zip(ax, sorted(benchmark.keys())):
-       a.boxplot((benchmark[f'{k}'].values - benchmark[f'{k}']['nb'].values.reshape(-1, 1))[:,1:-1],
-                 widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       a.set_xticklabels(['ZINB', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-       a.set_xlabel('Assumed latent dist')
-       a.set_title(k)
-     ax[0].set_ylabel('Diff val set log lik from NB')
-     fig.tight_layout()
+      fig, ax = plt.subplots(1, 2, sharey=True)
+      fig.set_size_inches(5, 3)
+      for a, k, t in zip(ax, sorted(benchmark.keys()), ['T cell/B cell', 'Cytotoxic/Naive T cell']):
+        a.boxplot((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:],
+                  widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+        a.set_xlabel('Assumed latent dist')
+        a.set_title(t)
+      ax[0].set_ylabel('Diff val set log lik from Gamma')
+      fig.tight_layout()
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[197]:
+    # Out[11]:
     [[file:figure/deconvolution.org/synthetic-mix-benchmark.png]]
     :END:
 
     Zoom in on the relevant part of the plot.
 
     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/synthetic-mix-benchmark-inset.png
-     fig, ax = plt.subplots(1, 2)
-     fig.set_size_inches(5, 3)
-     for a, k in zip(ax, sorted(benchmark.keys())):
-       T = (benchmark[f'{k}'].values - benchmark[f'{k}']['nb'].values.reshape(-1, 1))[:,1:-1]
-       a.boxplot(T, widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       a.axhline(y=0, ls=':', lw=1, c='k')
-       a.set_xticklabels(['ZINB', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-       a.set_xlabel('Assumed latent dist')
-       a.set_ylim(-20, 1.05 * T.max())
-       a.set_title(k)
-     ax[0].set_ylabel('Diff val set log lik from NB')
-     fig.tight_layout()
+      fig, ax = plt.subplots(1, 2)
+      fig.set_size_inches(5, 3)
+      for a, k, t in zip(ax, sorted(benchmark.keys()), ['T cell/B cell', 'Cytotoxic/Naive T cell']):
+        T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
+        a.boxplot(T, widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+        a.axhline(y=0, ls=':', lw=1, c='k')
+        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+        a.set_xlabel('Assumed latent dist')
+        a.set_ylim(-20, 1.05 * T.max())
+        a.set_title(t)
+      ax[0].set_ylabel('Diff val set log lik from Gamma')
+      fig.tight_layout()
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[202]:
+    # Out[12]:
     [[file:figure/deconvolution.org/synthetic-mix-benchmark-inset.png]]
     :END:
 
