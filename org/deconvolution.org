@@ -1278,7 +1278,7 @@
     : Submitted batch job 59557262
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=broadwl -a 0-2 -n1 -c28 --exclusive --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark-cpu.out
+      sbatch --partition=broadwl -a 0 -n1 -c28 --exclusive --mem=16G --time=24:00:00 --job-name=benchmark --output=benchmark-cpu.out
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -1288,27 +1288,27 @@
       task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
       with mp.Pool(maxtasksperchild=10) as pool:
         <<cyto-naive-mix>>
-        res = evaluate_generalization(x.values, pool=pool, stratify=y, train_size=0.5, test_size=0.1, random_state=0, methods=[task])
+        res = scmodes.benchmark.evaluate_deconv_generalization(x.values, pool=pool, stratify=y, train_size=0.5, test_size=0.1, random_state=0, methods=[task])
         res.index = x.columns
-        res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-{task}.txt.gz', compression='gzip', sep='\t')
+        res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/cyto-naive-t-mix-{task}.txt.gz', compression='gzip', sep='\t')
       EOF
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 59268928
+    : Submitted batch job 59642575
 
     Read the results.
 
     #+BEGIN_SRC ipython
-     benchmark = {}
-     benchmark['cd8-cd19-mix'] = pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cd8-cd19-mix.txt.gz', sep='\t', index_col=0)
-     benchmark['cyto-naive-t-mix'] = (
-       pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-gpu.txt.gz', sep='\t')
-       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-unimix.txt.gz', sep='\t'), on='0')
-       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-descend.txt.gz', sep='\t'), on='0')
-       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-npmle.txt.gz', sep='\t'), on='0')
-       .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/cyto-naive-t-mix-saturated.txt.gz', sep='\t'), on='0')
-       .set_index('0'))
+      benchmark = {}
+      for data in ('cd8-cd19-mix', 'cyto-naive-t-mix'):
+        benchmark[data] = (
+          pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', sep='\t')
+          .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimix.txt.gz', sep='\t'), on='0')
+          .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-descend.txt.gz', sep='\t'), on='0')
+          .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', sep='\t'), on='0')
+          .merge(pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-saturated.txt.gz', sep='\t'), on='0')
+          .set_index('0'))
     #+END_SRC
 
     #+RESULTS:
@@ -1432,7 +1432,8 @@
 
 ** Heterogeneous cell populations
 
-   #+BEGIN_SRC ipython :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py
+   #+NAME: heterogeneous-data
+   #+BEGIN_SRC ipython
      def pbmcs_68k(**kwargs):
        return read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19', **kwargs)
 
