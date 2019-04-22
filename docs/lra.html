@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-22 Mon 13:21 -->
+<!-- 2019-04-22 Mon 13:23 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Modeling single cell data</title>
+<title>Low rank approximation</title>
 <meta name="generator" content="Org mode">
 <meta name="author" content="Abhishek Sarkar">
 <style type="text/css">
@@ -228,37 +228,155 @@ for the JavaScript code in this tag.
  }
 /*]]>*///-->
 </script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
 </head>
 <body>
 <div id="content">
-<h1 class="title">Modeling single cell data</h1>
+<h1 class="title">Low rank approximation</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#orga9ab311">Introduction</a></li>
+<li><a href="#org9a4fac9">Methods</a>
+<ul>
+<li><a href="#orgd4cbf9b">Low rank approximation of count data</a></li>
+</ul>
+</li>
+<li><a href="#org77d27ef">Results</a></li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-orga9ab311" class="outline-2">
+<h2 id="orga9ab311">Introduction</h2>
+<div class="outline-text-2" id="text-orga9ab311">
 <p>
-The development of single cell RNA sequencing (scRNA-Seq) technology has
-enabled investigation of heterogeneity between individuals cells, dynamics of
-cellular processes, and the biological pathways underlying cellular
-differentiation. However, a number of features of scRNA-seq data continue to
-cause confusion among practitioners applying published methods to analyze new
-datasets, as well as researchers developing and benchmarking new methods.
+Suppose we have observations \(x_{ij} \sim f(\lambda_{ij})\). Rather than
+making a distributional assumption \(\lambda_j \sim g_j(\cdot)\) (as in
+<a href="deconvolution.html">expression deconvolution</a>), we might make a <i>low
+rank assumption</i> \(h(\lambda_{ij}) = [\mathbf{L F}]_{ij}\).
+</p>
+
+<p>
+This assumption can be interpreted as regularizing cells/genes towards each
+other, or as discovering clusters in the data.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org9a4fac9" class="outline-2">
+<h2 id="org9a4fac9">Methods</h2>
+<div class="outline-text-2" id="text-org9a4fac9">
+</div>
+<div id="outline-container-orgd4cbf9b" class="outline-3">
+<h3 id="orgd4cbf9b">Low rank approximation of count data</h3>
+<div class="outline-text-3" id="text-orgd4cbf9b">
+<p>
+A number of methods have been proposed to estimate low rank structure from
+count data, several specialized for scRNA-seq data. 
 </p>
 
 <ul class="org-ul">
-<li><a href="pitfalls.html">Technical zero-generating mechanism in scRNA-seq data</a></li>
-<li><a href="modes.html">Estimating the number of modes</a></li>
-<li><a href="deconvolution.html">Comparison of distribution deconvolution methods</a></li>
-<li><a href="lra.html">Low rank approximation</a></li>
+<li>Non-negative matrix factorization
+(<a href="https://papers.nips.cc/paper/1861-algorithms-for-non-negative-matrix-factorization.pdf">Lee
+and Seung 2001</a>, <a href="https://arxiv.org/abs/1010.1763">Févotte and Idier
+2011</a>)</li>
+<li>Latent dirichlet allocation
+(<a href="http://www.jmlr.org/papers/volume3/blei03a/blei03a.pdf">Blei et al
+2003</a>,
+<a href="https://papers.nips.cc/paper/3902-online-learning-for-latent-dirichlet-allocation">Hoffman
+et al. 2010</a>, <a href="http://proceedings.mlr.press/v22/taddy12.html">Taddy
+2012</a>)</li>
+<li>Hierarchical Bayesian Poisson Factorization
+(<a href="http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf">Gopalan
+et al. 2015</a>,
+<a href="https://onlinelibrary.wiley.com/doi/full/10.15252/msb.20188557">Levitin
+et al. 2019</a>)</li>
+<li>ZINB-WAVE (<a href="https://www.nature.com/articles/s41467-017-02554-5">Risso et
+al. 2018</a>)</li>
+<li>scVI (<a href="https://www.nature.com/articles/s41592-018-0229-2">Lopez et al.
+2018</a>)</li>
+<li>DCA (<a href="https://www.nature.com/articles/s41467-018-07931-2">Eraslan et
+al. 2019</a>)</li>
+<li>GLM-PCA (<a href="https://www.biorxiv.org/content/10.1101/574574v1">Townes et
+al. 2019</a>)</li>
 </ul>
 
 <p>
-Technical details:
+There is one fundamental modelling decision which is not obvious from first
+principles: what precisely is low rank? In other words, what is the
+functional form of \(h(\cdot)\)? The methods above use either: \(h(x) = x\),
+\(h(x) = \ln(x)\), or learn \(h\) from the data.
 </p>
 
-<ul class="org-ul">
-<li><a href="ash-estmode.html">Speed up ash mode estimation</a></li>
-</ul>
+<p>
+Here, we evaluate methods on their ability to generalize to new data. We use
+real data, assuming:
+</p>
+
+<p>
+\[ x_{ij} \sim \mathrm{Poisson}(R_i \lambda_{ij}) \]
+</p>
+
+<p>
+\[ \lambda_{ij} = [\mathbf{L F}]_{ij} \]
+</p>
+
+<p>
+and hold out molecules by randomly thinning the observed counts:
+</p>
+
+<p>
+\[ y_{ij} \sim \mathrm{Binomial}(x_{ij}, 0.5) \]
+</p>
+
+<p>
+\[ \tilde{y}_{ij} = x_{ij} - y_{ij} \]
+</p>
+
+<p>
+This approach leaves the relative abundance of the transcripts unchanged in
+expectation, implying that the low rank structure learned in \(\mathbf{Y}\)
+should explain the data in \(\tilde{\mathbf{Y}}\).
+</p>
+
+<p>
+Our metric is then the likelihood of the held-out data. We simply need to
+re-scale to account for different size factors \(R_i\).
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org77d27ef" class="outline-2">
+<h2 id="org77d27ef">Results</h2>
+</div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-22 Mon 13:21</p>
+<p class="date">Created: 2019-04-22 Mon 13:23</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

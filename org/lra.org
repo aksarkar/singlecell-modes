@@ -1,0 +1,69 @@
+#+TITLE: Low rank approximation
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  Suppose we have observations \(x_{ij} \sim f(\lambda_{ij})\). Rather than
+  making a distributional assumption \(\lambda_j \sim g_j(\cdot)\) (as in
+  [[file:deconvolution.org][expression deconvolution]]), we might make a /low
+  rank assumption/ \(h(\lambda_{ij}) = [\mathbf{L F}]_{ij}\).
+
+  This assumption can be interpreted as regularizing cells/genes towards each
+  other, or as discovering clusters in the data.
+
+* Methods
+** Low rank approximation of count data
+
+   A number of methods have been proposed to estimate low rank structure from
+   count data, several specialized for scRNA-seq data. 
+
+   - Non-negative matrix factorization
+     ([[https://papers.nips.cc/paper/1861-algorithms-for-non-negative-matrix-factorization.pdf][Lee
+     and Seung 2001]], [[https://arxiv.org/abs/1010.1763][Févotte and Idier
+     2011]])
+   - Latent dirichlet allocation
+     ([[http://www.jmlr.org/papers/volume3/blei03a/blei03a.pdf][Blei et al
+     2003]],
+     [[https://papers.nips.cc/paper/3902-online-learning-for-latent-dirichlet-allocation][Hoffman
+     et al. 2010]], [[http://proceedings.mlr.press/v22/taddy12.html][Taddy
+     2012]])
+   - Hierarchical Bayesian Poisson Factorization
+     ([[http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf][Gopalan
+     et al. 2015]],
+     [[https://onlinelibrary.wiley.com/doi/full/10.15252/msb.20188557][Levitin
+     et al. 2019]])
+   - ZINB-WAVE ([[https://www.nature.com/articles/s41467-017-02554-5][Risso et
+     al. 2018]])
+   - scVI ([[https://www.nature.com/articles/s41592-018-0229-2][Lopez et al.
+     2018]])
+   - DCA ([[https://www.nature.com/articles/s41467-018-07931-2][Eraslan et
+     al. 2019]])
+   - GLM-PCA ([[https://www.biorxiv.org/content/10.1101/574574v1][Townes et
+     al. 2019]])
+
+   There is one fundamental modelling decision which is not obvious from first
+   principles: what precisely is low rank? In other words, what is the
+   functional form of \(h(\cdot)\)? The methods above use either: \(h(x) = x\),
+   \(h(x) = \ln(x)\), or learn \(h\) from the data.
+
+   Here, we evaluate methods on their ability to generalize to new data. We use
+   real data, assuming:
+
+   \[ x_{ij} \sim \mathrm{Poisson}(R_i \lambda_{ij}) \]
+
+   \[ \lambda_{ij} = [\mathbf{L F}]_{ij} \]
+
+   and hold out molecules by randomly thinning the observed counts:
+
+   \[ y_{ij} \sim \mathrm{Binomial}(x_{ij}, 0.5) \]
+
+   \[ \tilde{y}_{ij} = x_{ij} - y_{ij} \]
+
+   This approach leaves the relative abundance of the transcripts unchanged in
+   expectation, implying that the low rank structure learned in \(\mathbf{Y}\)
+   should explain the data in \(\tilde{\mathbf{Y}}\).
+
+   Our metric is then the likelihood of the held-out data. We simply need to
+   re-scale to account for different size factors \(R_i\).
+
+* Results
