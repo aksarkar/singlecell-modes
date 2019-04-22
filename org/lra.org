@@ -11,6 +11,54 @@
   This assumption can be interpreted as regularizing cells/genes towards each
   other, or as discovering clusters in the data.
 
+* Setup
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",mem="1G") :dir /scratch/midway2/aksarkar/modes
+
+  #+RESULTS:
+  : Submitted batch job 59650299
+
+  #+NAME: imports
+  #+BEGIN_SRC ipython
+    import numpy as np
+    import pandas as pd
+    import scmodes
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[1]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import colorcet
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[4]:
+  :END:
+
 * Methods
 ** Low rank approximation of count data
 
@@ -66,4 +114,64 @@
    Our metric is then the likelihood of the held-out data. We simply need to
    re-scale to account for different size factors \(R_i\).
 
+** Datasets
+
+   We use real scRNA-seq datasets in heterogeneous tissues to benchmark
+   methods:
+
+   1. Mouse neuron cells sequenced on the Fluidigm C1 platform
+      ([[https://science.sciencemag.org/content/347/6226/1138.full][Zeisel et
+      al. 2015]])
+
+   2. Fresh PBMCs sequenced on the 10X platform
+      ([[https://www.nature.com/articles/ncomms14049][Zheng et al. 2017]])
+
 * Results
+** Cortex
+
+   #+NAME: cortex-bench
+   #+BEGIN_SRC ipython :eval never
+     <<imports>>
+     import os
+     tasks = ['nmf', 'glmpca']
+     task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     cortex = scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz')
+     res = scmodes.benchmark.evaluate_lra_generalization(cortex, methods=[task], n_trials=1)
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/cortex-{task}.txt.gz', compression='gzip', sep='\t')
+   #+END_SRC
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes
+     sbatch --partition=broadwl -a 0-1 -n1 -c28 --exclusive --mem=16G --time=60:00 --job-name=lra-benchmark --out=lra-benchmark.out
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<cortex-bench>>
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 59656920
+
+** PBMCs
+
+   #+NAME: pbmcs-bench
+   #+BEGIN_SRC ipython :eval never
+     <<imports>>
+     import os
+     tasks = ['nmf', 'glmpca']
+     task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     data = scmodes.dataset.read10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19/')
+     res = scmodes.benchmark.evaluate_lra_generalization(data, methods=[task])
+     res.to_csv('/scratch/midway2/aksarkar/modes/lra-generalization/pbmcs-{task}.txt.gz')
+   #+END_SRC
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes
+     sbatch --partition=broadwl -a 0 -n1 -c28 --exclusive --mem=16G --time=60:00 --job-name=lra-benchmark --out=lra-benchmark.out
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<cortex-bench>>
+     EOF
+   #+END_SRC
+
+   
