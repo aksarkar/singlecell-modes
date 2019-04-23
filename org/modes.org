@@ -46,7 +46,16 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[65]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    plt.rcParams['figure.facecolor'] = 'w'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[121]:
   :END:
 
 * Distribution of log CPM across cells
@@ -224,4 +233,123 @@
   :RESULTS:
   # Out[190]:
   [[file:figure/pitfalls.org/log-cpm-modes.png]]
+  :END:
+* Shalek et al. 2013
+
+  [[https://www.nature.com/articles/nature12172][Shalek et al. 2013]] generated
+  scRNA-seq of 18 mouse bone-marrow--derived dendritic cells activated by
+  lipopolysaccharide.
+
+  In their analysis of heterogeneity, they conclude that the expression of many
+  genes is bimodal. However, in order to make this conclusion, they inspect the
+  distribution of log-transformed TPM.
+
+  [[https://www.nature.com/articles/nature12172/figures/2]]
+
+  Read the data.
+
+  #+BEGIN_SRC ipython
+    shalek_tpm = pd.read_csv('/scratch/midway2/aksarkar/ideas/GSE41265_allGenesTPM.txt.gz', sep='\t').filter(like='S')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[83]:
+  :END:
+
+  Shalek et al. transformed the TPM values as \(y = \ln(x + 1)\), then ordered
+  genes by \(CV_y = S_y / \bar{y}\).
+
+  #+BEGIN_SRC ipython
+    shalek_log_tpm = np.log(shalek_tpm + 1)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[84]:
+  :END:
+
+  They called genes with \(\bar{x} > 250\) as highly expressed, and \(CV_y >
+  0.25\) as variable.
+
+  #+BEGIN_SRC ipython
+    mu = shalek_tpm.mean(axis=1)
+    cv = shalek_log_tpm.std(axis=1) / (shalek_log_tpm.mean(axis=1))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[127]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    (mu > 250).sum()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[102]:
+  : 522
+  :END:
+
+  #+BEGIN_SRC ipython
+    np.logical_and(mu > 250, cv > 0.25).sum()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[103]:
+  : 268
+  :END:
+
+  Reproduce Fig 2b.
+
+  #+BEGIN_SRC ipython :ipyfile figure/modes.org/shalek-fig-2b.png
+    bins = (shalek_log_tpm
+            .loc[cv.sort_values(ascending=False).index]
+            .loc[np.logical_and(mu > 250, cv > 0.25)]
+            .apply(lambda x: pd.Series(np.histogram(x, bins=np.arange(10))[0]), axis=1)
+            .reset_index(drop=True))
+    plt.clf()
+    plt.gcf().set_size_inches(3, 3)
+    plt.pcolormesh(bins, cmap=colorcet.cm['fire'], vmin=0, vmax=18)
+    plt.xticks(np.arange(10), np.arange(10))
+    plt.yticks([])
+    cb = plt.colorbar(ticks=[0, 18], shrink=0.5)
+    cb.set_label('Number of cells')
+    plt.xlabel('ln(TPM + 1)')
+    plt.ylabel('Genes ordered by CV')
+    plt.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[191]:
+  [[file:figure/modes.org/shalek-fig-2b.png]]
+  :END:
+
+  Do the same, but for the distribution of TPM instead of log-transformed TPM.
+
+  #+BEGIN_SRC ipython :ipyfile figure/modes.org/shalek-tpm-dist.png
+    bins = (shalek_tpm
+            .loc[cv.sort_values(ascending=False).index]
+            .loc[np.logical_and(mu > 250, cv > 0.25)]
+            .apply(lambda x: pd.Series(np.histogram(x, bins=20)[0]), axis=1)
+            .reset_index(drop=True))
+    plt.clf()
+    plt.gcf().set_size_inches(3, 3)
+    plt.pcolormesh(bins, cmap=colorcet.cm['fire'], vmin=0, vmax=18)
+    plt.yticks([])
+    cb = plt.colorbar(ticks=[0, 18], shrink=0.5)
+    cb.set_label('Number of cells')
+    plt.xlabel('TPM')
+    plt.ylabel('Genes ordered by CV of $\ln(\mathrm{TPM} + 1)$')
+    plt.tight_layout()
+
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[192]:
+  [[file:figure/modes.org/shalek-tpm-dist.png]]
   :END:
