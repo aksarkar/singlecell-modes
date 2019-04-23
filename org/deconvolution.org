@@ -28,7 +28,7 @@
   #+CALL: ipython3(mem="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59643048
+  : Submitted batch job 59690936
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -675,7 +675,7 @@
 
     #+RESULTS: read-gene-info
     :RESULTS:
-    # Out[26]:
+    # Out[12]:
     :END:
 
     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/b-cell-descend-examples.png
@@ -1297,11 +1297,13 @@
     #+RESULTS:
     : Submitted batch job 59642575
 
+*** Plot the results
+
     Read the results.
 
     #+BEGIN_SRC ipython
       benchmark = {}
-      for data in ('cd8-cd19-mix',):
+      for data in ('cd8-cd19-mix', 'cyto-naive-t-mix'):
         benchmark[data] = (
           pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', index_col=0, sep='\t')
           .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
@@ -1311,7 +1313,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[9]:
+    # Out[4]:
     :END:
 
     Plot the results.
@@ -1331,7 +1333,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[11]:
+    # Out[5]:
     [[file:figure/deconvolution.org/synthetic-mix-benchmark.png]]
     :END:
 
@@ -1354,7 +1356,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[12]:
+    # Out[6]:
     [[file:figure/deconvolution.org/synthetic-mix-benchmark-inset.png]]
     :END:
 
@@ -1363,8 +1365,13 @@
     Read the data.
 
     #+BEGIN_SRC ipython :async t
-      mix1, y1 = cd8_cd19_mix()
-      mix2, y2 = cyto_naive_t_mix()
+      t_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
+      b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True)
+      mix1, y1 = scmodes.dataset.synthetic_mix(t_cells, b_cells)
+
+      cyto = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19', return_df=True)
+      naive = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_cytotoxic/filtered_matrices_mex/hg19', return_df=True)
+      mix2, y2 = scmodes.dataset.synthetic_mix(cyto, naive)
     #+END_SRC
 
     #+RESULTS:
@@ -1372,16 +1379,17 @@
     # Out[7]:
     :END:
 
-    Look at genes where NPMLE has higher validation set log likelihood than NB.
+    Look at genes in the T cell/B cell mix where NPMLE has higher validation
+    set log likelihood than NB.
 
     #+BEGIN_SRC ipython
-      llik_diff = benchmark['cd8-cd19-mix']['npmle'] - benchmark['cd8-cd19-mix']['nb']
+      llik_diff = benchmark['cd8-cd19-mix']['npmle'] - benchmark['cd8-cd19-mix']['gamma']
       query = benchmark['cd8-cd19-mix'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[23]:
+    # Out[35]:
     :END:
 
     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cd8-cd19-mix-npmle-examples.png
@@ -1391,20 +1399,21 @@
       for a, k in zip(ax.ravel(), query):
         a.hist(mix1.iloc[:,k], bins=np.arange(mix1.iloc[:,k].max() + 1), color='k')
         a.text(x=.95, y=.95,
-               s=f"$\Delta L$={benchmark['cd8-cd19-mix']['npmle'].loc[k] - benchmark['cd8-cd19-mix']['nb'].loc[k]:.1f}",
+               s=f"$\Delta l$={benchmark['cd8-cd19-mix']['npmle'].loc[k] - benchmark['cd8-cd19-mix']['gamma'].loc[k]:.1f}",
                horizontalalignment='right',
                verticalalignment='top',
                transform=a.transAxes)
         a.set_title(gene_info.loc[mix1.columns[k], 'name'] if mix1.columns[k] in gene_info.index else mix1.columns[k])
-        a.set_xlabel('Number of molecules')
       for a in ax:
-        a[0].set_ylabel('Number of cells')
+        a[0].set_ylabel('Num cells')
+      for a in ax.T:
+        a[-1].set_xlabel('Num mols')
       fig.tight_layout()
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[25]:
+    # Out[17]:
     [[file:figure/deconvolution.org/cd8-cd19-mix-npmle-examples.png]]
     :END:
 
@@ -1416,33 +1425,103 @@
       fig.set_size_inches(5, 2)
       for i, a in enumerate(ax):
         a.hist(mix1.loc[y1 == i,mix1.columns[query[0]]], bins=np.arange(mix1.loc[:,mix1.columns[query[0]]].max() + 1), color='k')
-        a.set_title(['T cells', 'B cells'][i])
+        a.set_title(['B cells', 'T cells'][i])
         a.set_xlabel('Number of molecules')
       ax[0].set_ylabel('Number of cells')
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[31]:
+    # Out[41]:
     : Text(0, 0.5, 'Number of cells')
     [[file:figure/deconvolution.org/cd74-example.png]]
+    :END:
+
+    Look at genes in the Cytotoxic/naive T cell mix where NPMLE has higher
+    validation set log likelihood than NB.'
+
+    #+BEGIN_SRC ipython
+      llik_diff = benchmark['cyto-naive-t-mix']['npmle'] - benchmark['cyto-naive-t-mix']['gamma']
+      query = benchmark['cyto-naive-t-mix'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[42]:
+    :END:
+
+    Count how many genes this is the case for.
+
+    #+BEGIN_SRC ipython
+      benchmark['cyto-naive-t-mix'].loc[llik_diff > 0].shape[0]
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[23]:
+    : 240
+    :END:
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cyto-naive-t-mix-npmle-examples.png
+      plt.clf()
+      fig, ax = plt.subplots(3, 4)
+      fig.set_size_inches(8, 6)
+      for a, k in zip(ax.ravel(), query):
+        a.hist(mix2.loc[:,k], bins=np.arange(mix2.loc[:,k].max() + 1), color='k')
+        a.text(x=.95, y=.95,
+               s=f"$\Delta l$={benchmark['cyto-naive-t-mix']['npmle'].loc[k] - benchmark['cyto-naive-t-mix']['gamma'].loc[k]:.1f}",
+               horizontalalignment='right',
+               verticalalignment='top',
+               transform=a.transAxes)
+        a.set_title(gene_info.loc[k, 'name'] if k in gene_info.index else k)
+      for a in ax:
+        a[0].set_ylabel('Num cells')
+      for a in ax.T:
+        a[-1].set_xlabel('Num mols')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[30]:
+    [[file:figure/deconvolution.org/cyto-naive-t-mix-npmle-examples.png]]
+    :END:
+
+    /MALAT1/ ([[https://www.omim.org/entry/607924][Metastasis-associated lung
+    adenocarcinoma transcript 1]]) is a lincRNA which appears to show tri-modal
+    gene expression in this mixture. It is involved in T cell activation,
+    through interaction with NF-κB
+    ([[https://febs.onlinelibrary.wiley.com/doi/full/10.1002/1873-3468.12315][Zhao
+    et al. 2016]]).
+
+    Stratify /MALAT1/ gene expression by known cell type.
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/MALAT1-example.png
+      plt.clf()
+      fig, ax = plt.subplots(1, 2, sharey=True)
+      fig.set_size_inches(5, 2)
+      for i, a in enumerate(ax):
+        a.hist(mix2.loc[y2 == i,'ENSG00000251562'], bins=np.arange(mix2.loc[:,'ENSG00000251562'].max() + 1), color='k')
+        a.set_title(['Naive T cells', 'Cytotoxic T cells'][i])
+        a.set_xlabel('Number of molecules')
+      ax[0].set_ylabel('Number of cells')
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[43]:
+    : Text(0, 0.5, 'Number of cells')
+    [[file:figure/deconvolution.org/MALAT1-example.png]]
     :END:
 
 ** Heterogeneous cell populations
 
    #+NAME: heterogeneous-data
-   #+BEGIN_SRC ipython
-     def pbmcs_68k(**kwargs):
-       return read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19', **kwargs)
-
-     def cortex(return_df=False):
-       counts = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', index_col=0, sep='\t')
-       # Follow scVI here
-       subset = counts.loc[counts.var(axis=1).sort_values(ascending=False).head(n=500).index].T
-       if return_df:
-         return subset
-       else:
-         return subset.values
+   #+BEGIN_SRC ipython :eval never
+     data = {
+       'pbmcs_68k': lambda: read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19', return_df=True),
+       'cortex': lambda: scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
+     }
    #+END_SRC
 
    #+RESULTS:
@@ -1452,18 +1531,21 @@
 
    #+NAME: heterogeneous-benchmark-gpu
    #+BEGIN_SRC ipython :eval never
-     for data in ('pbmcs_68k', 'cortex'):
-       x = globals()[data](return_df=True)
-       res = evaluate_generalization(x.values, pool=None, test_size=0.1, random_state=0, methods=['nb', 'zinb'])
-       res.index = x.columns
-       res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', compression='gzip', sep='\t')
+     <<imports>>
+     import os
+     <<heterogeneous-data>>
+     tasks = ['pbmcs_68k', 'cortex']
+     task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     res = scmodes.benchmark.evaluate_deconv_generalization(data[task](), pool=None, test_size=0.1, random_state=0, methods=['nb', 'zinb'])
+     res.index = x.columns
+     res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{task}-gpu.txt.gz', compression='gzip', sep='\t')
    #+END_SRC
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark-gpu.out
+     sbatch --partition=gpu2 -a 0-1 --gres=gpu:1 --mem=16G --time=12:00:00 --job-name=benchmark --output=benchmark-gpu.out
      #!/bin/bash
      source activate scmodes
-     python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
+     python <<EOF
      <<heterogeneous-benchmark-gpu>>
      EOF
    #+END_SRC
