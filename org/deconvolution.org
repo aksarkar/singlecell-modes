@@ -28,7 +28,7 @@
   #+CALL: ipython3(mem="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59690936
+  : Submitted batch job 59714464
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -53,11 +53,6 @@
   #+END_SRC
 
   #+RESULTS: imports
-  :RESULTS:
-  # Out[1]:
-  :END:
-
-  #+RESULTS:
   :RESULTS:
   # Out[1]:
   :END:
@@ -1519,7 +1514,7 @@
    #+NAME: heterogeneous-data
    #+BEGIN_SRC ipython :eval never
      data = {
-       'pbmcs_68k': lambda: read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19', return_df=True),
+       'pbmcs_68k': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19', return_df=True),
        'cortex': lambda: scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
      }
    #+END_SRC
@@ -1536,9 +1531,10 @@
      <<heterogeneous-data>>
      tasks = ['pbmcs_68k', 'cortex']
      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-     res = scmodes.benchmark.evaluate_deconv_generalization(data[task](), pool=None, test_size=0.1, random_state=0, methods=['nb', 'zinb'])
+     x = data[task]()
+     res = scmodes.benchmark.evaluate_deconv_generalization(x.values, pool=None, test_size=0.1, random_state=0, methods=['gamma', 'point_gamma'])
      res.index = x.columns
-     res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{task}-gpu.txt.gz', compression='gzip', sep='\t')
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/{task}-gpu.txt.gz', compression='gzip', sep='\t')
    #+END_SRC
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
@@ -1551,31 +1547,32 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 59288128
+   : Submitted batch job 59696754
 
    #+NAME: heterogeneous-benchmark-cpu
    #+BEGIN_SRC ipython :eval never
+     <<imports>>
      import os
-     datasets = ['pbmcs_68k', 'cortex']
-     cpu_methods = ['unimix', 'descend', 'npmle', 'saturated']
-     tasks = [(d, c) for d in datasets for c in cpu_methods]
-     data, method = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     <<heterogeneous-data>>
+     cpu_methods = ['unimodal', 'zief', 'npmle']
+     tasks = [(d, c) for d in data for c in cpu_methods]
+     dataset, method = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      with mp.Pool() as pool:
-       x = globals()[data](return_df=True)
-       res = evaluate_generalization(x.values, pool=pool, train_size=0.5, test_size=0.1, random_state=0, methods=[method])
+       x = data[dataset]()
+       res = scmodes.benchmark.evaluate_deconv_generalization(x.values, pool=pool, train_size=0.5, test_size=0.1, random_state=0, methods=[method])
        res.index = x.columns
-       res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-{method}.txt.gz', compression='gzip', sep='\t')
+       res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/{dataset}-{method}.txt.gz', compression='gzip', sep='\t')
    #+END_SRC
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -a 0 -n1 -c28 --exclusive --mem=16G --time=6:00:00 --job-name=benchmark --output=benchmark-cpu.out
+     sbatch --partition=broadwl -a 0-5 -n1 -c28 --exclusive --mem=16G --time=24:00:00 --job-name=benchmark --output=benchmark-cpu.out
      #!/bin/bash
      source activate scmodes
-     python -i /project2/mstephens/aksarkar/projects/singlecell-modes/code/benchmark.py <<EOF
+     python <<EOF
      <<heterogeneous-benchmark-cpu>>
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 59340657
+   : Submitted batch job 59698305
 
