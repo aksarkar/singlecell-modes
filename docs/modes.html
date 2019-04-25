@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-23 Tue 15:55 -->
+<!-- 2019-04-25 Thu 12:05 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Estimating the number of modes</title>
@@ -263,6 +263,7 @@ for the JavaScript code in this tag.
 <li><a href="#org90e9643">Distribution of log CPM across cells</a></li>
 <li><a href="#org48bfff1">Pseudocount</a></li>
 <li><a href="#org7755300">Shalek et al. 2013</a></li>
+<li><a href="#org077586d">Shalek et al. 2014</a></li>
 </ul>
 </div>
 </div>
@@ -281,10 +282,7 @@ is multi-modal.
 <h2 id="org24ddfec">Setup</h2>
 <div class="outline-text-2" id="text-org24ddfec">
 <div class="org-src-container">
-<pre class="src src-ipython">%matplotlib inline
-%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
-
-<span class="org-keyword">import</span> colorcet
+<pre class="src src-ipython"><span class="org-keyword">import</span> colorcet
 <span class="org-keyword">import</span> gzip
 <span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
 <span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
@@ -299,6 +297,12 @@ is multi-modal.
 rpy2.robjects.pandas2ri.activate()
 rpy2.robjects.numpy2ri.activate()
 <span class="org-variable-name">mclust</span> = rpy2.robjects.packages.importr(<span class="org-string">'mclust'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
 </pre>
 </div>
 
@@ -571,12 +575,12 @@ Reproduce Fig 2b.
 <pre class="src src-ipython"><span class="org-variable-name">bins</span> = (shalek_log_tpm
         .loc[cv.sort_values(ascending=<span class="org-constant">False</span>).index]
         .loc[np.logical_and(mu &gt; 250, cv &gt; 0.25)]
-        .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: pd.Series(np.histogram(x, bins=np.arange(10))[0]), axis=1)
+        .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: pd.Series(np.histogram(x, bins=np.arange(13))[0]), axis=1)
         .reset_index(drop=<span class="org-constant">True</span>))
 plt.clf()
 plt.gcf().set_size_inches(3, 3)
 plt.pcolormesh(bins, cmap=colorcet.cm[<span class="org-string">'fire'</span>], vmin=0, vmax=18)
-plt.xticks(np.arange(10), np.arange(10))
+plt.xticks(np.arange(0, 13, 4), np.arange(0, 13, 4))
 plt.yticks([])
 <span class="org-variable-name">cb</span> = plt.colorbar(ticks=[0, 18], shrink=0.5)
 cb.set_label(<span class="org-string">'Number of cells'</span>)
@@ -600,10 +604,10 @@ Do the same, but for the distribution of TPM instead of log-transformed TPM.
 <pre class="src src-ipython"><span class="org-variable-name">bins</span> = (shalek_tpm
         .loc[cv.sort_values(ascending=<span class="org-constant">False</span>).index]
         .loc[np.logical_and(mu &gt; 250, cv &gt; 0.25)]
-        .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: pd.Series(np.histogram(x, bins=20)[0]), axis=1)
+        .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: pd.Series(np.histogram(x, bins=np.arange(30))[0]), axis=1)
         .reset_index(drop=<span class="org-constant">True</span>))
 plt.clf()
-plt.gcf().set_size_inches(3, 3)
+plt.gcf().set_size_inches(5, 3)
 plt.pcolormesh(bins, cmap=colorcet.cm[<span class="org-string">'fire'</span>], vmin=0, vmax=18)
 plt.yticks([])
 <span class="org-variable-name">cb</span> = plt.colorbar(ticks=[0, 18], shrink=0.5)
@@ -622,10 +626,68 @@ plt.tight_layout()
 </div>
 </div>
 </div>
+<div id="outline-container-org077586d" class="outline-2">
+<h2 id="org077586d">Shalek et al. 2014</h2>
+<div class="outline-text-2" id="text-org077586d">
+<p>
+<a href="https://www.nature.com/articles/nature13437#s1">Shalek et al. 2014</a>
+performed scRNA-seq of &gt;
+<a href="https://www.nature.com/articles/nature13437#s1">1700 cells</a>, and
+characterized bimodal gene expression, again analyzing log-transformed TPM.
+</p>
+
+<p>
+Ideally, we should deconvolve gene expression under a unimodal assumption to
+see whether the true gene expression is bimodal or not. However, doing so
+from TPM is difficult.
+</p>
+
+<p>
+In the simplest case (no multi-mapping reads) TPM is a maximum likelihood
+estimate of the relative abundances \(\alpha = (\alpha_1, \ldots, \alpha_p)\)
+in the model:
+</p>
+
+<p>
+\[ x_1, \ldots, x_p | n \sim \mathrm{Multinomial}(n, \alpha) \]
+</p>
+
+<p>
+where \(x_j\) is the number of reads mapping to gene (transcript) \(j\).
+</p>
+
+<p>
+In practice, this model is transformed into an easier model:
+</p>
+
+<p>
+\[ x_j \sim \mathrm{Poisson}(n \lambda_j) \]
+</p>
+
+<p>
+for which the MLEs \(\hat\lambda_1, \ldots, \hat\lambda_p\) can be
+transformed into the MLE \(\hat\alpha\).
+</p>
+
+<p>
+(In the case of multi-mapping reads, introduce latent variables \(z_{ij}\)
+denoting which transcript \(j\) read \(i\) maps to. Then, we can use EM to
+recove the MLE \(\hat\alpha\).)
+</p>
+
+<p>
+Now, because TPM is already an estimate of the latent gene expression values
+of interest, in principle we could simply fit a unimodal distribution to
+them, assuming no noise. However, more ideally, we should use the read model
+to define the likelihood, and then deconvolve the reads under a
+distributional assumption on the latent gene expression values.
+</p>
+</div>
+</div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-23 Tue 15:55</p>
+<p class="date">Created: 2019-04-25 Thu 12:05</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

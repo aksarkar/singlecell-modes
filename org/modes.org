@@ -24,9 +24,6 @@
   :END:
 
   #+BEGIN_SRC ipython
-    %matplotlib inline
-    %config InlineBackend.figure_formats = set(['retina'])
-
     import colorcet
     import gzip
     import matplotlib.pyplot as plt
@@ -46,7 +43,17 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[65]:
+  # Out[4]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[16]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -55,7 +62,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[121]:
+  # Out[17]:
   :END:
 
 * Distribution of log CPM across cells
@@ -254,7 +261,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[83]:
+  # Out[6]:
   :END:
 
   Shalek et al. transformed the TPM values as \(y = \ln(x + 1)\), then ordered
@@ -266,7 +273,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[84]:
+  # Out[7]:
   :END:
 
   They called genes with \(\bar{x} > 250\) as highly expressed, and \(CV_y >
@@ -279,7 +286,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[127]:
+  # Out[8]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -308,12 +315,12 @@
     bins = (shalek_log_tpm
             .loc[cv.sort_values(ascending=False).index]
             .loc[np.logical_and(mu > 250, cv > 0.25)]
-            .apply(lambda x: pd.Series(np.histogram(x, bins=np.arange(10))[0]), axis=1)
+            .apply(lambda x: pd.Series(np.histogram(x, bins=np.arange(13))[0]), axis=1)
             .reset_index(drop=True))
     plt.clf()
     plt.gcf().set_size_inches(3, 3)
     plt.pcolormesh(bins, cmap=colorcet.cm['fire'], vmin=0, vmax=18)
-    plt.xticks(np.arange(10), np.arange(10))
+    plt.xticks(np.arange(0, 13, 4), np.arange(0, 13, 4))
     plt.yticks([])
     cb = plt.colorbar(ticks=[0, 18], shrink=0.5)
     cb.set_label('Number of cells')
@@ -324,7 +331,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[191]:
+  # Out[13]:
   [[file:figure/modes.org/shalek-fig-2b.png]]
   :END:
 
@@ -334,10 +341,10 @@
     bins = (shalek_tpm
             .loc[cv.sort_values(ascending=False).index]
             .loc[np.logical_and(mu > 250, cv > 0.25)]
-            .apply(lambda x: pd.Series(np.histogram(x, bins=20)[0]), axis=1)
+            .apply(lambda x: pd.Series(np.histogram(x, bins=np.arange(30))[0]), axis=1)
             .reset_index(drop=True))
     plt.clf()
-    plt.gcf().set_size_inches(3, 3)
+    plt.gcf().set_size_inches(5, 3)
     plt.pcolormesh(bins, cmap=colorcet.cm['fire'], vmin=0, vmax=18)
     plt.yticks([])
     cb = plt.colorbar(ticks=[0, 18], shrink=0.5)
@@ -350,6 +357,41 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[192]:
+  # Out[35]:
   [[file:figure/modes.org/shalek-tpm-dist.png]]
   :END:
+* Shalek et al. 2014
+
+  [[https://www.nature.com/articles/nature13437#s1][Shalek et al. 2014]]
+  performed scRNA-seq of >
+  [[https://www.nature.com/articles/nature13437#s1][1700 cells]], and
+  characterized bimodal gene expression, again analyzing log-transformed TPM.
+
+  Ideally, we should deconvolve gene expression under a unimodal assumption to
+  see whether the true gene expression is bimodal or not. However, doing so
+  from TPM is difficult.
+
+  In the simplest case (no multi-mapping reads) TPM is a maximum likelihood
+  estimate of the relative abundances \(\alpha = (\alpha_1, \ldots, \alpha_p)\)
+  in the model:
+
+  \[ x_1, \ldots, x_p | n \sim \mathrm{Multinomial}(n, \alpha) \]
+
+  where \(x_j\) is the number of reads mapping to gene (transcript) \(j\).
+
+  In practice, this model is transformed into an easier model:
+
+  \[ x_j \sim \mathrm{Poisson}(n \lambda_j) \]
+
+  for which the MLEs \(\hat\lambda_1, \ldots, \hat\lambda_p\) can be
+  transformed into the MLE \(\hat\alpha\).
+
+  (In the case of multi-mapping reads, introduce latent variables \(z_{ij}\)
+  denoting which transcript \(j\) read \(i\) maps to. Then, we can use EM to
+  recove the MLE \(\hat\alpha\).)
+
+  Now, because TPM is already an estimate of the latent gene expression values
+  of interest, in principle we could simply fit a unimodal distribution to
+  them, assuming no noise. However, more ideally, we should use the read model
+  to define the likelihood, and then deconvolve the reads under a
+  distributional assumption on the latent gene expression values.
