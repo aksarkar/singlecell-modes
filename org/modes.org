@@ -16,21 +16,17 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(mem="4G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(mem="16G",partition="broadwl",venv="scmodes") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  :RESULTS:
-  Submitted batch job 58584169
-  :END:
+  : Submitted batch job 59789688
 
+  #+NAME: imports
   #+BEGIN_SRC ipython
-    import colorcet
     import gzip
-    import matplotlib.pyplot as plt
     import numpy as np
     import pandas as pd
     import scipy.stats as st
-    import sklearn.neighbors as skn
 
     import rpy2.robjects.packages
     import rpy2.robjects.pandas2ri
@@ -39,11 +35,13 @@
     rpy2.robjects.pandas2ri.activate()
     rpy2.robjects.numpy2ri.activate()
     mclust = rpy2.robjects.packages.importr('mclust')
+    ashr = rpy2.robjects.packages.importr('ashr')
+    mixsqp = rpy2.robjects.packages.importr('mixsqp')
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -53,16 +51,18 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[16]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
+    import colorcet
+    import matplotlib.pyplot as plt
     plt.rcParams['figure.facecolor'] = 'w'
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[17]:
+  # Out[3]:
   :END:
 
 * Distribution of log CPM across cells
@@ -362,9 +362,9 @@
   :END:
 * Shalek et al. 2014
 
-  [[https://www.nature.com/articles/nature13437#s1][Shalek et al. 2014]]
+  [[https://www.nature.com/articles/nature13437][Shalek et al. 2014]]
   performed scRNA-seq of >
-  [[https://www.nature.com/articles/nature13437#s1][1700 cells]], and
+  [[http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE48968][1700 cells]], and
   characterized bimodal gene expression, again analyzing log-transformed TPM.
 
   Ideally, we should deconvolve gene expression under a unimodal assumption to
@@ -392,6 +392,90 @@
 
   Now, because TPM is already an estimate of the latent gene expression values
   of interest, in principle we could simply fit a unimodal distribution to
-  them, assuming no noise. However, more ideally, we should use the read model
-  to define the likelihood, and then deconvolve the reads under a
-  distributional assumption on the latent gene expression values.
+  them, assuming no noise.
+
+  Download the data.
+
+  #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/shalek2014
+    curl -sO "ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE48nnn/GSE48968/suppl/GSE48968_allgenesTPM_GSM1189042_GSM1190902.txt.gz"
+  #+END_SRC
+
+  #+RESULTS:
+
+  #+NAME: deconvolve-tpm
+  #+BEGIN_SRC ipython :eval never
+    def _score_unimodal(train, test):
+      res0 = ashr.ash_workhorse(
+        train,
+        # This is a hack: we really want the likelihood to be a point mass
+        1e-8,
+        outputlevel='fitted_g',
+        mixcompdist='+uniform',
+        mixsd=pd.Series(np.geomspace(x.min() + 1e-8, x.max(), 25)),
+        mode=pd.Series([x.min(), x.max()]))
+      res = ashr.ash_workhorse(
+        test,
+        1e-8,
+        outputlevel='loglik',
+        fix_g=True,
+        g=res0.rx2('fitted_g'))
+      return np.array(res.rx2('loglik'))
+
+    def score_unimodal(x_train, x_test, pool, **kwargs):
+      result = []
+      # np iterates over rows
+      result = pool.starmap(_score_unimodal, zip(x_train.T, x_test.T))
+      return np.array(result).ravel()
+
+    def _score_npmle(train, test, K=100):
+      grid = np.linspace(0, train.max(), K + 1)
+      res0 = ashr.ash_workhorse(
+        train,
+        1e-8,
+        outputlevel='fitted_g',
+        g=ashr.unimix(pd.Series(np.ones(K) / K), pd.Series(grid[:-1]), pd.Series(grid[1:])))
+      res = ashr.ash_workhorse(
+        test,
+        1e-8,
+        outputlevel='loglik',
+        fixg=True,
+        g=res0.rx2('fitted_g'))
+      return np.array(res.rx2('loglik'))
+
+    def score_npmle(x_train, x_test, pool, **kwargs):
+      result = []
+      # np iterates over rows
+      result = pool.starmap(_score_npmle, zip(x_train.T, x_test.T))
+      return np.array(result).ravel()
+
+  #+END_SRC
+
+  #+NAME: analyze-shalek-2014
+  #+BEGIN_SRC ipython :eval never
+    <<imports>>
+    import multiprocessing.pool as mp
+    import os
+    import sklearn.model_selection as skms
+
+    <<deconvolve-tpm>>
+
+    tasks = ['unimodal', 'npmle']
+    task = tasks[os.environ['SLURM_ARRAY_TASK_ID']]
+    with mp.Pool() as pool:
+      shalek_2014_tpm = pd.read_csv('/scratch/midway2/aksarkar/modes/shalek2014/GSE48968_allgenesTPM_GSM1189042_GSM1190902.txt.gz', sep='\t').T
+      train, val = skms.train_test_split(x, test_size=0.1, seed=0)
+      res = globals()[f'score_{task}'](train, val, pool=pool)
+    res.to_csv(f'/scratch/midway2/aksarkar/modes/shalek2014/shalek2014-{task}.txt.gz', compression='gzip', sep='\t')
+  #+END_SRC
+
+  #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/shalek2014
+    sbatch --partition=broadwl -a 0 -n1 -c28 --exclusive --mem=4G --time=12:00:00 --job-name=shalek --out=shalek.out
+    #!/bin/bash
+    source activate scmodes
+    python <<EOF
+    <<analyze-shalek-2014>>
+    EOF
+  #+END_SRC
+
+  #+RESULTS:
+  : Submitted batch job 59791272

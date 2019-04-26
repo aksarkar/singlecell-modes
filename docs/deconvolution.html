@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-26 Fri 14:16 -->
+<!-- 2019-04-29 Mon 10:54 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -258,28 +258,28 @@ for the JavaScript code in this tag.
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
-<li><a href="#orgb9835b1">Introduction</a></li>
-<li><a href="#org8d4605f">Setup</a></li>
-<li><a href="#org7c94ef9">Methods</a>
+<li><a href="#orgfa59c78">Introduction</a></li>
+<li><a href="#org73ba139">Setup</a></li>
+<li><a href="#orgda24072">Methods</a>
 <ul>
-<li><a href="#org905b1a0">Distribution deconvolution</a></li>
-<li><a href="#org186a604">Benchmarking data</a></li>
+<li><a href="#orgabf1860">Distribution deconvolution</a></li>
+<li><a href="#org1a462cb">Benchmarking data</a></li>
 </ul>
 </li>
-<li><a href="#org0eb586e">Results</a>
+<li><a href="#org43962d6">Results</a>
 <ul>
-<li><a href="#org108adc0">Homogeneous cell populations</a></li>
-<li><a href="#org5dfc327">Synthetic cell mixtures</a></li>
-<li><a href="#org45a74d5">Heterogeneous cell populations</a></li>
+<li><a href="#org794dae9">Homogeneous cell populations</a></li>
+<li><a href="#org4606912">Synthetic cell mixtures</a></li>
+<li><a href="#org1aafc2c">Heterogeneous cell populations</a></li>
 </ul>
 </li>
 </ul>
 </div>
 </div>
 
-<div id="outline-container-orgb9835b1" class="outline-2">
-<h2 id="orgb9835b1">Introduction</h2>
-<div class="outline-text-2" id="text-orgb9835b1">
+<div id="outline-container-orgfa59c78" class="outline-2">
+<h2 id="orgfa59c78">Introduction</h2>
+<div class="outline-text-2" id="text-orgfa59c78">
 <p>
 Suppose we have observations \(x_i \sim f(\theta_i), i = 1, \ldots, n\), and
 \(\theta_i \sim g(\cdot)\). <i>Distribution deconvolution</i> is the problem of
@@ -297,11 +297,11 @@ generalization for different choices of \(\mathcal{G}\) in real data.
 </div>
 </div>
 
-<div id="outline-container-org8d4605f" class="outline-2">
-<h2 id="org8d4605f">Setup</h2>
-<div class="outline-text-2" id="text-org8d4605f">
+<div id="outline-container-org73ba139" class="outline-2">
+<h2 id="org73ba139">Setup</h2>
+<div class="outline-text-2" id="text-org73ba139">
 <div class="org-src-container">
-<pre class="src src-ipython" id="org667216b"><span class="org-keyword">import</span> functools <span class="org-keyword">as</span> ft
+<pre class="src src-ipython" id="org5ac9f6b"><span class="org-keyword">import</span> functools <span class="org-keyword">as</span> ft
 <span class="org-keyword">import</span> multiprocessing <span class="org-keyword">as</span> mp
 <span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
@@ -337,13 +337,13 @@ rpy2.robjects.numpy2ri.activate()
 </div>
 </div>
 
-<div id="outline-container-org7c94ef9" class="outline-2">
-<h2 id="org7c94ef9">Methods</h2>
-<div class="outline-text-2" id="text-org7c94ef9">
+<div id="outline-container-orgda24072" class="outline-2">
+<h2 id="orgda24072">Methods</h2>
+<div class="outline-text-2" id="text-orgda24072">
 </div>
-<div id="outline-container-org905b1a0" class="outline-3">
-<h3 id="org905b1a0">Distribution deconvolution</h3>
-<div class="outline-text-3" id="text-org905b1a0">
+<div id="outline-container-orgabf1860" class="outline-3">
+<h3 id="orgabf1860">Distribution deconvolution</h3>
+<div class="outline-text-3" id="text-orgabf1860">
 <p>
 The general form of distribution deconvolution for scRNA-seq is:
 </p>
@@ -427,9 +427,9 @@ The benchmarking code is implemented in the Python package
 </div>
 </div>
 
-<div id="outline-container-org186a604" class="outline-3">
-<h3 id="org186a604">Benchmarking data</h3>
-<div class="outline-text-3" id="text-org186a604">
+<div id="outline-container-org1a462cb" class="outline-3">
+<h3 id="org1a462cb">Benchmarking data</h3>
+<div class="outline-text-3" id="text-org1a462cb">
 <p>
 As examples of homogeneous cell populations, we use:
 </p>
@@ -464,16 +464,16 @@ al. 2015</a>)</li>
 </div>
 </div>
 
-<div id="outline-container-org0eb586e" class="outline-2">
-<h2 id="org0eb586e">Results</h2>
-<div class="outline-text-2" id="text-org0eb586e">
+<div id="outline-container-org43962d6" class="outline-2">
+<h2 id="org43962d6">Results</h2>
+<div class="outline-text-2" id="text-org43962d6">
 </div>
-<div id="outline-container-org108adc0" class="outline-3">
-<h3 id="org108adc0">Homogeneous cell populations</h3>
-<div class="outline-text-3" id="text-org108adc0">
+<div id="outline-container-org794dae9" class="outline-3">
+<h3 id="org794dae9">Homogeneous cell populations</h3>
+<div class="outline-text-3" id="text-org794dae9">
 </div>
-<div id="outline-container-org4cd831e" class="outline-4">
-<h4 id="examples"><a id="org4cd831e"></a>Example</h4>
+<div id="outline-container-org5d5b563" class="outline-4">
+<h4 id="examples"><a id="org5d5b563"></a>Example</h4>
 <div class="outline-text-4" id="text-examples">
 <p>
 As an example, use the highest expressed genes in 10K sorted CD8+ cytotoxic
@@ -806,15 +806,15 @@ array([0.])
 </div>
 </div>
 
-<div id="outline-container-org186d434" class="outline-4">
-<h4 id="homogeneous-results"><a id="org186d434"></a>Run the benchmark</h4>
+<div id="outline-container-org0fc946e" class="outline-4">
+<h4 id="homogeneous-results"><a id="org0fc946e"></a>Run the benchmark</h4>
 <div class="outline-text-4" id="text-homogeneous-results">
 <p>
 Run the benchmark.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org16f75d6">&lt;&lt;imports&gt;&gt;
+<pre class="src src-ipython" id="org38257d4">&lt;&lt;imports&gt;&gt;
 <span class="org-keyword">import</span> os
 <span class="org-variable-name">data</span> = {
   <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>),
@@ -845,7 +845,7 @@ EOF
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org0198218">&lt;&lt;imports&gt;&gt;
+<pre class="src src-ipython" id="org16bd587">&lt;&lt;imports&gt;&gt;
 <span class="org-keyword">import</span> os
 <span class="org-variable-name">data</span> = {
   <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>),
@@ -953,9 +953,9 @@ choice</a> makes the method considerably slower</li>
 </div>
 </div>
 
-<div id="outline-container-org5be4f7f" class="outline-4">
-<h4 id="org5be4f7f">Investigate genes with support for more complex models</h4>
-<div class="outline-text-4" id="text-org5be4f7f">
+<div id="outline-container-org5c4c2eb" class="outline-4">
+<h4 id="org5c4c2eb">Investigate genes with support for more complex models</h4>
+<div class="outline-text-4" id="text-org5c4c2eb">
 <p>
 In B cells, several genes are better fit assuming ZIEF.
 </p>
@@ -966,7 +966,7 @@ In B cells, several genes are better fit assuming ZIEF.
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org197d92d"><span class="org-variable-name">gene_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<pre class="src src-ipython" id="org2e831cb"><span class="org-variable-name">gene_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
 </pre>
 </div>
 
@@ -1159,8 +1159,8 @@ genes where this happens quite clearly exhibit unimodal gene expression.</li>
 </div>
 </div>
 
-<div id="outline-container-org53e0fc8" class="outline-4">
-<h4 id="bimodal-example-ipsc"><a id="org53e0fc8"></a>Investigate Gamma vs. Point-Gamma in high-depth data</h4>
+<div id="outline-container-orgc2c8ca0" class="outline-4">
+<h4 id="bimodal-example-ipsc"><a id="orgc2c8ca0"></a>Investigate Gamma vs. Point-Gamma in high-depth data</h4>
 <div class="outline-text-4" id="text-bimodal-example-ipsc">
 <p>
 Look at the full benchmark results for NB vs. ZINB (only the GPU
@@ -1481,13 +1481,13 @@ plt.gcf().set_size_inches(3, 2)
 </div>
 </div>
 
-<div id="outline-container-org5dfc327" class="outline-3">
-<h3 id="org5dfc327">Synthetic cell mixtures</h3>
-<div class="outline-text-3" id="text-org5dfc327">
+<div id="outline-container-org4606912" class="outline-3">
+<h3 id="org4606912">Synthetic cell mixtures</h3>
+<div class="outline-text-3" id="text-org4606912">
 </div>
-<div id="outline-container-org66225b5" class="outline-4">
-<h4 id="org66225b5">T cell-B cell mixture</h4>
-<div class="outline-text-4" id="text-org66225b5">
+<div id="outline-container-org03e8624" class="outline-4">
+<h4 id="org03e8624">T cell-B cell mixture</h4>
+<div class="outline-text-4" id="text-org03e8624">
 <p>
 Create a synthetic heterogeneous population of cells by combining sorted
 CD8+ T cells and CD19+ B cells from
@@ -1495,7 +1495,7 @@ CD8+ T cells and CD19+ B cells from
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org9096393">&lt;&lt;imports&gt;&gt;
+<pre class="src src-ipython" id="orgad9133a">&lt;&lt;imports&gt;&gt;
 <span class="org-variable-name">t_cells</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
 <span class="org-variable-name">b_cells</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
 <span class="org-variable-name">x</span>, <span class="org-variable-name">y</span> = scmodes.dataset.synthetic_mix(t_cells, b_cells)
@@ -1516,7 +1516,7 @@ EOF
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="orgef7f3bd">&lt;&lt;imports&gt;&gt;
+<pre class="src src-ipython" id="org64fc134">&lt;&lt;imports&gt;&gt;
 <span class="org-keyword">import</span> os
 <span class="org-variable-name">tasks</span> = [<span class="org-string">'unimodal'</span>, <span class="org-string">'zief'</span>, <span class="org-string">'npmle'</span>]
 <span class="org-variable-name">task</span> = tasks[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
@@ -1542,9 +1542,9 @@ EOF
 </div>
 </div>
 
-<div id="outline-container-org9586d86" class="outline-4">
-<h4 id="org9586d86">Naive/activated T cell mixture</h4>
-<div class="outline-text-4" id="text-org9586d86">
+<div id="outline-container-orgcb4b71e" class="outline-4">
+<h4 id="orgcb4b71e">Naive/activated T cell mixture</h4>
+<div class="outline-text-4" id="text-orgcb4b71e">
 <p>
 Create a synthetic mixture of cells by combining sorted
 CD8+ cytotoxic T cells and CD8+/CD45RA+ naive cytotoxic T cells
@@ -1552,7 +1552,7 @@ CD8+ cytotoxic T cells and CD8+/CD45RA+ naive cytotoxic T cells
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="orga22ef40"><span class="org-variable-name">cyto</span> = scmodes.dataset.read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>)
+<pre class="src src-ipython" id="org6ddbd3e"><span class="org-variable-name">cyto</span> = scmodes.dataset.read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>)
 <span class="org-variable-name">naive</span> = scmodes.dataset.read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_cytotoxic/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>)
 <span class="org-variable-name">x</span>, <span class="org-variable-name">y</span> = scmodes.dataset.synthetic_mix(cyto, naive)
 </pre>
@@ -1592,9 +1592,9 @@ with mp.Pool(<span class="org-variable-name">maxtasksperchild</span>=10) as pool
 </div>
 </div>
 
-<div id="outline-container-org1f75782" class="outline-4">
-<h4 id="org1f75782">Plot the results</h4>
-<div class="outline-text-4" id="text-org1f75782">
+<div id="outline-container-org7252ad4" class="outline-4">
+<h4 id="org7252ad4">Plot the results</h4>
+<div class="outline-text-4" id="text-org7252ad4">
 <p>
 Read the results.
 </p>
@@ -1662,9 +1662,9 @@ fig.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-orgdff54a3" class="outline-4">
-<h4 id="orgdff54a3">Investigate genes favoring more complex models</h4>
-<div class="outline-text-4" id="text-orgdff54a3">
+<div id="outline-container-org7a80871" class="outline-4">
+<h4 id="org7a80871">Investigate genes favoring more complex models</h4>
+<div class="outline-text-4" id="text-org7a80871">
 <p>
 Read the data.
 </p>
@@ -1832,9 +1832,13 @@ Text(0, 0.5, 'Number of cells')
 </div>
 </div>
 
-<div id="outline-container-org45a74d5" class="outline-3">
-<h3 id="org45a74d5">Heterogeneous cell populations</h3>
-<div class="outline-text-3" id="text-org45a74d5">
+<div id="outline-container-org1aafc2c" class="outline-3">
+<h3 id="org1aafc2c">Heterogeneous cell populations</h3>
+<div class="outline-text-3" id="text-org1aafc2c">
+</div>
+<div id="outline-container-orgb345390" class="outline-4">
+<h4 id="orgb345390">Run the benchmark</h4>
+<div class="outline-text-4" id="text-orgb345390">
 <div class="org-src-container">
 <pre class="src src-ipython" id="org0086bc4"><span class="org-variable-name">data</span> = {
   <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>),
@@ -1952,21 +1956,22 @@ fig.tight_layout()
 
 
 <div class="figure">
-<p><img src="figure/deconvolution.org/synthetic-mix-benchmark-inset.png" alt="synthetic-mix-benchmark-inset.png">
+<p><img src="figure/deconvolution.org/heterogeneous-benchmark-inset.png" alt="heterogeneous-benchmark-inset.png">
 </p>
 </div>
 </div>
+</div>
 
-<div id="outline-container-org43c0172" class="outline-4">
-<h4 id="org43c0172">Genes favoring more complex models</h4>
-<div class="outline-text-4" id="text-org43c0172">
+<div id="outline-container-org224b032" class="outline-4">
+<h4 id="org224b032">Genes favoring more complex models</h4>
+<div class="outline-text-4" id="text-org224b032">
 <p>
 Look at the genes where ZIG shows the most gain in validation set log
 likelihood.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org13b8670"><span class="org-keyword">import</span> scmodes
+<pre class="src src-ipython" id="orga646159"><span class="org-keyword">import</span> scmodes
 <span class="org-variable-name">work</span> = scmodes.dataset.cortex(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz'</span>, return_df=<span class="org-constant">True</span>)
 work.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/zeisel-2015.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
 </pre>
@@ -2156,7 +2161,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-26 Fri 14:16</p>
+<p class="date">Created: 2019-04-29 Mon 10:54</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

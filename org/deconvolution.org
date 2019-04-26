@@ -28,7 +28,7 @@
   #+CALL: ipython3(mem="16G",partition="broadwl",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59828109
+  : Submitted batch job 59945098
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -1351,7 +1351,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[6]:
+    # Out[5]:
     [[file:figure/deconvolution.org/synthetic-mix-benchmark-inset.png]]
     :END:
 
@@ -1510,22 +1510,23 @@
     :END:
 
 ** Heterogeneous cell populations
+*** Run the benchmark
 
-   #+NAME: heterogeneous-data
-   #+BEGIN_SRC ipython :eval never
-     data = {
-       'pbmcs_68k': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19', return_df=True),
-       'cortex': lambda: scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
-     }
-   #+END_SRC
+    #+NAME: heterogeneous-data
+    #+BEGIN_SRC ipython :eval never
+      data = {
+        'pbmcs_68k': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19', return_df=True),
+        'cortex': lambda: scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
+      }
+    #+END_SRC
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[3]:
-   :END:
+    #+RESULTS:
+    :RESULTS:
+    # Out[3]:
+    :END:
 
-   #+NAME: heterogeneous-benchmark-gpu
-   #+BEGIN_SRC ipython :eval never
+    #+NAME: heterogeneous-benchmark-gpu
+    #+BEGIN_SRC ipython :eval never
      <<imports>>
      import os
      <<heterogeneous-data>>
@@ -1535,22 +1536,22 @@
      res = scmodes.benchmark.evaluate_deconv_generalization(x.values, pool=None, test_size=0.1, random_state=0, methods=['gamma', 'point_gamma'])
      res.index = x.columns
      res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/{task}-gpu.txt.gz', compression='gzip', sep='\t')
-   #+END_SRC
+    #+END_SRC
 
-   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 -a 0-1 --gres=gpu:1 --mem=16G --time=12:00:00 --job-name=benchmark --output=benchmark-gpu.out
-     #!/bin/bash
-     source activate scmodes
-     python <<EOF
-     <<heterogeneous-benchmark-gpu>>
-     EOF
-   #+END_SRC
+    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+      sbatch --partition=gpu2 -a 0-1 --gres=gpu:1 --mem=16G --time=12:00:00 --job-name=benchmark --output=benchmark-gpu.out
+      #!/bin/bash
+      source activate scmodes
+      python <<EOF
+      <<heterogeneous-benchmark-gpu>>
+      EOF
+    #+END_SRC
 
-   #+RESULTS:
-   : Submitted batch job 59696754
+    #+RESULTS:
+    : Submitted batch job 59696754
 
-   #+NAME: heterogeneous-benchmark-cpu
-   #+BEGIN_SRC ipython :eval never
+    #+NAME: heterogeneous-benchmark-cpu
+    #+BEGIN_SRC ipython :eval never
      <<imports>>
      import os
      <<heterogeneous-data>>
@@ -1562,80 +1563,80 @@
        res = scmodes.benchmark.evaluate_deconv_generalization(x.values, pool=pool, train_size=0.5, test_size=0.1, random_state=0, methods=[method])
        res.index = x.columns
        res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/{dataset}-{method}.txt.gz', compression='gzip', sep='\t')
-   #+END_SRC
+    #+END_SRC
 
-   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -a 2 -n1 -c28 --exclusive --mem=32G --time=24:00:00 --job-name=benchmark --output=benchmark-cpu.out
-     #!/bin/bash
-     source activate scmodes
-     python <<EOF
-     <<heterogeneous-benchmark-cpu>>
-     EOF
-   #+END_SRC
+    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+      sbatch --partition=broadwl -a 2 -n1 -c28 --exclusive --mem=32G --time=24:00:00 --job-name=benchmark --output=benchmark-cpu.out
+      #!/bin/bash
+      source activate scmodes
+      python <<EOF
+      <<heterogeneous-benchmark-cpu>>
+      EOF
+    #+END_SRC
 
-   #+RESULTS:
-   : Submitted batch job 59818875
+    #+RESULTS:
+    : Submitted batch job 59818875
 
-   Read the results.
+    Read the results.
 
-   #+BEGIN_SRC ipython
-     benchmark = {}
-     for data in ('cortex', 'pbmcs_68k'):
-       benchmark[data] = (
-         pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', index_col=0, sep='\t')
-         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
-         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-zief.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
-         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True))
-   #+END_SRC
+    #+BEGIN_SRC ipython
+      benchmark = {}
+      for data in ('cortex', 'pbmcs_68k'):
+        benchmark[data] = (
+          pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', index_col=0, sep='\t')
+          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
+          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-zief.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
+          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True))
+    #+END_SRC
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[7]:
-   :END:
+    #+RESULTS:
+    :RESULTS:
+    # Out[6]:
+    :END:
 
-   Plot the results.
+    Plot the results.
 
-   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/heterogeneous-benchmark.png
-     fig, ax = plt.subplots(1, 2, sharey=True)
-     fig.set_size_inches(5, 3)
-     for a, k, t in zip(ax, sorted(benchmark.keys()), ['Mouse cortex', 'Human PBMCs']):
-       a.boxplot(np.ma.masked_invalid((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]).filled(-1e6),
-                 widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-       a.set_xlabel('Assumed latent dist')
-       a.set_title(t)
-     ax[0].set_ylabel('Diff val set log lik from Gamma')
-     fig.tight_layout()
-   #+END_SRC
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/heterogeneous-benchmark.png
+      fig, ax = plt.subplots(1, 2, sharey=True)
+      fig.set_size_inches(5, 3)
+      for a, k, t in zip(ax, sorted(benchmark.keys()), ['Mouse cortex', 'Human PBMCs']):
+        a.boxplot(np.ma.masked_invalid((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]).filled(-1e6),
+                  widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+        a.set_xlabel('Assumed latent dist')
+        a.set_title(t)
+      ax[0].set_ylabel('Diff val set log lik from Gamma')
+      fig.tight_layout()
+    #+END_SRC
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[6]:
-   [[file:figure/deconvolution.org/heterogeneous-benchmark.png]]
-   :END:
+    #+RESULTS:
+    :RESULTS:
+    # Out[6]:
+    [[file:figure/deconvolution.org/heterogeneous-benchmark.png]]
+    :END:
 
-   Zoom in on the relevant part of the plot.
+    Zoom in on the relevant part of the plot.
 
-   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/synthetic-mix-benchmark-inset.png
-     fig, ax = plt.subplots(1, 2)
-     fig.set_size_inches(5, 3)
-     for a, k, t in zip(ax, sorted(benchmark.keys()), ['Mouse cortex', 'Human PBMCs']):
-       T = np.ma.masked_invalid((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]).filled(-1e6)
-       a.boxplot(T, widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       a.axhline(y=0, ls=':', lw=1, c='k')
-       a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-       a.set_xlabel('Assumed latent dist')
-       a.set_ylim(-20, 1.05 * T.max())
-       a.set_title(t)
-     ax[0].set_ylabel('Diff val set log lik from Gamma')
-     fig.tight_layout()
-   #+END_SRC
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/heterogeneous-benchmark-inset.png
+      fig, ax = plt.subplots(1, 2)
+      fig.set_size_inches(5, 3)
+      for a, k, t in zip(ax, sorted(benchmark.keys()), ['Mouse cortex', 'Human PBMCs']):
+        T = np.ma.masked_invalid((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]).filled(-1e6)
+        a.boxplot(T, widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+        a.axhline(y=0, ls=':', lw=1, c='k')
+        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+        a.set_xlabel('Assumed latent dist')
+        a.set_ylim(-20, 1.05 * T.max())
+        a.set_title(t)
+      ax[0].set_ylabel('Diff val set log lik from Gamma')
+      fig.tight_layout()
+    #+END_SRC
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[7]:
-   [[file:figure/deconvolution.org/synthetic-mix-benchmark-inset.png]]
-   :END:
+    #+RESULTS:
+    :RESULTS:
+    # Out[7]:
+    [[file:figure/deconvolution.org/heterogeneous-benchmark-inset.png]]
+    :END:
 
 *** Genes favoring more complex models
 

@@ -135,13 +135,13 @@
      import os
      tasks = ['nmf', 'glmpca']
      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-     cortex = scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz')
+     cortex = scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
      res = scmodes.benchmark.evaluate_lra_generalization(cortex, methods=[task], n_trials=1)
      res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/cortex-{task}.txt.gz', compression='gzip', sep='\t')
    #+END_SRC
 
-   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes
-     sbatch --partition=broadwl -a 0-1 -n1 -c28 --exclusive --mem=16G --time=60:00 --job-name=lra-benchmark --out=lra-benchmark.out
+   #+BEGIN_SRC sh
+     sbatch --partition=broadwl -a 1 -n1 -c28 --exclusive --mem=16G --time=60:00 --job-name=lra-benchmark --out=lra-benchmark.out   
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -149,8 +149,14 @@
      EOF
    #+END_SRC
 
-   #+RESULTS:
-   : Submitted batch job 59656920
+   #+BEGIN_SRC sh :noweb eval :session mstephens :dir /scratch/midway2/aksarkar/modes :results none
+     python -i <<EOF
+     <<imports>>
+     cortex = scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
+     res = scmodes.benchmark.evaluate_lra_generalization(cortex, methods=['glmpca'], n_trials=1) 
+     print(res)
+     EOF
+   #+END_SRC
 
 ** PBMCs
 
