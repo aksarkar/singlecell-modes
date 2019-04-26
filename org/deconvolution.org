@@ -25,10 +25,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(mem="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
+  #+CALL: ipython3(mem="16G",partition="broadwl",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59714464
+  : Submitted batch job 59828109
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -670,7 +670,7 @@
 
     #+RESULTS: read-gene-info
     :RESULTS:
-    # Out[12]:
+    # Out[9]:
     :END:
 
     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/b-cell-descend-examples.png
@@ -1565,7 +1565,7 @@
    #+END_SRC
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -a 0-5 -n1 -c28 --exclusive --mem=16G --time=24:00:00 --job-name=benchmark --output=benchmark-cpu.out
+     sbatch --partition=broadwl -a 2 -n1 -c28 --exclusive --mem=32G --time=24:00:00 --job-name=benchmark --output=benchmark-cpu.out
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -1574,5 +1574,253 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 59698305
+   : Submitted batch job 59818875
 
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     benchmark = {}
+     for data in ('cortex', 'pbmcs_68k'):
+       benchmark[data] = (
+         pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', index_col=0, sep='\t')
+         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
+         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-zief.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
+         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   :END:
+
+   Plot the results.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/heterogeneous-benchmark.png
+     fig, ax = plt.subplots(1, 2, sharey=True)
+     fig.set_size_inches(5, 3)
+     for a, k, t in zip(ax, sorted(benchmark.keys()), ['Mouse cortex', 'Human PBMCs']):
+       a.boxplot(np.ma.masked_invalid((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]).filled(-1e6),
+                 widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+       a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+       a.set_xlabel('Assumed latent dist')
+       a.set_title(t)
+     ax[0].set_ylabel('Diff val set log lik from Gamma')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   [[file:figure/deconvolution.org/heterogeneous-benchmark.png]]
+   :END:
+
+   Zoom in on the relevant part of the plot.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/synthetic-mix-benchmark-inset.png
+     fig, ax = plt.subplots(1, 2)
+     fig.set_size_inches(5, 3)
+     for a, k, t in zip(ax, sorted(benchmark.keys()), ['Mouse cortex', 'Human PBMCs']):
+       T = np.ma.masked_invalid((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]).filled(-1e6)
+       a.boxplot(T, widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+       a.axhline(y=0, ls=':', lw=1, c='k')
+       a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+       a.set_xlabel('Assumed latent dist')
+       a.set_ylim(-20, 1.05 * T.max())
+       a.set_title(t)
+     ax[0].set_ylabel('Diff val set log lik from Gamma')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   [[file:figure/deconvolution.org/synthetic-mix-benchmark-inset.png]]
+   :END:
+
+*** Genes favoring more complex models
+
+    Look at the genes where ZIG shows the most gain in validation set log
+    likelihood.
+
+    #+NAME: fix-cortex
+    #+BEGIN_SRC ipython :eval never
+      import scmodes
+      work = scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
+      work.to_csv('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/zeisel-2015.txt.gz', compression='gzip', sep='\t')
+    #+END_SRC
+
+    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+      sbatch --partition=broadwl --mem=16G
+      #!/bin/bash
+      source activate scmodes
+      python <<EOF
+      <<fix-cortex>>
+      EOF
+    #+END_SRC
+
+    #+RESULTS:
+    : Submitted batch job 59827994
+
+    #+BEGIN_SRC ipython
+      cortex_counts = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/zeisel-2015.txt.gz', sep='\t', index_col=0)
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[19]:
+    :END:
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-zig-examples.png
+      llik_diff = benchmark['cortex']['point_gamma'] - benchmark['cortex']['gamma']
+      query = benchmark['cortex'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
+      plt.clf()
+      fig, ax = plt.subplots(4, 3)
+      fig.set_size_inches(7, 5)
+      for a, k in zip(ax.ravel(), query):
+        a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].max() + 1), color='k')
+        a.text(x=.95, y=.95,
+               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
+               horizontalalignment='right',
+               verticalalignment='top',
+               transform=a.transAxes)
+        a.set_title(k.upper())
+      for y in range(ax.shape[0]):
+        ax[y][0].set_ylabel('Num cells')
+      for x in range(ax.shape[1]):
+        ax[-1][x].set_xlabel('Num mols')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[14]:
+    [[file:figure/deconvolution.org/cortex-zig-examples.png]]
+    :END:
+
+    Look at genes where unimodal shows greatest performance gain.
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-unimodal-examples.png
+      llik_diff = benchmark['cortex']['unimodal'] - benchmark['cortex']['gamma']
+      query = benchmark['cortex'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
+      plt.clf()
+      fig, ax = plt.subplots(4, 3)
+      fig.set_size_inches(7, 5)
+      for a, k in zip(ax.ravel(), query):
+        a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].max() + 1), color='k')
+        a.text(x=.95, y=.95,
+               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
+               horizontalalignment='right',
+               verticalalignment='top',
+               transform=a.transAxes)
+        a.set_title(k.upper())
+      for y in range(ax.shape[0]):
+        ax[y][0].set_ylabel('Num cells')
+      for x in range(ax.shape[1]):
+        ax[-1][x].set_xlabel('Num mols')
+      fig.tight_layout()
+
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[13]:
+    [[file:figure/deconvolution.org/cortex-unimodal-examples.png]]
+    :END:
+
+    Show genes where NPMLE shows greatest performance gain.
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-npmle-examples.png
+      llik_diff = benchmark['cortex']['npmle'] - benchmark['cortex']['gamma']
+      query = benchmark['cortex'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
+      plt.clf()
+      fig, ax = plt.subplots(4, 3)
+      fig.set_size_inches(7, 5)
+      for a, k in zip(ax.ravel(), query):
+        a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].max() + 1), color='k')
+        a.text(x=.95, y=.95,
+               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
+               horizontalalignment='right',
+               verticalalignment='top',
+               transform=a.transAxes)
+        a.set_title(k.upper())
+      for y in range(ax.shape[0]):
+        ax[y][0].set_ylabel('Num cells')
+      for x in range(ax.shape[1]):
+        ax[-1][x].set_xlabel('Num mols')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[15]:
+    [[file:figure/deconvolution.org/cortex-npmle-examples.png]]
+    :END:
+
+    - /GPM6A/ ([[https://www.ncbi.nlm.nih.gov/gene/234267][Glycoprotein m6a]])
+      appears to be required for mouse brain develoment, and is expressed in
+      specific brain regions
+    - /SCN2A/ ([[https://www.ncbi.nlm.nih.gov/gene/110876][Sodium channel,
+      voltage-gated, type II, alpha]]) is needed for propagating actions
+      potentials in neurons
+
+    Stratify the gene expression of these genes by inferred cell type.
+
+    #+BEGIN_SRC sh :dir /project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/
+      curl -sLO "https://storage.googleapis.com/linnarsson-lab-www-blobs/blobs/cortex/expression_mRNA_17-Aug-2014.txt"
+      gzip expression_mRNA_17-Aug-2014.txt
+    #+END_SRC
+
+    #+RESULTS:
+
+    #+BEGIN_SRC ipython
+      cortex_celltypes = (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/expression_mRNA_17-Aug-2014.txt.gz', sep='\t', header=None, index_col=0, nrows=10)
+                          .reset_index(drop=True)
+                          .set_index(1))
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[75]:
+    :END:
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-gpm6a.png
+      plt.clf()
+      fig, ax = plt.subplots(3, 3)
+      fig.set_size_inches(6, 6)
+      for a, k in zip(ax.ravel(), set(cortex_celltypes.loc['level1class'])):
+        x = cortex_counts.loc[(cortex_celltypes.loc['level1class'] == k).values, 'Gpm6a']
+        a.hist(x, bins=np.arange(x.max() + 1), color='k')
+        a.set_title(k)
+      for a in ax:
+        a[0].set_ylabel('Num cells')
+      for a in ax.T:
+        a[-1].set_xlabel('Num mols')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[78]:
+    [[file:figure/deconvolution.org/cortex-gpm6a.png]]
+    :END:
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-scn2a.png
+      plt.clf()
+      fig, ax = plt.subplots(3, 3)
+      fig.set_size_inches(6, 6)
+      for a, k in zip(ax.ravel(), set(cortex_celltypes.loc['level1class'])):
+        x = cortex_counts.loc[(cortex_celltypes.loc['level1class'] == k).values, 'Scn2a1']
+        a.hist(x, bins=np.arange(x.max() + 1), color='k')
+        a.set_title(k)
+      for a in ax:
+        a[0].set_ylabel('Num cells')
+      for a in ax.T:
+        a[-1].set_xlabel('Num mols')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[84]:
+    [[file:figure/deconvolution.org/cortex-scn2a.png]]
+    :END:
