@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-29 Mon 12:04 -->
+<!-- 2019-04-29 Mon 18:14 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Transformations of deconvolved gene expression distributions</title>
@@ -266,6 +266,7 @@ for the JavaScript code in this tag.
 <li><a href="#orgb3b5997">Untransformed distribution</a></li>
 <li><a href="#orgfa4ab82">Log transform</a></li>
 <li><a href="#org2249f09">Square root transform</a></li>
+<li><a href="#org111a2b2">Variance effects versus mean effects</a></li>
 </ul>
 </li>
 </ul>
@@ -302,6 +303,12 @@ distribution.
 <div class="org-src-container">
 <pre class="src src-ipython">%matplotlib inline
 %config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
 </pre>
 </div>
 </div>
@@ -441,14 +448,45 @@ relationship between \(E[\ln(\lambda + \epsilon)]\) and
 \[ V[\ln(x + \epsilon)] \approx \frac{2 V[x]}{(E[x] + \epsilon)^2} - \frac{V[x]^2}{(E[x] + \epsilon)^4} \]
 </p>
 
+<p>
+Importantly, \(\epsilon\) needs to be on the same scale as \(\lambda\). But
+\(x \sim \mathrm{Poisson}(s_i \lambda)\), so \(\lambda\) is on the scale of
+\(1 / s_i\). Instead of assuming \(x_{ijk} \sim F_{ijk}(\cdot)\), assume:
+</p>
+
+<p>
+\[ x_{ijk} \sim \frac{1}{n} \sum_j F_{ijk}(\cdot) \]
+</p>
+
+<p>
+Then, \(E[x_{ijk}] = \frac{1}{n}\sum_j s_{ij} E[\lambda_{ijk}]\). This gives
+us a single scaling factor for \(g_{ik}\).
+</p>
+
+<p>
+Read the metadata for the iPSCs.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">annotations</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt'</span>, sep=<span class="org-string">'\t'</span>)
+<span class="org-variable-name">keep_samples</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<span class="org-variable-name">annotations</span> = annotations.loc[keep_samples.values.ravel()]
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">s</span> = annotations.loc[(annotations[<span class="org-string">'chip_id'</span>] == <span class="org-string">'NA18507'</span>).values, <span class="org-string">'mol_hs'</span>].mean()
+</pre>
+</div>
+
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3, sharey=<span class="org-constant">True</span>)
 fig.set_size_inches(7, 3)
-<span class="org-keyword">for</span> a, eps <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, [0, 0.5, 1]):
+<span class="org-keyword">for</span> a, eps, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, np.array([0, 0.5, 1]) / s, [<span class="org-string">'0'</span>, <span class="org-string">'1/(2s)'</span>, <span class="org-string">'1/s'</span>]):
   a.set_yscale(<span class="org-string">'log'</span>)
   a.scatter(np.log(mean[<span class="org-string">'NA18507'</span>] + eps), (2 * variance[<span class="org-string">'NA18507'</span>]) / np.square(mean[<span class="org-string">'NA18507'</span>] + eps), c=<span class="org-string">'k'</span>, s=4, alpha=0.1)
-  a.set_title(f<span class="org-string">'$\epsilon = {eps:.1f}$'</span>)
+  a.set_title(f<span class="org-string">'$\epsilon = {t}$'</span>)
 ax[1].set_xlabel(<span class="org-string">'Latent log gene expression mean'</span>)
 ax[0].set_ylabel(<span class="org-string">'Latent log gene expression variance'</span>)
 fig.tight_layout()
@@ -458,6 +496,33 @@ fig.tight_layout()
 
 <div class="figure">
 <p><img src="figure/transforms.org/zig-log-mean-var-NA18507.png" alt="zig-log-mean-var-NA18507.png">
+</p>
+</div>
+
+<p>
+Zoom in on highly expressed genes.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(7, 3)
+<span class="org-keyword">for</span> a, eps, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, np.array([0, 0.5, 1]) / s, [<span class="org-string">'0'</span>, <span class="org-string">'1/(2s)'</span>, <span class="org-string">'1/s'</span>]):
+  a.set_yscale(<span class="org-string">'log'</span>)
+  a.set_xlim(-8, -6)
+  a.set_ylim(1e-2, 10)
+  a.scatter(np.log(mean[<span class="org-string">'NA18507'</span>] + eps), (2 * variance[<span class="org-string">'NA18507'</span>]) / np.square(mean[<span class="org-string">'NA18507'</span>] + eps), c=<span class="org-string">'k'</span>, s=4, alpha=0.25)
+  a.set_title(f<span class="org-string">'$\epsilon = {t}$'</span>)
+ax[1].set_xlabel(<span class="org-string">'Latent log gene expression mean'</span>)
+ax[0].set_ylabel(<span class="org-string">'Latent log gene expression variance'</span>)
+fig.tight_layout()
+
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/transforms.org/zig-log-mean-var-NA18507-inset.png" alt="zig-log-mean-var-NA18507-inset.png">
 </p>
 </div>
 </div>
@@ -499,11 +564,19 @@ plt.gcf().tight_layout()
 </div>
 </div>
 </div>
+<div id="outline-container-org111a2b2" class="outline-3">
+<h3 id="org111a2b2">Variance effects versus mean effects</h3>
+<div class="outline-text-3" id="text-org111a2b2">
+<p>
+Look at 
+</p>
+</div>
+</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-29 Mon 12:04</p>
+<p class="date">Created: 2019-04-29 Mon 18:14</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

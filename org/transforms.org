@@ -23,6 +23,9 @@
 
   #+CALL: ipython3(partition="mstephens",mem="16G",venv="scmodes") :dir /scratch/midway2/aksarkar/modes
 
+  #+RESULTS:
+  : Submitted batch job 59956313
+
   #+BEGIN_SRC ipython
     import numpy as np
     import pandas as pd
@@ -31,13 +34,28 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[8]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
     %matplotlib inline
     %config InlineBackend.figure_formats = set(['retina'])
   #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
 
 * Methods
 
@@ -66,7 +84,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[15]:
+  # Out[4]:
   :END:
 
   Throw out the individual with evidence of contamination.
@@ -78,7 +96,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[16]:
+  # Out[5]:
   :END:
 
   Recover the mean and variance of latent gene expression per gene, per individual.
@@ -91,7 +109,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[17]:
+  # Out[6]:
   :END:
 
   Plot the mean/variance relationship.
@@ -108,7 +126,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[25]:
+  # Out[7]:
   : Text(0, 0.5, 'Latent gene expression variance')
   [[file:figure/transforms.org/zig-mean-var.png]]
   :END:
@@ -143,14 +161,45 @@
 
   \[ V[\ln(x + \epsilon)] \approx \frac{2 V[x]}{(E[x] + \epsilon)^2} - \frac{V[x]^2}{(E[x] + \epsilon)^4} \]
 
+  Importantly, \(\epsilon\) needs to be on the same scale as \(\lambda\). But
+  \(x \sim \mathrm{Poisson}(s_i \lambda)\), so \(\lambda\) is on the scale of
+  \(1 / s_i\). Instead of assuming \(x_{ijk} \sim F_{ijk}(\cdot)\), assume:
+
+  \[ x_{ijk} \sim \frac{1}{n} \sum_j F_{ijk}(\cdot) \]
+
+  Then, \(E[x_{ijk}] = \frac{1}{n}\sum_j s_{ij} E[\lambda_{ijk}]\). This gives
+  us a single scaling factor for \(g_{ik}\).
+
+  Read the metadata for the iPSCs.
+
+  #+BEGIN_SRC ipython
+    annotations = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt', sep='\t')
+    keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', sep='\t', index_col=0)
+    annotations = annotations.loc[keep_samples.values.ravel()]
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[8]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    s = annotations.loc[(annotations['chip_id'] == 'NA18507').values, 'mol_hs'].mean()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[11]:
+  :END:
+
   #+BEGIN_SRC ipython :ipyfile figure/transforms.org/zig-log-mean-var-NA18507.png
     plt.clf()
     fig, ax = plt.subplots(1, 3, sharey=True)
     fig.set_size_inches(7, 3)
-    for a, eps in zip(ax, [0, 0.5, 1]):
+    for a, eps, t in zip(ax, np.array([0, 0.5, 1]) / s, ['0', '1/(2s)', '1/s']):
       a.set_yscale('log')
       a.scatter(np.log(mean['NA18507'] + eps), (2 * variance['NA18507']) / np.square(mean['NA18507'] + eps), c='k', s=4, alpha=0.1)
-      a.set_title(f'$\epsilon = {eps:.1f}$')
+      a.set_title(f'$\epsilon = {t}$')
     ax[1].set_xlabel('Latent log gene expression mean')
     ax[0].set_ylabel('Latent log gene expression variance')
     fig.tight_layout()
@@ -158,8 +207,32 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[56]:
+  # Out[14]:
   [[file:figure/transforms.org/zig-log-mean-var-NA18507.png]]
+  :END:
+
+  Zoom in on highly expressed genes.
+
+  #+BEGIN_SRC ipython :ipyfile figure/transforms.org/zig-log-mean-var-NA18507-inset.png
+    plt.clf()
+    fig, ax = plt.subplots(1, 3, sharey=True)
+    fig.set_size_inches(7, 3)
+    for a, eps, t in zip(ax, np.array([0, 0.5, 1]) / s, ['0', '1/(2s)', '1/s']):
+      a.set_yscale('log')
+      a.set_xlim(-8, -6)
+      a.set_ylim(1e-2, 10)
+      a.scatter(np.log(mean['NA18507'] + eps), (2 * variance['NA18507']) / np.square(mean['NA18507'] + eps), c='k', s=4, alpha=0.25)
+      a.set_title(f'$\epsilon = {t}$')
+    ax[1].set_xlabel('Latent log gene expression mean')
+    ax[0].set_ylabel('Latent log gene expression variance')
+    fig.tight_layout()
+
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[18]:
+  [[file:figure/transforms.org/zig-log-mean-var-NA18507-inset.png]]
   :END:
 
 ** Square root transform
@@ -188,3 +261,6 @@
   # Out[53]:
   [[file:figure/transforms.org/zig-sqrt-mean-var-NA18507.png]]
   :END:
+** Variance effects versus mean effects
+
+   Look at 
