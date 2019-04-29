@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-29 Mon 18:14 -->
+<!-- 2019-04-29 Mon 18:31 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Transformations of deconvolved gene expression distributions</title>
@@ -404,7 +404,7 @@ Text(0, 0.5, 'Latent gene expression variance')
 </div>
 
 <p>
-Restrict to the individual with the most cells (\(n=281\)).
+Restrict to the individual with the most cells (\(n=284\)).
 </p>
 
 <div class="org-src-container">
@@ -564,19 +564,68 @@ plt.gcf().tight_layout()
 </div>
 </div>
 </div>
+
 <div id="outline-container-org111a2b2" class="outline-3">
 <h3 id="org111a2b2">Variance effects versus mean effects</h3>
 <div class="outline-text-3" id="text-org111a2b2">
 <p>
-Look at 
+After convolution of a Gamma with a Poisson, we expect a quadratic
+mean-variance relationship. But we showed above that after deconvolution, we
+still see a linear mean-variance relationship within samples.
 </p>
+
+<p>
+What if we look between conditions? To investigate this, look at MA plots of
+latent gene expression for two different donor individuals.
+</p>
+
+<p>
+Find the individual with the second-most cells.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">annotations[<span class="org-string">'chip_id'</span>].value_counts().sort_values(ascending=<span class="org-constant">False</span>).head(n=2)
+</pre>
+</div>
+
+<pre class="example">
+NA18507    284
+NA18501    221
+Name: chip_id, dtype: int64
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">a</span> = np.log(mean[<span class="org-string">'NA18507'</span>] + 1 / annotations.loc[(annotations[<span class="org-string">'chip_id'</span>] == <span class="org-string">'NA18507'</span>).values, <span class="org-string">'mol_hs'</span>].mean())
+<span class="org-variable-name">b</span> = np.log(mean[<span class="org-string">'NA18501'</span>] + 1 / annotations.loc[(annotations[<span class="org-string">'chip_id'</span>] == <span class="org-string">'NA18501'</span>).values, <span class="org-string">'mol_hs'</span>].mean())
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(6, 3)
+ax[0].scatter((a + b) / 2, a - b, s=2, c=<span class="org-string">'k'</span>, alpha=0.2)
+ax[0].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
+ax[0].set_title(<span class="org-string">'NA18507 / NA18501'</span>)
+ax[1].scatter((a + b) / 2, a - b, s=2, c=<span class="org-string">'k'</span>, alpha=0.2)
+ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
+ax[1].set_xlim(-8, ax[0].get_xlim()[1])
+ax[1].set_title(<span class="org-string">'NA18507 / NA18501 (zoomed)'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a.set_xlabel(<span class="org-string">'Average log latent mean'</span>)
+ax[0].set_ylabel(<span class="org-string">'Log ratio latent mean'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/transforms.org/ma.png" alt="ma.png">
+</p>
+</div>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-29 Mon 18:14</p>
+<p class="date">Created: 2019-04-29 Mon 18:31</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

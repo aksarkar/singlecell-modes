@@ -131,7 +131,7 @@
   [[file:figure/transforms.org/zig-mean-var.png]]
   :END:
 
-  Restrict to the individual with the most cells (\(n=281\)).
+  Restrict to the individual with the most cells (\(n=284\)).
 
   #+BEGIN_SRC ipython :ipyfile figure/transforms.org/zig-mean-var-NA18507.png
     plt.clf()
@@ -261,6 +261,53 @@
   # Out[53]:
   [[file:figure/transforms.org/zig-sqrt-mean-var-NA18507.png]]
   :END:
+
 ** Variance effects versus mean effects
 
-   Look at 
+   After convolution of a Gamma with a Poisson, we expect a quadratic
+   mean-variance relationship. But we showed above that after deconvolution, we
+   still see a linear mean-variance relationship within samples.
+
+   What if we look between conditions? To investigate this, look at MA plots of
+   latent gene expression for two different donor individuals.
+
+   Find the individual with the second-most cells.
+
+   #+BEGIN_SRC ipython
+     annotations['chip_id'].value_counts().sort_values(ascending=False).head(n=2)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[23]:
+   #+BEGIN_EXAMPLE
+     NA18507    284
+     NA18501    221
+     Name: chip_id, dtype: int64
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/transforms.org/ma.png
+     a = np.log(mean['NA18507'] + 1 / annotations.loc[(annotations['chip_id'] == 'NA18507').values, 'mol_hs'].mean())
+     b = np.log(mean['NA18501'] + 1 / annotations.loc[(annotations['chip_id'] == 'NA18501').values, 'mol_hs'].mean())
+     plt.clf()
+     fig, ax = plt.subplots(1, 2, sharey=True)
+     fig.set_size_inches(6, 3)
+     ax[0].scatter((a + b) / 2, a - b, s=2, c='k', alpha=0.2)
+     ax[0].axhline(y=0, ls=':', lw=1, c='r')
+     ax[0].set_title('NA18507 / NA18501')
+     ax[1].scatter((a + b) / 2, a - b, s=2, c='k', alpha=0.2)
+     ax[1].axhline(y=0, ls=':', lw=1, c='r')
+     ax[1].set_xlim(-8, ax[0].get_xlim()[1])
+     ax[1].set_title('NA18507 / NA18501 (zoomed)')
+     for a in ax:
+       a.set_xlabel('Average log latent mean')
+     ax[0].set_ylabel('Log ratio latent mean')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[46]:
+   [[file:figure/transforms.org/ma.png]]
+   :END:
