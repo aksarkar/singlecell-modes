@@ -1,0 +1,190 @@
+#+TITLE: Transformations of deconvolved gene expression distributions
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  From the perspective of [[file:deconvolution.org][distribution
+  deconvolution]], scRNA-seq count data has a mean-variance relationship simply
+  by convolution with a Poisson technical noise model.
+
+  Here, we investigate whether the latent gene expression distribution also has
+  a mean-variance relationship, and what happens to it when we transform the
+  distribution.
+
+* Setup
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(partition="mstephens",mem="16G",venv="scmodes") :dir /scratch/midway2/aksarkar/modes
+
+  #+BEGIN_SRC ipython
+    import numpy as np
+    import pandas as pd
+    import scmodes
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[8]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+* Methods
+
+  The key idea of our approach is to deconvolve the gene expression of iPSCs
+  assuming:
+
+  \[ x_{ijk} \sim \mathrm{Poisson}(s_{ij} \exp(\mathbf{z_i}' \beta_j)
+  \lambda_{ijk}) \]
+
+  \[ \lambda_{ijk} \sim g_{ik}(\cdot) = \pi_{ik} \delta_0(\cdot) + (1 - \pi_ik)
+  \mathrm{Gamma}(\mu_{ik}, \phi_{ik}) \]
+
+  From the fitted \(\hat{g}_1, \ldots, \hat{g}_p\), we can investigate whether
+  there is a mean-variance relationship in latent gene expression.
+  
+* Results
+** Untransformed distribution
+
+  Read the deconvolved distributions.
+
+  #+BEGIN_SRC ipython
+    log_mu = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-log-mu.txt.gz', sep=' ', index_col=0)
+    log_phi = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-log-phi.txt.gz', sep=' ', index_col=0)
+    logodds = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-logodds.txt.gz', sep=' ', index_col=0)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[15]:
+  :END:
+
+  Throw out the individual with evidence of contamination.
+
+  #+BEGIN_SRC ipython
+    for x in (log_mu, log_phi, logodds):
+      del x['NA18498']
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[16]:
+  :END:
+
+  Recover the mean and variance of latent gene expression per gene, per individual.
+
+  #+BEGIN_SRC ipython
+    # Important: log(sigmoid(x)) = -softplus(-x)
+    mean = np.exp(log_mu - np.log1p(np.exp(logodds)))
+    variance = np.exp(2 * log_mu + log_phi - np.log1p(np.exp(logodds))) + np.exp(-np.log1p(np.exp(logodds)) - np.log1p(np.exp(-logodds)) + 2 * log_mu)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[17]:
+  :END:
+
+  Plot the mean/variance relationship.
+
+  #+BEGIN_SRC ipython :ipyfile figure/transforms.org/zig-mean-var.png
+    plt.clf()
+    plt.gcf().set_size_inches(3, 3)
+    plt.semilogx()
+    plt.semilogy()
+    plt.scatter(mean.values.ravel(), variance.values.ravel(), c='k', s=4, alpha=0.1)
+    plt.xlabel('Latent gene expression mean')
+    plt.ylabel('Latent gene expression variance')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[25]:
+  : Text(0, 0.5, 'Latent gene expression variance')
+  [[file:figure/transforms.org/zig-mean-var.png]]
+  :END:
+
+  Restrict to the individual with the most cells (\(n=281\)).
+
+  #+BEGIN_SRC ipython :ipyfile figure/transforms.org/zig-mean-var-NA18507.png
+    plt.clf()
+    plt.gcf().set_size_inches(3, 3)
+    plt.semilogx()
+    plt.semilogy()
+    plt.scatter(mean['NA18507'], variance['NA18507'].values.ravel(), c='k', s=4, alpha=0.1)
+    plt.title('NA18507')
+    plt.xlabel('Latent gene expression mean')
+    plt.ylabel('Latent gene expression variance')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[26]:
+  : Text(0, 0.5, 'Latent gene expression variance')
+  [[file:figure/transforms.org/zig-mean-var-NA18507.png]]
+  :END:
+
+** Log transform
+
+  Assume \(\lambda_{ijk} \sim g_{ik}(\cdot)\), as above. Plot the approximate
+  relationship between \(E[\ln(\lambda + \epsilon)]\) and
+  \(V[\ln(\lambda + \epsilon)]\) by first-order Taylor expansion.
+
+  \[ E[\ln(x + \epsilon)] \approx \ln(E[x] + \epsilon) - \frac{V[x]}{(E[x] + \epsilon)^2} \]
+
+  \[ V[\ln(x + \epsilon)] \approx \frac{2 V[x]}{(E[x] + \epsilon)^2} - \frac{V[x]^2}{(E[x] + \epsilon)^4} \]
+
+  #+BEGIN_SRC ipython :ipyfile figure/transforms.org/zig-log-mean-var-NA18507.png
+    plt.clf()
+    fig, ax = plt.subplots(1, 3, sharey=True)
+    fig.set_size_inches(7, 3)
+    for a, eps in zip(ax, [0, 0.5, 1]):
+      a.set_yscale('log')
+      a.scatter(np.log(mean['NA18507'] + eps), (2 * variance['NA18507']) / np.square(mean['NA18507'] + eps), c='k', s=4, alpha=0.1)
+      a.set_title(f'$\epsilon = {eps:.1f}$')
+    ax[1].set_xlabel('Latent log gene expression mean')
+    ax[0].set_ylabel('Latent log gene expression variance')
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[56]:
+  [[file:figure/transforms.org/zig-log-mean-var-NA18507.png]]
+  :END:
+
+** Square root transform
+
+  Assume \(\lambda_{ijk} \sim g_{ik}(\cdot)\), as above. Plot the approximate
+  relationship between \(E[\lambda^{1/2}]\) and
+  \(V[\lambda^{1/2}]\) by first-order Taylor expansion.
+
+  \[ E[x^{1/2}] \approx (E[x])^{1/2} - \frac{V[x]}{4 E[x]^{3/2}} \]
+
+  \[ V[x^{1/2}] \approx \frac{V[x]}{2 E[x]} - \frac{V[x]^2}{16 E[x]^3} \]
+
+  #+BEGIN_SRC ipython :ipyfile figure/transforms.org/zig-sqrt-mean-var-NA18507.png
+    plt.clf()
+    plt.gcf().set_size_inches(3, 3)
+    plt.semilogx()
+    plt.semilogy()
+    plt.scatter(np.sqrt(mean['NA18507']), variance['NA18507'] / (2 * mean['NA18507']), c='k', s=4, alpha=0.1)
+    plt.xlabel('Latent sqrt gene expression mean')
+    plt.ylabel('Latent sqrt gene expression variance')
+    plt.gcf().tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[53]:
+  [[file:figure/transforms.org/zig-sqrt-mean-var-NA18507.png]]
+  :END:
