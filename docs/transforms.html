@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-29 Mon 18:31 -->
+<!-- 2019-04-29 Mon 18:44 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Transformations of deconvolved gene expression distributions</title>
@@ -260,13 +260,13 @@ for the JavaScript code in this tag.
 <ul>
 <li><a href="#org5e4bead">Introduction</a></li>
 <li><a href="#org7acce31">Setup</a></li>
-<li><a href="#orgfd058f2">Methods</a></li>
-<li><a href="#org48a149b">Results</a>
+<li><a href="#methods">Methods</a></li>
+<li><a href="#results">Results</a>
 <ul>
-<li><a href="#orgb3b5997">Untransformed distribution</a></li>
-<li><a href="#orgfa4ab82">Log transform</a></li>
-<li><a href="#org2249f09">Square root transform</a></li>
-<li><a href="#org111a2b2">Variance effects versus mean effects</a></li>
+<li><a href="#untransformed">Untransformed distribution</a></li>
+<li><a href="#log-transform">Log transform</a></li>
+<li><a href="#sqrt-transform">Square root transform</a></li>
+<li><a href="#ma">Variance effects versus mean effects</a></li>
 </ul>
 </li>
 </ul>
@@ -315,20 +315,20 @@ distribution.
 </div>
 
 <div id="outline-container-orgfd058f2" class="outline-2">
-<h2 id="orgfd058f2">Methods</h2>
-<div class="outline-text-2" id="text-orgfd058f2">
+<h2 id="methods"><a id="orgfd058f2"></a>Methods</h2>
+<div class="outline-text-2" id="text-methods">
 <p>
 The key idea of our approach is to deconvolve the gene expression of iPSCs
 assuming:
 </p>
 
 <p>
-\[ x_{ijk} \sim \mathrm{Poisson}(s_{ij} \exp(\mathbf{z_i}' \beta_j)
+\[ x_{ijk} \sim \mathrm{Poisson}(s_{ij} \exp(\mathbf{z}_i' \mathbf{b}_j)
   \lambda_{ijk}) \]
 </p>
 
 <p>
-\[ \lambda_{ijk} \sim g_{ik}(\cdot) = \pi_{ik} \delta_0(\cdot) + (1 - \pi_ik)
+\[ \lambda_{ijk} \sim g_{ik}(\cdot) = \pi_{ik} \delta_0(\cdot) + (1 - \pi_{ik})
   \mathrm{Gamma}(\mu_{ik}, \phi_{ik}) \]
 </p>
 
@@ -340,12 +340,12 @@ there is a mean-variance relationship in latent gene expression.
 </div>
 
 <div id="outline-container-org48a149b" class="outline-2">
-<h2 id="org48a149b">Results</h2>
-<div class="outline-text-2" id="text-org48a149b">
+<h2 id="results"><a id="org48a149b"></a>Results</h2>
+<div class="outline-text-2" id="text-results">
 </div>
 <div id="outline-container-orgb3b5997" class="outline-3">
-<h3 id="orgb3b5997">Untransformed distribution</h3>
-<div class="outline-text-3" id="text-orgb3b5997">
+<h3 id="untransformed"><a id="orgb3b5997"></a>Untransformed distribution</h3>
+<div class="outline-text-3" id="text-untransformed">
 <p>
 Read the deconvolved distributions.
 </p>
@@ -432,8 +432,8 @@ Text(0, 0.5, 'Latent gene expression variance')
 </div>
 
 <div id="outline-container-orgfa4ab82" class="outline-3">
-<h3 id="orgfa4ab82">Log transform</h3>
-<div class="outline-text-3" id="text-orgfa4ab82">
+<h3 id="log-transform"><a id="orgfa4ab82"></a>Log transform</h3>
+<div class="outline-text-3" id="text-log-transform">
 <p>
 Assume \(\lambda_{ijk} \sim g_{ik}(\cdot)\), as above. Plot the approximate
 relationship between \(E[\ln(\lambda + \epsilon)]\) and
@@ -450,8 +450,9 @@ relationship between \(E[\ln(\lambda + \epsilon)]\) and
 
 <p>
 Importantly, \(\epsilon\) needs to be on the same scale as \(\lambda\). But
-\(x \sim \mathrm{Poisson}(s_i \lambda)\), so \(\lambda\) is on the scale of
-\(1 / s_i\). Instead of assuming \(x_{ijk} \sim F_{ijk}(\cdot)\), assume:
+\(x_{ijk} \sim \mathrm{Poisson}(s_{ij} \lambda_{ijk})\), so \(\lambda_{ijk}\)
+is on the scale of \(1 / s_{ij}\). Instead of assuming \(x_{ijk} \sim
+  F_{ijk}(\cdot)\), assume:
 </p>
 
 <p>
@@ -529,8 +530,8 @@ fig.tight_layout()
 </div>
 
 <div id="outline-container-org2249f09" class="outline-3">
-<h3 id="org2249f09">Square root transform</h3>
-<div class="outline-text-3" id="text-org2249f09">
+<h3 id="sqrt-transform"><a id="org2249f09"></a>Square root transform</h3>
+<div class="outline-text-3" id="text-sqrt-transform">
 <p>
 Assume \(\lambda_{ijk} \sim g_{ik}(\cdot)\), as above. Plot the approximate
 relationship between \(E[\lambda^{1/2}]\) and
@@ -566,8 +567,8 @@ plt.gcf().tight_layout()
 </div>
 
 <div id="outline-container-org111a2b2" class="outline-3">
-<h3 id="org111a2b2">Variance effects versus mean effects</h3>
-<div class="outline-text-3" id="text-org111a2b2">
+<h3 id="ma"><a id="org111a2b2"></a>Variance effects versus mean effects</h3>
+<div class="outline-text-3" id="text-ma">
 <p>
 After convolution of a Gamma with a Poisson, we expect a quadratic
 mean-variance relationship. But we showed above that after deconvolution, we
@@ -625,7 +626,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-29 Mon 18:31</p>
+<p class="date">Created: 2019-04-29 Mon 18:44</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

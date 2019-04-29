@@ -58,21 +58,30 @@
   :END:
 
 * Methods
+  :PROPERTIES:
+  :CUSTOM_ID: methods
+  :END:
 
   The key idea of our approach is to deconvolve the gene expression of iPSCs
   assuming:
 
-  \[ x_{ijk} \sim \mathrm{Poisson}(s_{ij} \exp(\mathbf{z_i}' \beta_j)
+  \[ x_{ijk} \sim \mathrm{Poisson}(s_{ij} \exp(\mathbf{z}_i' \mathbf{b}_j)
   \lambda_{ijk}) \]
 
-  \[ \lambda_{ijk} \sim g_{ik}(\cdot) = \pi_{ik} \delta_0(\cdot) + (1 - \pi_ik)
+  \[ \lambda_{ijk} \sim g_{ik}(\cdot) = \pi_{ik} \delta_0(\cdot) + (1 - \pi_{ik})
   \mathrm{Gamma}(\mu_{ik}, \phi_{ik}) \]
 
   From the fitted \(\hat{g}_1, \ldots, \hat{g}_p\), we can investigate whether
   there is a mean-variance relationship in latent gene expression.
   
 * Results
+  :PROPERTIES:
+  :CUSTOM_ID: results
+  :END:
 ** Untransformed distribution
+   :PROPERTIES:
+   :CUSTOM_ID: untransformed
+   :END:
 
   Read the deconvolved distributions.
 
@@ -152,6 +161,9 @@
   :END:
 
 ** Log transform
+   :PROPERTIES:
+   :CUSTOM_ID: log-transform
+   :END:
 
   Assume \(\lambda_{ijk} \sim g_{ik}(\cdot)\), as above. Plot the approximate
   relationship between \(E[\ln(\lambda + \epsilon)]\) and
@@ -162,8 +174,9 @@
   \[ V[\ln(x + \epsilon)] \approx \frac{2 V[x]}{(E[x] + \epsilon)^2} - \frac{V[x]^2}{(E[x] + \epsilon)^4} \]
 
   Importantly, \(\epsilon\) needs to be on the same scale as \(\lambda\). But
-  \(x \sim \mathrm{Poisson}(s_i \lambda)\), so \(\lambda\) is on the scale of
-  \(1 / s_i\). Instead of assuming \(x_{ijk} \sim F_{ijk}(\cdot)\), assume:
+  \(x_{ijk} \sim \mathrm{Poisson}(s_{ij} \lambda_{ijk})\), so \(\lambda_{ijk}\)
+  is on the scale of \(1 / s_{ij}\). Instead of assuming \(x_{ijk} \sim
+  F_{ijk}(\cdot)\), assume:
 
   \[ x_{ijk} \sim \frac{1}{n} \sum_j F_{ijk}(\cdot) \]
 
@@ -236,6 +249,9 @@
   :END:
 
 ** Square root transform
+   :PROPERTIES:
+   :CUSTOM_ID: sqrt-transform
+   :END:
 
   Assume \(\lambda_{ijk} \sim g_{ik}(\cdot)\), as above. Plot the approximate
   relationship between \(E[\lambda^{1/2}]\) and
@@ -263,6 +279,9 @@
   :END:
 
 ** Variance effects versus mean effects
+   :PROPERTIES:
+   :CUSTOM_ID: ma
+   :END:
 
    After convolution of a Gamma with a Poisson, we expect a quadratic
    mean-variance relationship. But we showed above that after deconvolution, we
