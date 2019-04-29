@@ -175,7 +175,7 @@
 
   Importantly, \(\epsilon\) needs to be on the same scale as \(\lambda\). But
   \(x_{ijk} \sim \mathrm{Poisson}(s_{ij} \lambda_{ijk})\), so \(\lambda_{ijk}\)
-  is on the scale of \(1 / s_{ij}\). Instead of assuming \(x_{ijk} \sim
+  is on the scale of \(1 / s_{ij}\). Innstead of assuming \(x_{ijk} \sim
   F_{ijk}(\cdot)\), assume:
 
   \[ x_{ijk} \sim \frac{1}{n} \sum_j F_{ijk}(\cdot) \]
@@ -211,7 +211,9 @@
     fig.set_size_inches(7, 3)
     for a, eps, t in zip(ax, np.array([0, 0.5, 1]) / s, ['0', '1/(2s)', '1/s']):
       a.set_yscale('log')
-      a.scatter(np.log(mean['NA18507'] + eps), (2 * variance['NA18507']) / np.square(mean['NA18507'] + eps), c='k', s=4, alpha=0.1)
+      m = np.log(mean['NA18507'] + eps) - variance['NA18507'] / np.square(mean['NA18507'] + eps)
+      v = (2 * variance['NA18507']) / np.square(mean['NA18507'] + eps) + np.square(variance['NA18507']) / (mean['NA18507'] + eps) ** 4
+      a.scatter(m, v, c='k', s=4, alpha=0.1)
       a.set_title(f'$\epsilon = {t}$')
     ax[1].set_xlabel('Latent log gene expression mean')
     ax[0].set_ylabel('Latent log gene expression variance')
@@ -220,7 +222,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[14]:
+  # Out[61]:
   [[file:figure/transforms.org/zig-log-mean-var-NA18507.png]]
   :END:
 
@@ -244,7 +246,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[18]:
+  # Out[62]:
   [[file:figure/transforms.org/zig-log-mean-var-NA18507-inset.png]]
   :END:
 
