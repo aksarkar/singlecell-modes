@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-30 Tue 14:33 -->
+<!-- 2019-05-01 Wed 10:47 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Transformations of deconvolved gene expression distributions</title>
@@ -267,6 +267,7 @@ for the JavaScript code in this tag.
 <li><a href="#log-transform">Log transform</a></li>
 <li><a href="#sqrt-transform">Square root transform</a></li>
 <li><a href="#ma">Variance effects versus mean effects</a></li>
+<li><a href="#biol-tech-var">Comparison of sampling variance with biological variance</a></li>
 </ul>
 </li>
 </ul>
@@ -445,14 +446,15 @@ relationship between \(E[\ln(\lambda + \epsilon)]\) and
 </p>
 
 <p>
-\[ V[\ln(x + \epsilon)] \approx \frac{V[x]}{(E[x] + \epsilon)^2} - \frac{V[x]^2}{(E[x] + \epsilon)^4} \]
+\[ V[\ln(x + \epsilon)] \approx \frac{V[x]}{(E[x] + \epsilon)^2} -
+   \frac{V[x]^2}{4 (E[x] + \epsilon)^4} \]
 </p>
 
 <p>
 Importantly, \(\epsilon\) needs to be on the same scale as \(\lambda\). But
 \(x_{ijk} \sim \mathrm{Poisson}(s_{ij} \lambda_{ijk})\), so \(\lambda_{ijk}\)
-is on the scale of \(1 / s_{ij}\). Innstead of assuming \(x_{ijk} \sim
-  F_{ijk}(\cdot)\), assume:
+is on the scale of \(1 / s_{ij}\). Instead of assuming \(x_{ijk} \sim
+   F_{ijk}(\cdot)\), assume:
 </p>
 
 <p>
@@ -470,7 +472,7 @@ Read the metadata for the iPSCs.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">annotations</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt'</span>, sep=<span class="org-string">'\t'</span>)
-<span class="org-variable-name">keep_samples</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<span class="org-variable-name">keep_samples</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, header=<span class="org-constant">None</span>)
 <span class="org-variable-name">annotations</span> = annotations.loc[keep_samples.values.ravel()]
 </pre>
 </div>
@@ -625,11 +627,71 @@ fig.tight_layout()
 </div>
 </div>
 </div>
+
+<div id="outline-container-org6e93f5a" class="outline-3">
+<h3 id="biol-tech-var"><a id="org6e93f5a"></a>Comparison of sampling variance with biological variance</h3>
+<div class="outline-text-3" id="text-biol-tech-var">
+<p>
+From the perspective of deconvolution, biological variance describes
+\(\lambda \sim g(\cdot)\), while sampling variance describes \(x \mid s,
+   \lambda \sim \mathrm{Poisson}(s \lambda)\).
+</p>
+
+<p>
+Our results above suggest that for the highest expressed genes,
+\(V[\ln(\lambda + 1 / s)]\) is order \(10^{-1}\). Estimate the sampling
+variance \(V[\ln(x + 1) \mid s, \lambda=\mu]\) for genes with
+\(E[\ln(\lambda + 1 / s)] > -8\), where \(\mu = E[\lambda]\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">s</span> = annotations.loc[(annotations[<span class="org-string">'chip_id'</span>] == <span class="org-string">'NA18507'</span>).values, <span class="org-string">'mol_hs'</span>].mean()
+<span class="org-variable-name">m</span> = np.log(mean[<span class="org-string">'NA18507'</span>] + 1 / s) - variance[<span class="org-string">'NA18507'</span>] / (2 * np.square(mean[<span class="org-string">'NA18507'</span>] + 1 / s))
+<span class="org-variable-name">v</span> = variance[<span class="org-string">'NA18507'</span>] / np.square(mean[<span class="org-string">'NA18507'</span>] + 1 / s) - np.square(variance[<span class="org-string">'NA18507'</span>]) / (4 * (mean[<span class="org-string">'NA18507'</span>] + 1 / s) ** 4)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">query</span> = m[m &gt; -8].index
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">ipsc</span> = scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>, query=query, return_df=<span class="org-constant">True</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">subset</span> = ipsc[(annotations[<span class="org-string">'chip_id'</span>] == <span class="org-string">'NA18507'</span>).values.ravel()]
+<span class="org-variable-name">lam</span> = s * mean[<span class="org-string">'NA18507'</span>]
+<span class="org-variable-name">vx</span> = lam / np.square(lam + 1) - np.square(lam) / (4 * (lam + 1) ** 4)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.scatter(v[m &gt; -8], vx[m &gt; -8], c=<span class="org-string">'k'</span>, s=2, alpha=0.25)
+plt.plot([0, .25], [0, .25], ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
+plt.xlim([0, .25])
+plt.ylim([0, .25])
+plt.xlabel(<span class="org-string">'Log latent gene expression variance'</span>)
+<span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Log count sampling variance'</span>)
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/transforms.org/biol-tech-var.png" alt="biol-tech-var.png">
+</p>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-30 Tue 14:33</p>
+<p class="date">Created: 2019-05-01 Wed 10:47</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

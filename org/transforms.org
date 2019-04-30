@@ -24,7 +24,7 @@
   #+CALL: ipython3(partition="mstephens",mem="16G",venv="scmodes") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 59956313
+  : Submitted batch job 59998969
 
   #+BEGIN_SRC ipython
     import numpy as np
@@ -34,7 +34,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[4]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -93,7 +93,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[24]:
+  # Out[5]:
   :END:
 
   Throw out the individual with evidence of contamination.
@@ -105,7 +105,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[25]:
+  # Out[6]:
   :END:
 
   Recover the mean and variance of latent gene expression per gene, per individual.
@@ -118,7 +118,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[26]:
+  # Out[7]:
   :END:
 
   Plot the mean/variance relationship.
@@ -165,89 +165,90 @@
    :CUSTOM_ID: log-transform
    :END:
 
-  Assume \(\lambda_{ijk} \sim g_{ik}(\cdot)\), as above. Plot the approximate
-  relationship between \(E[\ln(\lambda + \epsilon)]\) and
-  \(V[\ln(\lambda + \epsilon)]\) by first-order Taylor expansion.
+   Assume \(\lambda_{ijk} \sim g_{ik}(\cdot)\), as above. Plot the approximate
+   relationship between \(E[\ln(\lambda + \epsilon)]\) and
+   \(V[\ln(\lambda + \epsilon)]\) by first-order Taylor expansion.
 
-  \[ E[\ln(x + \epsilon)] \approx \ln(E[x] + \epsilon) - \frac{V[x]}{2 (E[x] + \epsilon)^2} \]
+   \[ E[\ln(x + \epsilon)] \approx \ln(E[x] + \epsilon) - \frac{V[x]}{2 (E[x] + \epsilon)^2} \]
 
-  \[ V[\ln(x + \epsilon)] \approx \frac{V[x]}{(E[x] + \epsilon)^2} - \frac{V[x]^2}{(E[x] + \epsilon)^4} \]
+   \[ V[\ln(x + \epsilon)] \approx \frac{V[x]}{(E[x] + \epsilon)^2} -
+   \frac{V[x]^2}{4 (E[x] + \epsilon)^4} \]
 
-  Importantly, \(\epsilon\) needs to be on the same scale as \(\lambda\). But
-  \(x_{ijk} \sim \mathrm{Poisson}(s_{ij} \lambda_{ijk})\), so \(\lambda_{ijk}\)
-  is on the scale of \(1 / s_{ij}\). Innstead of assuming \(x_{ijk} \sim
-  F_{ijk}(\cdot)\), assume:
+   Importantly, \(\epsilon\) needs to be on the same scale as \(\lambda\). But
+   \(x_{ijk} \sim \mathrm{Poisson}(s_{ij} \lambda_{ijk})\), so \(\lambda_{ijk}\)
+   is on the scale of \(1 / s_{ij}\). Instead of assuming \(x_{ijk} \sim
+   F_{ijk}(\cdot)\), assume:
 
-  \[ x_{ijk} \sim \frac{1}{n} \sum_j F_{ijk}(\cdot) \]
+   \[ x_{ijk} \sim \frac{1}{n} \sum_j F_{ijk}(\cdot) \]
 
-  Then, \(E[x_{ijk}] = \frac{1}{n}\sum_j s_{ij} E[\lambda_{ijk}]\). This gives
-  us a single scaling factor for \(g_{ik}\).
+   Then, \(E[x_{ijk}] = \frac{1}{n}\sum_j s_{ij} E[\lambda_{ijk}]\). This gives
+   us a single scaling factor for \(g_{ik}\).
 
-  Read the metadata for the iPSCs.
+   Read the metadata for the iPSCs.
 
-  #+BEGIN_SRC ipython
-    annotations = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt', sep='\t')
-    keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', sep='\t', index_col=0)
-    annotations = annotations.loc[keep_samples.values.ravel()]
-  #+END_SRC
+   #+BEGIN_SRC ipython
+     annotations = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt', sep='\t')
+     keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', sep='\t', index_col=0, header=None)
+     annotations = annotations.loc[keep_samples.values.ravel()]
+   #+END_SRC
 
-  #+RESULTS:
-  :RESULTS:
-  # Out[27]:
-  :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[21]:
+   :END:
 
-  #+BEGIN_SRC ipython
-    s = annotations.loc[(annotations['chip_id'] == 'NA18507').values, 'mol_hs'].mean()
-  #+END_SRC
+   #+BEGIN_SRC ipython
+     s = annotations.loc[(annotations['chip_id'] == 'NA18507').values, 'mol_hs'].mean()
+   #+END_SRC
 
-  #+RESULTS:
-  :RESULTS:
-  # Out[28]:
-  :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[22]:
+   :END:
 
-  #+BEGIN_SRC ipython :ipyfile figure/transforms.org/zig-log-mean-var-NA18507.png
-    plt.clf()
-    fig, ax = plt.subplots(1, 3, sharey=True)
-    fig.set_size_inches(7, 3)
-    for a, eps, t in zip(ax, np.array([0, 0.5, 1]) / s, ['0', '1/(2s)', '1/s']):
-      a.set_yscale('log')
-      m = np.log(mean['NA18507'] + eps) - variance['NA18507'] / (2 * np.square(mean['NA18507'] + eps))
-      v = variance['NA18507'] / np.square(mean['NA18507'] + eps) - np.square(variance['NA18507']) / (4 * (mean['NA18507'] + eps) ** 4)
-      a.scatter(m, v, c='k', s=4, alpha=0.1)
-      a.set_title(f'$\epsilon = {t}$')
-    ax[1].set_xlabel('Latent log gene expression mean')
-    ax[0].set_ylabel('Latent log gene expression variance')
-    fig.tight_layout()
-  #+END_SRC
+   #+BEGIN_SRC ipython :ipyfile figure/transforms.org/zig-log-mean-var-NA18507.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 3, sharey=True)
+     fig.set_size_inches(7, 3)
+     for a, eps, t in zip(ax, np.array([0, 0.5, 1]) / s, ['0', '1/(2s)', '1/s']):
+       a.set_yscale('log')
+       m = np.log(mean['NA18507'] + eps) - variance['NA18507'] / (2 * np.square(mean['NA18507'] + eps))
+       v = variance['NA18507'] / np.square(mean['NA18507'] + eps) - np.square(variance['NA18507']) / (4 * (mean['NA18507'] + eps) ** 4)
+       a.scatter(m, v, c='k', s=4, alpha=0.1)
+       a.set_title(f'$\epsilon = {t}$')
+     ax[1].set_xlabel('Latent log gene expression mean')
+     ax[0].set_ylabel('Latent log gene expression variance')
+     fig.tight_layout()
+   #+END_SRC
 
-  #+RESULTS:
-  :RESULTS:
-  # Out[36]:
-  [[file:figure/transforms.org/zig-log-mean-var-NA18507.png]]
-  :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[36]:
+   [[file:figure/transforms.org/zig-log-mean-var-NA18507.png]]
+   :END:
 
-  Zoom in on highly expressed genes.
+   Zoom in on highly expressed genes.
 
-  #+BEGIN_SRC ipython :ipyfile figure/transforms.org/zig-log-mean-var-NA18507-inset.png
-    plt.clf()
-    fig, ax = plt.subplots(1, 3, sharey=True)
-    fig.set_size_inches(7, 3)
-    for a, eps, t in zip(ax, np.array([0, 0.5, 1]) / s, ['0', '1/(2s)', '1/s']):
-      a.set_yscale('log')
-      a.set_xlim(-8, -6)
-      a.set_ylim(1e-2, .5)
-      a.scatter(m, v, c='k', s=4, alpha=0.25)
-      a.set_title(f'$\epsilon = {t}$')
-    ax[1].set_xlabel('Latent log gene expression mean')
-    ax[0].set_ylabel('Latent log gene expression variance')
-    fig.tight_layout()
-  #+END_SRC
+   #+BEGIN_SRC ipython :ipyfile figure/transforms.org/zig-log-mean-var-NA18507-inset.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 3, sharey=True)
+     fig.set_size_inches(7, 3)
+     for a, eps, t in zip(ax, np.array([0, 0.5, 1]) / s, ['0', '1/(2s)', '1/s']):
+       a.set_yscale('log')
+       a.set_xlim(-8, -6)
+       a.set_ylim(1e-2, .5)
+       a.scatter(m, v, c='k', s=4, alpha=0.25)
+       a.set_title(f'$\epsilon = {t}$')
+     ax[1].set_xlabel('Latent log gene expression mean')
+     ax[0].set_ylabel('Latent log gene expression variance')
+     fig.tight_layout()
+   #+END_SRC
 
-  #+RESULTS:
-  :RESULTS:
-  # Out[37]:
-  [[file:figure/transforms.org/zig-log-mean-var-NA18507-inset.png]]
-  :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[37]:
+   [[file:figure/transforms.org/zig-log-mean-var-NA18507-inset.png]]
+   :END:
 
 ** Square root transform
    :PROPERTIES:
@@ -332,4 +333,75 @@
    :RESULTS:
    # Out[46]:
    [[file:figure/transforms.org/ma.png]]
+   :END:
+
+** Comparison of sampling variance with biological variance
+   :PROPERTIES:
+   :CUSTOM_ID: biol-tech-var
+   :END:
+
+   From the perspective of deconvolution, biological variance describes
+   \(\lambda \sim g(\cdot)\), while sampling variance describes \(x \mid s,
+   \lambda \sim \mathrm{Poisson}(s \lambda)\).
+
+   Our results above suggest that for the highest expressed genes,
+   \(V[\ln(\lambda + 1 / s)]\) is order \(10^{-1}\). Estimate the sampling
+   variance \(V[\ln(x + 1) \mid s, \lambda=\mu]\) for genes with
+   \(E[\ln(\lambda + 1 / s)] > -8\), where \(\mu = E[\lambda]\).
+
+   #+BEGIN_SRC ipython
+     s = annotations.loc[(annotations['chip_id'] == 'NA18507').values, 'mol_hs'].mean()
+     m = np.log(mean['NA18507'] + 1 / s) - variance['NA18507'] / (2 * np.square(mean['NA18507'] + 1 / s))
+     v = variance['NA18507'] / np.square(mean['NA18507'] + 1 / s) - np.square(variance['NA18507']) / (4 * (mean['NA18507'] + 1 / s) ** 4)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[61]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     query = m[m > -8].index
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[39]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     ipsc = scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', query=query, return_df=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[42]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     subset = ipsc[(annotations['chip_id'] == 'NA18507').values.ravel()]
+     lam = s * mean['NA18507']
+     vx = lam / np.square(lam + 1) - np.square(lam) / (4 * (lam + 1) ** 4)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[67]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/transforms.org/biol-tech-var.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.scatter(v[m > -8], vx[m > -8], c='k', s=2, alpha=0.25)
+     plt.plot([0, .25], [0, .25], ls=':', lw=1, c='r')
+     plt.xlim([0, .25])
+     plt.ylim([0, .25])
+     plt.xlabel('Log latent gene expression variance')
+     _ = plt.ylabel('Log count sampling variance')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[73]:
+   [[file:figure/transforms.org/biol-tech-var.png]]
    :END:
