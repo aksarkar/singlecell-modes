@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-29 Mon 18:52 -->
+<!-- 2019-04-30 Tue 14:33 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Transformations of deconvolved gene expression distributions</title>
@@ -441,11 +441,11 @@ relationship between \(E[\ln(\lambda + \epsilon)]\) and
 </p>
 
 <p>
-\[ E[\ln(x + \epsilon)] \approx \ln(E[x] + \epsilon) - \frac{V[x]}{(E[x] + \epsilon)^2} \]
+\[ E[\ln(x + \epsilon)] \approx \ln(E[x] + \epsilon) - \frac{V[x]}{2 (E[x] + \epsilon)^2} \]
 </p>
 
 <p>
-\[ V[\ln(x + \epsilon)] \approx \frac{2 V[x]}{(E[x] + \epsilon)^2} - \frac{V[x]^2}{(E[x] + \epsilon)^4} \]
+\[ V[\ln(x + \epsilon)] \approx \frac{V[x]}{(E[x] + \epsilon)^2} - \frac{V[x]^2}{(E[x] + \epsilon)^4} \]
 </p>
 
 <p>
@@ -486,8 +486,8 @@ Read the metadata for the iPSCs.
 fig.set_size_inches(7, 3)
 <span class="org-keyword">for</span> a, eps, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, np.array([0, 0.5, 1]) / s, [<span class="org-string">'0'</span>, <span class="org-string">'1/(2s)'</span>, <span class="org-string">'1/s'</span>]):
   a.set_yscale(<span class="org-string">'log'</span>)
-  <span class="org-variable-name">m</span> = np.log(mean[<span class="org-string">'NA18507'</span>] + eps) - variance[<span class="org-string">'NA18507'</span>] / np.square(mean[<span class="org-string">'NA18507'</span>] + eps)
-  <span class="org-variable-name">v</span> = (2 * variance[<span class="org-string">'NA18507'</span>]) / np.square(mean[<span class="org-string">'NA18507'</span>] + eps) + np.square(variance[<span class="org-string">'NA18507'</span>]) / (mean[<span class="org-string">'NA18507'</span>] + eps) ** 4
+  <span class="org-variable-name">m</span> = np.log(mean[<span class="org-string">'NA18507'</span>] + eps) - variance[<span class="org-string">'NA18507'</span>] / (2 * np.square(mean[<span class="org-string">'NA18507'</span>] + eps))
+  <span class="org-variable-name">v</span> = variance[<span class="org-string">'NA18507'</span>] / np.square(mean[<span class="org-string">'NA18507'</span>] + eps) - np.square(variance[<span class="org-string">'NA18507'</span>]) / (4 * (mean[<span class="org-string">'NA18507'</span>] + eps) ** 4)
   a.scatter(m, v, c=<span class="org-string">'k'</span>, s=4, alpha=0.1)
   a.set_title(f<span class="org-string">'$\epsilon = {t}$'</span>)
 ax[1].set_xlabel(<span class="org-string">'Latent log gene expression mean'</span>)
@@ -513,13 +513,12 @@ fig.set_size_inches(7, 3)
 <span class="org-keyword">for</span> a, eps, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, np.array([0, 0.5, 1]) / s, [<span class="org-string">'0'</span>, <span class="org-string">'1/(2s)'</span>, <span class="org-string">'1/s'</span>]):
   a.set_yscale(<span class="org-string">'log'</span>)
   a.set_xlim(-8, -6)
-  a.set_ylim(1e-2, 10)
-  a.scatter(np.log(mean[<span class="org-string">'NA18507'</span>] + eps), (2 * variance[<span class="org-string">'NA18507'</span>]) / np.square(mean[<span class="org-string">'NA18507'</span>] + eps), c=<span class="org-string">'k'</span>, s=4, alpha=0.25)
+  a.set_ylim(1e-2, .5)
+  a.scatter(m, v, c=<span class="org-string">'k'</span>, s=4, alpha=0.25)
   a.set_title(f<span class="org-string">'$\epsilon = {t}$'</span>)
 ax[1].set_xlabel(<span class="org-string">'Latent log gene expression mean'</span>)
 ax[0].set_ylabel(<span class="org-string">'Latent log gene expression variance'</span>)
 fig.tight_layout()
-
 </pre>
 </div>
 
@@ -541,11 +540,11 @@ relationship between \(E[\lambda^{1/2}]\) and
 </p>
 
 <p>
-\[ E[x^{1/2}] \approx (E[x])^{1/2} - \frac{V[x]}{4 E[x]^{3/2}} \]
+\[ E[x^{1/2}] \approx (E[x])^{1/2} - \frac{V[x]}{8 E[x]^{3/2}} \]
 </p>
 
 <p>
-\[ V[x^{1/2}] \approx \frac{V[x]}{2 E[x]} - \frac{V[x]^2}{16 E[x]^3} \]
+\[ V[x^{1/2}] \approx \frac{V[x]}{4 E[x]} - \frac{V[x]^2}{64 E[x]^3} \]
 </p>
 
 <div class="org-src-container">
@@ -553,7 +552,9 @@ relationship between \(E[\lambda^{1/2}]\) and
 plt.gcf().set_size_inches(3, 3)
 plt.semilogx()
 plt.semilogy()
-plt.scatter(np.sqrt(mean[<span class="org-string">'NA18507'</span>]), variance[<span class="org-string">'NA18507'</span>] / (2 * mean[<span class="org-string">'NA18507'</span>]), c=<span class="org-string">'k'</span>, s=4, alpha=0.1)
+<span class="org-variable-name">m</span> = np.sqrt(mean[<span class="org-string">'NA18507'</span>]) - variance[<span class="org-string">'NA18507'</span>] / (8 * np.power(mean[<span class="org-string">'NA18507'</span>], 1.5))
+<span class="org-variable-name">v</span> = variance[<span class="org-string">'NA18507'</span>] / (4 * mean[<span class="org-string">'NA18507'</span>]) - np.square(variance[<span class="org-string">'NA18507'</span>]) / (64 * np.power(mean[<span class="org-string">'NA18507'</span>], 3))
+plt.scatter(m, v, c=<span class="org-string">'k'</span>, s=4, alpha=0.1)
 plt.xlabel(<span class="org-string">'Latent sqrt gene expression mean'</span>)
 plt.ylabel(<span class="org-string">'Latent sqrt gene expression variance'</span>)
 plt.gcf().tight_layout()
@@ -628,7 +629,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-29 Mon 18:52</p>
+<p class="date">Created: 2019-04-30 Tue 14:33</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

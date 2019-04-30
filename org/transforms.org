@@ -93,7 +93,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[24]:
   :END:
 
   Throw out the individual with evidence of contamination.
@@ -105,7 +105,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[5]:
+  # Out[25]:
   :END:
 
   Recover the mean and variance of latent gene expression per gene, per individual.
@@ -118,7 +118,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[6]:
+  # Out[26]:
   :END:
 
   Plot the mean/variance relationship.
@@ -169,9 +169,9 @@
   relationship between \(E[\ln(\lambda + \epsilon)]\) and
   \(V[\ln(\lambda + \epsilon)]\) by first-order Taylor expansion.
 
-  \[ E[\ln(x + \epsilon)] \approx \ln(E[x] + \epsilon) - \frac{V[x]}{(E[x] + \epsilon)^2} \]
+  \[ E[\ln(x + \epsilon)] \approx \ln(E[x] + \epsilon) - \frac{V[x]}{2 (E[x] + \epsilon)^2} \]
 
-  \[ V[\ln(x + \epsilon)] \approx \frac{2 V[x]}{(E[x] + \epsilon)^2} - \frac{V[x]^2}{(E[x] + \epsilon)^4} \]
+  \[ V[\ln(x + \epsilon)] \approx \frac{V[x]}{(E[x] + \epsilon)^2} - \frac{V[x]^2}{(E[x] + \epsilon)^4} \]
 
   Importantly, \(\epsilon\) needs to be on the same scale as \(\lambda\). But
   \(x_{ijk} \sim \mathrm{Poisson}(s_{ij} \lambda_{ijk})\), so \(\lambda_{ijk}\)
@@ -193,7 +193,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[8]:
+  # Out[27]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -202,7 +202,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[11]:
+  # Out[28]:
   :END:
 
   #+BEGIN_SRC ipython :ipyfile figure/transforms.org/zig-log-mean-var-NA18507.png
@@ -211,8 +211,8 @@
     fig.set_size_inches(7, 3)
     for a, eps, t in zip(ax, np.array([0, 0.5, 1]) / s, ['0', '1/(2s)', '1/s']):
       a.set_yscale('log')
-      m = np.log(mean['NA18507'] + eps) - variance['NA18507'] / np.square(mean['NA18507'] + eps)
-      v = (2 * variance['NA18507']) / np.square(mean['NA18507'] + eps) + np.square(variance['NA18507']) / (mean['NA18507'] + eps) ** 4
+      m = np.log(mean['NA18507'] + eps) - variance['NA18507'] / (2 * np.square(mean['NA18507'] + eps))
+      v = variance['NA18507'] / np.square(mean['NA18507'] + eps) - np.square(variance['NA18507']) / (4 * (mean['NA18507'] + eps) ** 4)
       a.scatter(m, v, c='k', s=4, alpha=0.1)
       a.set_title(f'$\epsilon = {t}$')
     ax[1].set_xlabel('Latent log gene expression mean')
@@ -222,7 +222,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[61]:
+  # Out[36]:
   [[file:figure/transforms.org/zig-log-mean-var-NA18507.png]]
   :END:
 
@@ -235,18 +235,17 @@
     for a, eps, t in zip(ax, np.array([0, 0.5, 1]) / s, ['0', '1/(2s)', '1/s']):
       a.set_yscale('log')
       a.set_xlim(-8, -6)
-      a.set_ylim(1e-2, 10)
-      a.scatter(np.log(mean['NA18507'] + eps), (2 * variance['NA18507']) / np.square(mean['NA18507'] + eps), c='k', s=4, alpha=0.25)
+      a.set_ylim(1e-2, .5)
+      a.scatter(m, v, c='k', s=4, alpha=0.25)
       a.set_title(f'$\epsilon = {t}$')
     ax[1].set_xlabel('Latent log gene expression mean')
     ax[0].set_ylabel('Latent log gene expression variance')
     fig.tight_layout()
-
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[62]:
+  # Out[37]:
   [[file:figure/transforms.org/zig-log-mean-var-NA18507-inset.png]]
   :END:
 
@@ -259,16 +258,18 @@
   relationship between \(E[\lambda^{1/2}]\) and
   \(V[\lambda^{1/2}]\) by first-order Taylor expansion.
 
-  \[ E[x^{1/2}] \approx (E[x])^{1/2} - \frac{V[x]}{4 E[x]^{3/2}} \]
+  \[ E[x^{1/2}] \approx (E[x])^{1/2} - \frac{V[x]}{8 E[x]^{3/2}} \]
 
-  \[ V[x^{1/2}] \approx \frac{V[x]}{2 E[x]} - \frac{V[x]^2}{16 E[x]^3} \]
+  \[ V[x^{1/2}] \approx \frac{V[x]}{4 E[x]} - \frac{V[x]^2}{64 E[x]^3} \]
 
   #+BEGIN_SRC ipython :ipyfile figure/transforms.org/zig-sqrt-mean-var-NA18507.png
     plt.clf()
     plt.gcf().set_size_inches(3, 3)
     plt.semilogx()
     plt.semilogy()
-    plt.scatter(np.sqrt(mean['NA18507']), variance['NA18507'] / (2 * mean['NA18507']), c='k', s=4, alpha=0.1)
+    m = np.sqrt(mean['NA18507']) - variance['NA18507'] / (8 * np.power(mean['NA18507'], 1.5))
+    v = variance['NA18507'] / (4 * mean['NA18507']) - np.square(variance['NA18507']) / (64 * np.power(mean['NA18507'], 3))
+    plt.scatter(m, v, c='k', s=4, alpha=0.1)
     plt.xlabel('Latent sqrt gene expression mean')
     plt.ylabel('Latent sqrt gene expression variance')
     plt.gcf().tight_layout()
@@ -276,7 +277,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[53]:
+  # Out[38]:
   [[file:figure/transforms.org/zig-sqrt-mean-var-NA18507.png]]
   :END:
 
