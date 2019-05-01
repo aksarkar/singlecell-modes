@@ -21,10 +21,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="scmodes",partition="mstephens",mem="1G") :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",mem="16G") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 59650299
+  : Submitted batch job 60042226
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -32,6 +32,11 @@
     import pandas as pd
     import scmodes
   #+END_SRC
+
+  #+RESULTS: imports
+  :RESULTS:
+  # Out[1]:
+  :END:
 
   #+RESULTS:
   :RESULTS:
@@ -114,6 +119,25 @@
    Our metric is then the likelihood of the held-out data. We simply need to
    re-scale to account for different size factors \(R_i\).
 
+** LRA of transformed data
+
+   We can write principal components analysis as a generative model (Tipping
+   1999):
+
+   \[ \mathbf{y}_i \sim \mathcal{N}(\mathbf{y}_i; \mathbf{W z}_i, \sigma^2 \mathbf{I}) \]
+
+   Now, suppose \(y_{ij} = \ln(x_{ij} + \epsilon)\). Then, via
+   change of variables we have:
+
+   \[ p(\mathbf{x}_i) = \frac{1}{\mathbf{x}_i + \epsilon}
+   \mathcal{N}(\ln(\mathbf{x}_i + \epsilon); \mathbf{W z}_i, \sigma^2
+   \mathbf{I}) \]
+
+   where we abuse notation for element-wise operations.
+
+   In general, this means we can compare the likelihood of the observed data
+   under models of different transformations of the observations.
+
 ** Datasets
 
    We use real scRNA-seq datasets in heterogeneous tissues to benchmark
@@ -127,7 +151,51 @@
       ([[https://www.nature.com/articles/ncomms14049][Zheng et al. 2017]])
 
 * Results
+** iPSCs
+   :PROPERTIES:
+   :CUSTOM_ID: ipsc
+   :END:
+
+   #+NAME: pca
+   #+BEGIN_SRC ipython :eval never
+     <<imports>>
+     import scipy.stats as st
+     import sklearn.decomposition as skd
+
+     ipsc = scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/')
+     res0 = skd.PCA(n_components=10).fit(ipsc)
+     z_0 = res0.transform(ipsc)
+     llik0 = st.norm(loc=z_0.dot(res0.components_), scale=np.sqrt(res0.noise_variance_)).logpdf(ipsc).sum()
+
+     log_ipsc = np.log(ipsc + 1)
+     res1 = skd.PCA(n_components=10).fit(log_ipsc)
+     z_1 = res1.transform(ipsc)
+     llik1 = (-log_ipsc + st.norm(loc=z_1.dot(res1.components_), scale=np.sqrt(res1.noise_variance_)).logpdf(log_ipsc)).sum()
+     print(f'PCA of untransformed counts: {llik0:.4g}')
+     print(f'PCA of log1p counts: {llik1:.4g}')
+   #+END_SRC
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=mstephens --mem=8G
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<pca>>
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 60034134
+
+   #+BEGIN_EXAMPLE
+     PCA of untransformed counts: -4.712e+08
+     PCA of log1p counts: -3.57e+09
+   #+END_EXAMPLE
+
 ** Cortex
+   :PROPERTIES:
+   :CUSTOM_ID: cortex
+   :END:
 
    #+NAME: cortex-bench
    #+BEGIN_SRC ipython :eval never
@@ -159,6 +227,9 @@
    #+END_SRC
 
 ** PBMCs
+   :PROPERTIES:
+   :CUSTOM_ID: pbmc
+   :END:
 
    #+NAME: pbmcs-bench
    #+BEGIN_SRC ipython :eval never
