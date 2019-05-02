@@ -25,10 +25,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(mem="16G",partition="broadwl",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
+  #+CALL: ipython3(memory="16G",partition="broadwl",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59945098
+  : Submitted batch job 59992387
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -36,6 +36,7 @@
     import multiprocessing as mp
     import numpy as np
     import pandas as pd
+    import scanpy
     import scipy.stats as st
     import scipy.special as sp
     import scmodes
@@ -146,14 +147,27 @@
 
 ** Benchmarking data
 
+   We deconvolve ERCC spike-in data generated on multiple platforms,
+   pre-processed as in
+   [[https://www.biorxiv.org/content/10.1101/582064v1][Svensson 2019]].
+
+   1. Drop-seq (Macosko et al., 2015)
+   2. InDrops (Klein et al., 2015)
+   3. 10x Genomics, v1 chemistry (Zheng et al., 2017);
+   4. 10x Genomics, ??? (Svensson et al., 2017).
+
+   We additionally deconvolve spike-in data included in iPSCs derived from 53
+   donor individuals. We
+   [[https://jdblischak.github.io/singlecell-qtl/descriptive-stats.html][previously
+   observed]] individual-specific heterogeneity in this data.
+
    As examples of homogeneous cell populations, we use:
 
    1. Sorted immune cells sequenced on the 10X platform
       ([[https://www.nature.com/articles/ncomms14049][Zheng et al. 2017]])
 
    2. iPSCs derived from Yoruba LCLs, sequenced on the Fluidigm C1 platform
-      ([[https://www.biorxiv.org/content/early/2018/09/23/424192][Sarkar et
-      al. 2018]])
+      ([[http://dx.doi.org/10.1371/journal.pgen.1008045][Sarkar et al. 2018]])
 
    We use the homogeneous cells populations to generate synthetic mixtures with
    known cell type labels.
@@ -168,347 +182,439 @@
       al. 2015]])
 
 * Results
-** Homogeneous cell populations
-*** Example
-    :PROPERTIES:
-    :CUSTOM_ID: examples
-    :END:
+** Example
+   :PROPERTIES:
+   :CUSTOM_ID: examples
+   :END:
 
-    As an example, use the highest expressed genes in 10K sorted CD8+ cytotoxic
-    T cells [[https://www.nature.com/articles/ncomms14049][Zheng et al. 2017]].
+   As an example, use the highest expressed genes in 10K sorted CD8+ cytotoxic
+   T cells [[https://www.nature.com/articles/ncomms14049][Zheng et al. 2017]].
 
+   #+BEGIN_SRC ipython
+     x = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19')
+     xj = pd.Series(x[:,x.mean(axis=0).argmax()])
+     size_factor = pd.Series(x.sum(axis=1))
+     lam = xj / size_factor
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   Fit unimodal distribution.
+
+   #+BEGIN_SRC ipython :async t
+     unimix_res = ashr.ash_workhorse(
+       pd.Series(np.zeros(x.shape[0])),
+       1,
+       lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
+       outputlevel='fitted_g',
+       mixsd=pd.Series(np.geomspace(lam.min(), lam.max(), 25)),
+       mode=pd.Series([lam.min(), lam.max()]))
+     unimix_cdf = ashr.cdf_ash(unimix_res, np.linspace(lam.min(), lam.max(), 1000))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[5]:
+   :END:
+
+   Fit NPMLE.
+
+   #+BEGIN_SRC ipython :async t
+     K = 200
+     grid = np.linspace(lam.min(), lam.max(), K + 1)
+     npmle_res = ashr.ash_workhorse(
+       pd.Series(np.zeros(x.shape[0])),
+       1,
+       outputlevel='fitted_g',
+       lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
+       g=ashr.unimix(pd.Series(np.ones(K) / K), pd.Series(grid[:-1]), pd.Series(grid[1:])))
+     npmle_cdf = ashr.cdf_ash(npmle_res, np.linspace(lam.min(), lam.max(), 1000))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[15]:
+   :END:
+
+   Fit DESCEND.
+
+   #+BEGIN_SRC ipython
+     descend_res = descend.deconvSingle(xj, scaling_consts=size_factor, verbose=False)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   :END:
+
+   Fit NB/ZINB.
+
+   #+BEGIN_SRC ipython :eval never :noweb tangle :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/fit-nb.py
+     import numpy as np
+     import pandas as pd
+     import scipy.io
+     import scmodes
+     import scqtl
+
+     x = scmodes.read10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/')
+     size_factor = x.sum(axis=1).reshape(-1, 1)
+     onehot = np.ones((x.shape[0], 1))
+     design = np.zeros((x.shape[0], 1))
+     init = scqtl.tf.fit(
+       umi=x.astype(np.float32),
+       onehot=onehot.astype(np.float32),
+       design=design.astype(np.float32),
+       size_factor=size_factor.astype(np.float32),
+       learning_rate=1e-3,
+       max_epochs=30000,
+       verbose=True)
+     pd.DataFrame(init[0]).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-nb-log-mu.txt.gz', compression='gzip', sep='\t')
+     pd.DataFrame(init[1]).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-nb-log-phi.txt.gz', compression='gzip', sep='\t')
+     log_mu, log_phi, logodds, nb_llik, zinb_llik = scqtl.tf.fit(
+       umi=x.astype(np.float32),
+       onehot=onehot.astype(np.float32),
+       design=design.astype(np.float32),
+       size_factor=size_factor.astype(np.float32),
+       learning_rate=1e-3,
+       max_epochs=30000,
+       warm_start=init[:3],
+       verbose=True)
+     pd.DataFrame(log_mu).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-log-mu.txt.gz', compression='gzip', sep='\t')
+     pd.DataFrame(log_phi).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-log-phi.txt.gz', compression='gzip', sep='\t')
+     pd.DataFrame(logodds).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-logodds.txt.gz', compression='gzip', sep='\t')
+   #+END_SRC
+
+   #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=60:00 --job-name=fit-nb
+     #!/bin/bash
+     source activate scmodes
+     python /project2/mstephens/aksarkar/projects/singlecell-modes/code/fit-nb.py
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 58803475
+
+   #+BEGIN_SRC ipython
+     j = str(x.mean(axis=0).argmax())
+     nb_log_mu = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-nb-log-mu.txt.gz', sep='\t')
+     nb_log_phi = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-nb-log-phi.txt.gz', sep='\t')
+     # Gamma (Use MATLAB and MATHEMATICA (b=theta=scale, a=alpha=shape) definition)
+     # https://github.com/scipy/scipy/blob/v1.2.1/scipy/stats/_continuous_distns.py#L2479
+     gamma_cdf = st.gamma(a=np.exp(-nb_log_phi[j]), scale=np.exp(nb_log_mu[j] + nb_log_phi[j])).cdf(np.linspace(lam.min(), lam.max(), 1000))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     zinb_log_mu = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-log-mu.txt.gz', sep='\t')
+     zinb_log_phi = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-log-phi.txt.gz', sep='\t')
+     zinb_logodds = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-logodds.txt.gz', sep='\t')
+     point_gamma_cdf = st.gamma(a=np.exp(-zinb_log_phi[j]), scale=np.exp(zinb_log_mu[j] + zinb_log_phi[j])).cdf(np.linspace(lam.min(), lam.max(), 1000))
+     point_gamma_cdf *= sp.expit(-zinb_logodds[j].values)
+     point_gamma_cdf += sp.expit(zinb_logodds[j].values)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   :END:
+
+   Plot the observed counts and deconvolved distributions.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/deconv-example.png
+     cm = plt.get_cmap('Dark2').colors
+     fig, ax = plt.subplots(2, 1)
+     h = ax[0].hist(xj, bins=np.arange(xj.max() + 1), color='k')
+     ax[0].set_xlabel('Molecule count')
+     ax[0].set_ylabel('Number of cells')
+
+     ax[1].plot(np.linspace(lam.min(), lam.max(), 1000), gamma_cdf, color=cm[0], lw=1, label='Gamma')
+     ax[1].plot(np.linspace(lam.min(), lam.max(), 1000), point_gamma_cdf, color=cm[1], lw=1, label='Point-Gamma')
+     ax[1].plot(np.array(unimix_cdf.rx2('x')),
+                np.array(unimix_cdf.rx2('y')).ravel(), c=cm[2], lw=1, label='Unimodal')
+     F = np.cumsum(np.array(descend_res.slots['density.points'])[:,1])
+     ax[1].plot(np.array(descend_res.slots['density.points'])[:,0],
+                F / F.max(), c=cm[3], lw=1, label='ZIEF')
+     ax[1].plot(np.array(npmle_cdf.rx2('x')),
+                np.array(npmle_cdf.rx2('y')).ravel(), c=cm[4], lw=1, label='NPMLE')
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+
+     ax[1].legend(frameon=False)
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[16]:
+   [[file:figure/deconvolution.org/deconv-example.png]]
+   :END:
+
+   Print out the histogram for inspection.
+
+   #+BEGIN_SRC ipython
+     np.vstack((h[1][:-1], h[0])).T
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[52]:
+   #+BEGIN_EXAMPLE
+     array([[  0.,   0.],
+     [  1.,   1.],
+     [  2.,   1.],
+     [  3.,   0.],
+     [  4.,   0.],
+     [  5.,   0.],
+     [  6.,   1.],
+     [  7.,   0.],
+     [  8.,   1.],
+     [  9.,   5.],
+     [ 10.,   8.],
+     [ 11.,   4.],
+     [ 12.,   9.],
+     [ 13.,   9.],
+     [ 14.,   8.],
+     [ 15.,  20.],
+     [ 16.,  17.],
+     [ 17.,  24.],
+     [ 18.,  31.],
+     [ 19.,  44.],
+     [ 20.,  39.],
+     [ 21.,  41.],
+     [ 22.,  46.],
+     [ 23.,  72.],
+     [ 24.,  68.],
+     [ 25.,  74.],
+     [ 26.,  74.],
+     [ 27.,  86.],
+     [ 28.,  94.],
+     [ 29., 114.],
+     [ 30.,  96.],
+     [ 31., 102.],
+     [ 32., 120.],
+     [ 33., 132.],
+     [ 34., 161.],
+     [ 35., 138.],
+     [ 36., 159.],
+     [ 37., 197.],
+     [ 38., 186.],
+     [ 39., 210.],
+     [ 40., 232.],
+     [ 41., 244.],
+     [ 42., 284.],
+     [ 43., 309.],
+     [ 44., 321.],
+     [ 45., 332.],
+     [ 46., 342.],
+     [ 47., 371.],
+     [ 48., 349.],
+     [ 49., 356.],
+     [ 50., 317.],
+     [ 51., 343.],
+     [ 52., 347.],
+     [ 53., 342.],
+     [ 54., 308.],
+     [ 55., 294.],
+     [ 56., 274.],
+     [ 57., 272.],
+     [ 58., 241.],
+     [ 59., 219.],
+     [ 60., 191.],
+     [ 61., 164.],
+     [ 62., 145.],
+     [ 63., 144.],
+     [ 64., 120.],
+     [ 65., 121.],
+     [ 66., 100.],
+     [ 67.,  95.],
+     [ 68.,  69.],
+     [ 69.,  62.],
+     [ 70.,  53.],
+     [ 71.,  47.],
+     [ 72.,  52.],
+     [ 73.,  32.],
+     [ 74.,  35.],
+     [ 75.,  36.],
+     [ 76.,  30.],
+     [ 77.,  28.],
+     [ 78.,  20.],
+     [ 79.,  27.],
+     [ 80.,  26.],
+     [ 81.,  21.],
+     [ 82.,  12.],
+     [ 83.,  12.],
+     [ 84.,   9.],
+     [ 85.,   7.],
+     [ 86.,  12.],
+     [ 87.,   8.],
+     [ 88.,   9.],
+     [ 89.,   6.],
+     [ 90.,   4.],
+     [ 91.,   5.],
+     [ 92.,   2.],
+     [ 93.,   2.],
+     [ 94.,   2.],
+     [ 95.,   3.],
+     [ 96.,   1.],
+     [ 97.,   2.],
+     [ 98.,   2.],
+     [ 99.,   0.],
+     [100.,   0.],
+     [101.,   0.],
+     [102.,   1.],
+     [103.,   1.],
+     [104.,   0.],
+     [105.,   0.],
+     [106.,   2.]])
+   #+END_EXAMPLE
+   :END:
+
+   Look at what is going on with NPMLE.
+
+   #+BEGIN_SRC ipython
+     res0 = ashr.ash_workhorse(
+       pd.Series(np.zeros(x.shape[0])),
+       1,
+       outputlevel=pd.Series(['fitted_g', 'loglik']),
+       lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
+       g=ashr.unimix(pd.Series(np.ones(100) / 100), pd.Series(grid[:-1]), pd.Series(grid[1:])))
+     res1 = ashr.ash_workhorse(
+       pd.Series(np.zeros(x.shape[0])),
+       1,
+       outputlevel=pd.Series(['fitted_g', 'loglik']),
+       lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
+       g=ashr.unimix(pd.Series(np.ones(200) / 200), pd.Series(grid[:-1]), pd.Series(grid[1:])))
+   #+END_SRC
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/npmle-example.png
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2)
+     grid = np.linspace(lam.min(), lam.max(), 1000)
+     plt.plot(grid, np.array(ashr.cdf_ash(res0, grid)[1]).ravel(), label='NPMLE (100 components)', lw=1, c='k')
+     plt.plot(grid, np.array(ashr.cdf_ash(res1, grid)[1]).ravel(), label='NPMLE (200 components)', lw=2, ls=':', c='r')
+     plt.legend(frameon=False)
+     plt.xlabel('Latent gene expression')
+     plt.ylabel('CDF')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[40]:
+   : Text(0, 0.5, 'CDF')
+   [[file:figure/deconvolution.org/npmle-example.png]]
+   :END:
+
+   #+BEGIN_SRC ipython
+     np.array(res0.rx2('loglik')) - np.array(res1.rx2('loglik'))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[41]:
+   : array([0.])
+   :END:
+
+** Spike-in data
+
+   [[https://www.biorxiv.org/content/10.1101/582064v1][Svensson 2019]] claims
+   that there should be no heterogeneity between samples in spike-ins. However,
+   there is random sampling of molecules in the spike-in protocol, which will
+   introduce noise. This was previously established by
+   [[https://www.pnas.org/content/115/28/E6437/][Wang et al. 2018]].
+
+*** Run the benchmark
+
+    #+NAME: ercc-data
     #+BEGIN_SRC ipython
-      x = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19')
-      xj = pd.Series(x[:,x.mean(axis=0).argmax()])
-      size_factor = pd.Series(x.sum(axis=1))
-      lam = xj / size_factor
+      def read_chromium(sample):
+        x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/svensson_chromium_control.h5ad')
+        return x[x.obs['sample'] == sample][:,x.var.filter(like='ERCC', axis='index').index].X.A
+
+      def read_dropseq():
+        x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/macosko_dropseq_control.h5ad')
+        return x[:,x.var.filter(like='ERCC', axis='index').index].X.A
+
+      def read_indrops():
+        x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/klein_indrops_control.h5ad')
+        return x[:,x.var.filter(like='ERCC', axis='index').index].X.A
+
+      def read_c1():
+        x = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/ercc-counts.txt.gz', sep='\t', index_col=0)
+        keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', header=None, index_col=0, sep='\t')
+        return x.loc[:,keep_samples.values.ravel()].T
+
+      data = {
+        'dropseq': read_dropseq,
+        'indrops': read_indrops,
+        'chromium1': lambda: read_chromium('20311'),
+        'chromium2': lambda: read_chromium('20312'),
+        'gemcode': lambda: scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/zheng_gemcode_control.h5ad').X.A,
+        'c1': read_c1,
+      }
     #+END_SRC
 
-    #+RESULTS:
+    #+RESULTS: ercc-data
     :RESULTS:
-    # Out[4]:
+    # Out[74]:
     :END:
 
-    Fit unimodal distribution.
-
-    #+BEGIN_SRC ipython :async t
-      unimix_res = ashr.ash_workhorse(
-        pd.Series(np.zeros(x.shape[0])),
-        1,
-        lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
-        outputlevel='fitted_g',
-        mixsd=pd.Series(np.geomspace(lam.min(), lam.max(), 25)),
-        mode=pd.Series([lam.min(), lam.max()]))
-      unimix_cdf = ashr.cdf_ash(unimix_res, np.linspace(lam.min(), lam.max(), 1000))
+    #+NAME: run-ercc-benchmark-cpu
+    #+BEGIN_SRC ipython :eval never
+      <<imports>>
+      import os
+      <<ercc-data>>
+      cpu_methods = ['unimodal', 'zief', 'npmle']
+      tasks = [(d, c) for d in data for c in cpu_methods]
+      dataset, method = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+      with mp.Pool() as pool:
+        x = data[dataset]()
+        res = scmodes.benchmark.evaluate_deconv_generalization(x, pool=pool, methods=[method])
+        res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{dataset}-{method}.txt.gz', sep='\t', compression='gzip')
     #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[5]:
-    :END:
-
-    Fit NPMLE.
-
-    #+BEGIN_SRC ipython :async t
-      K = 200
-      grid = np.linspace(lam.min(), lam.max(), K + 1)
-      npmle_res = ashr.ash_workhorse(
-        pd.Series(np.zeros(x.shape[0])),
-        1,
-        outputlevel='fitted_g',
-        lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
-        g=ashr.unimix(pd.Series(np.ones(K) / K), pd.Series(grid[:-1]), pd.Series(grid[1:])))
-      npmle_cdf = ashr.cdf_ash(npmle_res, np.linspace(lam.min(), lam.max(), 1000))
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[15]:
-    :END:
-
-    Fit DESCEND.
-
-    #+BEGIN_SRC ipython
-      descend_res = descend.deconvSingle(xj, scaling_consts=size_factor, verbose=False)
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[7]:
-    :END:
-
-    Fit NB/ZINB.
-
-    #+BEGIN_SRC ipython :eval never :noweb tangle :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/fit-nb.py
-      import numpy as np
-      import pandas as pd
-      import scipy.io
-      import scmodes
-      import scqtl
-
-      x = scmodes.read10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/')
-      size_factor = x.sum(axis=1).reshape(-1, 1)
-      onehot = np.ones((x.shape[0], 1))
-      design = np.zeros((x.shape[0], 1))
-      init = scqtl.tf.fit(
-        umi=x.astype(np.float32),
-        onehot=onehot.astype(np.float32),
-        design=design.astype(np.float32),
-        size_factor=size_factor.astype(np.float32),
-        learning_rate=1e-3,
-        max_epochs=30000,
-        verbose=True)
-      pd.DataFrame(init[0]).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-nb-log-mu.txt.gz', compression='gzip', sep='\t')
-      pd.DataFrame(init[1]).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-nb-log-phi.txt.gz', compression='gzip', sep='\t')
-      log_mu, log_phi, logodds, nb_llik, zinb_llik = scqtl.tf.fit(
-        umi=x.astype(np.float32),
-        onehot=onehot.astype(np.float32),
-        design=design.astype(np.float32),
-        size_factor=size_factor.astype(np.float32),
-        learning_rate=1e-3,
-        max_epochs=30000,
-        warm_start=init[:3],
-        verbose=True)
-      pd.DataFrame(log_mu).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-log-mu.txt.gz', compression='gzip', sep='\t')
-      pd.DataFrame(log_phi).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-log-phi.txt.gz', compression='gzip', sep='\t')
-      pd.DataFrame(logodds).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-logodds.txt.gz', compression='gzip', sep='\t')
-    #+END_SRC
-
-    #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=60:00 --job-name=fit-nb
+    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+      sbatch -a 0 --partition=broadwl -n1 -c28 --exclusive --time=60:00 --mem=4G --job-name=deconv-generalization --out=benchmark-cpu.out
       #!/bin/bash
       source activate scmodes
-      python /project2/mstephens/aksarkar/projects/singlecell-modes/code/fit-nb.py
+      python <<EOF
+      <<run-ercc-benchmark-cpu>>
+      EOF
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 58803475
+    : Submitted batch job 60034239
 
-    #+BEGIN_SRC ipython
-      j = str(x.mean(axis=0).argmax())
-      nb_log_mu = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-nb-log-mu.txt.gz', sep='\t')
-      nb_log_phi = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-nb-log-phi.txt.gz', sep='\t')
-      # Gamma (Use MATLAB and MATHEMATICA (b=theta=scale, a=alpha=shape) definition)
-      # https://github.com/scipy/scipy/blob/v1.2.1/scipy/stats/_continuous_distns.py#L2479
-      gamma_cdf = st.gamma(a=np.exp(-nb_log_phi[j]), scale=np.exp(nb_log_mu[j] + nb_log_phi[j])).cdf(np.linspace(lam.min(), lam.max(), 1000))
+    #+NAME: run-ercc-benchmark-gpu
+    #+BEGIN_SRC ipython :eval never
+      <<imports>>
+      <<ercc-data>>
+      for dataset in data:
+        x = data[dataset]()
+        res = scmodes.benchmark.evaluate_deconv_generalization(x, pool=None, methods=['gamma', 'point_gamma'])
+        res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{dataset}-gpu.txt.gz', sep='\t', compression='gzip')
+    #+END_SRC
+
+    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+      sbatch --partition=gpu2 --gres=gpu:1 --mem=4G --time=60:00 --job-name=deconv-generalization --out=benchmark-gpu.out
+      #!/bin/bash
+      source activate scmodes
+      python <<EOF
+      <<run-ercc-benchmark-gpu>>
+      EOF
     #+END_SRC
 
     #+RESULTS:
-    :RESULTS:
-    # Out[8]:
-    :END:
+    : Submitted batch job 60029632
 
-    #+BEGIN_SRC ipython
-      zinb_log_mu = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-log-mu.txt.gz', sep='\t')
-      zinb_log_phi = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-log-phi.txt.gz', sep='\t')
-      zinb_logodds = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-logodds.txt.gz', sep='\t')
-      point_gamma_cdf = st.gamma(a=np.exp(-zinb_log_phi[j]), scale=np.exp(zinb_log_mu[j] + zinb_log_phi[j])).cdf(np.linspace(lam.min(), lam.max(), 1000))
-      point_gamma_cdf *= sp.expit(-zinb_logodds[j].values)
-      point_gamma_cdf += sp.expit(zinb_logodds[j].values)
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[9]:
-    :END:
-
-    Plot the observed counts and deconvolved distributions.
-
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/deconv-example.png
-      cm = plt.get_cmap('Dark2').colors
-      fig, ax = plt.subplots(2, 1)
-      h = ax[0].hist(xj, bins=np.arange(xj.max() + 1), color='k')
-      ax[0].set_xlabel('Molecule count')
-      ax[0].set_ylabel('Number of cells')
-
-      ax[1].plot(np.linspace(lam.min(), lam.max(), 1000), gamma_cdf, color=cm[0], lw=1, label='Gamma')
-      ax[1].plot(np.linspace(lam.min(), lam.max(), 1000), point_gamma_cdf, color=cm[1], lw=1, label='Point-Gamma')
-      ax[1].plot(np.array(unimix_cdf.rx2('x')),
-                 np.array(unimix_cdf.rx2('y')).ravel(), c=cm[2], lw=1, label='Unimodal')
-      F = np.cumsum(np.array(descend_res.slots['density.points'])[:,1])
-      ax[1].plot(np.array(descend_res.slots['density.points'])[:,0],
-                 F / F.max(), c=cm[3], lw=1, label='ZIEF')
-      ax[1].plot(np.array(npmle_cdf.rx2('x')),
-                 np.array(npmle_cdf.rx2('y')).ravel(), c=cm[4], lw=1, label='NPMLE')
-      ax[1].set_xlabel('Latent gene expression')
-      ax[1].set_ylabel('CDF')
-
-      ax[1].legend(frameon=False)
-
-      fig.tight_layout()
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[16]:
-    [[file:figure/deconvolution.org/deconv-example.png]]
-    :END:
-
-    Print out the histogram for inspection.
-
-    #+BEGIN_SRC ipython
-      np.vstack((h[1][:-1], h[0])).T
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[52]:
-    #+BEGIN_EXAMPLE
-      array([[  0.,   0.],
-      [  1.,   1.],
-      [  2.,   1.],
-      [  3.,   0.],
-      [  4.,   0.],
-      [  5.,   0.],
-      [  6.,   1.],
-      [  7.,   0.],
-      [  8.,   1.],
-      [  9.,   5.],
-      [ 10.,   8.],
-      [ 11.,   4.],
-      [ 12.,   9.],
-      [ 13.,   9.],
-      [ 14.,   8.],
-      [ 15.,  20.],
-      [ 16.,  17.],
-      [ 17.,  24.],
-      [ 18.,  31.],
-      [ 19.,  44.],
-      [ 20.,  39.],
-      [ 21.,  41.],
-      [ 22.,  46.],
-      [ 23.,  72.],
-      [ 24.,  68.],
-      [ 25.,  74.],
-      [ 26.,  74.],
-      [ 27.,  86.],
-      [ 28.,  94.],
-      [ 29., 114.],
-      [ 30.,  96.],
-      [ 31., 102.],
-      [ 32., 120.],
-      [ 33., 132.],
-      [ 34., 161.],
-      [ 35., 138.],
-      [ 36., 159.],
-      [ 37., 197.],
-      [ 38., 186.],
-      [ 39., 210.],
-      [ 40., 232.],
-      [ 41., 244.],
-      [ 42., 284.],
-      [ 43., 309.],
-      [ 44., 321.],
-      [ 45., 332.],
-      [ 46., 342.],
-      [ 47., 371.],
-      [ 48., 349.],
-      [ 49., 356.],
-      [ 50., 317.],
-      [ 51., 343.],
-      [ 52., 347.],
-      [ 53., 342.],
-      [ 54., 308.],
-      [ 55., 294.],
-      [ 56., 274.],
-      [ 57., 272.],
-      [ 58., 241.],
-      [ 59., 219.],
-      [ 60., 191.],
-      [ 61., 164.],
-      [ 62., 145.],
-      [ 63., 144.],
-      [ 64., 120.],
-      [ 65., 121.],
-      [ 66., 100.],
-      [ 67.,  95.],
-      [ 68.,  69.],
-      [ 69.,  62.],
-      [ 70.,  53.],
-      [ 71.,  47.],
-      [ 72.,  52.],
-      [ 73.,  32.],
-      [ 74.,  35.],
-      [ 75.,  36.],
-      [ 76.,  30.],
-      [ 77.,  28.],
-      [ 78.,  20.],
-      [ 79.,  27.],
-      [ 80.,  26.],
-      [ 81.,  21.],
-      [ 82.,  12.],
-      [ 83.,  12.],
-      [ 84.,   9.],
-      [ 85.,   7.],
-      [ 86.,  12.],
-      [ 87.,   8.],
-      [ 88.,   9.],
-      [ 89.,   6.],
-      [ 90.,   4.],
-      [ 91.,   5.],
-      [ 92.,   2.],
-      [ 93.,   2.],
-      [ 94.,   2.],
-      [ 95.,   3.],
-      [ 96.,   1.],
-      [ 97.,   2.],
-      [ 98.,   2.],
-      [ 99.,   0.],
-      [100.,   0.],
-      [101.,   0.],
-      [102.,   1.],
-      [103.,   1.],
-      [104.,   0.],
-      [105.,   0.],
-      [106.,   2.]])
-    #+END_EXAMPLE
-    :END:
-
-    Look at what is going on with NPMLE.
-
-    #+BEGIN_SRC ipython
-      res0 = ashr.ash_workhorse(
-        pd.Series(np.zeros(x.shape[0])),
-        1,
-        outputlevel=pd.Series(['fitted_g', 'loglik']),
-        lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
-        g=ashr.unimix(pd.Series(np.ones(100) / 100), pd.Series(grid[:-1]), pd.Series(grid[1:])))
-      res1 = ashr.ash_workhorse(
-        pd.Series(np.zeros(x.shape[0])),
-        1,
-        outputlevel=pd.Series(['fitted_g', 'loglik']),
-        lik=ashr.lik_pois(y=xj, scale=size_factor, link='identity'),
-        g=ashr.unimix(pd.Series(np.ones(200) / 200), pd.Series(grid[:-1]), pd.Series(grid[1:])))
-    #+END_SRC
-
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/npmle-example.png
-      plt.clf()
-      plt.gcf().set_size_inches(4, 2)
-      grid = np.linspace(lam.min(), lam.max(), 1000)
-      plt.plot(grid, np.array(ashr.cdf_ash(res0, grid)[1]).ravel(), label='NPMLE (100 components)', lw=1, c='k')
-      plt.plot(grid, np.array(ashr.cdf_ash(res1, grid)[1]).ravel(), label='NPMLE (200 components)', lw=2, ls=':', c='r')
-      plt.legend(frameon=False)
-      plt.xlabel('Latent gene expression')
-      plt.ylabel('CDF')
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[40]:
-    : Text(0, 0.5, 'CDF')
-    [[file:figure/deconvolution.org/npmle-example.png]]
-    :END:
-
-    #+BEGIN_SRC ipython
-      np.array(res0.rx2('loglik')) - np.array(res1.rx2('loglik'))
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[41]:
-    : array([0.])
-    :END:
-
+** Homogeneous cell populations
 *** Run the benchmark
     :PROPERTIES:
     :CUSTOM_ID: homogeneous-results

@@ -21,7 +21,7 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="scmodes",partition="mstephens",mem="16G") :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
   : Submitted batch job 60042226

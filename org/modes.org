@@ -16,10 +16,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(mem="16G",partition="broadwl",venv="scmodes") :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(memory="16G",partition="mstephens",venv="scqtl") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 59789688
+  : Submitted batch job 60043251
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -38,6 +38,11 @@
     ashr = rpy2.robjects.packages.importr('ashr')
     mixsqp = rpy2.robjects.packages.importr('mixsqp')
   #+END_SRC
+
+  #+RESULTS: imports
+  :RESULTS:
+  # Out[1]:
+  :END:
 
   #+RESULTS:
   :RESULTS:
