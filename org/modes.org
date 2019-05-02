@@ -70,7 +70,8 @@
   # Out[3]:
   :END:
 
-* Distribution of log CPM across cells
+* Results
+** Distribution of log CPM across cells
 
   Reproduce [[https://media.springernature.com/lw785/springer-static/image/art%253A10.1186%252Fs13059-016-0927-y/MediaObjects/13059_2016_927_Fig1_HTML.gif][Fig 1C]] from [[https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0927-y#Sec13][Bacher and Kendziorski 2016]].  
 
@@ -201,7 +202,7 @@
   The results suggest that Gaussian mixture modeling of log-transformed data
   does not give the right answer. Further, they suggest that GMM overfits the
   data (despite optimizing BIC).
-* Pseudocount
+** Pseudocount
 
   When computing log-transformed expression values, we need to introduce a
   pseudocount \(\epsilon\) to deal with observations of zero.
@@ -246,7 +247,7 @@
   # Out[190]:
   [[file:figure/pitfalls.org/log-cpm-modes.png]]
   :END:
-* Shalek et al. 2013
+** Shalek et al. 2013
 
   [[https://www.nature.com/articles/nature12172][Shalek et al. 2013]] generated
   scRNA-seq of 18 mouse bone-marrow--derived dendritic cells activated by
@@ -365,7 +366,7 @@
   # Out[35]:
   [[file:figure/modes.org/shalek-tpm-dist.png]]
   :END:
-* Shalek et al. 2014
+** Shalek et al. 2014
 
   [[https://www.nature.com/articles/nature13437][Shalek et al. 2014]]
   performed scRNA-seq of >

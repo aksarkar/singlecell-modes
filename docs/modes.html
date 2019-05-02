@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-04-29 Mon 10:53 -->
+<!-- 2019-05-02 Thu 10:01 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Estimating the number of modes</title>
@@ -260,10 +260,14 @@ for the JavaScript code in this tag.
 <ul>
 <li><a href="#orgbfe4f89">Introduction</a></li>
 <li><a href="#org24ddfec">Setup</a></li>
+<li><a href="#orgaafe633">Results</a>
+<ul>
 <li><a href="#org90e9643">Distribution of log CPM across cells</a></li>
 <li><a href="#org48bfff1">Pseudocount</a></li>
 <li><a href="#org7755300">Shalek et al. 2013</a></li>
 <li><a href="#org077586d">Shalek et al. 2014</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </div>
@@ -314,9 +318,13 @@ rpy2.robjects.numpy2ri.activate()
 </div>
 </div>
 
-<div id="outline-container-org90e9643" class="outline-2">
-<h2 id="org90e9643">Distribution of log CPM across cells</h2>
-<div class="outline-text-2" id="text-org90e9643">
+<div id="outline-container-orgaafe633" class="outline-2">
+<h2 id="orgaafe633">Results</h2>
+<div class="outline-text-2" id="text-orgaafe633">
+</div>
+<div id="outline-container-org90e9643" class="outline-3">
+<h3 id="org90e9643">Distribution of log CPM across cells</h3>
+<div class="outline-text-3" id="text-org90e9643">
 <p>
 Reproduce <a href="https://media.springernature.com/lw785/springer-static/image/art%3A10.1186%2Fs13059-016-0927-y/MediaObjects/13059_2016_927_Fig1_HTML.gif">Fig 1C</a> from <a href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-016-0927-y#Sec13">Bacher and Kendziorski 2016</a>.  
 </p>
@@ -448,9 +456,9 @@ data (despite optimizing BIC).
 </p>
 </div>
 </div>
-<div id="outline-container-org48bfff1" class="outline-2">
-<h2 id="org48bfff1">Pseudocount</h2>
-<div class="outline-text-2" id="text-org48bfff1">
+<div id="outline-container-org48bfff1" class="outline-3">
+<h3 id="org48bfff1">Pseudocount</h3>
+<div class="outline-text-3" id="text-org48bfff1">
 <p>
 When computing log-transformed expression values, we need to introduce a
 pseudocount \(\epsilon\) to deal with observations of zero.
@@ -499,9 +507,9 @@ fig.tight_layout()
 </div>
 </div>
 </div>
-<div id="outline-container-org7755300" class="outline-2">
-<h2 id="org7755300">Shalek et al. 2013</h2>
-<div class="outline-text-2" id="text-org7755300">
+<div id="outline-container-org7755300" class="outline-3">
+<h3 id="org7755300">Shalek et al. 2013</h3>
+<div class="outline-text-3" id="text-org7755300">
 <p>
 <a href="https://www.nature.com/articles/nature12172">Shalek et al. 2013</a> generated
 scRNA-seq of 18 mouse bone-marrow&#x2013;derived dendritic cells activated by
@@ -627,9 +635,9 @@ plt.tight_layout()
 </div>
 </div>
 </div>
-<div id="outline-container-org077586d" class="outline-2">
-<h2 id="org077586d">Shalek et al. 2014</h2>
-<div class="outline-text-2" id="text-org077586d">
+<div id="outline-container-org077586d" class="outline-3">
+<h3 id="org077586d">Shalek et al. 2014</h3>
+<div class="outline-text-3" id="text-org077586d">
 <p>
 <a href="https://www.nature.com/articles/nature13437">Shalek et al. 2014</a>
 performed scRNA-seq of &gt;
@@ -769,9 +777,10 @@ EOF
 </div>
 </div>
 </div>
+</div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-04-29 Mon 10:53</p>
+<p class="date">Created: 2019-05-02 Thu 10:01</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
