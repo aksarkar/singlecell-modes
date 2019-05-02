@@ -218,7 +218,7 @@
    #+END_SRC
 
    #+BEGIN_SRC sh :noweb eval :session mstephens :dir /scratch/midway2/aksarkar/modes :results none
-     python -i <<EOF
+     python <<EOF
      <<imports>>
      cortex = scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
      res = scmodes.benchmark.evaluate_lra_generalization(cortex, methods=['glmpca'], n_trials=1) 

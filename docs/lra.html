@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-01 Wed 19:00 -->
+<!-- 2019-05-01 Wed 22:25 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Low rank approximation</title>
@@ -525,7 +525,7 @@ EOF
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">python -i &lt;&lt;EOF
+<pre class="src src-sh">python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
 cortex = scmodes.dataset.cortex(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz'</span>, <span class="org-variable-name">return_df</span>=True)
 res = scmodes.benchmark.evaluate_lra_generalization(cortex, <span class="org-variable-name">methods</span>=[<span class="org-string">'glmpca'</span>], <span class="org-variable-name">n_trials</span>=1) 
@@ -565,7 +565,7 @@ EOF
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-01 Wed 19:00</p>
+<p class="date">Created: 2019-05-01 Wed 22:25</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
