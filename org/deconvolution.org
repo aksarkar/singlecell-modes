@@ -31,10 +31,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(memory="16G",partition="broadwl",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
+  #+CALL: ipython3(memory="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 60043896
+  : Submitted batch job 60089354
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -539,30 +539,40 @@
    :CUSTOM_ID: spike-ins
    :END:
 
-   [[https://www.biorxiv.org/content/10.1101/582064v1][Svensson 2019]] claims
-   that there should be no heterogeneity between samples in spike-ins. However,
-   there is random sampling of molecules in the spike-in protocol, which will
-   introduce noise. This was previously established by
+   [[https://www.biorxiv.org/content/10.1101/582064v1][Svensson 2019]] analyze
+   negative control data in which only spike-in data is sequenced. 
+
+   He claims that there should be no heterogeneity between samples in
+   spike-ins. However, there is random sampling of molecules in the spike-in
+   protocol, which will introduce noise. This was previously established by
    [[https://www.pnas.org/content/115/28/E6437/][Wang et al. 2018]].
+
+   Further, [[http://dx.doi.org/10.1038/srep39921][Tung et al. 2016]] establish
+   that in spike-in data added to real cells, there is considerable
+   heterogeneity in efficiency not just between cells, but also donor
+   individuals.
 
    #+NAME: ercc-data
    #+BEGIN_SRC ipython
      def read_chromium(sample):
        x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/svensson_chromium_control.h5ad')
+       x = scanpy.filter_genes(min_counts=1)
        return x[x.obs['sample'] == sample][:,x.var.filter(like='ERCC', axis='index').index].X.A
 
      def read_dropseq():
        x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/macosko_dropseq_control.h5ad')
+       x = scanpy.filter_genes(min_counts=1)
        return x[:,x.var.filter(like='ERCC', axis='index').index].X.A
 
      def read_indrops():
        x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/klein_indrops_control.h5ad')
+       x = scanpy.filter_genes(min_counts=1)
        return x[:,x.var.filter(like='ERCC', axis='index').index].X.A
 
      def read_c1():
        x = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/ercc-counts.txt.gz', sep='\t', index_col=0)
        keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', header=None, index_col=0, sep='\t')
-       return x.loc[:,keep_samples.values.ravel()].T
+       return x.loc[x.sum(axis=0) > 0,keep_samples.values.ravel()].T
 
      data = {
        'dropseq': read_dropseq,
@@ -576,119 +586,197 @@
 
    #+RESULTS: ercc-data
    :RESULTS:
-   # Out[4]:
+   # Out[24]:
    :END:
 
-   #+NAME: run-ercc-benchmark-cpu
-   #+BEGIN_SRC ipython :eval never
-     <<imports>>
-     import os
-     <<ercc-data>>
-     cpu_methods = ['unimodal', 'zief', 'npmle']
-     tasks = [(d, c) for d in data for c in cpu_methods]
-     dataset, method = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-     with mp.Pool() as pool:
-       x = data[dataset]()
-       res = scmodes.benchmark.evaluate_deconv_generalization(x, pool=pool, methods=[method])
-       res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{dataset}-{method}.txt.gz', sep='\t', compression='gzip')
-   #+END_SRC
+*** Run the benchmark
 
-   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch -a 6 --partition=broadwl -n1 -c28 --exclusive --time=4:00:00 --mem=16G --job-name=deconv-generalization --out=benchmark-cpu.out
-     #!/bin/bash
-     source activate scmodes
-     python <<EOF
-     <<run-ercc-benchmark-cpu>>
-     EOF
-   #+END_SRC
+    #+NAME: run-ercc-benchmark-cpu
+    #+BEGIN_SRC ipython :eval never
+      <<imports>>
+      import os
+      <<ercc-data>>
+      cpu_methods = ['unimodal', 'zief', 'npmle']
+      tasks = [(d, c) for d in data for c in cpu_methods]
+      dataset, method = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+      with mp.Pool() as pool:
+        x = data[dataset]()
+        res = scmodes.benchmark.evaluate_deconv_generalization(x, pool=pool, methods=[method])
+        res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{dataset}-{method}.txt.gz', sep='\t', compression='gzip')
+    #+END_SRC
 
-   #+RESULTS:
-   : Submitted batch job 60061644
+    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+      sbatch -a 0-14 --partition=broadwl -n1 -c28 --exclusive --time=4:00:00 --mem=16G --job-name=deconv-generalization --out=benchmark-cpu.out
+      #!/bin/bash
+      source activate scmodes
+      python <<EOF
+      <<run-ercc-benchmark-cpu>>
+      EOF
+    #+END_SRC
 
-   #+NAME: run-ercc-benchmark-gpu
-   #+BEGIN_SRC ipython :eval never
-     <<imports>>
-     <<ercc-data>>
-     for dataset in data:
-       x = data[dataset]()
-       res = scmodes.benchmark.evaluate_deconv_generalization(x, pool=None, methods=['gamma', 'point_gamma'])
-       res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{dataset}-gpu.txt.gz', sep='\t', compression='gzip')
-   #+END_SRC
+    #+RESULTS:
+    : Submitted batch job 60089371
 
-   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=4G --time=60:00 --job-name=deconv-generalization --out=benchmark-gpu.out
-     #!/bin/bash
-     source activate scmodes
-     python <<EOF
-     <<run-ercc-benchmark-gpu>>
-     EOF
-   #+END_SRC
+    #+NAME: run-ercc-benchmark-gpu
+    #+BEGIN_SRC ipython :eval never
+      <<imports>>
+      <<ercc-data>>
+      for dataset in data:
+        x = data[dataset]()
+        res = scmodes.benchmark.evaluate_deconv_generalization(x, pool=None, methods=['gamma', 'point_gamma'])
+        res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{dataset}-gpu.txt.gz', sep='\t', compression='gzip')
+    #+END_SRC
 
-   #+RESULTS:
-   : Submitted batch job 60029632
+    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+      sbatch --partition=gpu2 --gres=gpu:1 --mem=4G --time=60:00 --job-name=deconv-generalization --out=benchmark-gpu.out
+      #!/bin/bash
+      source activate scmodes
+      python <<EOF
+      <<run-ercc-benchmark-gpu>>
+      EOF
+    #+END_SRC
 
-   Read the results.
+    #+RESULTS:
+    : Submitted batch job 60029632
 
-   #+BEGIN_SRC ipython
-     benchmark = {}
-     for data in ('dropseq', 'indrops', 'chromium1', 'chromium2', 'gemcode', 'c1'):
-       benchmark[data] = (
-         pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', index_col=0, sep='\t')
-         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
-         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-zief.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
-         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True))
-   #+END_SRC
+    Read the results.
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[8]:
-   :END:
+    #+BEGIN_SRC ipython
+      benchmark = {}
+      for data in ('dropseq', 'indrops', 'chromium1', 'chromium2', 'gemcode'):
+        benchmark[data] = (
+          pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', index_col=0, sep='\t')
+          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
+          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-zief.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
+          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True))
+    #+END_SRC
 
-   Plot the generalization performance of each method.
+    #+RESULTS:
+    :RESULTS:
+    # Out[20]:
+    :END:
 
-   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/control-benchmark.png
-     fig, ax = plt.subplots(1, 3)
-     fig.set_size_inches(7, 3)
-     for i, k in enumerate(sorted(benchmark.keys())):
-       ax[i].boxplot((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:],
-                     widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       ax[i].set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-       ax[i].set_xlabel('Assumed latent dist')
-       ax[i].set_title(k)
-     ax[0].set_ylabel('Diff val set log lik from Gamma')
-     fig.tight_layout()
-   #+END_SRC
+    Plot the generalization performance of each method.
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[15]:
-   [[file:figure/deconvolution.org/homogeneous-benchmark.png]]
-   :END:
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/control-benchmark.png
+      fig, ax = plt.subplots(1, 5, sharey=True)
+      fig.set_size_inches(7, 3)
+      for a, k in zip(ax.ravel(), sorted(benchmark.keys())):
+        T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
+        T = np.ma.masked_invalid(T).filled(0)
+        a.boxplot(T, widths=.5, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+        a.set_title(k)
+      ax[2].set_xlabel('Assumed latent dist')
+      ax[0].set_ylabel('Diff val set log lik from Gamma')
+      fig.tight_layout()
+    #+END_SRC
 
-   Zoom in on the relevant part of the plot.
+    #+RESULTS:
+    :RESULTS:
+    # Out[21]:
+    [[file:figure/deconvolution.org/control-benchmark.png]]
+    :END:
 
-   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/control-benchmark-inset.png
-     fig, ax = plt.subplots(1, 3)
-     fig.set_size_inches(7, 3)
-     for a, k, t in zip(ax, sorted(benchmark.keys()), ('B cells', 'Cytotoxic T cells', 'iPSCs')):
-       T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
-       a.boxplot(T, widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       a.axhline(y=0, ls=':', lw=1, c='k')
-       a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-       a.set_xlabel('Assumed latent dist')
-       a.set_ylim(-20, 1.05 * T.max())
-       a.set_title(t)
-     ax[0].set_ylabel('Diff val set log lik from Gamma')
-     fig.tight_layout()
-   #+END_SRC
+    Zoom in on the relevant part of the plot.
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[17]:
-   [[file:figure/deconvolution.org/homogeneous-benchmark-inset.png]]
-   :END:
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/control-benchmark-inset.png
+      fig, ax = plt.subplots(1, 5, sharey=True)
+      fig.set_size_inches(7, 3)
+      ax[0].set_ylim(-20, 150)
+      for a, k in zip(ax.ravel(), sorted(benchmark.keys())):
+        T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
+        T = np.ma.masked_invalid(T).filled(0)
+        a.boxplot(T, widths=.5, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+        a.axhline(y=0, ls=':', lw=1, c='k')
+        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+        a.set_title(k)
+      ax[2].set_xlabel('Assumed latent dist')
+      ax[0].set_ylabel('Diff val set log lik from Gamma')
+      fig.tight_layout()
+    #+END_SRC
 
-   *Conclusions:*
+    #+RESULTS:
+    :RESULTS:
+    # Out[23]:
+    [[file:figure/deconvolution.org/control-benchmark-inset.png]]
+    :END:
+
+    *Conclusions:*
+
+    1. ZIG does not perform better than Gamma, supporting the conclusions of
+       [[https://www.biorxiv.org/content/10.1101/582064v1][Svensson 2019]]
+    2. ZIEF overfits
+    3. There is heterogeneity which isn't adequately described by Gamma, but is
+       described equally well by unimodal and NPMLE
+
+*** Look at genes favoring more complex models
+
+    We are primarily interested in cases where NPMLE does better than unimodal,
+    because these could potentially be cases where zeros drive the difference
+    in generalization performance.
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/chromium1-npmle-examples.png
+      chromium1 = data['chromium1']()
+      llik_diff = benchmark['chromium1']['npmle'] - benchmark['chromium1']['unimodal']
+      query = benchmark['chromium1'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
+      plt.clf()
+      fig, ax = plt.subplots(4, 3)
+      fig.set_size_inches(7, 5)
+      for a, k in zip(ax.ravel(), query):
+        a.hist(chromium1[:,k], bins=np.arange(chromium1[:,k].max() + 1), color='k')
+        a.text(x=.95, y=.95,
+               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
+               horizontalalignment='right',
+               verticalalignment='top',
+               transform=a.transAxes)
+      for y in range(ax.shape[0]):
+        ax[y][0].set_ylabel('Num cells')
+      for x in range(ax.shape[1]):
+        ax[-1][x].set_xlabel('Num mols')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[34]:
+    [[file:figure/deconvolution.org/chromium1-npmle-examples.png]]
+    :END:
+
+    #+BEGIN_SRC ipython
+      dropseq = data['dropseq']()
+      llik_diff = benchmark['dropseq']['npmle'] - benchmark['dropseq']['unimodal']
+      query = benchmark['dropseq'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[41]:
+    :END:
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/dropseq-npmle-examples.png
+      plt.clf()
+      fig, ax = plt.subplots(4, 3)
+      fig.set_size_inches(7, 5)
+      for a, k in zip(ax.ravel(), query):
+        a.hist(dropseq[:,k], bins=np.arange(dropseq[:,k].max() + 1), color='k')
+        a.text(x=.95, y=.95,
+               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
+               horizontalalignment='right',
+               verticalalignment='top',
+               transform=a.transAxes)
+      for y in range(ax.shape[0]):
+        ax[y][0].set_ylabel('Num cells')
+      for x in range(ax.shape[1]):
+        ax[-1][x].set_xlabel('Num mols')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[43]:
+    [[file:figure/deconvolution.org/dropseq-npmle-examples.png]]
+    :END:
 
 ** Homogeneous cell populations
    :PROPERTIES:
@@ -2016,3 +2104,4 @@
     # Out[84]:
     [[file:figure/deconvolution.org/cortex-scn2a.png]]
     :END:
+
