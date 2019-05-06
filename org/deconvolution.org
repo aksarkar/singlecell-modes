@@ -34,7 +34,7 @@
   #+CALL: ipython3(memory="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 60089354
+  : Submitted batch job 60156761
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -556,37 +556,42 @@
    #+BEGIN_SRC ipython
      def read_chromium(sample):
        x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/svensson_chromium_control.h5ad')
-       x = scanpy.filter_genes(min_counts=1)
+       scanpy.pp.filter_genes(x, min_counts=1)
        return x[x.obs['sample'] == sample][:,x.var.filter(like='ERCC', axis='index').index].X.A
 
      def read_dropseq():
        x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/macosko_dropseq_control.h5ad')
-       x = scanpy.filter_genes(min_counts=1)
+       scanpy.pp.filter_genes(x, min_counts=1)
        return x[:,x.var.filter(like='ERCC', axis='index').index].X.A
 
      def read_indrops():
        x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/klein_indrops_control.h5ad')
-       x = scanpy.filter_genes(min_counts=1)
+       scanpy.pp.filter_genes(x, min_counts=1)
        return x[:,x.var.filter(like='ERCC', axis='index').index].X.A
+
+     def read_gemcode():
+       x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/zheng_gemcode_control.h5ad')
+       scanpy.pp.filter_genes(x, min_counts=1)
+       return x.X.A
 
      def read_c1():
        x = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/ercc-counts.txt.gz', sep='\t', index_col=0)
        keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', header=None, index_col=0, sep='\t')
-       return x.loc[x.sum(axis=0) > 0,keep_samples.values.ravel()].T
+       return x.loc[:,np.logical_and((x.sum(axis=0) > 0).values, keep_samples.values.ravel())].values.T
 
      data = {
        'dropseq': read_dropseq,
        'indrops': read_indrops,
        'chromium1': lambda: read_chromium('20311'),
        'chromium2': lambda: read_chromium('20312'),
-       'gemcode': lambda: scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/zheng_gemcode_control.h5ad').X.A,
+       'gemcode': read_gemcode,
        'c1': read_c1,
      }
    #+END_SRC
 
    #+RESULTS: ercc-data
    :RESULTS:
-   # Out[24]:
+   # Out[43]:
    :END:
 
 *** Run the benchmark
@@ -601,12 +606,12 @@
       dataset, method = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
       with mp.Pool() as pool:
         x = data[dataset]()
-        res = scmodes.benchmark.evaluate_deconv_generalization(x, pool=pool, methods=[method])
+        res = scmodes.benchmark.evaluate_deconv_generalization(x, pool=pool, test_size=0.1, methods=[method])
         res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{dataset}-{method}.txt.gz', sep='\t', compression='gzip')
     #+END_SRC
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch -a 0-14 --partition=broadwl -n1 -c28 --exclusive --time=4:00:00 --mem=16G --job-name=deconv-generalization --out=benchmark-cpu.out
+      sbatch -a 6,16 --partition=broadwl -n1 -c28 --exclusive --time=6:00:00 --mem=16G --job-name=deconv-generalization --out=benchmark-cpu.out
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -615,15 +620,15 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 60089371
+    : Submitted batch job 60156063
 
     #+NAME: run-ercc-benchmark-gpu
-    #+BEGIN_SRC ipython :eval never
+    #+BEGIN_SRC ipython :eval never :noweb tangle :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/temp.py
       <<imports>>
       <<ercc-data>>
-      for dataset in data:
+      for dataset in ('c1',):
         x = data[dataset]()
-        res = scmodes.benchmark.evaluate_deconv_generalization(x, pool=None, methods=['gamma', 'point_gamma'])
+        res = scmodes.benchmark.evaluate_deconv_generalization(x, pool=None, test_size=0.1, methods=['gamma', 'point_gamma'])
         res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{dataset}-gpu.txt.gz', sep='\t', compression='gzip')
     #+END_SRC
 
@@ -637,7 +642,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 60029632
+    : Submitted batch job 60146494
 
     Read the results.
 
