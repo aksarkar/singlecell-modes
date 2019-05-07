@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-03 Fri 14:00 -->
+<!-- 2019-05-07 Tue 11:25 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -849,39 +849,44 @@ individuals.
 <div class="org-src-container">
 <pre class="src src-ipython" id="orge5c16cf"><span class="org-keyword">def</span> <span class="org-function-name">read_chromium</span>(sample):
   <span class="org-variable-name">x</span> = scanpy.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/svensson_chromium_control.h5ad'</span>)
-  <span class="org-variable-name">x</span> = scanpy.filter_genes(min_counts=1)
+  scanpy.pp.filter_genes(x, min_counts=1)
   <span class="org-keyword">return</span> x[x.obs[<span class="org-string">'sample'</span>] == sample][:,x.var.<span class="org-builtin">filter</span>(like=<span class="org-string">'ERCC'</span>, axis=<span class="org-string">'index'</span>).index].X.A
 
 <span class="org-keyword">def</span> <span class="org-function-name">read_dropseq</span>():
   <span class="org-variable-name">x</span> = scanpy.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/macosko_dropseq_control.h5ad'</span>)
-  <span class="org-variable-name">x</span> = scanpy.filter_genes(min_counts=1)
+  scanpy.pp.filter_genes(x, min_counts=1)
   <span class="org-keyword">return</span> x[:,x.var.<span class="org-builtin">filter</span>(like=<span class="org-string">'ERCC'</span>, axis=<span class="org-string">'index'</span>).index].X.A
 
 <span class="org-keyword">def</span> <span class="org-function-name">read_indrops</span>():
   <span class="org-variable-name">x</span> = scanpy.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/klein_indrops_control.h5ad'</span>)
-  <span class="org-variable-name">x</span> = scanpy.filter_genes(min_counts=1)
+  scanpy.pp.filter_genes(x, min_counts=1)
   <span class="org-keyword">return</span> x[:,x.var.<span class="org-builtin">filter</span>(like=<span class="org-string">'ERCC'</span>, axis=<span class="org-string">'index'</span>).index].X.A
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_gemcode</span>():
+  <span class="org-variable-name">x</span> = scanpy.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/zheng_gemcode_control.h5ad'</span>)
+  scanpy.pp.filter_genes(x, min_counts=1)
+  <span class="org-keyword">return</span> x.X.A
 
 <span class="org-keyword">def</span> <span class="org-function-name">read_c1</span>():
   <span class="org-variable-name">x</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/ercc-counts.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
   <span class="org-variable-name">keep_samples</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt'</span>, header=<span class="org-constant">None</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
-  <span class="org-keyword">return</span> x.loc[x.<span class="org-builtin">sum</span>(axis=0) &gt; 0,keep_samples.values.ravel()].T
+  <span class="org-keyword">return</span> x.loc[:,np.logical_and((x.<span class="org-builtin">sum</span>(axis=0) &gt; 0).values, keep_samples.values.ravel())].values.T
 
 <span class="org-variable-name">data</span> = {
   <span class="org-string">'dropseq'</span>: read_dropseq,
   <span class="org-string">'indrops'</span>: read_indrops,
   <span class="org-string">'chromium1'</span>: <span class="org-keyword">lambda</span>: read_chromium(<span class="org-string">'20311'</span>),
   <span class="org-string">'chromium2'</span>: <span class="org-keyword">lambda</span>: read_chromium(<span class="org-string">'20312'</span>),
-  <span class="org-string">'gemcode'</span>: <span class="org-keyword">lambda</span>: scanpy.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/zheng_gemcode_control.h5ad'</span>).X.A,
+  <span class="org-string">'gemcode'</span>: read_gemcode,
   <span class="org-string">'c1'</span>: read_c1,
 }
 </pre>
 </div>
 </div>
 
-<div id="outline-container-org4bf6343" class="outline-4">
-<h4 id="org4bf6343">Run the benchmark</h4>
-<div class="outline-text-4" id="text-org4bf6343">
+<div id="outline-container-org0a04dae" class="outline-4">
+<h4 id="org0a04dae">Run the benchmark</h4>
+<div class="outline-text-4" id="text-org0a04dae">
 <div class="org-src-container">
 <pre class="src src-ipython" id="orgab7cb06">&lt;&lt;imports&gt;&gt;
 <span class="org-keyword">import</span> os
@@ -891,13 +896,13 @@ individuals.
 <span class="org-variable-name">dataset</span>, <span class="org-variable-name">method</span> = tasks[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
 <span class="org-keyword">with</span> mp.Pool() <span class="org-keyword">as</span> pool:
   <span class="org-variable-name">x</span> = data[dataset]()
-  <span class="org-variable-name">res</span> = scmodes.benchmark.evaluate_deconv_generalization(x, pool=pool, methods=[method])
+  <span class="org-variable-name">res</span> = scmodes.benchmark.evaluate_deconv_generalization(x, pool=pool, test_size=0.1, methods=[method])
   res.to_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{dataset}-{method}.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>)
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch -a 0-14 --partition=broadwl -n1 -c28 --exclusive --time=4:00:00 --mem=16G --job-name=deconv-generalization --out=benchmark-cpu.out
+<pre class="src src-sh">sbatch -a 6,16 --partition=broadwl -n1 -c28 --exclusive --time=6:00:00 --mem=16G --job-name=deconv-generalization --out=benchmark-cpu.out
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -909,9 +914,9 @@ EOF
 <div class="org-src-container">
 <pre class="src src-ipython" id="org19278c9">&lt;&lt;imports&gt;&gt;
 &lt;&lt;ercc-data&gt;&gt;
-<span class="org-keyword">for</span> dataset <span class="org-keyword">in</span> data:
+<span class="org-keyword">for</span> dataset <span class="org-keyword">in</span> (<span class="org-string">'c1'</span>,):
   <span class="org-variable-name">x</span> = data[dataset]()
-  <span class="org-variable-name">res</span> = scmodes.benchmark.evaluate_deconv_generalization(x, pool=<span class="org-constant">None</span>, methods=[<span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>])
+  <span class="org-variable-name">res</span> = scmodes.benchmark.evaluate_deconv_generalization(x, pool=<span class="org-constant">None</span>, test_size=0.1, methods=[<span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>])
   res.to_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{dataset}-gpu.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>)
 </pre>
 </div>
@@ -932,7 +937,7 @@ Read the results.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">benchmark</span> = {}
-<span class="org-keyword">for</span> data <span class="org-keyword">in</span> (<span class="org-string">'dropseq'</span>, <span class="org-string">'indrops'</span>, <span class="org-string">'chromium1'</span>, <span class="org-string">'chromium2'</span>, <span class="org-string">'gemcode'</span>):
+<span class="org-keyword">for</span> data <span class="org-keyword">in</span> (<span class="org-string">'dropseq'</span>, <span class="org-string">'indrops'</span>, <span class="org-string">'chromium1'</span>, <span class="org-string">'chromium2'</span>, <span class="org-string">'gemcode'</span>, <span class="org-string">'c1'</span>):
   <span class="org-variable-name">benchmark</span>[data] = (
     pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
     .merge(pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>), left_index=<span class="org-constant">True</span>, right_index=<span class="org-constant">True</span>)
@@ -946,12 +951,13 @@ Plot the generalization performance of each method.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 5, sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(7, 3)
+<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 3)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), <span class="org-builtin">sorted</span>(benchmark.keys())):
   <span class="org-variable-name">T</span> = (benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'gamma'</span>].values.reshape(-1, 1))[:,1:]
   <span class="org-variable-name">T</span> = np.ma.masked_invalid(T).filled(0)
   a.boxplot(T, widths=.5, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
+  a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
   a.set_xticklabels([<span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
   a.set_title(k)
 ax[2].set_xlabel(<span class="org-string">'Assumed latent dist'</span>)
@@ -971,9 +977,9 @@ Zoom in on the relevant part of the plot.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 5, sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(7, 3)
-ax[0].set_ylim(-20, 150)
+<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 3)
+ax[0].set_ylim(0, 1700)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), <span class="org-builtin">sorted</span>(benchmark.keys())):
   <span class="org-variable-name">T</span> = (benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'gamma'</span>].values.reshape(-1, 1))[:,1:]
   <span class="org-variable-name">T</span> = np.ma.masked_invalid(T).filled(0)
@@ -1000,9 +1006,8 @@ fig.tight_layout()
 <ol class="org-ol">
 <li>ZIG does not perform better than Gamma, supporting the conclusions of
 <a href="https://www.biorxiv.org/content/10.1101/582064v1">Svensson 2019</a></li>
-<li>ZIEF overfits</li>
-<li>There is heterogeneity which isn't adequately described by Gamma, but is
-described equally well by unimodal and NPMLE</li>
+<li>There is heterogeneity which isn't adequately described by Gamma, but
+appears equally well described by unimodal/ZIEF/NPMLE</li>
 </ol>
 </div>
 </div>
@@ -1019,7 +1024,7 @@ in generalization performance.
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">chromium1</span> = data[<span class="org-string">'chromium1'</span>]()
 <span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'chromium1'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'chromium1'</span>][<span class="org-string">'unimodal'</span>]
-<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'chromium1'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
+<span class="org-variable-name">query</span> = llik_diff[np.logical_and(chromium1.<span class="org-builtin">sum</span>(axis=0) &gt; 0, llik_diff &gt; 0)].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index
 plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
 fig.set_size_inches(7, 5)
@@ -1045,14 +1050,39 @@ fig.tight_layout()
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">dropseq</span> = data[<span class="org-string">'dropseq'</span>]()
-<span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'dropseq'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'dropseq'</span>][<span class="org-string">'unimodal'</span>]
-<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'dropseq'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
+<pre class="src src-ipython"><span class="org-variable-name">chromium2</span> = data[<span class="org-string">'chromium2'</span>]()
+<span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'chromium2'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'chromium2'</span>][<span class="org-string">'unimodal'</span>]
+<span class="org-variable-name">query</span> = llik_diff[np.logical_and(chromium2.<span class="org-builtin">sum</span>(axis=0) &gt; 0, llik_diff &gt; 0)].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(chromium2[:,k], bins=np.arange(chromium2[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+
 </pre>
 </div>
 
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/chromium2-npmle-examples.png" alt="chromium2-npmle-examples.png">
+</p>
+</div>
+
 <div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
+<pre class="src src-ipython"><span class="org-variable-name">dropseq</span> = data[<span class="org-string">'dropseq'</span>]()
+<span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'dropseq'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'dropseq'</span>][<span class="org-string">'unimodal'</span>]
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'dropseq'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
+plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
 fig.set_size_inches(7, 5)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
@@ -1075,6 +1105,64 @@ fig.tight_layout()
 <p><img src="figure/deconvolution.org/dropseq-npmle-examples.png" alt="dropseq-npmle-examples.png">
 </p>
 </div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gemcode</span> = data[<span class="org-string">'gemcode'</span>]()
+<span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'gemcode'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'gemcode'</span>][<span class="org-string">'unimodal'</span>]
+<span class="org-variable-name">query</span> = llik_diff[np.logical_and(gemcode.<span class="org-builtin">sum</span>(axis=0) &gt; 0, llik_diff &gt; 0)].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(gemcode[:,k], bins=np.arange(gemcode[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/gemcode-npmle-examples.png" alt="gemcode-npmle-examples.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">indrops</span> = data[<span class="org-string">'indrops'</span>]()
+<span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'indrops'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'indrops'</span>][<span class="org-string">'unimodal'</span>]
+<span class="org-variable-name">query</span> = llik_diff[np.logical_and(indrops.<span class="org-builtin">sum</span>(axis=0) &gt; 0, llik_diff &gt; 0)].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(indrops[:,k], bins=np.arange(indrops[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/indrops-npmle-examples.png" alt="indrops-npmle-examples.png">
+</p>
+</div>
 </div>
 </div>
 </div>
@@ -1083,8 +1171,8 @@ fig.tight_layout()
 <h3 id="homogeneous-results"><a id="org3e95935"></a>Homogeneous cell populations</h3>
 <div class="outline-text-3" id="text-homogeneous-results">
 </div>
-<div id="outline-container-org2e36f0a" class="outline-4">
-<h4 id="homogeneous-results"><a id="org2e36f0a"></a>Run the benchmark</h4>
+<div id="outline-container-org37da81b" class="outline-4">
+<h4 id="homogeneous-results"><a id="org37da81b"></a>Run the benchmark</h4>
 <div class="outline-text-4" id="text-homogeneous-results">
 <p>
 Run the benchmark.
@@ -2113,9 +2201,9 @@ Text(0, 0.5, 'Number of cells')
 <h3 id="heterogeneous"><a id="org277d861"></a>Heterogeneous cell populations</h3>
 <div class="outline-text-3" id="text-heterogeneous">
 </div>
-<div id="outline-container-orgfe1d746" class="outline-4">
-<h4 id="orgfe1d746">Run the benchmark</h4>
-<div class="outline-text-4" id="text-orgfe1d746">
+<div id="outline-container-org7ea0c29" class="outline-4">
+<h4 id="org7ea0c29">Run the benchmark</h4>
+<div class="outline-text-4" id="text-org7ea0c29">
 <div class="org-src-container">
 <pre class="src src-ipython" id="org3d7c874"><span class="org-variable-name">data</span> = {
   <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>),
@@ -2438,7 +2526,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-03 Fri 14:00</p>
+<p class="date">Created: 2019-05-07 Tue 11:25</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
