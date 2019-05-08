@@ -1548,9 +1548,12 @@
     #+NAME: run-synthetic-mix-benchmark-gpu
     #+BEGIN_SRC ipython :eval never
       <<imports>>
-      t_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
-      b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True)
+      # Important: filter genes after mixing cells
+      t_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
+      b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
       x, y = scmodes.dataset.synthetic_mix(t_cells, b_cells)
+      keep_genes = (x > 0).mean(axis=0) >= 0.25
+      x = x.loc[:,keep_genes]
       res = scmodes.benchmark.evaluate_deconv_generalization(x.values, stratify=y, pool=None, train_size=0.5, test_size=0.1, random_state=0, methods=['gamma', 'point_gamma'])
       res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/cd8-cd19-mix-gpu.txt.gz', compression='gzip', sep='\t')
     #+END_SRC
@@ -1566,7 +1569,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 59527545
+    : Submitted batch job 60167276
 
     #+NAME: run-synthetic-mix-benchmark-cpu
     #+BEGIN_SRC ipython :eval never
@@ -1593,7 +1596,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 59557827
+    : Submitted batch job 60167299
 
 *** Naive/activated T cell mixture
 
@@ -1728,7 +1731,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[7]:
+    # Out[102]:
     :END:
 
     Look at genes in the T cell/B cell mix where NPMLE has higher validation
@@ -1788,6 +1791,12 @@
     : Text(0, 0.5, 'Number of cells')
     [[file:figure/deconvolution.org/cd74-example.png]]
     :END:
+
+    Look at /CD3/ gene expression.
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cd3-example.png
+    
+    #+END_SRC
 
     Look at genes in the Cytotoxic/naive T cell mix where NPMLE has higher
     validation set log likelihood than NB.'
