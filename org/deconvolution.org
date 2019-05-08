@@ -591,7 +591,7 @@
 
    #+RESULTS: ercc-data
    :RESULTS:
-   # Out[61]:
+   # Out[11]:
    :END:
 
 *** Run the benchmark
@@ -658,7 +658,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[4]:
+    # Out[9]:
     :END:
 
     Plot the generalization performance of each method.
@@ -729,7 +729,7 @@
       fig, ax = plt.subplots(4, 3)
       fig.set_size_inches(7, 5)
       for a, k in zip(ax.ravel(), query):
-        a.hist(chromium1[:,k], bins=np.arange(chromium1[:,k].max() + 1), color='k')
+        a.hist(chromium1[:,k], bins=np.arange(chromium1[:,k].max() + 2), color='k')
         a.text(x=.95, y=.95,
                s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
                horizontalalignment='right',
@@ -744,19 +744,152 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[87]:
+    # Out[12]:
     [[file:figure/deconvolution.org/chromium1-npmle-examples.png]]
     :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/chromium2-npmle-examples.png
+    #+BEGIN_SRC ipython
       chromium2 = data['chromium2']()
       llik_diff = benchmark['chromium2']['npmle'] - benchmark['chromium2']['unimodal']
       query = llik_diff[np.logical_and(chromium2.sum(axis=0) > 0, llik_diff > 0)].sort_values(ascending=False).head(n=12).index
+    #+END_SRC
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/chromium2-npmle-examples.png
       plt.clf()
       fig, ax = plt.subplots(4, 3)
       fig.set_size_inches(7, 5)
       for a, k in zip(ax.ravel(), query):
-        a.hist(chromium2[:,k], bins=np.arange(chromium2[:,k].max() + 1), color='k')
+        a.hist(chromium2[:,k], bins=np.arange(chromium2[:,k].max() + 2), color='k')
+        a.text(x=.95, y=.95,
+               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
+               horizontalalignment='right',
+               verticalalignment='top',
+               transform=a.transAxes)
+      for y in range(ax.shape[0]):
+        ax[y][0].set_ylabel('Num cells')
+      for x in range(ax.shape[1]):
+        ax[-1][x].set_xlabel('Num mols')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[13]:
+    [[file:figure/deconvolution.org/chromium2-npmle-examples.png]]
+    :END:
+
+    Look at the distribution of size factors.
+
+    #+BEGIN_SRC ipython
+      s = chromium2.sum(axis=1)
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[75]:
+    :END:
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/chromium2-size.png
+      plt.clf()
+      plt.gcf().set_size_inches(3, 3)
+      plt.hist(s, color='k', bins=100)
+      plt.axvline(x=1000, c='r', lw=1, ls=':')
+      plt.xlabel('Size factor')
+      plt.ylabel('Number of cells')
+      plt.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[566]:
+    [[file:figure/deconvolution.org/chromium2-size.png]]
+    :END:
+
+    Show that the bimodal distribution of counts is totally explained by the
+    bimodal distribution of size factors. 
+
+    #+NAME: mix-nb
+    #+BEGIN_SRC ipython
+      import scipy.optimize as so
+      import scipy.special as sp
+
+      def log(x):
+        return np.log(x + 1e-8)
+
+      def nb_llik(x, mean, inv_disp):
+        return (x * log(mean / inv_disp) -
+                x * log(1 + mean / inv_disp) -
+                inv_disp * log(1 + mean / inv_disp) +
+                sp.gammaln(x + inv_disp) -
+                sp.gammaln(inv_disp) -
+                sp.gammaln(x + 1))
+
+      def objective(theta, x, z):
+        mean = np.exp(theta[0]) + 1e-8
+        inv_disp = np.exp(theta[1]) + 1e-8
+        return -nb_llik(x, mean, inv_disp).sum()
+
+      def check_result(opt):
+        return (opt.success and
+                np.isfinite(opt.fun) and
+                np.isfinite(opt.jac).all())
+
+      def init(n_components, x, z):
+        theta = np.random.normal(size=(2, n_components))
+        for j in range(n_components):
+          theta[0,j] = np.log(x[z[:,j] > 0.5].mean())
+        return theta
+
+      def mstep(theta, x, z):
+        n_components = theta.shape[1]
+        theta1 = np.zeros(theta.shape)
+        x0 = init(n_components, x, z)
+        for j in range(n_components):
+          mstep = so.minimize(objective, x0=x0[:,j], args=(x, z[:,j]), method='CG')
+          if not check_result(mstep):
+            raise RuntimeError('M step failed to converge')
+          theta1[:,j] = mstep.x
+        return theta1
+
+      def mix_nb(x, n_components=2, max_iters=1000, max_retries=10):
+        """Fit mixture of negative binomials via EM"""
+        x = x.reshape(-1, 1)
+        n = x.shape[0]
+        z = np.random.uniform(size=(n, n_components))
+        z /= z.sum(axis=1, keepdims=True)
+        theta = init(n_components, x, z)
+
+        obj = np.inf
+        for i in range(max_iters):
+          theta1 = mstep(theta, x, z)
+          update = np.array([objective(t, x, z) for t in theta1.T]).sum()
+          assert np.isfinite(update)
+          if update > obj:
+            raise RuntimeError('objective decreased')
+          elif np.isclose(update, obj):
+            print(f'{i}: {obj}')
+            return z, theta, obj
+          else:
+            obj = update
+            print(f'{i}: {obj}')
+            theta = theta1
+            # E step
+            z = sp.softmax(nb_llik(x, np.exp(theta[0]), np.exp(theta[1])), axis=1)
+        raise RuntimeError('failed to converge')
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[556]:
+    :END:
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/chromium2-npmle-examples-bimodal.png
+      plt.clf()
+      fig, ax = plt.subplots(4, 3)
+      fig.set_size_inches(7, 5)
+      for a, k in zip(ax.ravel(), query):
+        n, *_ = a.hist(chromium2[s < 1000,k], bins=np.arange(chromium2[:,k].max() + 2), color='k')
+        a.hist(chromium2[s >= 1000,k], bottom=n, bins=np.arange(chromium2[:,k].max() + 2), color='r')
         a.text(x=.95, y=.95,
                s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
                horizontalalignment='right',
@@ -772,8 +905,8 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[90]:
-    [[file:figure/deconvolution.org/chromium2-npmle-examples.png]]
+    # Out[567]:
+    [[file:figure/deconvolution.org/chromium2-npmle-examples-bimodal.png]]
     :END:
 
     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/dropseq-npmle-examples.png
@@ -784,7 +917,7 @@
       fig, ax = plt.subplots(4, 3)
       fig.set_size_inches(7, 5)
       for a, k in zip(ax.ravel(), query):
-        a.hist(dropseq[:,k], bins=np.arange(dropseq[:,k].max() + 1), color='k')
+        a.hist(dropseq[:,k], bins=np.arange(dropseq[:,k].max() + 2), color='k')
         a.text(x=.95, y=.95,
                s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
                horizontalalignment='right',
@@ -799,7 +932,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[95]:
+    # Out[14]:
     [[file:figure/deconvolution.org/dropseq-npmle-examples.png]]
     :END:
 
@@ -811,7 +944,7 @@
       fig, ax = plt.subplots(4, 3)
       fig.set_size_inches(7, 5)
       for a, k in zip(ax.ravel(), query):
-        a.hist(gemcode[:,k], bins=np.arange(gemcode[:,k].max() + 1), color='k')
+        a.hist(gemcode[:,k], bins=np.arange(gemcode[:,k].max() + 2), color='k')
         a.text(x=.95, y=.95,
                s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
                horizontalalignment='right',
@@ -827,7 +960,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[96]:
+    # Out[15]:
     [[file:figure/deconvolution.org/gemcode-npmle-examples.png]]
     :END:
 
@@ -839,7 +972,7 @@
       fig, ax = plt.subplots(4, 3)
       fig.set_size_inches(7, 5)
       for a, k in zip(ax.ravel(), query):
-        a.hist(indrops[:,k], bins=np.arange(indrops[:,k].max() + 1), color='k')
+        a.hist(indrops[:,k], bins=np.arange(indrops[:,k].max() + 2), color='k')
         a.text(x=.95, y=.95,
                s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
                horizontalalignment='right',
@@ -855,7 +988,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[97]:
+    # Out[16]:
     [[file:figure/deconvolution.org/indrops-npmle-examples.png]]
     :END:
 
