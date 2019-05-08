@@ -34,7 +34,7 @@
   #+CALL: ipython3(memory="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 60165808
+  : Submitted batch job 60183866
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -1739,9 +1739,11 @@
 
     #+NAME: cyto-naive-mix
     #+BEGIN_SRC ipython
-      cyto = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19', return_df=True)
-      naive = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_cytotoxic/filtered_matrices_mex/hg19', return_df=True)
+      cyto = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19', return_df=True, min_detect=0)
+      naive = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_cytotoxic/filtered_matrices_mex/hg19', return_df=True, min_detect=0)
       x, y = scmodes.dataset.synthetic_mix(cyto, naive)
+      keep_genes = (x > 0).mean(axis=0) >= 0.25
+      x = x.loc[:,keep_genes]
     #+END_SRC
 
     #+RESULTS:
@@ -1750,7 +1752,7 @@
     :END:
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=1:00:00 --job-name=benchmark --output=benchmark-gpu.out
+      sbatch --partition=gpu2 --gres=gpu:1 --mem=32G --time=1:00:00 --job-name=benchmark --output=benchmark-gpu.out
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -1763,10 +1765,10 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 59557262
+    : Submitted batch job 60173767
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=broadwl -a 0 -n1 -c28 --exclusive --mem=16G --time=24:00:00 --job-name=benchmark --output=benchmark-cpu.out
+      sbatch --partition=broadwl -a 0-2 -n1 -c28 --exclusive --mem=32G --time=24:00:00 --job-name=benchmark --output=benchmark-cpu.out
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -1783,7 +1785,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 59642575
+    : Submitted batch job 60183700
 
 *** Plot the results
 
@@ -1812,6 +1814,7 @@
       for a, k, t in zip(ax, sorted(benchmark.keys()), ['T cell/B cell', 'Cytotoxic/Naive T cell']):
         a.boxplot((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:],
                   widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+        a.axhline(y=0, ls=':', lw=1, c='k')
         a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
         a.set_xlabel('Assumed latent dist')
         a.set_title(t)
@@ -1821,7 +1824,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[5]:
+    # Out[6]:
     [[file:figure/deconvolution.org/synthetic-mix-benchmark.png]]
     :END:
 
@@ -1836,7 +1839,7 @@
         a.axhline(y=0, ls=':', lw=1, c='k')
         a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
         a.set_xlabel('Assumed latent dist')
-        a.set_ylim(-20, 1.05 * T.max())
+        a.set_ylim(0, 1.05 * T.max())
         a.set_title(t)
       ax[0].set_ylabel('Diff val set log lik from Gamma')
       fig.tight_layout()
@@ -1844,7 +1847,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[5]:
+    # Out[8]:
     [[file:figure/deconvolution.org/synthetic-mix-benchmark-inset.png]]
     :END:
 
@@ -1924,12 +1927,6 @@
     : Text(0, 0.5, 'Number of cells')
     [[file:figure/deconvolution.org/cd74-example.png]]
     :END:
-
-    Look at /CD3/ gene expression.
-
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cd3-example.png
-    
-    #+END_SRC
 
     Look at genes in the Cytotoxic/naive T cell mix where NPMLE has higher
     validation set log likelihood than NB.'
