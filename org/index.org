@@ -18,3 +18,4 @@ Technical details:
 
 - [[file:ash-estmode.org][Speed up ash mode estimation]]
 - [[file:nb-mix.org][Mixture of negative binomials]]
+- [[file:gamma.org][Convergence of Gamma deconvolution]]

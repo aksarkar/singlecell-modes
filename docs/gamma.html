@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2019-05-13 Mon 13:46 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gamma deconvolution</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Gamma deconvolution</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org96216ef">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#org5890ab0">Results</a>
+<ul>
+<li><a href="#org2f78e1c">Simulation</a></li>
+<li><a href="#org6317b2f">Simple CPU implementation</a></li>
+<li><a href="#org1abd9a3">Political Science Computation Laboratory implementation</a></li>
+<li><a href="#orge471267">Comparison of CPU/GPU implementation on real data</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org96216ef" class="outline-2">
+<h2 id="org96216ef">Introduction</h2>
+<div class="outline-text-2" id="text-org96216ef">
+<p>
+Deconvolution assuming Gamma or point-Gamma latent gene expression
+distribution does worse than expected. Investigate why by comparing different
+implementations on an example problem.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org4900b2b" class="outline-2">
+<h2 id="setup"><a id="org4900b2b"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> rpy2.robjects
+<span class="org-keyword">import</span> rpy2.robjects.packages
+<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
+<span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+<span class="org-keyword">import</span> scmodes
+<span class="org-keyword">import</span> scqtl
+<span class="org-keyword">import</span> scqtl.simple
+
+rpy2.robjects.pandas2ri.activate()
+<span class="org-variable-name">pscl</span> = rpy2.robjects.packages.importr(<span class="org-string">'pscl'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans L'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org5890ab0" class="outline-2">
+<h2 id="org5890ab0">Results</h2>
+<div class="outline-text-2" id="text-org5890ab0">
+</div>
+<div id="outline-container-org2f78e1c" class="outline-3">
+<h3 id="org2f78e1c">Simulation</h3>
+<div class="outline-text-3" id="text-org2f78e1c">
+<p>
+Simulate a simple example.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(4)
+<span class="org-variable-name">N</span> = 1000
+<span class="org-variable-name">s</span> = 1e5 * np.ones(N)
+<span class="org-variable-name">mu</span> = 1e-3
+<span class="org-comment-delimiter"># </span><span class="org-comment">Inverse dispersion = 3</span>
+<span class="org-variable-name">u</span> = st.gamma(a=3, scale=1/3).rvs(size=N)
+<span class="org-variable-name">z</span> = (np.random.uniform(size=N) &lt; 0.95).astype(<span class="org-builtin">float</span>)
+<span class="org-variable-name">x</span> = np.random.poisson(lam=s * mu * u * z)
+</pre>
+</div>
+
+<p>
+Report the logit-transformed size of the point mass on zero.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">sp.logit(0.05)
+</pre>
+</div>
+
+<pre class="example">
+-2.9444389791664403
+
+</pre>
+</div>
+</div>
+
+<div id="outline-container-org6317b2f" class="outline-3">
+<h3 id="org6317b2f">Simple CPU implementation</h3>
+<div class="outline-text-3" id="text-org6317b2f">
+<p>
+We implemented Gamma deconvolution using the Nelder-Mead algorithm in the
+<a href="https://github.com/aksarkar/scqtl/">scqtl</a> package.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">res</span> = scqtl.simple.fit_zinb(x, s)
+pd.Series(res, index=[<span class="org-string">'mean'</span>, <span class="org-string">'inv_disp'</span>, <span class="org-string">'logodds'</span>, <span class="org-string">'llik'</span>])
+</pre>
+</div>
+
+<pre class="example">
+mean           0.000999
+inv_disp       3.097253
+logodds       -2.924002
+llik       -5284.263660
+dtype: float64
+</pre>
+</div>
+</div>
+
+<div id="outline-container-org1abd9a3" class="outline-3">
+<h3 id="org1abd9a3">Political Science Computation Laboratory implementation</h3>
+<div class="outline-text-3" id="text-org1abd9a3">
+<p>
+The R package <code>pscl</code> contains a function <code>zeroinfl</code> for fitting
+zero-inflated generalized linear models. We can write simple deconvolution
+problems in this form.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">pscl_zinb</span>(x, s):
+  <span class="org-variable-name">f</span> = rpy2.robjects.Formula(<span class="org-string">'x ~ offset(log(s)) + 1 | 1'</span>)
+  <span class="org-variable-name">f.environment</span>[<span class="org-string">'x'</span>] = x
+  <span class="org-variable-name">f.environment</span>[<span class="org-string">'s'</span>] = s
+  <span class="org-variable-name">res</span> = pscl.zeroinfl(f, dist=<span class="org-string">'negbin'</span>)
+  <span class="org-variable-name">mean</span> = np.exp(np.array(res.rx2(<span class="org-string">'coefficients'</span>).rx2(<span class="org-string">'count'</span>)))
+  <span class="org-variable-name">inv_disp</span> = np.array(res.rx2(<span class="org-string">'theta'</span>))
+  <span class="org-variable-name">logodds</span> = np.array(res.rx2(<span class="org-string">'coefficients'</span>).rx2(<span class="org-string">'zero'</span>))
+  <span class="org-variable-name">llik</span> = np.array(res.rx2(<span class="org-string">'loglik'</span>))
+  <span class="org-keyword">return</span> pd.Series(np.concatenate([mean, inv_disp, logodds, llik]), index=[<span class="org-string">'mean'</span>, <span class="org-string">'inv_disp'</span>, <span class="org-string">'logodds'</span>, <span class="org-string">'llik'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pscl_zinb(x, s)
+</pre>
+</div>
+
+<pre class="example">
+mean           0.000999
+inv_disp       3.097312
+logodds       -2.923963
+llik       -5284.263659
+dtype: float64
+</pre>
+
+<p>
+Looking at the implementation, there appear to be three major differences:
+</p>
+
+<ol class="org-ol">
+<li><a href="https://github.com/cran/pscl/blob/master/R/zeroinfl.R#L410">Optimization
+using BFGS</a></li>
+<li><a href="https://github.com/cran/pscl/blob/master/R/zeroinfl.R#L83">Analytic
+computation of the gradient</a></li>
+<li><a href="https://github.com/cran/pscl/blob/master/R/zeroinfl.R#L243">Initialization
+from Poisson solution</a></li>
+</ol>
+</div>
+</div>
+
+<div id="outline-container-orge471267" class="outline-3">
+<h3 id="orge471267">Comparison of CPU/GPU implementation on real data</h3>
+<div class="outline-text-3" id="text-orge471267">
+<p>
+We previously fit point-Gamma distributions to the latent gene expression of
+sorted CD8+ T cells from Zheng et al. 2017.
+</p>
+
+<p>
+Read the GPU-fitted results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gpu_log_mu</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-log-mu.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<span class="org-variable-name">gpu_log_phi</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-log-phi.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<span class="org-variable-name">gpu_logodds</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-example/zheng-cd8-zinb-logodds.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+</pre>
+</div>
+
+<p>
+Compute the log likelihood of the GPU solution.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19'</span>)
+<span class="org-variable-name">s</span> = x.<span class="org-builtin">sum</span>(axis=1)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gpu_nb_llik</span> = np.array([st.nbinom(n=np.exp(-log_phi), p=1/(1 + s * np.exp(log_mu + log_phi))).logpmf(x_j) <span class="org-keyword">for</span> log_mu, log_phi, x_j <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(gpu_log_mu.values.T, gpu_log_phi.values.T, x.T)])
+<span class="org-variable-name">case_zero</span> = -np.log1p(np.exp(-gpu_logodds.values.T)) + np.log1p(np.exp(gpu_nb_llik - gpu_logodds.values.T))
+<span class="org-variable-name">case_nonzero</span> = -np.log1p(np.exp(gpu_logodds.values.T)) + gpu_nb_llik
+<span class="org-variable-name">gpu_zinb_llik</span> = np.where(x.T &lt; 1, case_zero, case_nonzero)
+</pre>
+</div>
+
+<p>
+Write out the GPU results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gpu_res</span> = pd.DataFrame({<span class="org-string">'mean'</span>: np.exp(gpu_log_mu.values.ravel()),
+                        <span class="org-string">'inv_disp'</span>: np.exp(-gpu_log_phi.values.ravel()),
+                        <span class="org-string">'logodds'</span>: gpu_logodds.values.ravel(),
+                        <span class="org-string">'llik'</span>: gpu_zinb_llik.<span class="org-builtin">sum</span>(axis=1)})
+gpu_res.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gamma-deconv/gpu.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>)
+</pre>
+</div>
+
+<p>
+Run CPU methods.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">fit_all</span>(x, s, method):
+  <span class="org-variable-name">res</span> = []
+  <span class="org-keyword">for</span> j <span class="org-keyword">in</span> <span class="org-builtin">range</span>(x.shape[1]):
+    <span class="org-keyword">try</span>:
+      res.append(method(x[:,j], s))
+    <span class="org-keyword">except</span>:
+      <span class="org-comment-delimiter"># </span><span class="org-comment">Failed to converge</span>
+      res.append(np.array([np.nan, np.nan, np.nan, np.nan]))
+  <span class="org-keyword">return</span> pd.DataFrame(res, columns=[<span class="org-string">'mean'</span>, <span class="org-string">'inv_disp'</span>, <span class="org-string">'logodds'</span>, <span class="org-string">'llik'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">scqtl_res</span> = fit_all(x, s, scqtl.simple.fit_zinb)
+scqtl_res.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gamma-deconv/scqtl.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">pscl_res</span> = fit_all(x, s, pscl_zinb)
+pscl_res.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gamma-deconv/pscl.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>)
+</pre>
+</div>
+
+<p>
+Read the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gpu_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gamma-deconv/gpu.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
+<span class="org-variable-name">pscl_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gamma-deconv/pscl.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
+<span class="org-variable-name">scqtl_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gamma-deconv/scqtl.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
+</pre>
+</div>
+
+<p>
+Plot the difference in (training) log likelihood.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">T</span> = pd.DataFrame({<span class="org-string">'gpu'</span>: gpu_res[<span class="org-string">'llik'</span>],
+                  <span class="org-string">'cpu'</span>: scqtl_res[<span class="org-string">'llik'</span>],
+                  <span class="org-string">'pscl'</span>: pscl_res[<span class="org-string">'llik'</span>]}).dropna()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.boxplot((T.values - T[<span class="org-string">'gpu'</span>].values.reshape(-1, 1))[:,1:] / x.shape[0],
+            medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
+plt.xticks(<span class="org-builtin">range</span>(1, 3), T.columns[1:])
+plt.xlabel(<span class="org-string">'Method'</span>)
+plt.ylabel(<span class="org-string">'Per obs diff train llik from GPU'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gamma.org/training-llik-diff.png" alt="training-llik-diff.png">
+</p>
+</div>
+
+<p>
+Look at cases where CPU does much better than GPU.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = T[<span class="org-string">'cpu'</span>] - T[<span class="org-string">'gpu'</span>]
+<span class="org-variable-name">query</span> = llik_diff[llik_diff / x.shape[0] &gt; 0.5].index
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2)
+fig.set_size_inches(4, 2)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, query):
+  a.hist(x[:,k], color=<span class="org-string">'k'</span>, bins=np.arange(x[:,k].<span class="org-builtin">max</span>() + 1))
+  a.set_xlabel(<span class="org-string">'Num mols'</span>)
+  a.set_ylabel(<span class="org-string">'Num cells'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gamma.org/zig-examples.png" alt="zig-examples.png">
+</p>
+</div>
+
+<p>
+Inspect the GPU result.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">gpu_res.iloc[query]
+</pre>
+</div>
+
+<pre class="example">
+mean     inv_disp    logodds          llik
+25   0.000358  1164.383452 -12.345718  -9030.897929
+377  0.000647   990.383954 -13.082376 -12151.227973
+</pre>
+
+<p>
+Inspect the CPU result.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">scqtl_res.iloc[query]
+</pre>
+</div>
+
+<pre class="example">
+mean      inv_disp   logodds         llik
+25   0.000356  2.852713e+14 -8.394238   610.494460
+377  0.000645  2.852848e+14 -8.395699  1006.905231
+</pre>
+
+<p>
+The results suggest the log likelihood computation had a numerical problem.
+Check against a Poisson model.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pd.DataFrame([scqtl.simple.fit_pois(xj, s) <span class="org-keyword">for</span> xj <span class="org-keyword">in</span> x[:,query].T], columns=[<span class="org-string">'mean'</span>, <span class="org-string">'llik'</span>])
+</pre>
+</div>
+
+<pre class="example">
+mean          llik
+0  0.000358  -9030.866338
+1  0.000647 -12151.180012
+</pre>
+
+<p>
+Check our implementation of ZINB log likelihood.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">scmodes.benchmark.deconvolution.zinb_llik(x, s.reshape(-1, 1) * gpu_res[<span class="org-string">'mean'</span>].values, gpu_res[<span class="org-string">'inv_disp'</span>].values, gpu_res[<span class="org-string">'logodds'</span>].values).<span class="org-builtin">sum</span>(axis=0)[query]
+</pre>
+</div>
+
+<pre class="example">
+array([ -9030.89792855, -12151.22797265])
+
+</pre>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2019-05-13 Mon 13:46</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>
