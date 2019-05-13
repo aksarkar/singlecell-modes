@@ -1,0 +1,264 @@
+#+TITLE: Mixture of negative binomials
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  Here, we use the EM algorithm to fit a mixture of negative binomials to count
+  data.
+
+  The motivating example is explaining bimodal variation in spike-in molecule
+  counts using the fact that the distribution of size factors is bimodal:
+
+  [[file:figure/deconvolution.org/chromium2-size.png]]
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :dir /scratch/midway2/aksarkar/modes
+
+  #+RESULTS:
+  : Submitted batch job 60209938
+
+  #+BEGIN_SRC ipython
+    import numpy as np
+    import pandas as pd
+    import scipy.optimize as so
+    import scipy.stats as st
+    import scipy.special as sp
+    import scqtl.simple
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[1]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+* Methods
+** EM algorithm
+
+   The complete data model is:
+
+   \[ x_i \mid \lambda_i \sim \mathrm{Poisson}(\lambda_i) \]
+
+   \[ \lambda_i \mid z_i \sim \mu_{z_i} \mathrm{Gamma}(\phi_{z_i}^{-1},
+   \phi_{z_i}^{-1}) \]
+
+   #+NAME: mix-nb
+   #+BEGIN_SRC ipython
+     def nb_llik(x, mean, inv_disp):
+       return (x * np.log(mean / inv_disp + 1e-8) -
+               x * np.log1p(mean / inv_disp) -
+               inv_disp * np.log1p(mean / inv_disp) +
+               sp.gammaln(x + inv_disp) -
+               sp.gammaln(inv_disp) -
+               sp.gammaln(x + 1))
+
+     def objective(theta, x, z):
+       # Important: theta gets flattened by minimize
+       n_components = z.shape[1]
+       mean = np.exp(theta[:n_components])
+       inv_disp = np.exp(theta[n_components:])
+       return -(np.log(z + 1e-8) + nb_llik(x, mean, inv_disp)).sum()
+
+     def check_result(opt):
+       return (opt.success and
+               np.isfinite(opt.fun) and
+               np.isfinite(opt.jac).all())
+
+     def init(n_components, x, z):
+       theta = np.random.normal(size=(2, n_components))
+       for j in range(n_components):
+         theta[0,j] = np.log(x[z[:,j] > 0.5].mean())
+       return theta
+
+     def mstep(theta, x, z):
+       n_components = theta.shape[1]
+       theta1 = np.zeros(theta.shape)
+       x0 = init(n_components, x, z)
+       for j in range(n_components):
+         mstep = so.minimize(objective, x0=x0[:,j], args=(x, z[:,j]))
+         if not check_result(mstep):
+           raise RuntimeError('M step failed to converge')
+         theta1[:,j] = mstep.x
+       return theta1
+
+     def mix_nb(x, n_components=2, max_iters=1000, max_retries=10):
+       """Fit mixture of negative binomials via EM"""
+       x = x.reshape(-1, 1)
+       n = x.shape[0]
+       z = np.random.uniform(size=(n, n_components))
+       z /= z.sum(axis=1, keepdims=True)
+       theta = init(n_components, x, z)
+
+       obj = np.inf
+       for i in range(max_iters):
+         theta1 = mstep(theta, x, z)
+         update = np.array([objective(t, x, z) for t in theta1.T]).sum()
+         assert np.isfinite(update)
+         if update > obj:
+           raise RuntimeError('objective decreased')
+         elif np.isclose(update, obj):
+           print(f'{i}: {obj}')
+           return z, theta, obj
+         else:
+           obj = update
+           print(f'{i}: {obj}')
+           theta = theta1
+           # E step
+           z = sp.softmax(nb_llik(x, np.exp(theta[0]), np.exp(theta[1])), axis=1)
+       raise RuntimeError('failed to converge')
+   #+END_SRC
+
+   #+RESULTS: mix-nb
+   :RESULTS:
+   # Out[179]:
+   :END:
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[556]:
+   :END:
+
+* Results
+** Simulation
+*** Degenerate model
+
+   First, make sure the easy case (one component) works. Generate some Poisson data.
+
+   #+BEGIN_SRC ipython
+     np.random.seed(1)
+     x = np.random.poisson(lam=100, size=(1000, 1))
+     z = np.ones((x.shape[0], 1))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[122]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     theta0 = init(1, x, z)
+     objective(theta0, x, z)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[113]:
+   : 5430.563796635256
+   :END:
+
+   #+BEGIN_SRC ipython
+     opt = so.minimize(objective, x0=theta0, args=(x, z), method='Nelder-Mead')
+     assert opt.success
+     {'fitted': np.exp(opt.x[0]), 'true': 100}
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[123]:
+   : {'fitted': 100.66675997637512, 'true': 100}
+   :END:
+
+   Generate some negative binomial data.
+
+   #+BEGIN_SRC ipython
+     np.random.seed(1)
+     x = st.nbinom(n=3, p=1e-3).rvs(size=(1000, 1))
+     z = np.ones((x.shape[0], 1))
+     opt = so.minimize(objective, x0=theta0, args=(x, z), method='Nelder-Mead')
+     assert opt.success
+     {'fitted_mean': np.exp(opt.x[0]),
+      'true_mean': st.nbinom(n=3, p=1e-3).mean(),
+      'fitted_var': np.exp(2 * opt.x[0] - opt.x[1]),
+      'true_var': st.nbinom(n=3, p=1e-3).var()}
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[130]:
+   #+BEGIN_EXAMPLE
+     {'fitted_mean': 2978.7653010814693,
+     'true_mean': 2997.0,
+     'fitted_var': 2889291.139179591,
+     'true_var': 2997000.0}
+   #+END_EXAMPLE
+   :END:
+
+   Now make sure it works when we give the model more than the true number of
+   components.
+
+   #+BEGIN_SRC ipython
+     z = np.zeros((x.shape[0], 2))
+     z[:,0] = (np.random.uniform(size=z.shape[0]) < 0.5).astype(int)
+     z[:,1] = 1 - z[:,0]
+     theta0 = init(2, x, z)
+     objective(theta0, x, z)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[161]:
+   : 36078.88820426077
+   :END:
+
+   #+BEGIN_SRC ipython
+     opt = so.minimize(objective, x0=theta0, args=(x, z), method='Nelder-Mead')
+     assert opt.success
+     opt.x
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[163]:
+   : array([7.99922953, 1.12198022, 1.70447064, 0.38548806])
+   :END:
+
+   #+BEGIN_SRC ipython
+     x[z[:,0].astype(bool)].mean(), np.exp(opt.x[0])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[158]:
+   : (2994.14859437751, 2978.741830944349)
+   :END:
+
+   #+BEGIN_SRC ipython
+     x[~(z[:,0].astype(bool))].mean(), np.exp(opt.x[2])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[157]:
+   : (2963.430278884462, 8.322971383121208)
+   :END:

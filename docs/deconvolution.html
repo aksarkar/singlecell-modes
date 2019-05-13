@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-08 Wed 15:14 -->
+<!-- 2019-05-13 Mon 10:04 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -884,9 +884,9 @@ individuals.
 </div>
 </div>
 
-<div id="outline-container-orgfb72e0d" class="outline-4">
-<h4 id="orgfb72e0d">Run the benchmark</h4>
-<div class="outline-text-4" id="text-orgfb72e0d">
+<div id="outline-container-org7c70b7e" class="outline-4">
+<h4 id="org7c70b7e">Run the benchmark</h4>
+<div class="outline-text-4" id="text-org7c70b7e">
 <div class="org-src-container">
 <pre class="src src-ipython" id="orgab7cb06">&lt;&lt;imports&gt;&gt;
 <span class="org-keyword">import</span> os
@@ -1113,76 +1113,6 @@ bimodal distribution of size factors.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org6b90478"><span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
-<span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
-
-<span class="org-keyword">def</span> <span class="org-function-name">log</span>(x):
-  <span class="org-keyword">return</span> np.log(x + 1e-8)
-
-<span class="org-keyword">def</span> <span class="org-function-name">nb_llik</span>(x, mean, inv_disp):
-  <span class="org-keyword">return</span> (x * log(mean / inv_disp) -
-          x * log(1 + mean / inv_disp) -
-          inv_disp * log(1 + mean / inv_disp) +
-          sp.gammaln(x + inv_disp) -
-          sp.gammaln(inv_disp) -
-          sp.gammaln(x + 1))
-
-<span class="org-keyword">def</span> <span class="org-function-name">objective</span>(theta, x, z):
-  <span class="org-variable-name">mean</span> = np.exp(theta[0]) + 1e-8
-  <span class="org-variable-name">inv_disp</span> = np.exp(theta[1]) + 1e-8
-  <span class="org-keyword">return</span> -nb_llik(x, mean, inv_disp).<span class="org-builtin">sum</span>()
-
-<span class="org-keyword">def</span> <span class="org-function-name">check_result</span>(opt):
-  <span class="org-keyword">return</span> (opt.success <span class="org-keyword">and</span>
-          np.isfinite(opt.fun) <span class="org-keyword">and</span>
-          np.isfinite(opt.jac).<span class="org-builtin">all</span>())
-
-<span class="org-keyword">def</span> <span class="org-function-name">init</span>(n_components, x, z):
-  <span class="org-variable-name">theta</span> = np.random.normal(size=(2, n_components))
-  <span class="org-keyword">for</span> j <span class="org-keyword">in</span> <span class="org-builtin">range</span>(n_components):
-    <span class="org-variable-name">theta</span>[0,j] = np.log(x[z[:,j] &gt; 0.5].mean())
-  <span class="org-keyword">return</span> theta
-
-<span class="org-keyword">def</span> <span class="org-function-name">mstep</span>(theta, x, z):
-  <span class="org-variable-name">n_components</span> = theta.shape[1]
-  <span class="org-variable-name">theta1</span> = np.zeros(theta.shape)
-  <span class="org-variable-name">x0</span> = init(n_components, x, z)
-  <span class="org-keyword">for</span> j <span class="org-keyword">in</span> <span class="org-builtin">range</span>(n_components):
-    <span class="org-variable-name">mstep</span> = so.minimize(objective, x0=x0[:,j], args=(x, z[:,j]), method=<span class="org-string">'CG'</span>)
-    <span class="org-keyword">if</span> <span class="org-keyword">not</span> check_result(mstep):
-      <span class="org-keyword">raise</span> <span class="org-type">RuntimeError</span>(<span class="org-string">'M step failed to converge'</span>)
-    <span class="org-variable-name">theta1</span>[:,j] = mstep.x
-  <span class="org-keyword">return</span> theta1
-
-<span class="org-keyword">def</span> <span class="org-function-name">mix_nb</span>(x, n_components=2, max_iters=1000, max_retries=10):
-  <span class="org-doc">"""Fit mixture of negative binomials via EM"""</span>
-  <span class="org-variable-name">x</span> = x.reshape(-1, 1)
-  <span class="org-variable-name">n</span> = x.shape[0]
-  <span class="org-variable-name">z</span> = np.random.uniform(size=(n, n_components))
-  <span class="org-variable-name">z</span> /= z.<span class="org-builtin">sum</span>(axis=1, keepdims=<span class="org-constant">True</span>)
-  <span class="org-variable-name">theta</span> = init(n_components, x, z)
-
-  <span class="org-variable-name">obj</span> = np.inf
-  <span class="org-keyword">for</span> i <span class="org-keyword">in</span> <span class="org-builtin">range</span>(max_iters):
-    <span class="org-variable-name">theta1</span> = mstep(theta, x, z)
-    <span class="org-variable-name">update</span> = np.array([objective(t, x, z) <span class="org-keyword">for</span> t <span class="org-keyword">in</span> theta1.T]).<span class="org-builtin">sum</span>()
-    <span class="org-keyword">assert</span> np.isfinite(update)
-    <span class="org-keyword">if</span> update &gt; obj:
-      <span class="org-keyword">raise</span> <span class="org-type">RuntimeError</span>(<span class="org-string">'objective decreased'</span>)
-    <span class="org-keyword">elif</span> np.isclose(update, obj):
-      <span class="org-keyword">print</span>(f<span class="org-string">'{i}: {obj}'</span>)
-      <span class="org-keyword">return</span> z, theta, obj
-    <span class="org-keyword">else</span>:
-      <span class="org-variable-name">obj</span> = update
-      <span class="org-keyword">print</span>(f<span class="org-string">'{i}: {obj}'</span>)
-      <span class="org-variable-name">theta</span> = theta1
-      <span class="org-comment-delimiter"># </span><span class="org-comment">E step</span>
-      <span class="org-variable-name">z</span> = sp.softmax(nb_llik(x, np.exp(theta[0]), np.exp(theta[1])), axis=1)
-  <span class="org-keyword">raise</span> <span class="org-type">RuntimeError</span>(<span class="org-string">'failed to converge'</span>)
-</pre>
-</div>
-
-<div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
 fig.set_size_inches(7, 5)
@@ -1199,7 +1129,6 @@ fig.set_size_inches(7, 5)
 <span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
   ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
 fig.tight_layout()
-
 </pre>
 </div>
 
@@ -1302,8 +1231,8 @@ fig.tight_layout()
 <h3 id="homogeneous-results"><a id="org3e95935"></a>Homogeneous cell populations</h3>
 <div class="outline-text-3" id="text-homogeneous-results">
 </div>
-<div id="outline-container-org9fe1a6d" class="outline-4">
-<h4 id="homogeneous-results"><a id="org9fe1a6d"></a>Run the benchmark</h4>
+<div id="outline-container-org7e29165" class="outline-4">
+<h4 id="homogeneous-results"><a id="org7e29165"></a>Run the benchmark</h4>
 <div class="outline-text-4" id="text-homogeneous-results">
 <p>
 Run the benchmark.
@@ -2338,9 +2267,9 @@ Text(0, 0.5, 'Number of cells')
 <h3 id="heterogeneous"><a id="org277d861"></a>Heterogeneous cell populations</h3>
 <div class="outline-text-3" id="text-heterogeneous">
 </div>
-<div id="outline-container-org7c70b7e" class="outline-4">
-<h4 id="org7c70b7e">Run the benchmark</h4>
-<div class="outline-text-4" id="text-org7c70b7e">
+<div id="outline-container-orga90a32b" class="outline-4">
+<h4 id="orga90a32b">Run the benchmark</h4>
+<div class="outline-text-4" id="text-orga90a32b">
 <div class="org-src-container">
 <pre class="src src-ipython" id="org3d7c874"><span class="org-variable-name">data</span> = {
   <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>),
@@ -2663,7 +2592,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-08 Wed 15:14</p>
+<p class="date">Created: 2019-05-13 Mon 10:04</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2019-05-13 Mon 10:04 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mixture of negative binomials</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Mixture of negative binomials</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org736c4b7">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#org555bc53">Methods</a>
+<ul>
+<li><a href="#orgd50e0b6">EM algorithm</a></li>
+</ul>
+</li>
+<li><a href="#org20a4094">Results</a>
+<ul>
+<li><a href="#orgdaf0194">Simulation</a>
+<ul>
+<li><a href="#orge3d30f7">Degenerate model</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org736c4b7" class="outline-2">
+<h2 id="org736c4b7">Introduction</h2>
+<div class="outline-text-2" id="text-org736c4b7">
+<p>
+Here, we use the EM algorithm to fit a mixture of negative binomials to count
+data.
+</p>
+
+<p>
+The motivating example is explaining bimodal variation in spike-in molecule
+counts using the fact that the distribution of size factors is bimodal:
+</p>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/chromium2-size.png" alt="chromium2-size.png">
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org20db7b3" class="outline-2">
+<h2 id="setup"><a id="org20db7b3"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+<span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
+<span class="org-keyword">import</span> scqtl.simple
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org555bc53" class="outline-2">
+<h2 id="org555bc53">Methods</h2>
+<div class="outline-text-2" id="text-org555bc53">
+</div>
+<div id="outline-container-orgd50e0b6" class="outline-3">
+<h3 id="orgd50e0b6">EM algorithm</h3>
+<div class="outline-text-3" id="text-orgd50e0b6">
+<p>
+The complete data model is:
+</p>
+
+<p>
+\[ x_i \mid \lambda_i \sim \mathrm{Poisson}(\lambda_i) \]
+</p>
+
+<p>
+\[ \lambda_i \mid z_i \sim \mu_{z_i} \mathrm{Gamma}(\phi_{z_i}^{-1},
+   \phi_{z_i}^{-1}) \]
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="orgcac9883"><span class="org-keyword">def</span> <span class="org-function-name">nb_llik</span>(x, mean, inv_disp):
+  <span class="org-keyword">return</span> (x * np.log(mean / inv_disp + 1e-8) -
+          x * np.log1p(mean / inv_disp) -
+          inv_disp * np.log1p(mean / inv_disp) +
+          sp.gammaln(x + inv_disp) -
+          sp.gammaln(inv_disp) -
+          sp.gammaln(x + 1))
+
+<span class="org-keyword">def</span> <span class="org-function-name">objective</span>(theta, x, z):
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: theta gets flattened by minimize</span>
+  <span class="org-variable-name">n_components</span> = z.shape[1]
+  <span class="org-variable-name">mean</span> = np.exp(theta[:n_components])
+  <span class="org-variable-name">inv_disp</span> = np.exp(theta[n_components:])
+  <span class="org-keyword">return</span> -(np.log(z + 1e-8) + nb_llik(x, mean, inv_disp)).<span class="org-builtin">sum</span>()
+
+<span class="org-keyword">def</span> <span class="org-function-name">check_result</span>(opt):
+  <span class="org-keyword">return</span> (opt.success <span class="org-keyword">and</span>
+          np.isfinite(opt.fun) <span class="org-keyword">and</span>
+          np.isfinite(opt.jac).<span class="org-builtin">all</span>())
+
+<span class="org-keyword">def</span> <span class="org-function-name">init</span>(n_components, x, z):
+  <span class="org-variable-name">theta</span> = np.random.normal(size=(2, n_components))
+  <span class="org-keyword">for</span> j <span class="org-keyword">in</span> <span class="org-builtin">range</span>(n_components):
+    <span class="org-variable-name">theta</span>[0,j] = np.log(x[z[:,j] &gt; 0.5].mean())
+  <span class="org-keyword">return</span> theta
+
+<span class="org-keyword">def</span> <span class="org-function-name">mstep</span>(theta, x, z):
+  <span class="org-variable-name">n_components</span> = theta.shape[1]
+  <span class="org-variable-name">theta1</span> = np.zeros(theta.shape)
+  <span class="org-variable-name">x0</span> = init(n_components, x, z)
+  <span class="org-keyword">for</span> j <span class="org-keyword">in</span> <span class="org-builtin">range</span>(n_components):
+    <span class="org-variable-name">mstep</span> = so.minimize(objective, x0=x0[:,j], args=(x, z[:,j]))
+    <span class="org-keyword">if</span> <span class="org-keyword">not</span> check_result(mstep):
+      <span class="org-keyword">raise</span> <span class="org-type">RuntimeError</span>(<span class="org-string">'M step failed to converge'</span>)
+    <span class="org-variable-name">theta1</span>[:,j] = mstep.x
+  <span class="org-keyword">return</span> theta1
+
+<span class="org-keyword">def</span> <span class="org-function-name">mix_nb</span>(x, n_components=2, max_iters=1000, max_retries=10):
+  <span class="org-doc">"""Fit mixture of negative binomials via EM"""</span>
+  <span class="org-variable-name">x</span> = x.reshape(-1, 1)
+  <span class="org-variable-name">n</span> = x.shape[0]
+  <span class="org-variable-name">z</span> = np.random.uniform(size=(n, n_components))
+  <span class="org-variable-name">z</span> /= z.<span class="org-builtin">sum</span>(axis=1, keepdims=<span class="org-constant">True</span>)
+  <span class="org-variable-name">theta</span> = init(n_components, x, z)
+
+  <span class="org-variable-name">obj</span> = np.inf
+  <span class="org-keyword">for</span> i <span class="org-keyword">in</span> <span class="org-builtin">range</span>(max_iters):
+    <span class="org-variable-name">theta1</span> = mstep(theta, x, z)
+    <span class="org-variable-name">update</span> = np.array([objective(t, x, z) <span class="org-keyword">for</span> t <span class="org-keyword">in</span> theta1.T]).<span class="org-builtin">sum</span>()
+    <span class="org-keyword">assert</span> np.isfinite(update)
+    <span class="org-keyword">if</span> update &gt; obj:
+      <span class="org-keyword">raise</span> <span class="org-type">RuntimeError</span>(<span class="org-string">'objective decreased'</span>)
+    <span class="org-keyword">elif</span> np.isclose(update, obj):
+      <span class="org-keyword">print</span>(f<span class="org-string">'{i}: {obj}'</span>)
+      <span class="org-keyword">return</span> z, theta, obj
+    <span class="org-keyword">else</span>:
+      <span class="org-variable-name">obj</span> = update
+      <span class="org-keyword">print</span>(f<span class="org-string">'{i}: {obj}'</span>)
+      <span class="org-variable-name">theta</span> = theta1
+      <span class="org-comment-delimiter"># </span><span class="org-comment">E step</span>
+      <span class="org-variable-name">z</span> = sp.softmax(nb_llik(x, np.exp(theta[0]), np.exp(theta[1])), axis=1)
+  <span class="org-keyword">raise</span> <span class="org-type">RuntimeError</span>(<span class="org-string">'failed to converge'</span>)
+</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org20a4094" class="outline-2">
+<h2 id="org20a4094">Results</h2>
+<div class="outline-text-2" id="text-org20a4094">
+</div>
+<div id="outline-container-orgdaf0194" class="outline-3">
+<h3 id="orgdaf0194">Simulation</h3>
+<div class="outline-text-3" id="text-orgdaf0194">
+</div>
+<div id="outline-container-orge3d30f7" class="outline-4">
+<h4 id="orge3d30f7">Degenerate model</h4>
+<div class="outline-text-4" id="text-orge3d30f7">
+<p>
+First, make sure the easy case (one component) works. Generate some Poisson data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(1)
+<span class="org-variable-name">x</span> = np.random.poisson(lam=100, size=(1000, 1))
+<span class="org-variable-name">z</span> = np.ones((x.shape[0], 1))
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">theta0</span> = init(1, x, z)
+objective(theta0, x, z)
+</pre>
+</div>
+
+<pre class="example">
+5430.563796635256
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">opt</span> = so.minimize(objective, x0=theta0, args=(x, z), method=<span class="org-string">'Nelder-Mead'</span>)
+<span class="org-keyword">assert</span> opt.success
+{<span class="org-string">'fitted'</span>: np.exp(opt.x[0]), <span class="org-string">'true'</span>: 100}
+</pre>
+</div>
+
+<pre class="example">
+{'fitted': 100.66675997637512, 'true': 100}
+
+</pre>
+
+<p>
+Generate some negative binomial data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(1)
+<span class="org-variable-name">x</span> = st.nbinom(n=3, p=1e-3).rvs(size=(1000, 1))
+<span class="org-variable-name">z</span> = np.ones((x.shape[0], 1))
+<span class="org-variable-name">opt</span> = so.minimize(objective, x0=theta0, args=(x, z), method=<span class="org-string">'Nelder-Mead'</span>)
+<span class="org-keyword">assert</span> opt.success
+{<span class="org-string">'fitted_mean'</span>: np.exp(opt.x[0]),
+ <span class="org-string">'true_mean'</span>: st.nbinom(n=3, p=1e-3).mean(),
+ <span class="org-string">'fitted_var'</span>: np.exp(2 * opt.x[0] - opt.x[1]),
+ <span class="org-string">'true_var'</span>: st.nbinom(n=3, p=1e-3).var()}
+</pre>
+</div>
+
+<pre class="example">
+{'fitted_mean': 2978.7653010814693,
+'true_mean': 2997.0,
+'fitted_var': 2889291.139179591,
+'true_var': 2997000.0}
+</pre>
+
+<p>
+Now make sure it works when we give the model more than the true number of
+components.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">z</span> = np.zeros((x.shape[0], 2))
+<span class="org-variable-name">z</span>[:,0] = (np.random.uniform(size=z.shape[0]) &lt; 0.5).astype(<span class="org-builtin">int</span>)
+<span class="org-variable-name">z</span>[:,1] = 1 - z[:,0]
+<span class="org-variable-name">theta0</span> = init(2, x, z)
+objective(theta0, x, z)
+</pre>
+</div>
+
+<pre class="example">
+36078.88820426077
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">opt</span> = so.minimize(objective, x0=theta0, args=(x, z), method=<span class="org-string">'Nelder-Mead'</span>)
+<span class="org-keyword">assert</span> opt.success
+opt.x
+</pre>
+</div>
+
+<pre class="example">
+array([7.99922953, 1.12198022, 1.70447064, 0.38548806])
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">x[z[:,0].astype(<span class="org-builtin">bool</span>)].mean(), np.exp(opt.x[0])
+</pre>
+</div>
+
+<pre class="example">
+(2994.14859437751, 2978.741830944349)
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">x[~(z[:,0].astype(<span class="org-builtin">bool</span>))].mean(), np.exp(opt.x[2])
+</pre>
+</div>
+
+<pre class="example">
+(2963.430278884462, 8.322971383121208)
+
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2019-05-13 Mon 10:04</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

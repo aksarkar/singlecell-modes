@@ -808,81 +808,6 @@
     Show that the bimodal distribution of counts is totally explained by the
     bimodal distribution of size factors. 
 
-    #+NAME: mix-nb
-    #+BEGIN_SRC ipython
-      import scipy.optimize as so
-      import scipy.special as sp
-
-      def log(x):
-        return np.log(x + 1e-8)
-
-      def nb_llik(x, mean, inv_disp):
-        return (x * log(mean / inv_disp) -
-                x * log(1 + mean / inv_disp) -
-                inv_disp * log(1 + mean / inv_disp) +
-                sp.gammaln(x + inv_disp) -
-                sp.gammaln(inv_disp) -
-                sp.gammaln(x + 1))
-
-      def objective(theta, x, z):
-        mean = np.exp(theta[0]) + 1e-8
-        inv_disp = np.exp(theta[1]) + 1e-8
-        return -nb_llik(x, mean, inv_disp).sum()
-
-      def check_result(opt):
-        return (opt.success and
-                np.isfinite(opt.fun) and
-                np.isfinite(opt.jac).all())
-
-      def init(n_components, x, z):
-        theta = np.random.normal(size=(2, n_components))
-        for j in range(n_components):
-          theta[0,j] = np.log(x[z[:,j] > 0.5].mean())
-        return theta
-
-      def mstep(theta, x, z):
-        n_components = theta.shape[1]
-        theta1 = np.zeros(theta.shape)
-        x0 = init(n_components, x, z)
-        for j in range(n_components):
-          mstep = so.minimize(objective, x0=x0[:,j], args=(x, z[:,j]), method='CG')
-          if not check_result(mstep):
-            raise RuntimeError('M step failed to converge')
-          theta1[:,j] = mstep.x
-        return theta1
-
-      def mix_nb(x, n_components=2, max_iters=1000, max_retries=10):
-        """Fit mixture of negative binomials via EM"""
-        x = x.reshape(-1, 1)
-        n = x.shape[0]
-        z = np.random.uniform(size=(n, n_components))
-        z /= z.sum(axis=1, keepdims=True)
-        theta = init(n_components, x, z)
-
-        obj = np.inf
-        for i in range(max_iters):
-          theta1 = mstep(theta, x, z)
-          update = np.array([objective(t, x, z) for t in theta1.T]).sum()
-          assert np.isfinite(update)
-          if update > obj:
-            raise RuntimeError('objective decreased')
-          elif np.isclose(update, obj):
-            print(f'{i}: {obj}')
-            return z, theta, obj
-          else:
-            obj = update
-            print(f'{i}: {obj}')
-            theta = theta1
-            # E step
-            z = sp.softmax(nb_llik(x, np.exp(theta[0]), np.exp(theta[1])), axis=1)
-        raise RuntimeError('failed to converge')
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[556]:
-    :END:
-
     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/chromium2-npmle-examples-bimodal.png
       plt.clf()
       fig, ax = plt.subplots(4, 3)
@@ -900,7 +825,6 @@
       for x in range(ax.shape[1]):
         ax[-1][x].set_xlabel('Num mols')
       fig.tight_layout()
-
     #+END_SRC
 
     #+RESULTS:

@@ -17,3 +17,4 @@ datasets, as well as researchers developing and benchmarking new methods.
 Technical details:
 
 - [[file:ash-estmode.org][Speed up ash mode estimation]]
+- [[file:nb-mix.org][Mixture of negative binomials]]
