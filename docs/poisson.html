@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2019-05-14 Tue 11:05 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deconvolution of near-Poisson data</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Deconvolution of near-Poisson data</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org5c8240e">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#orgf8d19c9">Results</a>
+<ul>
+<li><a href="#org763ee59">Extract the examples.</a></li>
+<li><a href="#orgeac7d5e">Deconvolve specific examples</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org5c8240e" class="outline-2">
+<h2 id="org5c8240e">Introduction</h2>
+<div class="outline-text-2" id="text-org5c8240e">
+<p>
+In real data, ZIEF appears to outperform other methods, but only for trivial
+cases where the data appears to be Poisson-distributed.
+</p>
+
+<p>
+Investigate why this happens.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org4d05ffc" class="outline-2">
+<h2 id="setup"><a id="org4d05ffc"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+<span class="org-keyword">import</span> scmodes
+<span class="org-keyword">import</span> scqtl.simple
+
+<span class="org-keyword">import</span> rpy2.robjects.packages
+<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
+
+rpy2.robjects.pandas2ri.activate()
+
+<span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
+<span class="org-variable-name">descend</span> = rpy2.robjects.packages.importr(<span class="org-string">'descend'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orgf8d19c9" class="outline-2">
+<h2 id="orgf8d19c9">Results</h2>
+<div class="outline-text-2" id="text-orgf8d19c9">
+</div>
+<div id="outline-container-org763ee59" class="outline-3">
+<h3 id="org763ee59">Extract the examples.</h3>
+<div class="outline-text-3" id="text-org763ee59">
+<p>
+Read the results of <a href="deconvolution.html#homogeneous-results">benchmarking deconvolution methods on homogeneous tissues</a>.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">benchmark</span> = {}
+<span class="org-keyword">for</span> data <span class="org-keyword">in</span> (<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'b_cells'</span>, <span class="org-string">'ipsc'</span>):
+  <span class="org-variable-name">benchmark</span>[data] = (
+    pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
+    .merge(pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>), left_index=<span class="org-constant">True</span>, right_index=<span class="org-constant">True</span>)
+    .merge(pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-zief.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>), left_index=<span class="org-constant">True</span>, right_index=<span class="org-constant">True</span>)
+    .merge(pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>), left_index=<span class="org-constant">True</span>, right_index=<span class="org-constant">True</span>))
+</pre>
+</div>
+
+<p>
+Extract the genes for which ZIEF does best.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">query</span> = benchmark[<span class="org-string">'b_cells'</span>][benchmark[<span class="org-string">'b_cells'</span>][<span class="org-string">'zief'</span>] &gt; benchmark[<span class="org-string">'b_cells'</span>][<span class="org-string">'gamma'</span>]].index
+</pre>
+</div>
+
+<p>
+Read the count matrix.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">b_cells</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
+<span class="org-variable-name">s</span> = b_cells.<span class="org-builtin">sum</span>(axis=1)
+</pre>
+</div>
+
+<p>
+Read the gene metadata.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="orgf7de6c0"><span class="org-variable-name">gene_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orgeac7d5e" class="outline-3">
+<h3 id="orgeac7d5e">Deconvolve specific examples</h3>
+<div class="outline-text-3" id="text-orgeac7d5e">
+<p>
+Fit various deconvolutions.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = b_cells.loc[:,query[0]]
+<span class="org-variable-name">lam</span> = x / s
+<span class="org-variable-name">K</span> = 100
+<span class="org-variable-name">grid</span> = np.linspace(0, lam.<span class="org-builtin">max</span>(), K + 1)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gamma_res</span> = scqtl.simple.fit_nb(x, s)
+<span class="org-variable-name">zig_res</span> = scqtl.simple.fit_zinb(x, s)
+<span class="org-variable-name">unimodal_res</span> = ashr.ash_workhorse(
+    pd.Series(np.zeros(x.shape)),
+    1,
+    outputlevel=pd.Series([<span class="org-string">'fitted_g'</span>, <span class="org-string">'loglik'</span>]),
+    lik=ashr.lik_pois(y=x, scale=s, link=<span class="org-string">'identity'</span>),
+    mixsd=pd.Series(np.geomspace(lam.<span class="org-builtin">min</span>() + 1e-8, lam.<span class="org-builtin">max</span>(), 25)),
+    mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]))
+<span class="org-variable-name">zief_res</span> = descend.deconvSingle(x, scaling_consts=s, verbose=<span class="org-constant">False</span>)
+<span class="org-variable-name">npmle_res</span> = ashr.ash_workhorse(
+    pd.Series(np.zeros(x.shape)),
+    1,
+    outputlevel=pd.Series([<span class="org-string">'fitted_g'</span>, <span class="org-string">'loglik'</span>]),
+    lik=ashr.lik_pois(y=x, scale=s, link=<span class="org-string">'identity'</span>),
+    g=ashr.unimix(pd.Series(np.ones(K) / K), pd.Series(grid[:-1]), pd.Series(grid[1:])))
+</pre>
+</div>
+
+<p>
+Discretize the CDFs.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), 1e-3, 1000)
+<span class="org-variable-name">gamma_cdf</span> = st.gamma(a=gamma_res[1], scale=gamma_res[0] / gamma_res[1]).cdf(grid)
+<span class="org-variable-name">zig_cdf</span> = gamma_cdf * sp.expit(-zig_res[2]) + sp.expit(zig_res[2])
+<span class="org-variable-name">unimodal_cdf</span> = ashr.cdf_ash(unimodal_res, grid)
+<span class="org-variable-name">zief_g</span> = np.array(zief_res.slots[<span class="org-string">'distribution'</span>])[:,:2]
+<span class="org-variable-name">zief_cdf</span> = np.array([zief_g[:,0], np.cumsum(zief_g[:,1])])
+<span class="org-variable-name">npmle_cdf</span> = ashr.cdf_ash(npmle_res, grid)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
+fig.set_size_inches(6, 4)
+ax[0].hist(x, bins=np.arange(x.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+ax[0].set_xlabel(<span class="org-string">'Num mols'</span>)
+ax[0].set_ylabel(<span class="org-string">'Num cells'</span>)
+
+<span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>).colors
+ax[1].set_xlim(0, 1e-3)
+ax[1].plot(grid, gamma_cdf, color=cm[0], lw=1, label=<span class="org-string">'Gamma'</span>)
+ax[1].plot(grid, zig_cdf, color=cm[1], lw=1, label=<span class="org-string">'ZIG'</span>)
+ax[1].plot(np.array(unimodal_cdf.rx2(<span class="org-string">'x'</span>)),
+           np.array(unimodal_cdf.rx2(<span class="org-string">'y'</span>)).ravel(), c=cm[2], lw=1, label=<span class="org-string">'Unimodal'</span>)
+ax[1].plot(zief_cdf[0], zief_cdf[1], c=cm[3], lw=1, label=<span class="org-string">'ZIEF'</span>)
+ax[1].plot(np.array(npmle_cdf.rx2(<span class="org-string">'x'</span>)),
+           np.array(npmle_cdf.rx2(<span class="org-string">'y'</span>)).ravel(), c=cm[4], lw=1, label=<span class="org-string">'NPMLE'</span>)
+ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
+ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
+ax[1].legend(frameon=<span class="org-constant">False</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/poisson.org/park7-example.png" alt="park7-example.png">
+</p>
+</div>
+
+<p>
+Zoom in around 0.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+<span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>).colors
+plt.xlim(0, 1e-4)
+plt.ylim(0, .1)
+plt.xticks([0, 5e-5, 1e-4])
+plt.plot(grid, gamma_cdf, color=cm[0], lw=1, label=<span class="org-string">'Gamma'</span>)
+plt.plot(grid, zig_cdf, color=cm[1], lw=1, label=<span class="org-string">'ZIG'</span>)
+plt.plot(np.array(unimodal_cdf.rx2(<span class="org-string">'x'</span>)),
+         np.array(unimodal_cdf.rx2(<span class="org-string">'y'</span>)).ravel(), c=cm[2], lw=1, label=<span class="org-string">'Unimodal'</span>)
+plt.plot(zief_cdf[0], zief_cdf[1], c=cm[3], lw=1, label=<span class="org-string">'ZIEF'</span>)
+plt.plot(np.array(npmle_cdf.rx2(<span class="org-string">'x'</span>)),
+         np.array(npmle_cdf.rx2(<span class="org-string">'y'</span>)).ravel(), c=cm[4], lw=1, label=<span class="org-string">'NPMLE'</span>)
+plt.xlabel(<span class="org-string">'Latent gene expression'</span>)
+plt.ylabel(<span class="org-string">'CDF'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/poisson.org/park7-example-inset.png" alt="park7-example-inset.png">
+</p>
+</div>
+
+<p>
+Report the training log likelihoods.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">point_llik</span> = st.poisson(mu=x.<span class="org-builtin">sum</span>() / s.<span class="org-builtin">sum</span>()).logpmf(x)
+<span class="org-variable-name">gamma_llik</span> = st.nbinom(n=gamma_res[1], p=1 / (1 + s * gamma_res[0] / gamma_res[1])).logpmf(x)
+<span class="org-variable-name">zig_llik</span> = np.where(x &lt; 1,
+                    -np.log1p(np.exp(-zig_res[2])) + np.log1p(np.exp(gamma_llik - zig_res[2])), 
+                    -np.log1p(np.exp(zig_res[2])) + gamma_llik)
+<span class="org-variable-name">unimodal_llik</span> = np.array(unimodal_res.rx2(<span class="org-string">'loglik'</span>))
+<span class="org-variable-name">zief_llik</span> = np.where(x &lt; 1,
+                     np.log(st.poisson(mu=s.values.reshape(-1, 1) * zief_g[:,0]).pmf(x.values.reshape(-1, 1)).dot(zief_g[:,1])),
+                     np.log(st.poisson(mu=s.values.reshape(-1, 1) * zief_g[1:,0]).pmf(x.values.reshape(-1, 1)).dot(zief_g[1:,1])))
+<span class="org-variable-name">npmle_llik</span> = np.array(npmle_res.rx2(<span class="org-string">'loglik'</span>))
+pd.Series({<span class="org-string">'Point'</span>: point_llik.<span class="org-builtin">sum</span>(),
+           <span class="org-string">'Gamma'</span>: gamma_llik.<span class="org-builtin">sum</span>(),
+           <span class="org-string">'ZIG'</span>: zig_llik.<span class="org-builtin">sum</span>(),
+           <span class="org-string">'Unimodal'</span>: unimodal_llik.<span class="org-builtin">sum</span>(),
+           <span class="org-string">'ZIEF'</span>: zief_llik.<span class="org-builtin">sum</span>(),
+           <span class="org-string">'NPMLE'</span>: npmle_llik.<span class="org-builtin">sum</span>()})
+</pre>
+</div>
+
+<pre class="example">
+Point      -31653.253236
+Gamma       -7702.696681
+ZIG         -7702.818529
+Unimodal    -7702.849389
+ZIEF        -7702.299609
+NPMLE       -7701.940404
+dtype: float64
+</pre>
+
+<p>
+The reason ZIEF appeared anomalous in our benchmark was that our
+implementation of the validation set log likelihood, marginalizing over the
+estimated latent distribution \(\hat{g}\), was incorrect.
+</p>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2019-05-14 Tue 11:05</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

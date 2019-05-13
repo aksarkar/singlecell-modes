@@ -1005,7 +1005,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[8]:
+    # Out[34]:
     :END:
 
     Plot the generalization performance of each method.
@@ -1025,7 +1025,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[15]:
+    # Out[35]:
     [[file:figure/deconvolution.org/homogeneous-benchmark.png]]
     :END:
 
@@ -1048,7 +1048,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[17]:
+    # Out[36]:
     [[file:figure/deconvolution.org/homogeneous-benchmark-inset.png]]
     :END:
 
