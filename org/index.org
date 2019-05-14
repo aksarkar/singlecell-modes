@@ -20,3 +20,4 @@ Technical details:
 - [[file:nb-mix.org][Mixture of negative binomials]]
 - [[file:gamma.org][Convergence of Gamma deconvolution]]
 - [[file:poisson.org][Deconvolution of near-Poisson data]]
+- [[file:validation.org][Validation set log likelihood comparison]]
