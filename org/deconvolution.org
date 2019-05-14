@@ -61,7 +61,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[1]:
+  # Out[24]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -591,7 +591,7 @@
 
    #+RESULTS: ercc-data
    :RESULTS:
-   # Out[11]:
+   # Out[22]:
    :END:
 
 *** Run the benchmark
@@ -611,7 +611,7 @@
     #+END_SRC
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch -a 6,16 --partition=broadwl -n1 -c28 --exclusive --time=6:00:00 --mem=16G --job-name=deconv-generalization --out=benchmark-cpu.out
+      sbatch -a 0-17 --partition=broadwl -n1 -c28 --exclusive --time=6:00:00 --mem=16G --job-name=deconv-generalization --out=benchmark-cpu.out
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -620,7 +620,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 60156063
+    : Submitted batch job 60316984
 
     #+NAME: run-ercc-benchmark-gpu
     #+BEGIN_SRC ipython :eval never :noweb tangle :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/temp.py
@@ -642,7 +642,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 60146494
+    : Submitted batch job 60316986
 
     Read the results.
 
@@ -658,7 +658,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[9]:
+    # Out[141]:
     :END:
 
     Plot the generalization performance of each method.
@@ -680,7 +680,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[16]:
+    # Out[142]:
     [[file:figure/deconvolution.org/control-benchmark.png]]
     :END:
 
@@ -704,7 +704,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[92]:
+    # Out[143]:
     [[file:figure/deconvolution.org/control-benchmark-inset.png]]
     :END:
 
@@ -949,7 +949,7 @@
     #+END_SRC
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=broadwl --mem=32G -a 6-8 -n1 -c28 --exclusive --time=12:00:00 --job-name=benchmark --output=benchmark-cpu.out
+      sbatch --partition=broadwl --mem=32G -a 0-8 -n1 -c28 --exclusive --time=12:00:00 --job-name=benchmark --output=benchmark-cpu.out
       #!/bin/bash
       source activate scmodes
       python <<EOF
