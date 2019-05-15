@@ -1,0 +1,288 @@
+#+TITLE: NPMLE on C1 spike-in data
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  We found NPMLE overfits spike-in data from C1, but not other platforms.
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+    (org-babel-lob-ingest "deconvolution.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 14
+
+  #+CALL: ipython3() :dir /scratch/midway2/aksarkar
+
+  #+BEGIN_SRC ipython
+    import numpy as np
+    import pandas as pd
+    import scqtl.simple
+    import sklearn.model_selection as skms
+
+    import rpy2.robjects.packages
+    import rpy2.robjects.pandas2ri
+
+    rpy2.robjects.pandas2ri.activate()
+
+    ashr = rpy2.robjects.packages.importr('ashr')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[24]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+  #+END_SRC
+
+* Results
+** Benchmark
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     benchmark = {}
+     for data in ('dropseq', 'indrops', 'chromium1', 'chromium2', 'gemcode', 'c1'):
+       benchmark[data] = (
+         pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', index_col=0, sep='\t')
+         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
+         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-zief.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
+         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True))
+   #+END_SRC
+
+   Find genes where NPMLE does worst against Gamma.
+
+   #+BEGIN_SRC ipython
+     T = benchmark['c1']
+     llik_diff = T["npmle"] - T["gamma"]
+     query = llik_diff.sort_values().head(n=12).index
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[15]:
+   :END:
+
+   #+CALL: ercc-data()
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     c1 = data['c1']()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[12]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/npmle.org/c1-examples.png
+     plt.clf()
+     fig, ax = plt.subplots(4, 3)
+     fig.set_size_inches(7, 5)
+     for a, k in zip(ax.ravel(), query):
+       a.hist(c1[:,k], bins=np.arange(c1[:,k].max() + 1), color='k')
+       a.text(x=.95, y=.95,
+              s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
+              horizontalalignment='right',
+              verticalalignment='top',
+              transform=a.transAxes)
+     for y in range(ax.shape[0]):
+       ax[y][0].set_ylabel('Num cells')
+     for x in range(ax.shape[1]):
+       ax[-1][x].set_xlabel('Num mols')
+     fig.tight_layout()
+
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[22]:
+   [[file:figure/npmle.org/c1-examples.png]]
+   :END:
+
+** Extract examples   
+
+   #+BEGIN_SRC ipython
+     x = c1[:,query][:,0]
+     s = c1.sum(axis=1)
+     lam = x / s
+     train, val, train_s, val_s = skms.train_test_split(x, s, test_size=0.1, random_state=1)
+     train_lam = train / train_s
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[49]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     K = 200
+     grid = np.linspace(0, train_lam.max(), K + 1)
+     gamma_res = scqtl.simple.fit_nb(train, train_s)
+     npmle_res = ashr.ash_workhorse(
+       pd.Series(np.zeros(train.shape)),
+       1,
+       outputlevel=pd.Series(['fitted_g', 'loglik']),
+       lik=ashr.lik_pois(y=pd.Series(train), scale=pd.Series(train_s), link='identity'),
+       g=ashr.unimix(pd.Series(np.ones(K) / K), pd.Series(grid[:-1]), pd.Series(grid[1:])))
+     npmle_val_res = ashr.ash_workhorse(
+       pd.Series(np.zeros(val.shape)),
+       1,
+       outputlevel='loglik',
+       lik=ashr.lik_pois(y=pd.Series(val), scale=pd.Series(val_s), link='identity'),
+       fixg=True,
+       g=npmle_res.rx2('fitted_g'))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[50]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     gamma_train_llik = gamma_res[-1]
+     npmle_train_llik = np.array(npmle_res.rx2('loglik'))
+
+     gamma_val_llik = st.nbinom(n=gamma_res[1], p=1 / (1 + val_s * gamma_res[0] / gamma_res[1])).logpmf(val).sum()
+     npmle_val_llik = np.array(npmle_val_res.rx2('loglik'))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[51]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     npmle_train_llik.sum() - gamma_train_llik.sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[52]:
+   : -13918.570811914533
+   :END:
+
+   #+BEGIN_SRC ipython
+     npmle_val_llik.sum() - gamma_val_llik.sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[53]:
+   : -1543.3543034150318
+   :END:
+
+   #+BEGIN_SRC ipython
+     lam_grid = np.linspace(0, lam.max(), 5000)
+     gamma_cdf = st.gamma(a=gamma_res[1], scale=gamma_res[0] / gamma_res[1]).cdf(lam_grid)
+     npmle_cdf = ashr.cdf_ash(npmle_res, lam_grid)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[99]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/npmle.org/c1-gamma-examples.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(5, 3)
+     h = ax[0].hist(train, bins=np.arange(0, x.max() + 1, 1), color='k', label='Training')
+     ax[0].hist(val, bottom=h[0], bins=np.arange(0, x.max() + 1, 1), color='r', label='Validation')
+     ax[0].legend(frameon=False)
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
+
+     ax[1].set_xlim(0, 0.01)
+     ax[1].plot(np.array(npmle_cdf.rx2('x')).ravel(), np.array(npmle_cdf.rx2('y')).ravel(), c='b', label='NPMLE', lw=1)
+     ax[1].plot(lam_grid, gamma_cdf, c='orange', label='Gamma', lw=1)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+     ax[1].legend(frameon=False)
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[100]:
+   [[file:figure/npmle.org/c1-gamma-examples.png]]
+   :END:
+
+   Look at the grid.
+
+   #+BEGIN_SRC ipython
+     lam.max()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[79]:
+   : 1.0
+   :END:
+
+   Investigate where the MLE \(\hat\lambda = x / s = 1\).
+
+   #+BEGIN_SRC ipython
+     np.where(s == 1)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[80]:
+   #+BEGIN_EXAMPLE
+     (array([867, 869, 872, 873, 874, 875, 877, 883, 887, 893, 895, 896, 897,
+     898]),)
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython
+     c1[867]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[82]:
+   #+BEGIN_EXAMPLE
+     array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0])
+   #+END_EXAMPLE
+   :END:
+
+   Check whether size factor equal to 1 is sensible.
+
+   #+BEGIN_SRC ipython
+     annotations = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt', sep='\t')
+     keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', sep='\t', header=None, index_col=0)
+     annotations.loc[np.logical_and(keep_samples.values.ravel(), (annotations['mol_ercc'] == 1).values.ravel())].shape[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[98]:
+   : 10
+   :END:
+
+   NPMLE does poorly because our choice of grid is suboptimal.

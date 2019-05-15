@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2019-05-15 Wed 16:08 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NPMLE on C1 spike-in data</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">NPMLE on C1 spike-in data</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org4e481dc">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#org432ed95">Results</a>
+<ul>
+<li><a href="#orgf8ed5ca">Benchmark</a></li>
+<li><a href="#org98882cb">Extract examples</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org4e481dc" class="outline-2">
+<h2 id="org4e481dc">Introduction</h2>
+<div class="outline-text-2" id="text-org4e481dc">
+<p>
+We found NPMLE overfits spike-in data from C1, but not other platforms.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org5b28a56" class="outline-2">
+<h2 id="setup"><a id="org5b28a56"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scqtl.simple
+<span class="org-keyword">import</span> sklearn.model_selection <span class="org-keyword">as</span> skms
+
+<span class="org-keyword">import</span> rpy2.robjects.packages
+<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
+
+rpy2.robjects.pandas2ri.activate()
+
+<span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org432ed95" class="outline-2">
+<h2 id="org432ed95">Results</h2>
+<div class="outline-text-2" id="text-org432ed95">
+</div>
+<div id="outline-container-orgf8ed5ca" class="outline-3">
+<h3 id="orgf8ed5ca">Benchmark</h3>
+<div class="outline-text-3" id="text-orgf8ed5ca">
+<p>
+Read the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">benchmark</span> = {}
+<span class="org-keyword">for</span> data <span class="org-keyword">in</span> (<span class="org-string">'dropseq'</span>, <span class="org-string">'indrops'</span>, <span class="org-string">'chromium1'</span>, <span class="org-string">'chromium2'</span>, <span class="org-string">'gemcode'</span>, <span class="org-string">'c1'</span>):
+  <span class="org-variable-name">benchmark</span>[data] = (
+    pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
+    .merge(pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>), left_index=<span class="org-constant">True</span>, right_index=<span class="org-constant">True</span>)
+    .merge(pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-zief.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>), left_index=<span class="org-constant">True</span>, right_index=<span class="org-constant">True</span>)
+    .merge(pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>), left_index=<span class="org-constant">True</span>, right_index=<span class="org-constant">True</span>))
+</pre>
+</div>
+
+<p>
+Find genes where NPMLE does worst against Gamma.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">T</span> = benchmark[<span class="org-string">'c1'</span>]
+<span class="org-variable-name">llik_diff</span> = T[<span class="org-string">"npmle"</span>] - T[<span class="org-string">"gamma"</span>]
+<span class="org-variable-name">query</span> = llik_diff.sort_values().head(n=12).index
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">c1</span> = data[<span class="org-string">'c1'</span>]()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(c1[:,k], bins=np.arange(c1[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/npmle.org/c1-examples.png" alt="c1-examples.png">
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org98882cb" class="outline-3">
+<h3 id="org98882cb">Extract examples</h3>
+<div class="outline-text-3" id="text-org98882cb">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = c1[:,query][:,0]
+<span class="org-variable-name">s</span> = c1.<span class="org-builtin">sum</span>(axis=1)
+<span class="org-variable-name">lam</span> = x / s
+<span class="org-variable-name">train</span>, <span class="org-variable-name">val</span>, <span class="org-variable-name">train_s</span>, <span class="org-variable-name">val_s</span> = skms.train_test_split(x, s, test_size=0.1, random_state=1)
+<span class="org-variable-name">train_lam</span> = train / train_s
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">K</span> = 200
+<span class="org-variable-name">grid</span> = np.linspace(0, train_lam.<span class="org-builtin">max</span>(), K + 1)
+<span class="org-variable-name">gamma_res</span> = scqtl.simple.fit_nb(train, train_s)
+<span class="org-variable-name">npmle_res</span> = ashr.ash_workhorse(
+  pd.Series(np.zeros(train.shape)),
+  1,
+  outputlevel=pd.Series([<span class="org-string">'fitted_g'</span>, <span class="org-string">'loglik'</span>]),
+  lik=ashr.lik_pois(y=pd.Series(train), scale=pd.Series(train_s), link=<span class="org-string">'identity'</span>),
+  g=ashr.unimix(pd.Series(np.ones(K) / K), pd.Series(grid[:-1]), pd.Series(grid[1:])))
+<span class="org-variable-name">npmle_val_res</span> = ashr.ash_workhorse(
+  pd.Series(np.zeros(val.shape)),
+  1,
+  outputlevel=<span class="org-string">'loglik'</span>,
+  lik=ashr.lik_pois(y=pd.Series(val), scale=pd.Series(val_s), link=<span class="org-string">'identity'</span>),
+  fixg=<span class="org-constant">True</span>,
+  g=npmle_res.rx2(<span class="org-string">'fitted_g'</span>))
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gamma_train_llik</span> = gamma_res[-1]
+<span class="org-variable-name">npmle_train_llik</span> = np.array(npmle_res.rx2(<span class="org-string">'loglik'</span>))
+
+<span class="org-variable-name">gamma_val_llik</span> = st.nbinom(n=gamma_res[1], p=1 / (1 + val_s * gamma_res[0] / gamma_res[1])).logpmf(val).<span class="org-builtin">sum</span>()
+<span class="org-variable-name">npmle_val_llik</span> = np.array(npmle_val_res.rx2(<span class="org-string">'loglik'</span>))
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">npmle_train_llik.<span class="org-builtin">sum</span>() - gamma_train_llik.<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<pre class="example">
+-13918.570811914533
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">npmle_val_llik.<span class="org-builtin">sum</span>() - gamma_val_llik.<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<pre class="example">
+-1543.3543034150318
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">lam_grid</span> = np.linspace(0, lam.<span class="org-builtin">max</span>(), 5000)
+<span class="org-variable-name">gamma_cdf</span> = st.gamma(a=gamma_res[1], scale=gamma_res[0] / gamma_res[1]).cdf(lam_grid)
+<span class="org-variable-name">npmle_cdf</span> = ashr.cdf_ash(npmle_res, lam_grid)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
+fig.set_size_inches(5, 3)
+<span class="org-variable-name">h</span> = ax[0].hist(train, bins=np.arange(0, x.<span class="org-builtin">max</span>() + 1, 1), color=<span class="org-string">'k'</span>, label=<span class="org-string">'Training'</span>)
+ax[0].hist(val, bottom=h[0], bins=np.arange(0, x.<span class="org-builtin">max</span>() + 1, 1), color=<span class="org-string">'r'</span>, label=<span class="org-string">'Validation'</span>)
+ax[0].legend(frameon=<span class="org-constant">False</span>)
+ax[0].set_xlabel(<span class="org-string">'Num mols'</span>)
+ax[0].set_ylabel(<span class="org-string">'Num cells'</span>)
+
+ax[1].set_xlim(0, 0.01)
+ax[1].plot(np.array(npmle_cdf.rx2(<span class="org-string">'x'</span>)).ravel(), np.array(npmle_cdf.rx2(<span class="org-string">'y'</span>)).ravel(), c=<span class="org-string">'b'</span>, label=<span class="org-string">'NPMLE'</span>, lw=1)
+ax[1].plot(lam_grid, gamma_cdf, c=<span class="org-string">'orange'</span>, label=<span class="org-string">'Gamma'</span>, lw=1)
+ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
+ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
+ax[1].legend(frameon=<span class="org-constant">False</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/npmle.org/c1-gamma-examples.png" alt="c1-gamma-examples.png">
+</p>
+</div>
+
+<p>
+Look at the grid.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">lam.<span class="org-builtin">max</span>()
+</pre>
+</div>
+
+<pre class="example">
+1.0
+
+</pre>
+
+<p>
+Investigate where the MLE \(\hat\lambda = x / s = 1\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.where(s == 1)
+</pre>
+</div>
+
+<pre class="example">
+(array([867, 869, 872, 873, 874, 875, 877, 883, 887, 893, 895, 896, 897,
+898]),)
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">c1[867]
+</pre>
+</div>
+
+<pre class="example">
+array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0])
+</pre>
+
+<p>
+Check whether size factor equal to 1 is sensible.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">annotations</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt'</span>, sep=<span class="org-string">'\t'</span>)
+<span class="org-variable-name">keep_samples</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt'</span>, sep=<span class="org-string">'\t'</span>, header=<span class="org-constant">None</span>, index_col=0)
+annotations.loc[np.logical_and(keep_samples.values.ravel(), (annotations[<span class="org-string">'mol_ercc'</span>] == 1).values.ravel())].shape[0]
+</pre>
+</div>
+
+<pre class="example">
+10
+
+</pre>
+
+<p>
+NPMLE does poorly because our choice of grid is suboptimal.
+</p>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2019-05-15 Wed 16:08</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>
