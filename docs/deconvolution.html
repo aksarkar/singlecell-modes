@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-14 Tue 16:44 -->
+<!-- 2019-05-15 Wed 23:33 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -884,9 +884,9 @@ individuals.
 </div>
 </div>
 
-<div id="outline-container-org88cfe5e" class="outline-4">
-<h4 id="org88cfe5e">Run the benchmark</h4>
-<div class="outline-text-4" id="text-org88cfe5e">
+<div id="outline-container-orgdd71ece" class="outline-4">
+<h4 id="orgdd71ece">Run the benchmark</h4>
+<div class="outline-text-4" id="text-orgdd71ece">
 <div class="org-src-container">
 <pre class="src src-ipython" id="orgab7cb06">&lt;&lt;imports&gt;&gt;
 <span class="org-keyword">import</span> os
@@ -1231,16 +1231,15 @@ fig.tight_layout()
 <h3 id="homogeneous-results"><a id="org3e95935"></a>Homogeneous cell populations</h3>
 <div class="outline-text-3" id="text-homogeneous-results">
 </div>
-<div id="outline-container-orgb53a78f" class="outline-4">
-<h4 id="homogeneous-results"><a id="orgb53a78f"></a>Run the benchmark</h4>
+<div id="outline-container-org72c632b" class="outline-4">
+<h4 id="homogeneous-results"><a id="org72c632b"></a>Run the benchmark</h4>
 <div class="outline-text-4" id="text-homogeneous-results">
 <p>
 Run the benchmark.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="orgeaeae79">&lt;&lt;imports&gt;&gt;
-<span class="org-keyword">import</span> os
+<pre class="src src-ipython" id="orgeaeae79"><span class="org-keyword">import</span> os
 <span class="org-variable-name">data</span> = {
   <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>),
   <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>),
@@ -1255,7 +1254,7 @@ Run the benchmark.
   <span class="org-variable-name">x</span> = data[task[0]]()
   <span class="org-variable-name">res</span> = scmodes.benchmark.evaluate_deconv_generalization(x.values, pool=pool, test_size=0.1, random_state=0, methods=[task[1]])
   <span class="org-variable-name">res.index</span> = x.columns
-  res.to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/{task[0]}-{task[1]}.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
+  res.to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/deconv-generalization/{task[0]}-{task[1]}.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
 </pre>
 </div>
 
@@ -1264,14 +1263,14 @@ Run the benchmark.
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
-<span class="org-sh-heredoc">&lt;&lt;run-homogeneous-benchmark-cpu&gt;&gt;</span>
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+&lt;&lt;run-homogeneous-benchmark-cpu&gt;&gt;
 EOF
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org11112f9">&lt;&lt;imports&gt;&gt;
-<span class="org-keyword">import</span> os
+<pre class="src src-ipython" id="org11112f9"><span class="org-keyword">import</span> os
 <span class="org-variable-name">data</span> = {
   <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>),
   <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>),
@@ -1288,12 +1287,13 @@ res.to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/deconv-gen
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 -a 2 --mem=16G --time=12:00:00 --job-name=benchmark --output=benchmark-gpu.out
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 -a 1-2 --mem=16G --time=12:00:00 --job-name=benchmark --output=benchmark-gpu.out
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 module load cuda/9.0
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
-<span class="org-sh-heredoc">&lt;&lt;run-homogeneous-benchmark-gpu&gt;&gt;</span>
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+&lt;&lt;run-homogeneous-benchmark-gpu&gt;&gt;
 EOF
 </pre>
 </div>
@@ -1319,14 +1319,15 @@ Plot the generalization performance of each method.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3)
-fig.set_size_inches(7, 3)
+fig.set_size_inches(5, 3)
 <span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">sorted</span>(benchmark.keys())):
   ax[i].boxplot((benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'gamma'</span>].values.reshape(-1, 1))[:,1:],
-                widths=0.25, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
+                widths=0.5, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
+  ax[i].axhline(y=0, c=<span class="org-string">'k'</span>, lw=1, ls=<span class="org-string">':'</span>)
   ax[i].set_xticklabels([<span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
-  ax[i].set_xlabel(<span class="org-string">'Assumed latent dist'</span>)
   ax[i].set_title(k)
 ax[0].set_ylabel(<span class="org-string">'Diff val set log lik from Gamma'</span>)
+ax[1].set_xlabel(<span class="org-string">'Assumed latent dist'</span>)
 fig.tight_layout()
 </pre>
 </div>
@@ -1338,42 +1339,16 @@ fig.tight_layout()
 </div>
 
 <p>
-Zoom in on the relevant part of the plot.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3)
-fig.set_size_inches(7, 3)
-<span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, <span class="org-builtin">sorted</span>(benchmark.keys()), (<span class="org-string">'B cells'</span>, <span class="org-string">'Cytotoxic T cells'</span>, <span class="org-string">'iPSCs'</span>)):
-  <span class="org-variable-name">T</span> = (benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'gamma'</span>].values.reshape(-1, 1))[:,1:]
-  a.boxplot(T, widths=0.25, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
-  a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
-  a.set_xticklabels([<span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
-  a.set_xlabel(<span class="org-string">'Assumed latent dist'</span>)
-  a.set_ylim(-20, 1.05 * T.<span class="org-builtin">max</span>())
-  a.set_title(t)
-ax[0].set_ylabel(<span class="org-string">'Diff val set log lik from Gamma'</span>)
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/deconvolution.org/homogeneous-benchmark-inset.png" alt="homogeneous-benchmark-inset.png">
-</p>
-</div>
-
-<p>
 <b>Conclusions:</b>
 </p>
 
 <ul class="org-ul">
-<li>ZIEF overfits most genes</li>
-<li>Gamma is adequate for many genes</li>
-<li>The choice of unimodal discretization matters for computational
-speed. The default in <code>ashr</code> is flawed;
+<li>The choice of unimodal discretization matters both for generalization
+performance and computational speed. The default in <code>ashr</code> is flawed;
 <a href="https://github.com/aksarkar/scmodes/blob/4d84236888daba32a7fee60642f3addd5a34ff9c/scmodes/benchmark/deconvolution.py#L83">our
 choice</a> makes the method considerably slower</li>
+<li>In the iPSC data, modeling all samples without considering individual of
+origin is clearly flawed</li>
 </ul>
 </div>
 </div>
@@ -2267,9 +2242,9 @@ Text(0, 0.5, 'Number of cells')
 <h3 id="heterogeneous"><a id="org277d861"></a>Heterogeneous cell populations</h3>
 <div class="outline-text-3" id="text-heterogeneous">
 </div>
-<div id="outline-container-org8200317" class="outline-4">
-<h4 id="org8200317">Run the benchmark</h4>
-<div class="outline-text-4" id="text-org8200317">
+<div id="outline-container-org8e35bca" class="outline-4">
+<h4 id="org8e35bca">Run the benchmark</h4>
+<div class="outline-text-4" id="text-org8e35bca">
 <div class="org-src-container">
 <pre class="src src-ipython" id="org3d7c874"><span class="org-variable-name">data</span> = {
   <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>),
@@ -2592,7 +2567,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-14 Tue 16:44</p>
+<p class="date">Created: 2019-05-15 Wed 23:33</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

@@ -26,6 +26,7 @@
   #+BEGIN_SRC emacs-lisp :exports none
     (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
     (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+    (org-babel-lob-ingest "deconvolution.org")
   #+END_SRC
 
   #+RESULTS:
@@ -34,7 +35,7 @@
   #+CALL: ipython3(memory="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 60183866
+  : Submitted batch job 60354460
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -61,7 +62,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[24]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -623,7 +624,7 @@
     : Submitted batch job 60316984
 
     #+NAME: run-ercc-benchmark-gpu
-    #+BEGIN_SRC ipython :eval never :noweb tangle :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/temp.py
+    #+BEGIN_SRC ipython :eval never
       <<imports>>
       <<ercc-data>>
       for dataset in ('c1',):
@@ -658,7 +659,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[141]:
+    # Out[4]:
     :END:
 
     Plot the generalization performance of each method.
@@ -929,7 +930,6 @@
 
     #+NAME: run-homogeneous-benchmark-cpu
     #+BEGIN_SRC ipython :eval never
-      <<imports>>
       import os
       data = {
         'cytotoxic_t': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True),
@@ -945,7 +945,7 @@
         x = data[task[0]]()
         res = scmodes.benchmark.evaluate_deconv_generalization(x.values, pool=pool, test_size=0.1, random_state=0, methods=[task[1]])
         res.index = x.columns
-        res.to_csv(f'/scratch/midway2/aksarkar/modes/{task[0]}-{task[1]}.txt.gz', compression='gzip', sep='\t')
+        res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/{task[0]}-{task[1]}.txt.gz', compression='gzip', sep='\t')
     #+END_SRC
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
@@ -953,16 +953,16 @@
       #!/bin/bash
       source activate scmodes
       python <<EOF
+      <<imports>>
       <<run-homogeneous-benchmark-cpu>>
       EOF
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 59511459
+    : Submitted batch job 60347150
 
     #+NAME: run-homogeneous-benchmark-gpu
     #+BEGIN_SRC ipython :eval never
-      <<imports>>
       import os
       data = {
         'cytotoxic_t': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True),
@@ -978,18 +978,19 @@
       res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/{task}-gpu.txt.gz', compression='gzip', sep='\t')
     #+END_SRC
 
-    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=gpu2 --gres=gpu:1 -a 2 --mem=16G --time=12:00:00 --job-name=benchmark --output=benchmark-gpu.out
+    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes
+      sbatch --partition=gpu2 --gres=gpu:1 -a 1-2 --mem=16G --time=12:00:00 --job-name=benchmark --output=benchmark-gpu.out
       #!/bin/bash
       module load cuda/9.0
       source activate scmodes
       python <<EOF
+      <<imports>>
       <<run-homogeneous-benchmark-gpu>>
       EOF
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 59503539
+    : Submitted batch job 60328857
 
     Read the results.
 
@@ -1005,61 +1006,39 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[34]:
+    # Out[4]:
     :END:
 
     Plot the generalization performance of each method.
 
     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/homogeneous-benchmark.png
       fig, ax = plt.subplots(1, 3)
-      fig.set_size_inches(7, 3)
+      fig.set_size_inches(5, 3)
       for i, k in enumerate(sorted(benchmark.keys())):
         ax[i].boxplot((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:],
-                      widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+                      widths=0.5, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+        ax[i].axhline(y=0, c='k', lw=1, ls=':')
         ax[i].set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-        ax[i].set_xlabel('Assumed latent dist')
         ax[i].set_title(k)
       ax[0].set_ylabel('Diff val set log lik from Gamma')
+      ax[1].set_xlabel('Assumed latent dist')
       fig.tight_layout()
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[35]:
+    # Out[11]:
     [[file:figure/deconvolution.org/homogeneous-benchmark.png]]
-    :END:
-
-    Zoom in on the relevant part of the plot.
-
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/homogeneous-benchmark-inset.png
-      fig, ax = plt.subplots(1, 3)
-      fig.set_size_inches(7, 3)
-      for a, k, t in zip(ax, sorted(benchmark.keys()), ('B cells', 'Cytotoxic T cells', 'iPSCs')):
-        T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
-        a.boxplot(T, widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-        a.axhline(y=0, ls=':', lw=1, c='k')
-        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-        a.set_xlabel('Assumed latent dist')
-        a.set_ylim(-20, 1.05 * T.max())
-        a.set_title(t)
-      ax[0].set_ylabel('Diff val set log lik from Gamma')
-      fig.tight_layout()
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[36]:
-    [[file:figure/deconvolution.org/homogeneous-benchmark-inset.png]]
     :END:
 
     *Conclusions:*
 
-    - ZIEF overfits most genes
-    - Gamma is adequate for many genes
-    - The choice of unimodal discretization matters for computational
-      speed. The default in ~ashr~ is flawed;
+    - The choice of unimodal discretization matters both for generalization
+      performance and computational speed. The default in ~ashr~ is flawed;
       [[https://github.com/aksarkar/scmodes/blob/4d84236888daba32a7fee60642f3addd5a34ff9c/scmodes/benchmark/deconvolution.py#L83][our
       choice]] makes the method considerably slower
+    - In the iPSC data, modeling all samples without considering individual of
+      origin is clearly flawed
 
 *** Investigate genes with support for more complex models
 
