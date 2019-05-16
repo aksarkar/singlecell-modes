@@ -22,3 +22,4 @@ Technical details:
 - [[file:poisson.org][Deconvolution of near-Poisson data]]
 - [[file:validation.org][Validation set log likelihood comparison]]
 - [[file:npmle.org][NPMLE on C1 spike-in data]]
+- [[file:deconv-examples.org][Distribution deconvolution examples]]

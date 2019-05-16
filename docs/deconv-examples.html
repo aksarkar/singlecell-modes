@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2019-05-16 Thu 11:14 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Distribution deconvolution examples</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Distribution deconvolution examples</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#org8bfc9be">Results</a>
+<ul>
+<li><a href="#orge1f371e">Spike-in data</a></li>
+<li><a href="#orgef19613">Homogeneous populations</a></li>
+<li><a href="#org442ed69">Synthetic mixtures</a></li>
+<li><a href="#org97b471c">Heterogeneous populations</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org1f0d593" class="outline-2">
+<h2 id="setup"><a id="org1f0d593"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> functools <span class="org-keyword">as</span> ft
+<span class="org-keyword">import</span> multiprocessing <span class="org-keyword">as</span> mp
+<span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scanpy
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+<span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
+<span class="org-keyword">import</span> scmodes
+<span class="org-keyword">import</span> sklearn.model_selection <span class="org-keyword">as</span> skms
+
+<span class="org-keyword">import</span> rpy2.robjects.packages
+<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
+<span class="org-keyword">import</span> rpy2.robjects.numpy2ri
+
+rpy2.robjects.pandas2ri.activate()
+rpy2.robjects.numpy2ri.activate()
+
+<span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
+<span class="org-variable-name">descend</span> = rpy2.robjects.packages.importr(<span class="org-string">'descend'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> colorcet
+<span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org8bfc9be" class="outline-2">
+<h2 id="org8bfc9be">Results</h2>
+<div class="outline-text-2" id="text-org8bfc9be">
+</div>
+<div id="outline-container-orge1f371e" class="outline-3">
+<h3 id="orge1f371e">Spike-in data</h3>
+<div class="outline-text-3" id="text-orge1f371e">
+</div>
+<div id="outline-container-orgf5eef35" class="outline-4">
+<h4 id="orgf5eef35">Look at genes favoring more complex models</h4>
+<div class="outline-text-4" id="text-orgf5eef35">
+<p>
+We are primarily interested in cases where NPMLE does better than unimodal,
+because these could potentially be cases where zeros drive the difference
+in generalization performance.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">chromium1</span> = data[<span class="org-string">'chromium1'</span>]()
+<span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'chromium1'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'chromium1'</span>][<span class="org-string">'unimodal'</span>]
+<span class="org-variable-name">query</span> = llik_diff[np.logical_and(chromium1.<span class="org-builtin">sum</span>(axis=0) &gt; 0, llik_diff &gt; 0)].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(chromium1[:,k], bins=np.arange(chromium1[:,k].<span class="org-builtin">max</span>() + 2), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/chromium1-npmle-examples.png" alt="chromium1-npmle-examples.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">chromium2</span> = data[<span class="org-string">'chromium2'</span>]()
+<span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'chromium2'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'chromium2'</span>][<span class="org-string">'unimodal'</span>]
+<span class="org-variable-name">query</span> = llik_diff[np.logical_and(chromium2.<span class="org-builtin">sum</span>(axis=0) &gt; 0, llik_diff &gt; 0)].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(chromium2[:,k], bins=np.arange(chromium2[:,k].<span class="org-builtin">max</span>() + 2), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/chromium2-npmle-examples.png" alt="chromium2-npmle-examples.png">
+</p>
+</div>
+
+<p>
+Look at the distribution of size factors.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">s</span> = chromium2.<span class="org-builtin">sum</span>(axis=1)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.hist(s, color=<span class="org-string">'k'</span>, bins=100)
+plt.axvline(x=1000, c=<span class="org-string">'r'</span>, lw=1, ls=<span class="org-string">':'</span>)
+plt.xlabel(<span class="org-string">'Size factor'</span>)
+plt.ylabel(<span class="org-string">'Number of cells'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/chromium2-size.png" alt="chromium2-size.png">
+</p>
+</div>
+
+<p>
+Show that the bimodal distribution of counts is totally explained by the
+bimodal distribution of size factors. 
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  n, *<span class="org-variable-name">_</span> = a.hist(chromium2[s &lt; 1000,k], bins=np.arange(chromium2[:,k].<span class="org-builtin">max</span>() + 2), color=<span class="org-string">'k'</span>)
+  a.hist(chromium2[s &gt;= 1000,k], bottom=n, bins=np.arange(chromium2[:,k].<span class="org-builtin">max</span>() + 2), color=<span class="org-string">'r'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/chromium2-npmle-examples-bimodal.png" alt="chromium2-npmle-examples-bimodal.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">dropseq</span> = data[<span class="org-string">'dropseq'</span>]()
+<span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'dropseq'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'dropseq'</span>][<span class="org-string">'unimodal'</span>]
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'dropseq'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(dropseq[:,k], bins=np.arange(dropseq[:,k].<span class="org-builtin">max</span>() + 2), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/dropseq-npmle-examples.png" alt="dropseq-npmle-examples.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gemcode</span> = data[<span class="org-string">'gemcode'</span>]()
+<span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'gemcode'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'gemcode'</span>][<span class="org-string">'unimodal'</span>]
+<span class="org-variable-name">query</span> = llik_diff[np.logical_and(gemcode.<span class="org-builtin">sum</span>(axis=0) &gt; 0, llik_diff &gt; 0)].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(gemcode[:,k], bins=np.arange(gemcode[:,k].<span class="org-builtin">max</span>() + 2), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/gemcode-npmle-examples.png" alt="gemcode-npmle-examples.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">indrops</span> = data[<span class="org-string">'indrops'</span>]()
+<span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'indrops'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'indrops'</span>][<span class="org-string">'unimodal'</span>]
+<span class="org-variable-name">query</span> = llik_diff[np.logical_and(indrops.<span class="org-builtin">sum</span>(axis=0) &gt; 0, llik_diff &gt; 0)].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(indrops[:,k], bins=np.arange(indrops[:,k].<span class="org-builtin">max</span>() + 2), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/indrops-npmle-examples.png" alt="indrops-npmle-examples.png">
+</p>
+</div>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orgef19613" class="outline-3">
+<h3 id="orgef19613">Homogeneous populations</h3>
+<div class="outline-text-3" id="text-orgef19613">
+</div>
+<div id="outline-container-org6a11458" class="outline-4">
+<h4 id="org6a11458">Investigate genes with support for more complex models</h4>
+<div class="outline-text-4" id="text-org6a11458">
+<p>
+Read gene metadata.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="orgabb7eab"><span class="org-variable-name">gene_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+</pre>
+</div>
+
+<p>
+Focus on cases where NPMLE does better than unimodal. Look at B cells.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">b_cells</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
+<span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'b_cells'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'b_cells'</span>][<span class="org-string">'gamma'</span>]
+<span class="org-variable-name">query</span> = llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 4)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(b_cells.loc[:,k], bins=np.arange(b_cells.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={benchmark['b_cells']['npmle'].loc[k] - benchmark['b_cells']['gamma'].loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+  a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>] <span class="org-keyword">if</span> k <span class="org-keyword">in</span> gene_info.index <span class="org-keyword">else</span> k)
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/b-cell-descend-examples.png" alt="b-cell-descend-examples.png">
+</p>
+</div>
+
+<p>
+In T cells, several genes appear to be best fit by ZIEF.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cytotoxic_t</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
+<span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cytotoxic_t'</span>][<span class="org-string">'zief'</span>] - benchmark[<span class="org-string">'cytotoxic_t'</span>][<span class="org-string">'gamma'</span>]
+<span class="org-variable-name">query</span> = llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(cytotoxic_t.loc[:,k], bins=np.arange(cytotoxic_t.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={benchmark['cytotoxic_t']['zief'].loc[k] - benchmark['cytotoxic_t']['gamma'].loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+  a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>] <span class="org-keyword">if</span> k <span class="org-keyword">in</span> gene_info.index <span class="org-keyword">else</span> k)
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/cytotoxic-t-zief-examples.png" alt="cytotoxic-t-zief-examples.png">
+</p>
+</div>
+
+<p>
+<i>CCL5</i> appears to have bimodal expression. Look at how other methods
+performed on <i>CCL5</i>.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">benchmark[<span class="org-string">'cytotoxic_t'</span>].loc[<span class="org-string">'ENSG00000161570'</span>]
+</pre>
+</div>
+
+<pre class="example">
+gamma         -2169.540390
+point_gamma   -2119.179861
+unimodal      -2108.054069
+zief          -2112.490970
+npmle         -2116.571337
+Name: ENSG00000161570, dtype: float64
+</pre>
+
+<p>
+In iPSCs, several genes appear to be better fit by unimodal/NPMLE.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">ipsc_counts</span> = scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>, n=100, return_df=<span class="org-constant">True</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">query</span> = benchmark[<span class="org-string">'ipsc'</span>][benchmark[<span class="org-string">'ipsc'</span>][<span class="org-string">'unimodal'</span>] &gt; benchmark[<span class="org-string">'ipsc'</span>][<span class="org-string">'gamma'</span>]].index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(8, 5)
+fig.set_size_inches(8, 10)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  <span class="org-variable-name">h</span> = a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={benchmark['ipsc']['unimodal'].loc[k] - benchmark['ipsc']['gamma'].loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+  a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>])
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/ipsc-unimodal-examples.png" alt="ipsc-unimodal-examples.png">
+</p>
+</div>
+
+<ul class="org-ul">
+<li><i>SLC25A5</i> (<a href="https://www.omim.org/entry/300150">Solute carrier family 25
+member 5</a>) codes for a mitochrondrial membrane protein
+(<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5789311/">Rocha et
+al. 2018</a>), and is altered in Parkinson's disease</li>
+<li><i>TXNDC17</i> (<a href="https://www.omim.org/entry/616967">Thioredoxin
+domain-containing protein 17</a>) appears to be involved in oxidative
+stress</li>
+<li><i>PCBP2</i> (<a href="https://www.omim.org/entry/601210">Poly(rC)-binding protein
+2</a>) is involved in post-transcriptional regulation</li>
+</ul>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'ipsc'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'ipsc'</span>][<span class="org-string">'gamma'</span>]
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'ipsc'</span>].loc[llik_diff &gt; 0].index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(9, 5)
+fig.set_size_inches(8, 10)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+  a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>])
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/ipsc-npmle-examples.png" alt="ipsc-npmle-examples.png">
+</p>
+</div>
+
+<p>
+<b>Conclusions:</b>
+</p>
+
+<ul class="org-ul">
+<li>ZIEF does better for genes which appear very close to Poisson. This could
+be because it the estimation algorithm can better estimate a point mass,
+or because two point masses (one zero and one non-zero) would be optimal.</li>
+<li>When NPMLE does better than Gamma, unimodal does comparably well. The
+genes where this happens quite clearly exhibit unimodal gene expression.</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-orgcfc27cc" class="outline-4">
+<h4 id="bimodal-example-ipsc"><a id="orgcfc27cc"></a>Investigate Gamma vs. Point-Gamma in high-depth data</h4>
+<div class="outline-text-4" id="text-bimodal-example-ipsc">
+<p>
+Look at the full benchmark results for NB vs. ZINB (only the GPU
+implementation is suitable for this).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+<span class="org-variable-name">h</span> = plt.hist(ipsc_res[<span class="org-string">'zinb'</span>] - ipsc_res[<span class="org-string">'nb'</span>], color=<span class="org-string">'k'</span>, bins=np.arange(-10, 40, 2))
+plt.xlabel(<span class="org-string">'Diff val set log lik from NB'</span>)
+<span class="org-variable-name">_</span> = plt.ylabel(<span class="org-string">'Number of genes'</span>)
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/homogeneous-nb-zinb-benchmark.png" alt="homogeneous-nb-zinb-benchmark.png">
+</p>
+</div>
+
+<p>
+Print the histogram for inspection.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.vstack((h[1][:-1], h[0])).T.astype(<span class="org-builtin">int</span>)
+</pre>
+</div>
+
+<pre class="example">
+array([[ -10,    0],
+[  -8,    0],
+[  -6,    0],
+[  -4,    0],
+[  -2, 4977],
+[   0, 4973],
+[   2,    2],
+[   4,    3],
+[   6,    0],
+[   8,    0],
+[  10,    0],
+[  12,    0],
+[  14,    1],
+[  16,    0],
+[  18,    0],
+[  20,    0],
+[  22,    0],
+[  24,    0],
+[  26,    0],
+[  28,    1],
+[  30,    0],
+[  32,    0],
+[  34,    0],
+[  36,    0]])
+</pre>
+
+<p>
+Try to find a case in the full iPSC data where point-Gamma (ZINB) is
+required, by performing likelihood ratio tests against Gamma (NB). Use
+Bonferroni correction to control FWER.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">ipsc_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
+<span class="org-variable-name">lrt</span> = st.chi2(1).sf(-2 * (ipsc_res[<span class="org-string">'gamma'</span>] - ipsc_res[<span class="org-string">'point_gamma'</span>]))
+ipsc_res[lrt &lt; .05 / lrt.shape[0]]
+</pre>
+</div>
+
+<pre class="example">
+gamma  point_gamma
+gene
+ENSG00000112530 -2017.717750 -1987.894352
+ENSG00000129824 -1803.651932 -1789.106410
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">ipsc_counts</span> = ipsc(query=<span class="org-builtin">list</span>(ipsc_res[lrt &lt; .05 / lrt.shape[0]].index), return_df=<span class="org-constant">True</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2)
+fig.set_size_inches(6, 3)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, ipsc_counts):
+  <span class="org-variable-name">h</span> = a.hist(ipsc_counts[k], bins=np.arange(ipsc_counts[k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>])
+  a.set_xlabel(<span class="org-string">'Number of molecules'</span>)
+  a.set_ylabel(<span class="org-string">'Number of cells'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/ipsc-zinb.png" alt="ipsc-zinb.png">
+</p>
+</div>
+
+<p>
+Print out the histogram for <i>RPS4Y1</i> for inspection.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.vstack((h[1][:-1], h[0])).T
+</pre>
+</div>
+
+<pre class="example">
+array([[  0., 803.],
+[  1., 309.],
+[  2., 435.],
+[  3., 407.],
+[  4., 383.],
+[  5., 323.],
+[  6., 323.],
+[  7., 239.],
+[  8., 163.],
+[  9., 166.],
+[ 10., 132.],
+[ 11.,  98.],
+[ 12.,  97.],
+[ 13., 106.],
+[ 14.,  95.],
+[ 15.,  95.],
+[ 16.,  94.],
+[ 17., 109.],
+[ 18.,  92.],
+[ 19.,  89.],
+[ 20.,  87.],
+[ 21.,  83.],
+[ 22., 100.],
+[ 23.,  75.],
+[ 24.,  71.],
+[ 25.,  60.],
+[ 26.,  61.],
+[ 27.,  60.],
+[ 28.,  60.],
+[ 29.,  34.],
+[ 30.,  50.],
+[ 31.,  41.],
+[ 32.,  34.],
+[ 33.,  38.],
+[ 34.,  28.],
+[ 35.,  23.],
+[ 36.,  19.],
+[ 37.,  18.],
+[ 38.,  11.],
+[ 39.,   7.],
+[ 40.,  17.],
+[ 41.,   8.],
+[ 42.,  12.],
+[ 43.,   7.],
+[ 44.,   4.],
+[ 45.,  11.],
+[ 46.,   4.],
+[ 47.,   2.],
+[ 48.,   1.],
+[ 49.,   3.],
+[ 50.,   1.],
+[ 51.,   1.],
+[ 52.,   2.],
+[ 53.,   1.],
+[ 54.,   1.],
+[ 55.,   1.],
+[ 56.,   2.],
+[ 57.,   0.],
+[ 58.,   0.],
+[ 59.,   0.],
+[ 60.,   0.],
+[ 61.,   0.],
+[ 62.,   0.],
+[ 63.,   0.],
+[ 64.,   0.],
+[ 65.,   1.]])
+</pre>
+
+<p>
+<i>PACRG</i> (<a href="https://www.omim.org/entry/608427">Parkin coregulated gene</a>)
+shares a promoter with <i>PKRG</i> (<i>PARK2</i>;
+<a href="https://www.omim.org/entry/602544?search=park2&amp;highlight=park2">Parkin</a>). PARKIN
+is involved in a <a href="https://www.pnas.org/content/115/2/E180">signaling
+pathway for mitochondria damage</a>, and mitochrondrial damage appears to be
+relevant to neurodegenerative disease etiology
+(<a href="https://www.ncbi.nlm.nih.gov/pubmed/29414602">Alzheimer's disease</a> and
+<a href="https://www.pnas.org/content/115/2/E180">Parkinson's disease</a>).
+Mitochrondrial damage could explain the bimodal distribution of <i>PACRG</i> in
+the iPSC data: the reprogramming protocol could induce oxidative stress on
+some of the cells, resulting in damage.
+</p>
+
+<p>
+<i>RPS4Y1</i> (<a href="https://www.omim.org/entry/470000">Ribosomal protein S4,
+Y-linked</a>) is on the Y chromosome, and therefore we should expect it to
+only be expressed in males. The homologous gene on the X chromosome
+(<a href="https://www.omim.org/entry/312760"><i>RPS4X</i></a>) has a different coding
+sequence. Naively, sex-linkage should explain why this gene exhibits bimodal
+gene expression.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">curl -OL <span class="org-string">'http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20130606_sample_info/20130606_sample_info.txt'</span>
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">donor_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/20130606_sample_info.txt'</span>, sep=<span class="org-string">'\t'</span>)
+</pre>
+</div>
+
+<p>
+Count how many cells come from females.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">prefix</span> = <span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>
+<span class="org-variable-name">annotations</span> = pd.read_csv(f<span class="org-string">'{prefix}/scqtl-annotation.txt'</span>, sep=<span class="org-string">'\t'</span>)
+<span class="org-variable-name">keep_samples</span> = pd.read_csv(f<span class="org-string">'{prefix}/quality-single-cells.txt'</span>, sep=<span class="org-string">'\t'</span>, index_col=0, header=<span class="org-constant">None</span>)
+<span class="org-variable-name">annotations</span> = annotations.loc[keep_samples.values.ravel()]
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">annotations.merge(donor_info, left_on=<span class="org-string">'chip_id'</span>, right_on=<span class="org-string">'Sample'</span>)[<span class="org-string">'Gender'</span>].value_counts()
+</pre>
+</div>
+
+<pre class="example">
+female    3109
+male      2369
+Name: Gender, dtype: int64
+</pre>
+
+<p>
+Look at the fitted ZINB distribution per-individual for this gene.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">ipsc_log_mu</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-log-mu.txt.gz'</span>, sep=<span class="org-string">' '</span>, index_col=0)
+<span class="org-variable-name">ipsc_log_phi</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-log-phi.txt.gz'</span>, sep=<span class="org-string">' '</span>, index_col=0)
+<span class="org-variable-name">ipsc_logodds</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-logodds.txt.gz'</span>, sep=<span class="org-string">' '</span>, index_col=0)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">point_gamma_cdf</span>(grid, log_mu, log_phi, logodds):
+  <span class="org-variable-name">res</span> = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).cdf(grid)
+  <span class="org-variable-name">res</span> *= sp.expit(-logodds)
+  <span class="org-variable-name">res</span> += sp.expit(logodds)
+  <span class="org-keyword">return</span> res
+
+<span class="org-variable-name">lam</span> = ipsc_counts.values / annotations[<span class="org-string">'mol_hs'</span>].values.reshape(-1, 1)
+<span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000)
+<span class="org-variable-name">cdfs</span> = np.array([[point_gamma_cdf(grid,
+                                  ipsc_log_mu.loc[j, k],
+                                  ipsc_log_phi.loc[j, k],
+                                  ipsc_logodds.loc[j, k])
+                  <span class="org-keyword">for</span> k <span class="org-keyword">in</span> ipsc_log_mu]
+                 <span class="org-keyword">for</span> j <span class="org-keyword">in</span> ipsc_counts.columns
+                 <span class="org-keyword">if</span> j != <span class="org-builtin">list</span>(ipsc_log_mu.columns).index(<span class="org-string">'NA18498'</span>)])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1, sharex=<span class="org-constant">True</span>)
+fig.set_size_inches(6, 4)
+<span class="org-keyword">for</span> a, F, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, cdfs, ipsc_counts.columns):
+  <span class="org-keyword">for</span> f <span class="org-keyword">in</span> F:
+    a.set_xlim(0, 2e-4)
+    a.set_xticks(np.linspace(0, 2e-4, 3))
+    a.plot(grid, f, c=<span class="org-string">'k'</span>, lw=1, alpha=0.2)
+  a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>])
+  a.set_ylabel(<span class="org-string">'CDF'</span>)
+ax[-1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/ipsc-point-gamma-cdf-pacrg.png" alt="ipsc-point-gamma-cdf-pacrg.png">
+</p>
+</div>
+
+<p>
+Plot the estimated <i>RPS4Y1</i> latent gene expression, stratified by donor sex.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">colors</span> = {k: <span class="org-string">'r'</span> <span class="org-keyword">if</span> v == <span class="org-string">'male'</span> <span class="org-keyword">else</span> <span class="org-string">'b'</span> <span class="org-keyword">for</span> k, v <span class="org-keyword">in</span>
+          donor_info.set_index(<span class="org-string">'Sample'</span>)
+          .<span class="org-builtin">filter</span>(items=<span class="org-builtin">list</span>(ipsc_log_mu.columns), axis=0)
+          [<span class="org-string">'Gender'</span>]
+          .iteritems()}
+plt.clf()
+plt.gcf().set_size_inches(3, 2)
+<span class="org-keyword">for</span> f, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(cdfs[1], ipsc_log_mu.columns):
+  plt.xlim(0, 2e-4)
+  plt.xticks(np.linspace(0, 2e-4, 3))
+  plt.plot(grid, f, lw=1, alpha=0.2, c=colors.get(k, <span class="org-string">'k'</span>))
+  <span class="org-variable-name">dummy</span> = [plt.Line2D([0], [0], c=<span class="org-string">'r'</span>), plt.Line2D([0], [0], c=<span class="org-string">'b'</span>)]
+  plt.legend(dummy, [<span class="org-string">'Male'</span>, <span class="org-string">'Female'</span>], frameon=<span class="org-constant">False</span>)
+  plt.title(<span class="org-string">'RPS4Y1'</span>)
+  plt.ylabel(<span class="org-string">'CDF'</span>)
+  plt.xlabel(<span class="org-string">'Latent gene expression'</span>)
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/ipsc-point-gamma-cdf-rps4y1.png" alt="ipsc-point-gamma-cdf-rps4y1.png">
+</p>
+</div>
+</div>
+</div>
+</div>
+
+
+<div id="outline-container-org442ed69" class="outline-3">
+<h3 id="org442ed69">Synthetic mixtures</h3>
+<div class="outline-text-3" id="text-org442ed69">
+</div>
+<div id="outline-container-orgd5bc636" class="outline-4">
+<h4 id="orgd5bc636">Investigate genes favoring more complex models</h4>
+<div class="outline-text-4" id="text-orgd5bc636">
+<p>
+Read the data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">t_cells</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
+<span class="org-variable-name">b_cells</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
+<span class="org-variable-name">mix1</span>, <span class="org-variable-name">y1</span> = scmodes.dataset.synthetic_mix(t_cells, b_cells)
+
+<span class="org-variable-name">cyto</span> = scmodes.dataset.read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>)
+<span class="org-variable-name">naive</span> = scmodes.dataset.read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_cytotoxic/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>)
+<span class="org-variable-name">mix2</span>, <span class="org-variable-name">y2</span> = scmodes.dataset.synthetic_mix(cyto, naive)
+</pre>
+</div>
+
+<p>
+Look at genes in the T cell/B cell mix where NPMLE has higher validation
+set log likelihood than NB.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cd8-cd19-mix'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'cd8-cd19-mix'</span>][<span class="org-string">'gamma'</span>]
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cd8-cd19-mix'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 4)
+fig.set_size_inches(8, 6)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(mix1.iloc[:,k], bins=np.arange(mix1.iloc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={benchmark['cd8-cd19-mix']['npmle'].loc[k] - benchmark['cd8-cd19-mix']['gamma'].loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+  a.set_title(gene_info.loc[mix1.columns[k], <span class="org-string">'name'</span>] <span class="org-keyword">if</span> mix1.columns[k] <span class="org-keyword">in</span> gene_info.index <span class="org-keyword">else</span> mix1.columns[k])
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
+  a[-1].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/cd8-cd19-mix-npmle-examples.png" alt="cd8-cd19-mix-npmle-examples.png">
+</p>
+</div>
+
+<p>
+Look at <i>CD74</i> gene expression, stratified by known cell type.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(5, 2)
+<span class="org-keyword">for</span> i, a <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(ax):
+  a.hist(mix1.loc[y1 == i,mix1.columns[query[0]]], bins=np.arange(mix1.loc[:,mix1.columns[query[0]]].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.set_title([<span class="org-string">'B cells'</span>, <span class="org-string">'T cells'</span>][i])
+  a.set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+</pre>
+</div>
+
+<pre class="example">
+Text(0, 0.5, 'Number of cells')
+
+</pre>
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/cd74-example.png" alt="cd74-example.png">
+</p>
+</div>
+
+<p>
+Look at genes in the Cytotoxic/naive T cell mix where NPMLE has higher
+validation set log likelihood than NB.'
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cyto-naive-t-mix'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'cyto-naive-t-mix'</span>][<span class="org-string">'gamma'</span>]
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cyto-naive-t-mix'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
+</pre>
+</div>
+
+<p>
+Count how many genes this is the case for.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">benchmark[<span class="org-string">'cyto-naive-t-mix'</span>].loc[llik_diff &gt; 0].shape[0]
+</pre>
+</div>
+
+<pre class="example">
+240
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 4)
+fig.set_size_inches(8, 6)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(mix2.loc[:,k], bins=np.arange(mix2.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={benchmark['cyto-naive-t-mix']['npmle'].loc[k] - benchmark['cyto-naive-t-mix']['gamma'].loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+  a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>] <span class="org-keyword">if</span> k <span class="org-keyword">in</span> gene_info.index <span class="org-keyword">else</span> k)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
+  a[-1].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/cyto-naive-t-mix-npmle-examples.png" alt="cyto-naive-t-mix-npmle-examples.png">
+</p>
+</div>
+
+<p>
+<i>MALAT1</i> (<a href="https://www.omim.org/entry/607924">Metastasis-associated lung
+adenocarcinoma transcript 1</a>) is a lincRNA which appears to show tri-modal
+gene expression in this mixture. It is involved in T cell activation,
+through interaction with NF-κB
+(<a href="https://febs.onlinelibrary.wiley.com/doi/full/10.1002/1873-3468.12315">Zhao
+et al. 2016</a>).
+</p>
+
+<p>
+Stratify <i>MALAT1</i> gene expression by known cell type.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(5, 2)
+<span class="org-keyword">for</span> i, a <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(ax):
+  a.hist(mix2.loc[y2 == i,<span class="org-string">'ENSG00000251562'</span>], bins=np.arange(mix2.loc[:,<span class="org-string">'ENSG00000251562'</span>].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.set_title([<span class="org-string">'Naive T cells'</span>, <span class="org-string">'Cytotoxic T cells'</span>][i])
+  a.set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+</pre>
+</div>
+
+<pre class="example">
+Text(0, 0.5, 'Number of cells')
+
+</pre>
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/MALAT1-example.png" alt="MALAT1-example.png">
+</p>
+</div>
+</div>
+</div>
+</div>
+
+
+<div id="outline-container-org97b471c" class="outline-3">
+<h3 id="org97b471c">Heterogeneous populations</h3>
+<div class="outline-text-3" id="text-org97b471c">
+</div>
+<div id="outline-container-org7711c77" class="outline-4">
+<h4 id="org7711c77">Genes favoring more complex models</h4>
+<div class="outline-text-4" id="text-org7711c77">
+<p>
+Look at the genes where ZIG shows the most gain in validation set log
+likelihood.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="orgda40fbc"><span class="org-keyword">import</span> scmodes
+<span class="org-variable-name">work</span> = scmodes.dataset.cortex(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz'</span>, return_df=<span class="org-constant">True</span>)
+work.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/zeisel-2015.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=broadwl --mem=16G
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;fix-cortex&gt;&gt;</span>
+EOF
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cortex_counts</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/zeisel-2015.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cortex'</span>][<span class="org-string">'point_gamma'</span>] - benchmark[<span class="org-string">'cortex'</span>][<span class="org-string">'gamma'</span>]
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cortex'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+  a.set_title(k.upper())
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/cortex-zig-examples.png" alt="cortex-zig-examples.png">
+</p>
+</div>
+
+<p>
+Look at genes where unimodal shows greatest performance gain.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cortex'</span>][<span class="org-string">'unimodal'</span>] - benchmark[<span class="org-string">'cortex'</span>][<span class="org-string">'gamma'</span>]
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cortex'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+  a.set_title(k.upper())
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/cortex-unimodal-examples.png" alt="cortex-unimodal-examples.png">
+</p>
+</div>
+
+<p>
+Show genes where NPMLE shows greatest performance gain.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cortex'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'cortex'</span>][<span class="org-string">'gamma'</span>]
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cortex'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+  a.set_title(k.upper())
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/cortex-npmle-examples.png" alt="cortex-npmle-examples.png">
+</p>
+</div>
+
+<ul class="org-ul">
+<li><i>GPM6A</i> (<a href="https://www.ncbi.nlm.nih.gov/gene/234267">Glycoprotein m6a</a>)
+appears to be required for mouse brain develoment, and is expressed in
+specific brain regions</li>
+<li><i>SCN2A</i> (<a href="https://www.ncbi.nlm.nih.gov/gene/110876">Sodium channel,
+voltage-gated, type II, alpha</a>) is needed for propagating actions
+potentials in neurons</li>
+</ul>
+
+<p>
+Stratify the gene expression of these genes by inferred cell type.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">curl -sLO <span class="org-string">"https://storage.googleapis.com/linnarsson-lab-www-blobs/blobs/cortex/expression_mRNA_17-Aug-2014.txt"</span>
+gzip expression_mRNA_17-Aug-2014.txt
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cortex_celltypes</span> = (pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/expression_mRNA_17-Aug-2014.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, header=<span class="org-constant">None</span>, index_col=0, nrows=10)
+                    .reset_index(drop=<span class="org-constant">True</span>)
+                    .set_index(1))
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 3)
+fig.set_size_inches(6, 6)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), <span class="org-builtin">set</span>(cortex_celltypes.loc[<span class="org-string">'level1class'</span>])):
+  <span class="org-variable-name">x</span> = cortex_counts.loc[(cortex_celltypes.loc[<span class="org-string">'level1class'</span>] == k).values, <span class="org-string">'Gpm6a'</span>]
+  a.hist(x, bins=np.arange(x.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.set_title(k)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
+  a[-1].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/cortex-gpm6a.png" alt="cortex-gpm6a.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 3)
+fig.set_size_inches(6, 6)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), <span class="org-builtin">set</span>(cortex_celltypes.loc[<span class="org-string">'level1class'</span>])):
+  <span class="org-variable-name">x</span> = cortex_counts.loc[(cortex_celltypes.loc[<span class="org-string">'level1class'</span>] == k).values, <span class="org-string">'Scn2a1'</span>]
+  a.hist(x, bins=np.arange(x.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.set_title(k)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
+  a[-1].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/cortex-scn2a.png" alt="cortex-scn2a.png">
+</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2019-05-16 Thu 11:14</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>
