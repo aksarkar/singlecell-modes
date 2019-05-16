@@ -1,6 +1,5 @@
 #+TITLE: Comparison of expression deconvolution approaches
 #+SETUPFILE: setup.org
-#+OPTIONS: toc:2
 
 * Introduction
   :PROPERTIES:
@@ -35,7 +34,7 @@
   #+CALL: ipython3(memory="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 60359323
+  : Submitted batch job 60378875
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -578,7 +577,8 @@
      def read_c1():
        x = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/ercc-counts.txt.gz', sep='\t', index_col=0)
        keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', header=None, index_col=0, sep='\t')
-       return x.loc[:,np.logical_and((x.sum(axis=0) > 0).values, keep_samples.values.ravel())].values.T
+       # Throw out samples with only one spike-in molecule detected
+       return x.loc[:,np.logical_and((x.sum(axis=0) > 1).values, keep_samples.values.ravel())].values.T
 
      data = {
        'dropseq': read_dropseq,
@@ -844,15 +844,20 @@
     CD8+ T cells and CD19+ B cells from
     [[https://www.nature.com/articles/ncomms14049][Zheng et al. 2017]].
 
-    #+NAME: run-cd8-cd19-mix-benchmark-gpu
-    #+BEGIN_SRC ipython :eval never
-      <<imports>>
-      # Important: filter genes after mixing cells
+    #+NAME: cd8-cd19-mix
+    #+BEGIN_SRC ipython
       t_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
       b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
       x, y = scmodes.dataset.synthetic_mix(t_cells, b_cells)
+      # Important: filter genes after mixing cells
       keep_genes = (x > 0).mean(axis=0) >= 0.25
       x = x.loc[:,keep_genes]
+    #+END_SRC
+
+    #+NAME: run-cd8-cd19-mix-benchmark-gpu
+    #+BEGIN_SRC ipython :eval never
+      <<imports>>
+      <<cd8-cd19-mix>>
       res = scmodes.benchmark.evaluate_deconv_generalization(x.values, stratify=y, pool=None, train_size=0.5, test_size=0.1, random_state=0, methods=['gamma', 'point_gamma'])
       res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/cd8-cd19-mix-gpu.txt.gz', compression='gzip', sep='\t')
     #+END_SRC
@@ -877,9 +882,7 @@
       tasks = ['unimodal', 'zief', 'npmle']
       task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
       with mp.Pool() as pool:
-        t_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
-        b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True)
-        x, y = scmodes.dataset.synthetic_mix(t_cells, b_cells)
+        <<cd8-cd19-mix>>
         res = scmodes.benchmark.evaluate_deconv_generalization(x.values, stratify=y, pool=pool, train_size=0.5, test_size=0.1, random_state=0, methods=[task])
         res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/cd8-cd19-mix-{task}.txt.gz', compression='gzip', sep='\t')
     #+END_SRC
@@ -895,7 +898,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 60360107
+    : Submitted batch job 60379001
 
 *** Naive/activated T cell mixture
 
@@ -976,9 +979,10 @@
 
     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/synthetic-mix-benchmark.png
       fig, ax = plt.subplots(1, 2, sharey=True)
-      fig.set_size_inches(5, 3)
+      fig.set_size_inches(4, 3)
       for a, k, t in zip(ax, sorted(benchmark.keys()), ['T cell/B cell', 'Cytotoxic/Naive T cell']):
-        a.boxplot((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:],
+        T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
+        a.boxplot([x[~np.isnan(x)] for x in T.T],
                   widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
         a.axhline(y=0, ls=':', lw=1, c='k')
         a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
@@ -990,7 +994,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[6]:
+    # Out[16]:
     [[file:figure/deconvolution.org/synthetic-mix-benchmark.png]]
     :END:
 
