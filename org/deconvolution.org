@@ -34,7 +34,7 @@
   #+CALL: ipython3(memory="16G",partition="broadwl",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 60391678
+  : Submitted batch job 60399393
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -1107,17 +1107,19 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[4]:
    :END:
 
    Plot the results.
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/heterogeneous-benchmark.png
      fig, ax = plt.subplots(1, 2, sharey=True)
-     fig.set_size_inches(5, 3)
+     fig.set_size_inches(4, 3)
      for a, k, t in zip(ax, sorted(benchmark.keys()), ['Mouse cortex', 'Human PBMCs']):
-       a.boxplot(np.ma.masked_invalid((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]).filled(-1e6),
+       T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
+       a.boxplot([x[~np.isnan(x)] for x in T.T],
                  widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+       a.axhline(y=0, ls=':', lw=1, c='k')
        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
        a.set_xlabel('Assumed latent dist')
        a.set_title(t)
@@ -1127,7 +1129,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[16]:
    [[file:figure/deconvolution.org/heterogeneous-benchmark.png]]
    :END:
 
@@ -1135,14 +1137,14 @@
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/heterogeneous-benchmark-inset.png
      fig, ax = plt.subplots(1, 2)
-     fig.set_size_inches(5, 3)
+     fig.set_size_inches(4, 3)
      for a, k, t in zip(ax, sorted(benchmark.keys()), ['Mouse cortex', 'Human PBMCs']):
        T = np.ma.masked_invalid((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]).filled(-1e6)
        a.boxplot(T, widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
        a.axhline(y=0, ls=':', lw=1, c='k')
        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
        a.set_xlabel('Assumed latent dist')
-       a.set_ylim(-20, 1.05 * T.max())
+       a.set_ylim(0, 1.05 * T.max())
        a.set_title(t)
      ax[0].set_ylabel('Diff val set log lik from Gamma')
      fig.tight_layout()
@@ -1150,7 +1152,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[18]:
    [[file:figure/deconvolution.org/heterogeneous-benchmark-inset.png]]
    :END:
 

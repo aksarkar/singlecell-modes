@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-18 Sat 22:04 -->
+<!-- 2019-05-20 Mon 14:54 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -1375,7 +1375,7 @@ EOF
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -a 2 -n1 -c28 --exclusive --mem=32G --time=24:00:00 --job-name=benchmark --output=benchmark-cpu.out
+<pre class="src src-sh">sbatch --partition=broadwl -a 1 -n1 -c28 --exclusive --mem=32G --time=24:00:00 --job-name=benchmark --output=benchmark-cpu.out
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -1405,10 +1405,12 @@ Plot the results.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(5, 3)
+fig.set_size_inches(4, 3)
 <span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, <span class="org-builtin">sorted</span>(benchmark.keys()), [<span class="org-string">'Mouse cortex'</span>, <span class="org-string">'Human PBMCs'</span>]):
-  a.boxplot(np.ma.masked_invalid((benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'gamma'</span>].values.reshape(-1, 1))[:,1:]).filled(-1e6),
+  <span class="org-variable-name">T</span> = (benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'gamma'</span>].values.reshape(-1, 1))[:,1:]
+  a.boxplot([x[~np.isnan(x)] <span class="org-keyword">for</span> x <span class="org-keyword">in</span> T.T],
             widths=0.25, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
+  a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
   a.set_xticklabels([<span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
   a.set_xlabel(<span class="org-string">'Assumed latent dist'</span>)
   a.set_title(t)
@@ -1429,14 +1431,14 @@ Zoom in on the relevant part of the plot.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2)
-fig.set_size_inches(5, 3)
+fig.set_size_inches(4, 3)
 <span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, <span class="org-builtin">sorted</span>(benchmark.keys()), [<span class="org-string">'Mouse cortex'</span>, <span class="org-string">'Human PBMCs'</span>]):
   <span class="org-variable-name">T</span> = np.ma.masked_invalid((benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'gamma'</span>].values.reshape(-1, 1))[:,1:]).filled(-1e6)
   a.boxplot(T, widths=0.25, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
   a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
   a.set_xticklabels([<span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
   a.set_xlabel(<span class="org-string">'Assumed latent dist'</span>)
-  a.set_ylim(-20, 1.05 * T.<span class="org-builtin">max</span>())
+  a.set_ylim(0, 1.05 * T.<span class="org-builtin">max</span>())
   a.set_title(t)
 ax[0].set_ylabel(<span class="org-string">'Diff val set log lik from Gamma'</span>)
 fig.tight_layout()
@@ -1454,7 +1456,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-18 Sat 22:04</p>
+<p class="date">Created: 2019-05-20 Mon 14:54</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
