@@ -1064,7 +1064,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 59696754
+   : Submitted batch job 60391681
 
    #+NAME: heterogeneous-benchmark-cpu
    #+BEGIN_SRC ipython :eval never
@@ -1082,7 +1082,7 @@
    #+END_SRC
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -a 2 -n1 -c28 --exclusive --mem=32G --time=24:00:00 --job-name=benchmark --output=benchmark-cpu.out
+     sbatch --partition=broadwl -a 1 -n1 -c28 --exclusive --mem=32G --time=24:00:00 --job-name=benchmark --output=benchmark-cpu.out
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -1091,7 +1091,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 59818875
+   : Submitted batch job 60396725
 
    Read the results.
 
