@@ -34,7 +34,7 @@
   #+CALL: ipython3(memory="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 60414755
+  : Submitted batch job 60415367
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -146,9 +146,24 @@
       \sum_k \pi_k \mathrm{Uniform}(\cdot; ak, a(k + 1))\), where \(a\) is a
       fixed step size, which allows us to re-use the ~ash~ implementation.
 
-   In order to evaluate methods on their ability to estimate \(g_j\), we hold
-   out a validation set, and compute the validation set log likelihood. Based
-   on our preliminary experiments, we compare all methods against Gamma.
+** Benchmarking metric
+
+   In order to evaluate assumed families on their ability to explain the data,
+   we estimate the difference KL divergence between the fitted distribution and
+   the truth. The idea is:
+
+   \[ \hat{p} = \arg\max_{q} \frac{1}{n} \sum_i \ln q(x_i) \]
+
+   \[ \approx \arg\max_{q} \mathbb{E}_{x\sim p}[\ln q(x)] \]
+
+   \[ = \arg\max_{q} \mathbb{E}_{x\sim p}[\ln q(x)] - \mathbb{E}_{x\sim p}[\ln p(x)] \]
+
+   \[ = \arg\min_q \mathcal{KL}(p \Vert q) \]
+
+   We estimate \(\hat{p}\) on a training set, and then estimate
+   \(\mathbb{E}_{x\sim p}[\ln \hat{p}(x)]\) using an independent validation
+   set. By comparing against a baseline (Gamma), we don't need to estimate
+   \(\mathbb{E}_{x\sim p}[\ln p(x)]\).
 
    The benchmarking code is implemented in the Python package
    [[https://github.com/aksarkar/scmodes][scmodes]].
@@ -591,16 +606,7 @@
 
    #+RESULTS: ercc-data
    :RESULTS:
-   # Out[15]:
-   :END:
-
-   #+BEGIN_SRC ipython
-     sample_sizes = {k: data[k]().shape[0] for k in data}
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[17]:
+   # Out[47]:
    :END:
 
    #+NAME: run-ercc-benchmark-cpu
@@ -654,63 +660,78 @@
    Read the results.
 
    #+BEGIN_SRC ipython
+     sample_sizes = {k: int(.1 * data[k]().shape[0]) for k in data}
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[48]:
+   :END:
+
+   #+BEGIN_SRC ipython
      benchmark = {}
      for data in ('dropseq', 'indrops', 'chromium1', 'chromium2', 'gemcode'):
        benchmark[data] = (
          pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', index_col=0, sep='\t')
          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-zief.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
-         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True))
+         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)) / sample_sizes[data]
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[10]:
+   # Out[49]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     pd.concat(benchmark).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/control-kl.txt.gz', compression='gzip', sep='\t')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[54]:
    :END:
 
    Plot the generalization performance of each method.
 
-   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/control-benchmark.png
-     fig, ax = plt.subplots(1, len(benchmark), sharey=True)
-     fig.set_size_inches(7, 3)
-     for a, k in zip(ax.ravel(), sorted(benchmark.keys())):
-       T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
-       a.boxplot([x[~np.isnan(x)] for x in T.T], widths=.5, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       a.axhline(y=0, ls=':', lw=1, c='k')
-       a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-       a.set_title(k)
-     ax[2].set_xlabel('Assumed latent dist')
-     ax[0].set_ylabel('Diff val set log lik from Gamma')
-     fig.tight_layout()
+   #+NAME: plot-benchmark
+   #+BEGIN_SRC ipython
+     def plot_benchmark(benchmark, titles=None, xlabel_index=None, size=None):
+       if size is None:
+         size = (7, 3)
+       fig, ax = plt.subplots(1, len(benchmark), sharey=True)
+       fig.set_size_inches(*size)
+       if titles is None:
+         titles = sorted(benchmark.keys())
+       for a, k, t in zip(ax.ravel(), sorted(benchmark.keys()), titles):
+         T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
+         a.boxplot([x[~np.isnan(x)] for x in T.T], widths=.5, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+         a.axhline(y=0, ls=':', lw=1, c='k')
+         a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+         a.set_title(t)
+       if xlabel_index is None:
+         xlabel_index = np.arange(ax.shape[0])
+       else:
+         xlabel_index = np.atleast_1d(xlabel_index)
+       for a in ax[xlabel_index]:
+         a.set_xlabel('Assumed latent dist')
+       ax[0].set_ylabel('Improvement $KL(p \Vert \hat{p})$\nover Gamma')
+       fig.tight_layout()
    #+END_SRC
 
-   #+RESULTS:
+   #+RESULTS: plot-benchmark
    :RESULTS:
-   # Out[14]:
-   [[file:figure/deconvolution.org/control-benchmark.png]]
+   # Out[45]:
    :END:
 
-   Zoom in on the relevant part of the plot.
-
-   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/control-benchmark-inset.png
-     fig, ax = plt.subplots(1, len(benchmark), sharey=True)
-     fig.set_size_inches(8, 3)
-     ax[0].set_ylim(0, 1700)
-     for a, k in zip(ax.ravel(), sorted(benchmark.keys())):
-       T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
-       a.boxplot([x[~np.isnan(x)] for x in T.T], widths=.5, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       a.axhline(y=0, ls=':', lw=1, c='k')
-       a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-       a.set_title(k)
-     ax[2].set_xlabel('Assumed latent dist')
-     ax[0].set_ylabel('Diff val set log lik from Gamma')
-     fig.tight_layout()
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/control-benchmark.png
+     plot_benchmark(benchmark, 2)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
-   [[file:figure/deconvolution.org/control-benchmark-inset.png]]
+   # Out[56]:
+   [[file:figure/deconvolution.org/control-benchmark.png]]
    :END:
 
    *Conclusions:*
@@ -727,14 +748,24 @@
 
    Run the benchmark.
 
-   #+NAME: run-homogeneous-benchmark-cpu
-   #+BEGIN_SRC ipython :eval never
-     import os
+   #+NAME: homogeneous-data
+   #+BEGIN_SRC ipython
      data = {
        'cytotoxic_t': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True),
        'b_cells': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True),
        'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', n=100, return_df=True),
      }
+   #+END_SRC
+
+   #+RESULTS: homogeneous-data
+   :RESULTS:
+   # Out[58]:
+   :END:
+
+   #+NAME: run-homogeneous-benchmark-cpu
+   #+BEGIN_SRC ipython :eval never
+     import os
+     <<homogeneous-data>>
      cpu_methods = ['unimodal', 'zief', 'npmle']
      tasks = [(d, c) for d in data for c in cpu_methods]
      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
@@ -763,12 +794,7 @@
    #+NAME: run-homogeneous-benchmark-gpu
    #+BEGIN_SRC ipython :eval never
      import os
-     data = {
-       'cytotoxic_t': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True),
-       'b_cells': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True),
-       # Important: run the benchmark on all genes
-       'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', return_df=True),
-     }
+     <<homogeneous-data>>
      tasks = list(data.keys())
      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      x = data[task]()
@@ -791,7 +817,16 @@
    #+RESULTS:
    : Submitted batch job 60328857
 
-   Read the results.
+   Process the results.
+
+   #+BEGIN_SRC ipython :async t
+     sample_sizes = {k: int(.1 * data[k]().shape[0]) for k in data}
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[62]:
+   :END:
 
    #+BEGIN_SRC ipython
      benchmark = {}
@@ -800,33 +835,50 @@
          pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', index_col=0, sep='\t')
          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-zief.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
-         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True))
+         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)) / sample_sizes[data]
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[72]:
+   :END:
+
+   Write out the results.
+
+   #+BEGIN_SRC ipython
+     pd.concat(benchmark).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/homogeneous-kl.txt.gz', compression='gzip', sep='\t')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[73]:
+   :END:
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     benchmark = {
+       k: g.reset_index(level=0, drop=True) for k, g in
+       (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/homogeneous-kl.txt.gz',
+                    sep='\t', index_col=[0, 1])
+        .groupby(level=0))}
+
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[40]:
    :END:
 
    Plot the generalization performance of each method.
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/homogeneous-benchmark.png
-     fig, ax = plt.subplots(1, 3)
-     fig.set_size_inches(5, 3)
-     for i, k in enumerate(sorted(benchmark.keys())):
-       ax[i].boxplot((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:],
-                     widths=0.5, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       ax[i].axhline(y=0, c='k', lw=1, ls=':')
-       ax[i].set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-       ax[i].set_title(k)
-     ax[0].set_ylabel('Diff val set log lik from Gamma')
-     ax[1].set_xlabel('Assumed latent dist')
-     fig.tight_layout()
+     plot_benchmark(benchmark, xlabel_index=1, titles=['B cells', 'Cytotoxic T cells', 'iPSCs'], size=(5, 3))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[11]:
+   # Out[46]:
    [[file:figure/deconvolution.org/homogeneous-benchmark.png]]
    :END:
 
@@ -858,6 +910,11 @@
       keep_genes = (x > 0).mean(axis=0) >= 0.25
       x = x.loc[:,keep_genes]
     #+END_SRC
+
+    #+RESULTS: cd8-cd19-mix
+    :RESULTS:
+    # Out[75]:
+    :END:
 
     #+NAME: run-cd8-cd19-mix-benchmark-gpu
     #+BEGIN_SRC ipython :eval never
@@ -920,6 +977,11 @@
       x = x.loc[:,keep_genes]
     #+END_SRC
 
+    #+RESULTS: cyto-naive-mix
+    :RESULTS:
+    # Out[4]:
+    :END:
+
     #+RESULTS:
     :RESULTS:
     # Out[3]:
@@ -963,7 +1025,17 @@
 
 *** Plot the results
 
-    Read the results.
+    Process the results.
+
+    #+BEGIN_SRC ipython
+      sample_sizes = {'cd8-cd19-mix': 2029,
+                      'cyto-naive-t-mix': 2216}
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[8]:
+    :END:
 
     #+BEGIN_SRC ipython
       benchmark = {}
@@ -972,60 +1044,50 @@
           pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', index_col=0, sep='\t')
           .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
           .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-zief.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
-          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True))
+          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)) / sample_sizes[data]
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[4]:
+    # Out[9]:
     :END:
 
-    Plot the results.
+    Write out the results.
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/synthetic-mix-benchmark.png
-      fig, ax = plt.subplots(1, 2, sharey=True)
-      fig.set_size_inches(4, 3)
-      for a, k, t in zip(ax, sorted(benchmark.keys()), ['T cell/B cell', 'Cytotoxic/Naive T cell']):
-        T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
-        a.boxplot([x[~np.isnan(x)] for x in T.T],
-                  widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-        a.axhline(y=0, ls=':', lw=1, c='k')
-        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-        a.set_xlabel('Assumed latent dist')
-        a.set_title(t)
-      ax[0].set_ylabel('Diff val set log lik from Gamma')
-      fig.tight_layout()
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[5]:
-    [[file:figure/deconvolution.org/synthetic-mix-benchmark.png]]
-    :END:
-
-    Zoom in on the relevant part of the plot.
-
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/synthetic-mix-benchmark-inset.png
-      fig, ax = plt.subplots(1, 2)
-      fig.set_size_inches(4, 3)
-      for a, k, t in zip(ax, sorted(benchmark.keys()), ['T cell/B cell', 'Cytotoxic/Naive T cell']):
-        T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
-        a.boxplot([x[~np.isnan(x)] for x in T.T],
-                  widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-        a.boxplot(T, widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-        a.axhline(y=0, ls=':', lw=1, c='k')
-        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-        a.set_xlabel('Assumed latent dist')
-        a.set_ylim(0, 1.05 * np.ma.masked_invalid(T).max())
-        a.set_title(t)
-      ax[0].set_ylabel('Diff val set log lik from Gamma')
-      fig.tight_layout()
+    #+BEGIN_SRC ipython
+      pd.concat(benchmark).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/synthetic-mix-kl.txt.gz', compression='gzip', sep='\t')
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
     # Out[10]:
-    [[file:figure/deconvolution.org/synthetic-mix-benchmark-inset.png]]
+    :END:
+
+    Read the results.
+
+    #+BEGIN_SRC ipython
+      benchmark = {
+        k: g.reset_index(level=0, drop=True) for k, g in
+        (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/synthetic-mix-kl.txt.gz',
+                     sep='\t', index_col=[0, 1])
+         .groupby(level=0))}
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[38]:
+    :END:
+
+    Plot the results.
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/synthetic-mix-benchmark.png
+      plot_benchmark(benchmark, titles=['T cell/B cell', 'Cytotoxic/naive T'], size=(4, 3))
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[39]:
+    [[file:figure/deconvolution.org/synthetic-mix-benchmark.png]]
     :END:
 
 ** Heterogeneous cell populations
@@ -1034,12 +1096,17 @@
    :END:
 
    #+NAME: heterogeneous-data
-   #+BEGIN_SRC ipython :eval never
+   #+BEGIN_SRC ipython
      data = {
        'pbmcs_68k': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19', return_df=True),
        'cortex': lambda: scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
      }
    #+END_SRC
+
+   #+RESULTS: heterogeneous-data
+   :RESULTS:
+   # Out[16]:
+   :END:
 
    #+RESULTS:
    :RESULTS:
@@ -1098,7 +1165,16 @@
    #+RESULTS:
    : Submitted batch job 60396725
 
-   Read the results.
+   Process the results.
+
+   #+BEGIN_SRC ipython :async t
+     sample_sizes = {k: int(.1 * data[k]().shape[0]) for k in data}
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[18]:
+   :END:
 
    #+BEGIN_SRC ipython
      benchmark = {}
@@ -1107,57 +1183,43 @@
          pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', index_col=0, sep='\t')
          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-zief.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
-         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True))
+         .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-npmle.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)) / sample_sizes[data]
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[19]:
    :END:
+
+   Write out the results.
+
+   #+BEGIN_SRC ipython
+     pd.concat(benchmark).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/heterogeneous-kl.txt.gz', compression='gzip', sep='\t')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[20]:
+   :END:
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     benchmark = {
+       k: g.reset_index(level=0, drop=True) for k, g in
+       (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/heterogeneous-kl.txt.gz',
+                    sep='\t', index_col=[0, 1])
+        .groupby(level=0))}
+   #+END_SRC
 
    Plot the results.
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/heterogeneous-benchmark.png
-     fig, ax = plt.subplots(1, 2, sharey=True)
-     fig.set_size_inches(4, 3)
-     for a, k, t in zip(ax, sorted(benchmark.keys()), ['Mouse cortex', 'Human PBMCs']):
-       T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
-       a.boxplot([x[~np.isnan(x)] for x in T.T],
-                 widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       a.axhline(y=0, ls=':', lw=1, c='k')
-       a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-       a.set_xlabel('Assumed latent dist')
-       a.set_title(t)
-     ax[0].set_ylabel('Diff val set log lik from Gamma')
-     fig.tight_layout()
+     plot_benchmark(benchmark, titles=['Mouse cortex', 'Human PBMC'], size=(4, 3))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[16]:
+   # Out[25]:
    [[file:figure/deconvolution.org/heterogeneous-benchmark.png]]
    :END:
-
-   Zoom in on the relevant part of the plot.
-
-   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/heterogeneous-benchmark-inset.png
-     fig, ax = plt.subplots(1, 2)
-     fig.set_size_inches(4, 3)
-     for a, k, t in zip(ax, sorted(benchmark.keys()), ['Mouse cortex', 'Human PBMCs']):
-       T = np.ma.masked_invalid((benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]).filled(-1e6)
-       a.boxplot(T, widths=0.25, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
-       a.axhline(y=0, ls=':', lw=1, c='k')
-       a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
-       a.set_xlabel('Assumed latent dist')
-       a.set_ylim(0, 1.05 * T.max())
-       a.set_title(t)
-     ax[0].set_ylabel('Diff val set log lik from Gamma')
-     fig.tight_layout()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[18]:
-   [[file:figure/deconvolution.org/heterogeneous-benchmark-inset.png]]
-   :END:
-
