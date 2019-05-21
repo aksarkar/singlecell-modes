@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-20 Mon 14:54 -->
+<!-- 2019-05-21 Tue 13:34 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -303,8 +303,7 @@ generalization for different choices of \(\mathcal{G}\) in real data.
 <h2 id="setup"><a id="org8d85f12"></a>Setup</h2>
 <div class="outline-text-2" id="text-setup">
 <div class="org-src-container">
-<pre class="src src-ipython" id="orgcb42039"><span class="org-keyword">import</span> functools <span class="org-keyword">as</span> ft
-<span class="org-keyword">import</span> multiprocessing <span class="org-keyword">as</span> mp
+<pre class="src src-ipython" id="orgcb42039"><span class="org-keyword">import</span> multiprocessing <span class="org-keyword">as</span> mp
 <span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
 <span class="org-keyword">import</span> scanpy
@@ -870,8 +869,8 @@ individuals.
 <span class="org-keyword">def</span> <span class="org-function-name">read_c1</span>():
   <span class="org-variable-name">x</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/ercc-counts.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
   <span class="org-variable-name">keep_samples</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt'</span>, header=<span class="org-constant">None</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
-  <span class="org-comment-delimiter"># </span><span class="org-comment">Throw out samples with only one spike-in molecule detected</span>
-  <span class="org-keyword">return</span> x.loc[:,np.logical_and((x.<span class="org-builtin">sum</span>(axis=0) &gt; 1).values, keep_samples.values.ravel())].values.T
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Throw out samples with too few spike-in molecule detected</span>
+  <span class="org-keyword">return</span> x.loc[:,np.logical_and((x.<span class="org-builtin">sum</span>(axis=0) &gt; 1000).values, keep_samples.values.ravel())].values.T
 
 <span class="org-variable-name">data</span> = {
   <span class="org-string">'dropseq'</span>: read_dropseq,
@@ -885,11 +884,16 @@ individuals.
 </div>
 
 <div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">sample_sizes</span> = {k: data[k]().shape[0] <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data}
+</pre>
+</div>
+
+<div class="org-src-container">
 <pre class="src src-ipython" id="orgab7cb06">&lt;&lt;imports&gt;&gt;
 <span class="org-keyword">import</span> os
 &lt;&lt;ercc-data&gt;&gt;
 <span class="org-variable-name">cpu_methods</span> = [<span class="org-string">'unimodal'</span>, <span class="org-string">'zief'</span>, <span class="org-string">'npmle'</span>]
-<span class="org-variable-name">tasks</span> = [(d, c) <span class="org-keyword">for</span> d <span class="org-keyword">in</span> data <span class="org-keyword">for</span> c <span class="org-keyword">in</span> cpu_methods]
+<span class="org-variable-name">tasks</span> = [(d, c) <span class="org-keyword">for</span> d <span class="org-keyword">in</span> (<span class="org-string">'c1'</span>,) <span class="org-keyword">for</span> c <span class="org-keyword">in</span> cpu_methods]
 <span class="org-variable-name">dataset</span>, <span class="org-variable-name">method</span> = tasks[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
 <span class="org-keyword">with</span> mp.Pool() <span class="org-keyword">as</span> pool:
   <span class="org-variable-name">x</span> = data[dataset]()
@@ -899,7 +903,7 @@ individuals.
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch -a 0-17 --partition=broadwl -n1 -c28 --exclusive --time=6:00:00 --mem=16G --job-name=deconv-generalization --out=benchmark-cpu.out
+<pre class="src src-sh">sbatch -a 0-2 --partition=broadwl -n1 -c28 --exclusive --time=6:00:00 --mem=16G --job-name=deconv-generalization --out=benchmark-cpu.out
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -934,7 +938,7 @@ Read the results.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">benchmark</span> = {}
-<span class="org-keyword">for</span> data <span class="org-keyword">in</span> (<span class="org-string">'dropseq'</span>, <span class="org-string">'indrops'</span>, <span class="org-string">'chromium1'</span>, <span class="org-string">'chromium2'</span>, <span class="org-string">'gemcode'</span>, <span class="org-string">'c1'</span>):
+<span class="org-keyword">for</span> data <span class="org-keyword">in</span> (<span class="org-string">'dropseq'</span>, <span class="org-string">'indrops'</span>, <span class="org-string">'chromium1'</span>, <span class="org-string">'chromium2'</span>, <span class="org-string">'gemcode'</span>):
   <span class="org-variable-name">benchmark</span>[data] = (
     pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
     .merge(pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>), left_index=<span class="org-constant">True</span>, right_index=<span class="org-constant">True</span>)
@@ -948,12 +952,11 @@ Plot the generalization performance of each method.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(8, 3)
+<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, <span class="org-builtin">len</span>(benchmark), sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(7, 3)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), <span class="org-builtin">sorted</span>(benchmark.keys())):
   <span class="org-variable-name">T</span> = (benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'gamma'</span>].values.reshape(-1, 1))[:,1:]
-  <span class="org-variable-name">T</span> = np.ma.masked_invalid(T).filled(0)
-  a.boxplot(T, widths=.5, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
+  a.boxplot([x[~np.isnan(x)] <span class="org-keyword">for</span> x <span class="org-keyword">in</span> T.T], widths=.5, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
   a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
   a.set_xticklabels([<span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
   a.set_title(k)
@@ -974,13 +977,12 @@ Zoom in on the relevant part of the plot.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+<pre class="src src-ipython"><span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, <span class="org-builtin">len</span>(benchmark), sharey=<span class="org-constant">True</span>)
 fig.set_size_inches(8, 3)
 ax[0].set_ylim(0, 1700)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), <span class="org-builtin">sorted</span>(benchmark.keys())):
   <span class="org-variable-name">T</span> = (benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'gamma'</span>].values.reshape(-1, 1))[:,1:]
-  <span class="org-variable-name">T</span> = np.ma.masked_invalid(T).filled(0)
-  a.boxplot(T, widths=.5, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
+  a.boxplot([x[~np.isnan(x)] <span class="org-keyword">for</span> x <span class="org-keyword">in</span> T.T], widths=.5, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
   a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
   a.set_xticklabels([<span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
   a.set_title(k)
@@ -1456,7 +1458,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-20 Mon 14:54</p>
+<p class="date">Created: 2019-05-21 Tue 13:34</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

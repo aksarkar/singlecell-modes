@@ -31,10 +31,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(memory="16G",partition="broadwl",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
+  #+CALL: ipython3(memory="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 60405849
+  : Submitted batch job 60414755
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -591,7 +591,16 @@
 
    #+RESULTS: ercc-data
    :RESULTS:
-   # Out[7]:
+   # Out[15]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     sample_sizes = {k: data[k]().shape[0] for k in data}
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[17]:
    :END:
 
    #+NAME: run-ercc-benchmark-cpu
@@ -646,7 +655,7 @@
 
    #+BEGIN_SRC ipython
      benchmark = {}
-     for data in ('dropseq', 'indrops', 'chromium1', 'chromium2', 'gemcode', 'c1'):
+     for data in ('dropseq', 'indrops', 'chromium1', 'chromium2', 'gemcode'):
        benchmark[data] = (
          pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-gpu.txt.gz', index_col=0, sep='\t')
          .merge(pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/{data}-unimodal.txt.gz', index_col=0, sep='\t'), left_index=True, right_index=True)
@@ -656,18 +665,17 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[10]:
    :END:
 
    Plot the generalization performance of each method.
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/control-benchmark.png
-     fig, ax = plt.subplots(1, 6, sharey=True)
-     fig.set_size_inches(8, 3)
+     fig, ax = plt.subplots(1, len(benchmark), sharey=True)
+     fig.set_size_inches(7, 3)
      for a, k in zip(ax.ravel(), sorted(benchmark.keys())):
        T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
-       T = np.ma.masked_invalid(T).filled(0)
-       a.boxplot(T, widths=.5, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+       a.boxplot([x[~np.isnan(x)] for x in T.T], widths=.5, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
        a.axhline(y=0, ls=':', lw=1, c='k')
        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
        a.set_title(k)
@@ -678,20 +686,19 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[14]:
    [[file:figure/deconvolution.org/control-benchmark.png]]
    :END:
 
    Zoom in on the relevant part of the plot.
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/control-benchmark-inset.png
-     fig, ax = plt.subplots(1, 6, sharey=True)
+     fig, ax = plt.subplots(1, len(benchmark), sharey=True)
      fig.set_size_inches(8, 3)
      ax[0].set_ylim(0, 1700)
      for a, k in zip(ax.ravel(), sorted(benchmark.keys())):
        T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
-       T = np.ma.masked_invalid(T).filled(0)
-       a.boxplot(T, widths=.5, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+       a.boxplot([x[~np.isnan(x)] for x in T.T], widths=.5, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
        a.axhline(y=0, ls=':', lw=1, c='k')
        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
        a.set_title(k)
@@ -702,7 +709,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[143]:
+   # Out[12]:
    [[file:figure/deconvolution.org/control-benchmark-inset.png]]
    :END:
 
