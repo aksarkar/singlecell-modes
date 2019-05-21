@@ -657,7 +657,7 @@
    #+RESULTS:
    : Submitted batch job 60406543
 
-   Read the results.
+   Process the results.
 
    #+BEGIN_SRC ipython
      sample_sizes = {k: int(.1 * data[k]().shape[0]) for k in data}
@@ -683,6 +683,8 @@
    # Out[49]:
    :END:
 
+   Write out the results.
+
    #+BEGIN_SRC ipython
      pd.concat(benchmark).to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/control-kl.txt.gz', compression='gzip', sep='\t')
    #+END_SRC
@@ -691,6 +693,16 @@
    :RESULTS:
    # Out[54]:
    :END:
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     benchmark = {
+       k: g.reset_index(level=0, drop=True) for k, g in
+       (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/control-kl.txt.gz',
+                    sep='\t', index_col=[0, 1])
+        .groupby(level=0))}
+   #+END_SRC
 
    Plot the generalization performance of each method.
 

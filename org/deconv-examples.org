@@ -1,6 +1,12 @@
 #+TITLE: Distribution deconvolution examples
 #+SETUPFILE: setup.org
 
+* Introduction
+
+  We systematically compared different deconvolution methods on their ability
+  to generalize to held out data. Here, we look at the data and fitted
+  distributions for specific examples.
+
 * Setup
   :PROPERTIES:
   :CUSTOM_ID: setup
@@ -68,7 +74,33 @@
   :END:
 
 * Results
+** Metadata
+
+   Read gene metadata.
+
+   #+NAME: read-gene-info
+   #+BEGIN_SRC ipython
+      gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
+   #+END_SRC
+
+   #+RESULTS: read-gene-info
+   :RESULTS:
+   # Out[6]:
+   :END:
+
 ** Spike-in data
+
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     benchmark = {
+       k: g.reset_index(level=0, drop=True) for k, g in
+       (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/control-kl.txt.gz',
+                    sep='\t', index_col=[0, 1])
+        .groupby(level=0))}
+   #+END_SRC
+
 *** Look at genes favoring more complex models
 
     We are primarily interested in cases where NPMLE does better than unimodal,
@@ -271,34 +303,32 @@
     :END:
 
 ** Homogeneous populations
-*** Investigate genes with support for more complex models
 
-    Read gene metadata.
+   Read the results.
 
-    #+NAME: read-gene-info
-    #+BEGIN_SRC ipython
-      gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
-    #+END_SRC
+   #+BEGIN_SRC ipython
+     benchmark = {
+       k: g.reset_index(level=0, drop=True) for k, g in
+       (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/homogeneous-kl.txt.gz',
+                    sep='\t', index_col=[0, 1])
+        .groupby(level=0))}
 
-    #+RESULTS: read-gene-info
-    :RESULTS:
-    # Out[6]:
-    :END:
+   #+END_SRC
 
-    Focus on cases where NPMLE does better than unimodal. Look at B cells.
+   Focus on cases where NPMLE does better than unimodal. Look at B cells.
 
-    #+BEGIN_SRC ipython
+   #+BEGIN_SRC ipython
       b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True)
       llik_diff = benchmark['b_cells']['npmle'] - benchmark['b_cells']['gamma']
       query = llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[19]:
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[19]:
+   :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/b-cell-descend-examples.png
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/b-cell-descend-examples.png
       plt.clf()
       fig, ax = plt.subplots(3, 4)
       fig.set_size_inches(7, 5)
@@ -315,28 +345,28 @@
       for x in range(ax.shape[1]):
         ax[-1][x].set_xlabel('Num mols')
       fig.tight_layout()
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[20]:
-    [[file:figure/deconvolution.org/b-cell-descend-examples.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[20]:
+   [[file:figure/deconvolution.org/b-cell-descend-examples.png]]
+   :END:
 
-    In T cells, several genes appear to be best fit by ZIEF.
+   In T cells, several genes appear to be best fit by ZIEF.
 
-    #+BEGIN_SRC ipython
+   #+BEGIN_SRC ipython
       cytotoxic_t = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
       llik_diff = benchmark['cytotoxic_t']['zief'] - benchmark['cytotoxic_t']['gamma']
       query = llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[13]:
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[13]:
+   :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cytotoxic-t-zief-examples.png
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cytotoxic-t-zief-examples.png
       plt.clf()
       fig, ax = plt.subplots(4, 3)
       fig.set_size_inches(7, 5)
@@ -353,46 +383,46 @@
       for x in range(ax.shape[1]):
         ax[-1][x].set_xlabel('Num mols')
       fig.tight_layout()
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[14]:
-    [[file:figure/deconvolution.org/cytotoxic-t-zief-examples.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[14]:
+   [[file:figure/deconvolution.org/cytotoxic-t-zief-examples.png]]
+   :END:
 
-    /CCL5/ appears to have bimodal expression. Look at how other methods
-    performed on /CCL5/.
+   /CCL5/ appears to have bimodal expression. Look at how other methods
+   performed on /CCL5/.
 
-    #+BEGIN_SRC ipython
+   #+BEGIN_SRC ipython
       benchmark['cytotoxic_t'].loc['ENSG00000161570']
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[18]:
-    #+BEGIN_EXAMPLE
-      gamma         -2169.540390
-      point_gamma   -2119.179861
-      unimodal      -2108.054069
-      zief          -2112.490970
-      npmle         -2116.571337
-      Name: ENSG00000161570, dtype: float64
-    #+END_EXAMPLE
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[18]:
+   #+BEGIN_EXAMPLE
+     gamma         -2169.540390
+     point_gamma   -2119.179861
+     unimodal      -2108.054069
+     zief          -2112.490970
+     npmle         -2116.571337
+     Name: ENSG00000161570, dtype: float64
+   #+END_EXAMPLE
+   :END:
 
-    In iPSCs, several genes appear to be better fit by unimodal/NPMLE.
+   In iPSCs, several genes appear to be better fit by unimodal/NPMLE.
 
-    #+BEGIN_SRC ipython :async t
+   #+BEGIN_SRC ipython :async t
       ipsc_counts = scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', n=100, return_df=True)
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[38]:
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[38]:
+   :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-unimodal-examples.png
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-unimodal-examples.png
       query = benchmark['ipsc'][benchmark['ipsc']['unimodal'] > benchmark['ipsc']['gamma']].index
       plt.clf()
       fig, ax = plt.subplots(8, 5)
@@ -410,58 +440,58 @@
       for x in range(ax.shape[1]):
         ax[-1][x].set_xlabel('Num mols')
       fig.tight_layout()
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[43]:
-    [[file:figure/deconvolution.org/ipsc-unimodal-examples.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[43]:
+   [[file:figure/deconvolution.org/ipsc-unimodal-examples.png]]
+   :END:
 
-    - /SLC25A5/ ([[https://www.omim.org/entry/300150][Solute carrier family 25
-      member 5]]) codes for a mitochrondrial membrane protein
-      ([[https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5789311/][Rocha et
-      al. 2018]]), and is altered in Parkinson's disease
-    - /TXNDC17/ ([[https://www.omim.org/entry/616967][Thioredoxin
-      domain-containing protein 17]]) appears to be involved in oxidative
-      stress
-    - /PCBP2/ ([[https://www.omim.org/entry/601210][Poly(rC)-binding protein
-      2]]) is involved in post-transcriptional regulation
+          - /SLC25A5/ ([[https://www.omim.org/entry/300150][Solute carrier family 25
+            member 5]]) codes for a mitochrondrial membrane protein
+            ([[https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5789311/][Rocha et
+            al. 2018]]), and is altered in Parkinson's disease
+          - /TXNDC17/ ([[https://www.omim.org/entry/616967][Thioredoxin
+            domain-containing protein 17]]) appears to be involved in oxidative
+            stress
+          - /PCBP2/ ([[https://www.omim.org/entry/601210][Poly(rC)-binding protein
+            2]]) is involved in post-transcriptional regulation
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-npmle-examples.png
-      llik_diff = benchmark['ipsc']['npmle'] - benchmark['ipsc']['gamma']
-      query = benchmark['ipsc'].loc[llik_diff > 0].index
-      plt.clf()
-      fig, ax = plt.subplots(9, 5)
-      fig.set_size_inches(8, 10)
-      for a, k in zip(ax.ravel(), query):
-        a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].max() + 1), color='k')
-        a.text(x=.95, y=.95,
-               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
-               horizontalalignment='right',
-               verticalalignment='top',
-               transform=a.transAxes)
-        a.set_title(gene_info.loc[k, 'name'])
-      for y in range(ax.shape[0]):
-        ax[y][0].set_ylabel('Num cells')
-      for x in range(ax.shape[1]):
-        ax[-1][x].set_xlabel('Num mols')
-      fig.tight_layout()
-    #+END_SRC
+            #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-npmle-examples.png
+             llik_diff = benchmark['ipsc']['npmle'] - benchmark['ipsc']['gamma']
+             query = benchmark['ipsc'].loc[llik_diff > 0].index
+             plt.clf()
+             fig, ax = plt.subplots(9, 5)
+             fig.set_size_inches(8, 10)
+             for a, k in zip(ax.ravel(), query):
+               a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].max() + 1), color='k')
+               a.text(x=.95, y=.95,
+                      s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
+                      horizontalalignment='right',
+                      verticalalignment='top',
+                      transform=a.transAxes)
+               a.set_title(gene_info.loc[k, 'name'])
+             for y in range(ax.shape[0]):
+               ax[y][0].set_ylabel('Num cells')
+             for x in range(ax.shape[1]):
+               ax[-1][x].set_xlabel('Num mols')
+             fig.tight_layout()
+            #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[49]:
-    [[file:figure/deconvolution.org/ipsc-npmle-examples.png]]
-    :END:
+            #+RESULTS:
+            :RESULTS:
+            # Out[49]:
+            [[file:figure/deconvolution.org/ipsc-npmle-examples.png]]
+            :END:
 
-    *Conclusions:*
+            *Conclusions:*
 
-    - ZIEF does better for genes which appear very close to Poisson. This could
-      be because it the estimation algorithm can better estimate a point mass,
-      or because two point masses (one zero and one non-zero) would be optimal.
-    - When NPMLE does better than Gamma, unimodal does comparably well. The
-      genes where this happens quite clearly exhibit unimodal gene expression.
+            - ZIEF does better for genes which appear very close to Poisson. This could
+              be because it the estimation algorithm can better estimate a point mass,
+              or because two point masses (one zero and one non-zero) would be optimal.
+            - When NPMLE does better than Gamma, unimodal does comparably well. The
+              genes where this happens quite clearly exhibit unimodal gene expression.
 
 *** Investigate Gamma vs. Point-Gamma in high-depth data
     :PROPERTIES:
@@ -795,13 +825,21 @@
     [[file:figure/deconvolution.org/ipsc-point-gamma-cdf-rps4y1.png]]
     :END:
 
-
 ** Synthetic mixtures
-*** Investigate genes favoring more complex models
 
-    Read the data.
+   Read the results.
 
-    #+BEGIN_SRC ipython :async t
+   #+BEGIN_SRC ipython
+      benchmark = {
+        k: g.reset_index(level=0, drop=True) for k, g in
+        (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/synthetic-mix-kl.txt.gz',
+                     sep='\t', index_col=[0, 1])
+         .groupby(level=0))}
+   #+END_SRC
+
+   Read the data.
+
+   #+BEGIN_SRC ipython :async t
       t_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
       b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True)
       mix1, y1 = scmodes.dataset.synthetic_mix(t_cells, b_cells)
@@ -809,27 +847,27 @@
       cyto = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19', return_df=True)
       naive = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_cytotoxic/filtered_matrices_mex/hg19', return_df=True)
       mix2, y2 = scmodes.dataset.synthetic_mix(cyto, naive)
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[102]:
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[102]:
+   :END:
 
-    Look at genes in the T cell/B cell mix where NPMLE has higher validation
-    set log likelihood than NB.
+   Look at genes in the T cell/B cell mix where NPMLE has higher validation
+   set log likelihood than NB.
 
-    #+BEGIN_SRC ipython
+   #+BEGIN_SRC ipython
       llik_diff = benchmark['cd8-cd19-mix']['npmle'] - benchmark['cd8-cd19-mix']['gamma']
       query = benchmark['cd8-cd19-mix'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[35]:
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[35]:
+   :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cd8-cd19-mix-npmle-examples.png
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cd8-cd19-mix-npmle-examples.png
       plt.clf()
       fig, ax = plt.subplots(3, 4)
       fig.set_size_inches(8, 6)
@@ -846,17 +884,17 @@
       for a in ax.T:
         a[-1].set_xlabel('Num mols')
       fig.tight_layout()
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[17]:
-    [[file:figure/deconvolution.org/cd8-cd19-mix-npmle-examples.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[17]:
+   [[file:figure/deconvolution.org/cd8-cd19-mix-npmle-examples.png]]
+   :END:
 
-    Look at /CD74/ gene expression, stratified by known cell type.
+   Look at /CD74/ gene expression, stratified by known cell type.
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cd74-example.png
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cd74-example.png
       plt.clf()
       fig, ax = plt.subplots(1, 2, sharey=True)
       fig.set_size_inches(5, 2)
@@ -865,41 +903,41 @@
         a.set_title(['B cells', 'T cells'][i])
         a.set_xlabel('Number of molecules')
       ax[0].set_ylabel('Number of cells')
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[41]:
-    : Text(0, 0.5, 'Number of cells')
-    [[file:figure/deconvolution.org/cd74-example.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[41]:
+   : Text(0, 0.5, 'Number of cells')
+   [[file:figure/deconvolution.org/cd74-example.png]]
+   :END:
 
-    Look at genes in the Cytotoxic/naive T cell mix where NPMLE has higher
-    validation set log likelihood than NB.'
+   Look at genes in the Cytotoxic/naive T cell mix where NPMLE has higher
+   validation set log likelihood than NB.'
 
-    #+BEGIN_SRC ipython
+   #+BEGIN_SRC ipython
       llik_diff = benchmark['cyto-naive-t-mix']['npmle'] - benchmark['cyto-naive-t-mix']['gamma']
       query = benchmark['cyto-naive-t-mix'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[42]:
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[42]:
+   :END:
 
-    Count how many genes this is the case for.
+   Count how many genes this is the case for.
 
-    #+BEGIN_SRC ipython
+   #+BEGIN_SRC ipython
       benchmark['cyto-naive-t-mix'].loc[llik_diff > 0].shape[0]
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[23]:
-    : 240
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[23]:
+   : 240
+   :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cyto-naive-t-mix-npmle-examples.png
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cyto-naive-t-mix-npmle-examples.png
       plt.clf()
       fig, ax = plt.subplots(3, 4)
       fig.set_size_inches(8, 6)
@@ -916,24 +954,24 @@
       for a in ax.T:
         a[-1].set_xlabel('Num mols')
       fig.tight_layout()
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[30]:
-    [[file:figure/deconvolution.org/cyto-naive-t-mix-npmle-examples.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[30]:
+   [[file:figure/deconvolution.org/cyto-naive-t-mix-npmle-examples.png]]
+   :END:
 
-    /MALAT1/ ([[https://www.omim.org/entry/607924][Metastasis-associated lung
-    adenocarcinoma transcript 1]]) is a lincRNA which appears to show tri-modal
-    gene expression in this mixture. It is involved in T cell activation,
-    through interaction with NF-κB
-    ([[https://febs.onlinelibrary.wiley.com/doi/full/10.1002/1873-3468.12315][Zhao
-    et al. 2016]]).
+   /MALAT1/ ([[https://www.omim.org/entry/607924][Metastasis-associated lung
+   adenocarcinoma transcript 1]]) is a lincRNA which appears to show tri-modal
+   gene expression in this mixture. It is involved in T cell activation,
+   through interaction with NF-κB
+   ([[https://febs.onlinelibrary.wiley.com/doi/full/10.1002/1873-3468.12315][Zhao
+   et al. 2016]]).
 
-    Stratify /MALAT1/ gene expression by known cell type.
+   Stratify /MALAT1/ gene expression by known cell type.
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/MALAT1-example.png
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/MALAT1-example.png
       plt.clf()
       fig, ax = plt.subplots(1, 2, sharey=True)
       fig.set_size_inches(5, 2)
@@ -942,51 +980,59 @@
         a.set_title(['Naive T cells', 'Cytotoxic T cells'][i])
         a.set_xlabel('Number of molecules')
       ax[0].set_ylabel('Number of cells')
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[43]:
-    : Text(0, 0.5, 'Number of cells')
-    [[file:figure/deconvolution.org/MALAT1-example.png]]
-    :END:
-
+   #+RESULTS:
+   :RESULTS:
+   # Out[43]:
+   : Text(0, 0.5, 'Number of cells')
+   [[file:figure/deconvolution.org/MALAT1-example.png]]
+   :END:
 
 ** Heterogeneous populations
-*** Genes favoring more complex models
 
-    Look at the genes where ZIG shows the most gain in validation set log
-    likelihood.
+   Read the results.
 
-    #+NAME: fix-cortex
-    #+BEGIN_SRC ipython :eval never
+   #+BEGIN_SRC ipython
+     benchmark = {
+       k: g.reset_index(level=0, drop=True) for k, g in
+       (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/heterogeneous-kl.txt.gz',
+                    sep='\t', index_col=[0, 1])
+        .groupby(level=0))}
+   #+END_SRC
+
+   Look at the genes where ZIG shows the most gain in validation set log
+   likelihood.
+
+   #+NAME: fix-cortex
+   #+BEGIN_SRC ipython :eval never
       import scmodes
       work = scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
       work.to_csv('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/zeisel-2015.txt.gz', compression='gzip', sep='\t')
-    #+END_SRC
+   #+END_SRC
 
-    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
       sbatch --partition=broadwl --mem=16G
       #!/bin/bash
       source activate scmodes
       python <<EOF
       <<fix-cortex>>
       EOF
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    : Submitted batch job 59827994
+   #+RESULTS:
+   : Submitted batch job 59827994
 
-    #+BEGIN_SRC ipython
+   #+BEGIN_SRC ipython
       cortex_counts = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/zeisel-2015.txt.gz', sep='\t', index_col=0)
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[19]:
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[19]:
+   :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-zig-examples.png
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-zig-examples.png
       llik_diff = benchmark['cortex']['point_gamma'] - benchmark['cortex']['gamma']
       query = benchmark['cortex'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
       plt.clf()
@@ -1005,17 +1051,17 @@
       for x in range(ax.shape[1]):
         ax[-1][x].set_xlabel('Num mols')
       fig.tight_layout()
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[14]:
-    [[file:figure/deconvolution.org/cortex-zig-examples.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[14]:
+   [[file:figure/deconvolution.org/cortex-zig-examples.png]]
+   :END:
 
-    Look at genes where unimodal shows greatest performance gain.
+   Look at genes where unimodal shows greatest performance gain.
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-unimodal-examples.png
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-unimodal-examples.png
       llik_diff = benchmark['cortex']['unimodal'] - benchmark['cortex']['gamma']
       query = benchmark['cortex'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
       plt.clf()
@@ -1035,17 +1081,17 @@
         ax[-1][x].set_xlabel('Num mols')
       fig.tight_layout()
 
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[13]:
-    [[file:figure/deconvolution.org/cortex-unimodal-examples.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[13]:
+   [[file:figure/deconvolution.org/cortex-unimodal-examples.png]]
+   :END:
 
-    Show genes where NPMLE shows greatest performance gain.
+   Show genes where NPMLE shows greatest performance gain.
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-npmle-examples.png
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-npmle-examples.png
       llik_diff = benchmark['cortex']['npmle'] - benchmark['cortex']['gamma']
       query = benchmark['cortex'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
       plt.clf()
@@ -1064,42 +1110,42 @@
       for x in range(ax.shape[1]):
         ax[-1][x].set_xlabel('Num mols')
       fig.tight_layout()
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[15]:
-    [[file:figure/deconvolution.org/cortex-npmle-examples.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[15]:
+   [[file:figure/deconvolution.org/cortex-npmle-examples.png]]
+   :END:
 
-    - /GPM6A/ ([[https://www.ncbi.nlm.nih.gov/gene/234267][Glycoprotein m6a]])
-      appears to be required for mouse brain develoment, and is expressed in
-      specific brain regions
-    - /SCN2A/ ([[https://www.ncbi.nlm.nih.gov/gene/110876][Sodium channel,
-      voltage-gated, type II, alpha]]) is needed for propagating actions
-      potentials in neurons
+   - /GPM6A/ ([[https://www.ncbi.nlm.nih.gov/gene/234267][Glycoprotein m6a]])
+     appears to be required for mouse brain develoment, and is expressed in
+     specific brain regions
+   - /SCN2A/ ([[https://www.ncbi.nlm.nih.gov/gene/110876][Sodium channel,
+     voltage-gated, type II, alpha]]) is needed for propagating actions
+     potentials in neurons
 
-    Stratify the gene expression of these genes by inferred cell type.
+     Stratify the gene expression of these genes by inferred cell type.
 
-    #+BEGIN_SRC sh :dir /project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/
+     #+BEGIN_SRC sh :dir /project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/
       curl -sLO "https://storage.googleapis.com/linnarsson-lab-www-blobs/blobs/cortex/expression_mRNA_17-Aug-2014.txt"
       gzip expression_mRNA_17-Aug-2014.txt
-    #+END_SRC
+     #+END_SRC
 
-    #+RESULTS:
+     #+RESULTS:
 
-    #+BEGIN_SRC ipython
+     #+BEGIN_SRC ipython
       cortex_celltypes = (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/expression_mRNA_17-Aug-2014.txt.gz', sep='\t', header=None, index_col=0, nrows=10)
                           .reset_index(drop=True)
                           .set_index(1))
-    #+END_SRC
+     #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[75]:
-    :END:
+     #+RESULTS:
+     :RESULTS:
+     # Out[75]:
+     :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-gpm6a.png
+     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-gpm6a.png
       plt.clf()
       fig, ax = plt.subplots(3, 3)
       fig.set_size_inches(6, 6)
@@ -1112,15 +1158,15 @@
       for a in ax.T:
         a[-1].set_xlabel('Num mols')
       fig.tight_layout()
-    #+END_SRC
+     #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[78]:
-    [[file:figure/deconvolution.org/cortex-gpm6a.png]]
-    :END:
+     #+RESULTS:
+     :RESULTS:
+     # Out[78]:
+     [[file:figure/deconvolution.org/cortex-gpm6a.png]]
+     :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-scn2a.png
+     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-scn2a.png
       plt.clf()
       fig, ax = plt.subplots(3, 3)
       fig.set_size_inches(6, 6)
@@ -1133,12 +1179,12 @@
       for a in ax.T:
         a[-1].set_xlabel('Num mols')
       fig.tight_layout()
-    #+END_SRC
+     #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[84]:
-    [[file:figure/deconvolution.org/cortex-scn2a.png]]
-    :END:
+     #+RESULTS:
+     :RESULTS:
+     # Out[84]:
+     [[file:figure/deconvolution.org/cortex-scn2a.png]]
+     :END:
 
 

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-16 Thu 11:14 -->
+<!-- 2019-05-21 Tue 16:00 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Distribution deconvolution examples</title>
@@ -236,9 +236,11 @@ for the JavaScript code in this tag.
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
+<li><a href="#org1335f5a">Introduction</a></li>
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org8bfc9be">Results</a>
 <ul>
+<li><a href="#org3a73f38">Metadata</a></li>
 <li><a href="#orge1f371e">Spike-in data</a></li>
 <li><a href="#orgef19613">Homogeneous populations</a></li>
 <li><a href="#org442ed69">Synthetic mixtures</a></li>
@@ -246,6 +248,17 @@ for the JavaScript code in this tag.
 </ul>
 </li>
 </ul>
+</div>
+</div>
+
+<div id="outline-container-org1335f5a" class="outline-2">
+<h2 id="org1335f5a">Introduction</h2>
+<div class="outline-text-2" id="text-org1335f5a">
+<p>
+We systematically compared different deconvolution methods on their ability
+to generalize to held out data. Here, we look at the data and fitted
+distributions for specific examples.
+</p>
 </div>
 </div>
 
@@ -294,10 +307,37 @@ rpy2.robjects.numpy2ri.activate()
 <h2 id="org8bfc9be">Results</h2>
 <div class="outline-text-2" id="text-org8bfc9be">
 </div>
+<div id="outline-container-org3a73f38" class="outline-3">
+<h3 id="org3a73f38">Metadata</h3>
+<div class="outline-text-3" id="text-org3a73f38">
+<p>
+Read gene metadata.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="orgabb7eab"><span class="org-variable-name">gene_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+</pre>
+</div>
+</div>
+</div>
+
 <div id="outline-container-orge1f371e" class="outline-3">
 <h3 id="orge1f371e">Spike-in data</h3>
 <div class="outline-text-3" id="text-orge1f371e">
+<p>
+Read the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">benchmark</span> = {
+  k: g.reset_index(level=0, drop=<span class="org-constant">True</span>) <span class="org-keyword">for</span> k, g <span class="org-keyword">in</span>
+  (pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/control-kl.txt.gz'</span>,
+               sep=<span class="org-string">'\t'</span>, index_col=[0, 1])
+   .groupby(level=0))}
+</pre>
 </div>
+</div>
+
 <div id="outline-container-orgf5eef35" class="outline-4">
 <h4 id="orgf5eef35">Look at genes favoring more complex models</h4>
 <div class="outline-text-4" id="text-orgf5eef35">
@@ -516,16 +556,17 @@ fig.tight_layout()
 <div id="outline-container-orgef19613" class="outline-3">
 <h3 id="orgef19613">Homogeneous populations</h3>
 <div class="outline-text-3" id="text-orgef19613">
-</div>
-<div id="outline-container-org6a11458" class="outline-4">
-<h4 id="org6a11458">Investigate genes with support for more complex models</h4>
-<div class="outline-text-4" id="text-org6a11458">
 <p>
-Read gene metadata.
+Read the results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="orgabb7eab"><span class="org-variable-name">gene_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<pre class="src src-ipython"><span class="org-variable-name">benchmark</span> = {
+  k: g.reset_index(level=0, drop=<span class="org-constant">True</span>) <span class="org-keyword">for</span> k, g <span class="org-keyword">in</span>
+  (pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/homogeneous-kl.txt.gz'</span>,
+               sep=<span class="org-string">'\t'</span>, index_col=[0, 1])
+   .groupby(level=0))}
+
 </pre>
 </div>
 
@@ -666,9 +707,10 @@ al. 2018</a>), and is altered in Parkinson's disease</li>
 <li><i>TXNDC17</i> (<a href="https://www.omim.org/entry/616967">Thioredoxin
 domain-containing protein 17</a>) appears to be involved in oxidative
 stress</li>
-<li><i>PCBP2</i> (<a href="https://www.omim.org/entry/601210">Poly(rC)-binding protein
-2</a>) is involved in post-transcriptional regulation</li>
-</ul>
+<li><p>
+<i>PCBP2</i> (<a href="https://www.omim.org/entry/601210">Poly(rC)-binding protein
+2</a>) is involved in post-transcriptional regulation
+</p>
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'ipsc'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'ipsc'</span>][<span class="org-string">'gamma'</span>]
@@ -708,8 +750,8 @@ be because it the estimation algorithm can better estimate a point mass,
 or because two point masses (one zero and one non-zero) would be optimal.</li>
 <li>When NPMLE does better than Gamma, unimodal does comparably well. The
 genes where this happens quite clearly exhibit unimodal gene expression.</li>
+</ul></li>
 </ul>
-</div>
 </div>
 
 <div id="outline-container-orgcfc27cc" class="outline-4">
@@ -1034,14 +1076,22 @@ plt.gcf().set_size_inches(3, 2)
 </div>
 </div>
 
-
 <div id="outline-container-org442ed69" class="outline-3">
 <h3 id="org442ed69">Synthetic mixtures</h3>
 <div class="outline-text-3" id="text-org442ed69">
+<p>
+Read the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">benchmark</span> = {
+  k: g.reset_index(level=0, drop=<span class="org-constant">True</span>) <span class="org-keyword">for</span> k, g <span class="org-keyword">in</span>
+  (pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/synthetic-mix-kl.txt.gz'</span>,
+               sep=<span class="org-string">'\t'</span>, index_col=[0, 1])
+   .groupby(level=0))}
+</pre>
 </div>
-<div id="outline-container-orgd5bc636" class="outline-4">
-<h4 id="orgd5bc636">Investigate genes favoring more complex models</h4>
-<div class="outline-text-4" id="text-orgd5bc636">
+
 <p>
 Read the data.
 </p>
@@ -1207,16 +1257,23 @@ Text(0, 0.5, 'Number of cells')
 </div>
 </div>
 </div>
-</div>
-
 
 <div id="outline-container-org97b471c" class="outline-3">
 <h3 id="org97b471c">Heterogeneous populations</h3>
 <div class="outline-text-3" id="text-org97b471c">
+<p>
+Read the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">benchmark</span> = {
+  k: g.reset_index(level=0, drop=<span class="org-constant">True</span>) <span class="org-keyword">for</span> k, g <span class="org-keyword">in</span>
+  (pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/heterogeneous-kl.txt.gz'</span>,
+               sep=<span class="org-string">'\t'</span>, index_col=[0, 1])
+   .groupby(level=0))}
+</pre>
 </div>
-<div id="outline-container-org7711c77" class="outline-4">
-<h4 id="org7711c77">Genes favoring more complex models</h4>
-<div class="outline-text-4" id="text-org7711c77">
+
 <p>
 Look at the genes where ZIG shows the most gain in validation set log
 likelihood.
@@ -1341,10 +1398,11 @@ fig.tight_layout()
 <li><i>GPM6A</i> (<a href="https://www.ncbi.nlm.nih.gov/gene/234267">Glycoprotein m6a</a>)
 appears to be required for mouse brain develoment, and is expressed in
 specific brain regions</li>
-<li><i>SCN2A</i> (<a href="https://www.ncbi.nlm.nih.gov/gene/110876">Sodium channel,
+<li><p>
+<i>SCN2A</i> (<a href="https://www.ncbi.nlm.nih.gov/gene/110876">Sodium channel,
 voltage-gated, type II, alpha</a>) is needed for propagating actions
-potentials in neurons</li>
-</ul>
+potentials in neurons
+</p>
 
 <p>
 Stratify the gene expression of these genes by inferred cell type.
@@ -1405,15 +1463,15 @@ fig.tight_layout()
 <div class="figure">
 <p><img src="figure/deconvolution.org/cortex-scn2a.png" alt="cortex-scn2a.png">
 </p>
-</div>
-</div>
+</div></li>
+</ul>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-16 Thu 11:14</p>
+<p class="date">Created: 2019-05-21 Tue 16:00</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
