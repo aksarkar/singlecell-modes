@@ -34,11 +34,10 @@
   #+CALL: ipython3(memory="16G",partition="broadwl",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 60399393
+  : Submitted batch job 60405849
 
   #+NAME: imports
   #+BEGIN_SRC ipython
-    import functools as ft
     import multiprocessing as mp
     import numpy as np
     import pandas as pd
@@ -577,8 +576,8 @@
      def read_c1():
        x = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/ercc-counts.txt.gz', sep='\t', index_col=0)
        keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', header=None, index_col=0, sep='\t')
-       # Throw out samples with only one spike-in molecule detected
-       return x.loc[:,np.logical_and((x.sum(axis=0) > 1).values, keep_samples.values.ravel())].values.T
+       # Throw out samples with too few spike-in molecule detected
+       return x.loc[:,np.logical_and((x.sum(axis=0) > 1000).values, keep_samples.values.ravel())].values.T
 
      data = {
        'dropseq': read_dropseq,
@@ -592,9 +591,8 @@
 
    #+RESULTS: ercc-data
    :RESULTS:
-   # Out[22]:
+   # Out[7]:
    :END:
-
 
    #+NAME: run-ercc-benchmark-cpu
    #+BEGIN_SRC ipython :eval never
@@ -602,7 +600,7 @@
      import os
      <<ercc-data>>
      cpu_methods = ['unimodal', 'zief', 'npmle']
-     tasks = [(d, c) for d in data for c in cpu_methods]
+     tasks = [(d, c) for d in ('c1',) for c in cpu_methods]
      dataset, method = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      with mp.Pool() as pool:
        x = data[dataset]()
@@ -611,7 +609,7 @@
    #+END_SRC
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch -a 0-17 --partition=broadwl -n1 -c28 --exclusive --time=6:00:00 --mem=16G --job-name=deconv-generalization --out=benchmark-cpu.out
+     sbatch -a 0-2 --partition=broadwl -n1 -c28 --exclusive --time=6:00:00 --mem=16G --job-name=deconv-generalization --out=benchmark-cpu.out
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -620,7 +618,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 60316984
+   : Submitted batch job 60411819
 
    #+NAME: run-ercc-benchmark-gpu
    #+BEGIN_SRC ipython :eval never
@@ -642,7 +640,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 60316986
+   : Submitted batch job 60406543
 
    Read the results.
 
@@ -680,7 +678,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[142]:
+   # Out[5]:
    [[file:figure/deconvolution.org/control-benchmark.png]]
    :END:
 
