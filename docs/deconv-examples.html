@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-22 Wed 10:53 -->
+<!-- 2019-05-22 Wed 15:25 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Distribution deconvolution examples</title>
@@ -1125,39 +1125,37 @@ Read the data.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">t_cells</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
-<span class="org-variable-name">b_cells</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
-<span class="org-variable-name">mix1</span>, <span class="org-variable-name">y1</span> = scmodes.dataset.synthetic_mix(t_cells, b_cells)
+<pre class="src src-ipython"><span class="org-variable-name">t_cells</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, min_detect=0, return_df=<span class="org-constant">True</span>)
+<span class="org-variable-name">b_cells</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/'</span>, min_detect=0, return_df=<span class="org-constant">True</span>)
+<span class="org-variable-name">mix1</span>, <span class="org-variable-name">y1</span> = scmodes.dataset.synthetic_mix(t_cells, b_cells, min_detect=0.25)
 
-<span class="org-variable-name">cyto</span> = scmodes.dataset.read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>)
-<span class="org-variable-name">naive</span> = scmodes.dataset.read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_cytotoxic/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>)
-<span class="org-variable-name">mix2</span>, <span class="org-variable-name">y2</span> = scmodes.dataset.synthetic_mix(cyto, naive)
+<span class="org-variable-name">cyto</span> = scmodes.dataset.read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
+<span class="org-variable-name">naive</span> = scmodes.dataset.read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_cytotoxic/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
+<span class="org-variable-name">mix2</span>, <span class="org-variable-name">y2</span> = scmodes.dataset.synthetic_mix(cyto, naive, min_detect=0.25)
 </pre>
 </div>
 
 <p>
-Look at genes in the T cell/B cell mix where NPMLE has higher validation
-set log likelihood than NB.
+Look at T cell/B cell mix.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cd8-cd19-mix'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'cd8-cd19-mix'</span>][<span class="org-string">'gamma'</span>]
-<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cd8-cd19-mix'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cd8-cd19-mix'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'cd8-cd19-mix'</span>][<span class="org-string">'unimodal'</span>]
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cd8-cd19-mix'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index.astype(<span class="org-builtin">int</span>)
+plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 4)
-fig.set_size_inches(8, 6)
+fig.set_size_inches(8, 5)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
-  a.hist(mix1.iloc[:,k], bins=np.arange(mix1.iloc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  <span class="org-variable-name">h</span> = a.hist(mix1.loc[y1 == 1,mix1.columns[k]], bins=np.arange(mix1.iloc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>, alpha=0.6, label=<span class="org-string">'T cells'</span>)
+  a.hist(mix1.loc[y1 == 0,mix1.columns[k]], bins=np.arange(mix1.iloc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'r'</span>, alpha=0.6, label=<span class="org-string">'B cells'</span>)
   a.text(x=.95, y=.95,
-         s=f<span class="org-string">"$\Delta l$={benchmark['cd8-cd19-mix']['npmle'].loc[k] - benchmark['cd8-cd19-mix']['gamma'].loc[k]:.1f}"</span>,
+         s=f<span class="org-string">"$\Delta KL$={llik_diff.iloc[k]:.1g}"</span>,
          horizontalalignment=<span class="org-string">'right'</span>,
          verticalalignment=<span class="org-string">'top'</span>,
          transform=a.transAxes)
   a.set_title(gene_info.loc[mix1.columns[k], <span class="org-string">'name'</span>] <span class="org-keyword">if</span> mix1.columns[k] <span class="org-keyword">in</span> gene_info.index <span class="org-keyword">else</span> mix1.columns[k])
+<span class="org-variable-name">handles</span>, <span class="org-variable-name">labels</span> = a.get_legend_handles_labels()
+fig.legend(handles, labels, frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, 0.5))
 <span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
   a[0].set_ylabel(<span class="org-string">'Num cells'</span>)
 <span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
@@ -1173,68 +1171,26 @@ fig.tight_layout()
 </div>
 
 <p>
-Look at <i>CD74</i> gene expression, stratified by known cell type.
+Look cytotoxic/naive T cell mix.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(5, 2)
-<span class="org-keyword">for</span> i, a <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(ax):
-  a.hist(mix1.loc[y1 == i,mix1.columns[query[0]]], bins=np.arange(mix1.loc[:,mix1.columns[query[0]]].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
-  a.set_title([<span class="org-string">'B cells'</span>, <span class="org-string">'T cells'</span>][i])
-  a.set_xlabel(<span class="org-string">'Number of molecules'</span>)
-ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
-</pre>
-</div>
-
-<pre class="example">
-Text(0, 0.5, 'Number of cells')
-
-</pre>
-
-<div class="figure">
-<p><img src="figure/deconvolution.org/cd74-example.png" alt="cd74-example.png">
-</p>
-</div>
-
-<p>
-Look at genes in the Cytotoxic/naive T cell mix where NPMLE has higher
-validation set log likelihood than NB.'
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cyto-naive-t-mix'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'cyto-naive-t-mix'</span>][<span class="org-string">'gamma'</span>]
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cyto-naive-t-mix'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'cyto-naive-t-mix'</span>][<span class="org-string">'unimodal'</span>]
 <span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cyto-naive-t-mix'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
-</pre>
-</div>
-
-<p>
-Count how many genes this is the case for.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">benchmark[<span class="org-string">'cyto-naive-t-mix'</span>].loc[llik_diff &gt; 0].shape[0]
-</pre>
-</div>
-
-<pre class="example">
-240
-
-</pre>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
+plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 4)
-fig.set_size_inches(8, 6)
+fig.set_size_inches(8, 5)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
-  a.hist(mix2.loc[:,k], bins=np.arange(mix2.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.hist(mix2.loc[y1 == 1,k], bins=np.arange(mix2.loc[:,k].<span class="org-builtin">max</span>() + 1), alpha=0.6, color=<span class="org-string">'k'</span>, label=<span class="org-string">'Cytotoxic T'</span>)
+  a.hist(mix2.loc[y1 == 0,k], bins=np.arange(mix2.loc[:,k].<span class="org-builtin">max</span>() + 1), alpha=0.6, color=<span class="org-string">'r'</span>, label=<span class="org-string">'Naive T'</span>)
   a.text(x=.95, y=.95,
-         s=f<span class="org-string">"$\Delta l$={benchmark['cyto-naive-t-mix']['npmle'].loc[k] - benchmark['cyto-naive-t-mix']['gamma'].loc[k]:.1f}"</span>,
+         s=f<span class="org-string">"$\Delta KL$={llik_diff.loc[k]:.1g}"</span>,
          horizontalalignment=<span class="org-string">'right'</span>,
          verticalalignment=<span class="org-string">'top'</span>,
          transform=a.transAxes)
   a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>] <span class="org-keyword">if</span> k <span class="org-keyword">in</span> gene_info.index <span class="org-keyword">else</span> k)
+<span class="org-variable-name">handles</span>, <span class="org-variable-name">labels</span> = a.get_legend_handles_labels()
+fig.legend(handles, labels, frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, 0.5))
 <span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
   a[0].set_ylabel(<span class="org-string">'Num cells'</span>)
 <span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
@@ -1257,32 +1213,6 @@ through interaction with NF-κB
 (<a href="https://febs.onlinelibrary.wiley.com/doi/full/10.1002/1873-3468.12315">Zhao
 et al. 2016</a>).
 </p>
-
-<p>
-Stratify <i>MALAT1</i> gene expression by known cell type.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(5, 2)
-<span class="org-keyword">for</span> i, a <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(ax):
-  a.hist(mix2.loc[y2 == i,<span class="org-string">'ENSG00000251562'</span>], bins=np.arange(mix2.loc[:,<span class="org-string">'ENSG00000251562'</span>].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
-  a.set_title([<span class="org-string">'Naive T cells'</span>, <span class="org-string">'Cytotoxic T cells'</span>][i])
-  a.set_xlabel(<span class="org-string">'Number of molecules'</span>)
-ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
-</pre>
-</div>
-
-<pre class="example">
-Text(0, 0.5, 'Number of cells')
-
-</pre>
-
-<div class="figure">
-<p><img src="figure/deconvolution.org/MALAT1-example.png" alt="MALAT1-example.png">
-</p>
-</div>
 </div>
 </div>
 
@@ -1499,7 +1429,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-22 Wed 10:53</p>
+<p class="date">Created: 2019-05-22 Wed 15:25</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
