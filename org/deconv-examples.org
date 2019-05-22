@@ -136,7 +136,7 @@
 
    #+RESULTS: read-gene-info
    :RESULTS:
-   # Out[6]:
+   # Out[19]:
    :END:
 
 ** Spike-in data
@@ -325,106 +325,55 @@
 
    #+END_SRC
 
+   #+RESULTS:
+   :RESULTS:
+   # Out[16]:
+   :END:
+
    Focus on cases where NPMLE does better than unimodal. Look at B cells.
 
    #+BEGIN_SRC ipython
-      b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True)
-      llik_diff = benchmark['b_cells']['npmle'] - benchmark['b_cells']['gamma']
-      query = llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index
+     b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True)
+     llik_diff = benchmark['b_cells']['npmle'] - benchmark['b_cells']['unimodal']
+     query = llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[19]:
+   # Out[36]:
    :END:
 
-   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/b-cell-descend-examples.png
-      plt.clf()
-      fig, ax = plt.subplots(3, 4)
-      fig.set_size_inches(7, 5)
-      for a, k in zip(ax.ravel(), query):
-        a.hist(b_cells.loc[:,k], bins=np.arange(b_cells.loc[:,k].max() + 1), color='k')
-        a.text(x=.95, y=.95,
-               s=f"$\Delta l$={benchmark['b_cells']['npmle'].loc[k] - benchmark['b_cells']['gamma'].loc[k]:.1f}",
-               horizontalalignment='right',
-               verticalalignment='top',
-               transform=a.transAxes)
-        a.set_title(gene_info.loc[k, 'name'] if k in gene_info.index else k)
-      for y in range(ax.shape[0]):
-        ax[y][0].set_ylabel('Num cells')
-      for x in range(ax.shape[1]):
-        ax[-1][x].set_xlabel('Num mols')
-      fig.tight_layout()
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/b-cell-npmle-examples.png
+     plt.clf()
+     fig, ax = plt.subplots(3, 4)
+     fig.set_size_inches(7, 5)
+     for a, k in zip(ax.ravel(), query):
+       a.hist(b_cells.loc[:,k], bins=np.arange(b_cells.loc[:,k].max() + 1), color='k')
+       a.text(x=.95, y=.95,
+              s=f"$\Delta KL$={llik_diff.loc[k]:.1g}",
+              horizontalalignment='right',
+              verticalalignment='top',
+              transform=a.transAxes)
+       a.set_title(gene_info.loc[k, 'name'] if k in gene_info.index else k)
+     for y in range(ax.shape[0]):
+       ax[y][0].set_ylabel('Num cells')
+     for x in range(ax.shape[1]):
+       ax[-1][x].set_xlabel('Num mols')
+     fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[20]:
-   [[file:figure/deconvolution.org/b-cell-descend-examples.png]]
+   # Out[37]:
+   [[file:figure/deconvolution.org/b-cell-npmle-examples.png]]
    :END:
 
-   In T cells, several genes appear to be best fit by ZIEF.
+   Look at cytotoxic T cells.
 
    #+BEGIN_SRC ipython
-      cytotoxic_t = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
-      llik_diff = benchmark['cytotoxic_t']['zief'] - benchmark['cytotoxic_t']['gamma']
-      query = llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[13]:
-   :END:
-
-   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cytotoxic-t-zief-examples.png
-      plt.clf()
-      fig, ax = plt.subplots(4, 3)
-      fig.set_size_inches(7, 5)
-      for a, k in zip(ax.ravel(), query):
-        a.hist(cytotoxic_t.loc[:,k], bins=np.arange(cytotoxic_t.loc[:,k].max() + 1), color='k')
-        a.text(x=.95, y=.95,
-               s=f"$\Delta l$={benchmark['cytotoxic_t']['zief'].loc[k] - benchmark['cytotoxic_t']['gamma'].loc[k]:.1f}",
-               horizontalalignment='right',
-               verticalalignment='top',
-               transform=a.transAxes)
-        a.set_title(gene_info.loc[k, 'name'] if k in gene_info.index else k)
-      for y in range(ax.shape[0]):
-        ax[y][0].set_ylabel('Num cells')
-      for x in range(ax.shape[1]):
-        ax[-1][x].set_xlabel('Num mols')
-      fig.tight_layout()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[14]:
-   [[file:figure/deconvolution.org/cytotoxic-t-zief-examples.png]]
-   :END:
-
-   /CCL5/ appears to have bimodal expression. Look at how other methods
-   performed on /CCL5/.
-
-   #+BEGIN_SRC ipython
-      benchmark['cytotoxic_t'].loc['ENSG00000161570']
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[18]:
-   #+BEGIN_EXAMPLE
-     gamma         -2169.540390
-     point_gamma   -2119.179861
-     unimodal      -2108.054069
-     zief          -2112.490970
-     npmle         -2116.571337
-     Name: ENSG00000161570, dtype: float64
-   #+END_EXAMPLE
-   :END:
-
-   In iPSCs, several genes appear to be better fit by unimodal/NPMLE.
-
-   #+BEGIN_SRC ipython :async t
-      ipsc_counts = scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', n=100, return_df=True)
+     cytotoxic_t = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
+     llik_diff = benchmark['cytotoxic_t']['npmle'] - benchmark['cytotoxic_t']['unimodal']
+     query = llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index
    #+END_SRC
 
    #+RESULTS:
@@ -432,15 +381,139 @@
    # Out[38]:
    :END:
 
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cytotoxic-t-npmle-examples.png
+     plt.clf()
+     fig, ax = plt.subplots(4, 3)
+     fig.set_size_inches(7, 5)
+     for a, k in zip(ax.ravel(), query):
+       a.hist(cytotoxic_t.loc[:,k], bins=np.arange(cytotoxic_t.loc[:,k].max() + 1), color='k')
+       a.text(x=.95, y=.95,
+              s=f"$\Delta KL$={llik_diff.loc[k]:.1g}",
+              horizontalalignment='right',
+              verticalalignment='top',
+              transform=a.transAxes)
+       a.set_title(gene_info.loc[k, 'name'] if k in gene_info.index else k)
+     for y in range(ax.shape[0]):
+       ax[y][0].set_ylabel('Num cells')
+     for x in range(ax.shape[1]):
+       ax[-1][x].set_xlabel('Num mols')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[39]:
+   [[file:figure/deconvolution.org/cytotoxic-t-npmle-examples.png]]
+   :END:
+
+   Make sure our choice of discretization for unimodal is acceptable on
+   /RPL34/.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cytotoxic-t-rpl34.png
+     k = 'ENSG00000109475'
+     x = cytotoxic_t.loc[:,k]
+     s = cytotoxic_t.sum(axis=1)
+
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(6, 4)
+     ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
+
+     for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{k.lower()}')(x, s), color=c, lw=1, label=k)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+     ax[1].legend(frameon=False)
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[41]:
+   [[file:figure/deconvolution.org/cytotoxic-t-rpl34.png]]
+   :END:
+
+   Mengyin Lu previously reported /CCL5/ could possibly have bimodal
+   expression. Look at the fitted distributions for /CCL5/.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cytotoxic-t-ccl5.png
+     k = 'ENSG00000161570'
+     x = cytotoxic_t.loc[:,k]
+     s = cytotoxic_t.sum(axis=1)
+
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(6, 4)
+     ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
+
+     for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{k.lower()}')(x, s), color=c, lw=1, label=k)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+     ax[1].legend(frameon=False)
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[93]:
+   [[file:figure/deconvolution.org/cytotoxic-t-ccl5.png]]
+   :END:
+
+   Look at iPSCs.
+
+   #+BEGIN_SRC ipython :async t
+     ipsc_counts = scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', n=100, return_df=True)
+     llik_diff = benchmark['ipsc']['npmle'] - benchmark['ipsc']['unimodal']
+     query = llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[32]:
+   :END:
+
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-unimodal-examples.png
-      query = benchmark['ipsc'][benchmark['ipsc']['unimodal'] > benchmark['ipsc']['gamma']].index
+     plt.clf()
+     fig, ax = plt.subplots(4, 3)
+     fig.set_size_inches(7, 5)
+     for a, k in zip(ax.ravel(), query):
+       h = a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].max() + 1), color='k')
+       a.text(x=.95, y=.95,
+              s=f"$\Delta KL$={llik_diff.loc[k]:.1g}",
+              horizontalalignment='right',
+              verticalalignment='top',
+              transform=a.transAxes)
+       a.set_title(gene_info.loc[k, 'name'])
+     for y in range(ax.shape[0]):
+       ax[y][0].set_ylabel('Num cells')
+     for x in range(ax.shape[1]):
+       ax[-1][x].set_xlabel('Num mols')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[44]:
+   [[file:figure/deconvolution.org/ipsc-unimodal-examples.png]]
+   :END:
+
+   Compare against Gamma.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-npmle-examples.png
+      llik_diff = benchmark['ipsc']['npmle'] - benchmark['ipsc']['gamma']
+      query = llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index
       plt.clf()
-      fig, ax = plt.subplots(8, 5)
-      fig.set_size_inches(8, 10)
+      fig, ax = plt.subplots(4, 3)
+      fig.set_size_inches(7, 5)
       for a, k in zip(ax.ravel(), query):
-        h = a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].max() + 1), color='k')
+        a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].max() + 1), color='k')
         a.text(x=.95, y=.95,
-               s=f"$\Delta l$={benchmark['ipsc']['unimodal'].loc[k] - benchmark['ipsc']['gamma'].loc[k]:.1f}",
+               s=f"$\Delta KL$={llik_diff.loc[k]:.1g}",
                horizontalalignment='right',
                verticalalignment='top',
                transform=a.transAxes)
@@ -454,8 +527,8 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[43]:
-   [[file:figure/deconvolution.org/ipsc-unimodal-examples.png]]
+   # Out[46]:
+   [[file:figure/deconvolution.org/ipsc-npmle-examples.png]]
    :END:
 
    - /SLC25A5/ ([[https://www.omim.org/entry/300150][Solute carrier family 25
@@ -465,43 +538,39 @@
    - /TXNDC17/ ([[https://www.omim.org/entry/616967][Thioredoxin
      domain-containing protein 17]]) appears to be involved in oxidative
      stress
-   - /PCBP2/ ([[https://www.omim.org/entry/601210][Poly(rC)-binding protein
-     2]]) is involved in post-transcriptional regulation
 
-     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-npmle-examples.png
-      llik_diff = benchmark['ipsc']['npmle'] - benchmark['ipsc']['gamma']
-      query = benchmark['ipsc'].loc[llik_diff > 0].index
-      plt.clf()
-      fig, ax = plt.subplots(9, 5)
-      fig.set_size_inches(8, 10)
-      for a, k in zip(ax.ravel(), query):
-        a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].max() + 1), color='k')
-        a.text(x=.95, y=.95,
-               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
-               horizontalalignment='right',
-               verticalalignment='top',
-               transform=a.transAxes)
-        a.set_title(gene_info.loc[k, 'name'])
-      for y in range(ax.shape[0]):
-        ax[y][0].set_ylabel('Num cells')
-      for x in range(ax.shape[1]):
-        ax[-1][x].set_xlabel('Num mols')
-      fig.tight_layout()
-     #+END_SRC
+   Look at the fitted distributions for /SLC25A5/.
 
-     #+RESULTS:
-     :RESULTS:
-     # Out[49]:
-     [[file:figure/deconvolution.org/ipsc-npmle-examples.png]]
-     :END:
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-slc25a5.png
+     k = 'ENSG00000005022'
+     x = ipsc_counts.loc[:,k]
+     s = ipsc_counts.sum(axis=1)
 
-     *Conclusions:*
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(6, 4)
+     ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
 
-     - ZIEF does better for genes which appear very close to Poisson. This could
-       be because it the estimation algorithm can better estimate a point mass,
-       or because two point masses (one zero and one non-zero) would be optimal.
-     - When NPMLE does better than Gamma, unimodal does comparably well. The
-       genes where this happens quite clearly exhibit unimodal gene expression.
+     for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{k.lower()}')(x, s), color=c, lw=1, label=k)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+     ax[1].legend(frameon=False)
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[49]:
+   [[file:figure/deconvolution.org/ipsc-slc25a5.png]]
+   :END:
+
+   *Conclusions:*
+
+   - When NPMLE does better than Gamma, unimodal does comparably well. The
+     genes where this happens quite clearly exhibit unimodal gene expression.
 
 *** Investigate Gamma vs. Point-Gamma in high-depth data
     :PROPERTIES:
@@ -510,6 +579,15 @@
 
     Look at the full benchmark results for NB vs. ZINB (only the GPU
     implementation is suitable for this).
+
+    #+BEGIN_SRC ipython
+      ipsc_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz', index_col=0, sep='\t')
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[50]:
+    :END:
 
     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/homogeneous-nb-zinb-benchmark.png
       plt.clf()
@@ -567,14 +645,13 @@
     Bonferroni correction to control FWER.
 
     #+BEGIN_SRC ipython
-      ipsc_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz', index_col=0, sep='\t')
       lrt = st.chi2(1).sf(-2 * (ipsc_res['gamma'] - ipsc_res['point_gamma']))
       ipsc_res[lrt < .05 / lrt.shape[0]]
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[51]:
+    # Out[56]:
     #+BEGIN_EXAMPLE
       gamma  point_gamma
       gene
@@ -583,110 +660,54 @@
     #+END_EXAMPLE
     :END:
 
+    The two genes are /PACRG/ and /RPS4Y1/. Look at the fitted distributions
+    for these genes.
+
     #+BEGIN_SRC ipython :async t
-      ipsc_counts = ipsc(query=list(ipsc_res[lrt < .05 / lrt.shape[0]].index), return_df=True)
+      ipsc_counts = scmodes.dataset.ipsc(prefix='/project2/mstephens/aksarkar/projects/singlecell-qtl/data/',
+                                         query=list(ipsc_res[lrt < .05 / lrt.shape[0]].index), return_df=True)
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[16]:
+    # Out[63]:
     :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-zinb.png
+    #+BEGIN_SRC ipython
+      annotation = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt', sep='\t')
+      keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', index_col=0, header=None, sep='\t')
+      s = annotation.loc[keep_samples.values.ravel(), 'mol_hs']
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[87]:
+    :END:
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-pacrg.png
+      k = 'ENSG00000112530'
+      x = ipsc_counts.loc[:,k].values
+
       plt.clf()
-      fig, ax = plt.subplots(1, 2)
-      fig.set_size_inches(6, 3)
-      for a, k in zip(ax, ipsc_counts):
-        h = a.hist(ipsc_counts[k], bins=np.arange(ipsc_counts[k].max() + 1), color='k')
-        a.set_title(gene_info.loc[k, 'name'])
-        a.set_xlabel('Number of molecules')
-        a.set_ylabel('Number of cells')
+      fig, ax = plt.subplots(2, 1)
+      fig.set_size_inches(6, 4)
+      ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+      ax[0].set_title(gene_info.loc[k, 'name'])
+      ax[0].set_xlabel('Num mols')
+      ax[0].set_ylabel('Num cells')
+
+      for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+        ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{k.lower()}')(x, s), color=c, lw=1, label=k)
+      ax[1].set_xlabel('Latent gene expression')
+      ax[1].set_ylabel('CDF')
+      ax[1].legend(frameon=False)
       fig.tight_layout()
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[89]:
-    [[file:figure/deconvolution.org/ipsc-zinb.png]]
-    :END:
-
-    Print out the histogram for /RPS4Y1/ for inspection.
-
-    #+BEGIN_SRC ipython
-      np.vstack((h[1][:-1], h[0])).T
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
     # Out[91]:
-    #+BEGIN_EXAMPLE
-      array([[  0., 803.],
-      [  1., 309.],
-      [  2., 435.],
-      [  3., 407.],
-      [  4., 383.],
-      [  5., 323.],
-      [  6., 323.],
-      [  7., 239.],
-      [  8., 163.],
-      [  9., 166.],
-      [ 10., 132.],
-      [ 11.,  98.],
-      [ 12.,  97.],
-      [ 13., 106.],
-      [ 14.,  95.],
-      [ 15.,  95.],
-      [ 16.,  94.],
-      [ 17., 109.],
-      [ 18.,  92.],
-      [ 19.,  89.],
-      [ 20.,  87.],
-      [ 21.,  83.],
-      [ 22., 100.],
-      [ 23.,  75.],
-      [ 24.,  71.],
-      [ 25.,  60.],
-      [ 26.,  61.],
-      [ 27.,  60.],
-      [ 28.,  60.],
-      [ 29.,  34.],
-      [ 30.,  50.],
-      [ 31.,  41.],
-      [ 32.,  34.],
-      [ 33.,  38.],
-      [ 34.,  28.],
-      [ 35.,  23.],
-      [ 36.,  19.],
-      [ 37.,  18.],
-      [ 38.,  11.],
-      [ 39.,   7.],
-      [ 40.,  17.],
-      [ 41.,   8.],
-      [ 42.,  12.],
-      [ 43.,   7.],
-      [ 44.,   4.],
-      [ 45.,  11.],
-      [ 46.,   4.],
-      [ 47.,   2.],
-      [ 48.,   1.],
-      [ 49.,   3.],
-      [ 50.,   1.],
-      [ 51.,   1.],
-      [ 52.,   2.],
-      [ 53.,   1.],
-      [ 54.,   1.],
-      [ 55.,   1.],
-      [ 56.,   2.],
-      [ 57.,   0.],
-      [ 58.,   0.],
-      [ 59.,   0.],
-      [ 60.,   0.],
-      [ 61.,   0.],
-      [ 62.,   0.],
-      [ 63.,   0.],
-      [ 64.,   0.],
-      [ 65.,   1.]])
-    #+END_EXAMPLE
+    [[file:figure/deconvolution.org/ipsc-pacrg.png]]
     :END:
 
     /PACRG/ ([[https://www.omim.org/entry/608427][Parkin coregulated gene]])
@@ -700,6 +721,32 @@
     Mitochrondrial damage could explain the bimodal distribution of /PACRG/ in
     the iPSC data: the reprogramming protocol could induce oxidative stress on
     some of the cells, resulting in damage.
+
+    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-rps4y1.png
+      k = 'ENSG00000129824'
+      x = ipsc_counts.loc[:,k].values
+
+      plt.clf()
+      fig, ax = plt.subplots(2, 1)
+      fig.set_size_inches(6, 4)
+      ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+      ax[0].set_title(gene_info.loc[k, 'name'])
+      ax[0].set_xlabel('Num mols')
+      ax[0].set_ylabel('Num cells')
+
+      for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+        ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{k.lower()}')(x, s), color=c, lw=1, label=k)
+      ax[1].set_xlabel('Latent gene expression')
+      ax[1].set_ylabel('CDF')
+      ax[1].legend(frameon=False)
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[92]:
+    [[file:figure/deconvolution.org/ipsc-rps4y1.png]]
+    :END:
 
     /RPS4Y1/ ([[https://www.omim.org/entry/470000][Ribosomal protein S4,
     Y-linked]]) is on the Y chromosome, and therefore we should expect it to
