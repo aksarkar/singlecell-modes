@@ -15,15 +15,16 @@
   #+BEGIN_SRC emacs-lisp :exports none
     (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
     (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+    (org-babel-lob-ingest "deconvolution.org")
   #+END_SRC
 
   #+RESULTS:
-  : 1
+  : 15
 
   #+CALL: ipython3(memory="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 60359323
+  : Submitted batch job 60428374
 
   #+BEGIN_SRC ipython
     import functools as ft
@@ -46,6 +47,11 @@
     ashr = rpy2.robjects.packages.importr('ashr')
     descend = rpy2.robjects.packages.importr('descend')
   #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[1]:
+  :END:
 
   #+RESULTS: imports
   :RESULTS:
@@ -74,13 +80,58 @@
   :END:
 
 * Results
+** Test
+
+   #+BEGIN_SRC ipython
+     b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True)
+     llik_diff = benchmark['b_cells']['npmle'] - benchmark['b_cells']['gamma']
+     query = llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=1).index
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[68]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     x = b_cells[query].values.ravel()
+     s = b_cells.sum(axis=1).values.ravel()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[86]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t :ipyfile figure/deconvolution.org/test.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(6, 4)
+     ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
+
+     for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{k.lower()}')(x, s), color=c, lw=1, label=k)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+     ax[1].legend(frameon=False)
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[104]:
+   [[file:figure/deconvolution.org/test.png]]
+   :END:
+
 ** Metadata
 
    Read gene metadata.
 
    #+NAME: read-gene-info
    #+BEGIN_SRC ipython
-      gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
+     gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
    #+END_SRC
 
    #+RESULTS: read-gene-info
@@ -89,7 +140,6 @@
    :END:
 
 ** Spike-in data
-
 
    Read the results.
 
@@ -101,206 +151,166 @@
         .groupby(level=0))}
    #+END_SRC
 
-*** Look at genes favoring more complex models
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
 
-    We are primarily interested in cases where NPMLE does better than unimodal,
-    because these could potentially be cases where zeros drive the difference
-    in generalization performance.
+   We are primarily interested in cases where NPMLE does better than unimodal,
+   because these could potentially be cases where zeros drive the difference
+   in generalization performance.
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/chromium1-npmle-examples.png
-      chromium1 = data['chromium1']()
-      llik_diff = benchmark['chromium1']['npmle'] - benchmark['chromium1']['unimodal']
-      query = llik_diff[np.logical_and(chromium1.sum(axis=0) > 0, llik_diff > 0)].sort_values(ascending=False).head(n=12).index
-      plt.clf()
-      fig, ax = plt.subplots(4, 3)
-      fig.set_size_inches(7, 5)
-      for a, k in zip(ax.ravel(), query):
-        a.hist(chromium1[:,k], bins=np.arange(chromium1[:,k].max() + 2), color='k')
-        a.text(x=.95, y=.95,
-               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
-               horizontalalignment='right',
-               verticalalignment='top',
-               transform=a.transAxes)
-      for y in range(ax.shape[0]):
-        ax[y][0].set_ylabel('Num cells')
-      for x in range(ax.shape[1]):
-        ax[-1][x].set_xlabel('Num mols')
-      fig.tight_layout()
-    #+END_SRC
+   #+CALL: ercc-data()
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[12]:
-    [[file:figure/deconvolution.org/chromium1-npmle-examples.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[5]:
+   :END:
 
-    #+BEGIN_SRC ipython
-      chromium2 = data['chromium2']()
-      llik_diff = benchmark['chromium2']['npmle'] - benchmark['chromium2']['unimodal']
-      query = llik_diff[np.logical_and(chromium2.sum(axis=0) > 0, llik_diff > 0)].sort_values(ascending=False).head(n=12).index
-    #+END_SRC
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/chromium1-npmle-examples.png
+     chromium1 = data['chromium1']()
+     llik_diff = benchmark['chromium1']['npmle'] - benchmark['chromium1']['unimodal']
+     query = llik_diff[np.logical_and(chromium1.sum(axis=0) > 0, llik_diff > 0)].sort_values(ascending=False).head(n=12).index
+     plt.clf()
+     fig, ax = plt.subplots(4, 3)
+     fig.set_size_inches(7, 5)
+     for a, k in zip(ax.ravel(), query):
+       a.hist(chromium1[:,k], bins=np.arange(chromium1[:,k].max() + 2), color='k')
+       a.text(x=.95, y=.95,
+              s=f"$\Delta KL$={llik_diff.loc[k]:.1f}",
+              horizontalalignment='right',
+              verticalalignment='top',
+              transform=a.transAxes)
+     for y in range(ax.shape[0]):
+       ax[y][0].set_ylabel('Num cells')
+     for x in range(ax.shape[1]):
+       ax[-1][x].set_xlabel('Num mols')
+     fig.tight_layout()
+   #+END_SRC
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/chromium2-npmle-examples.png
-      plt.clf()
-      fig, ax = plt.subplots(4, 3)
-      fig.set_size_inches(7, 5)
-      for a, k in zip(ax.ravel(), query):
-        a.hist(chromium2[:,k], bins=np.arange(chromium2[:,k].max() + 2), color='k')
-        a.text(x=.95, y=.95,
-               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
-               horizontalalignment='right',
-               verticalalignment='top',
-               transform=a.transAxes)
-      for y in range(ax.shape[0]):
-        ax[y][0].set_ylabel('Num cells')
-      for x in range(ax.shape[1]):
-        ax[-1][x].set_xlabel('Num mols')
-      fig.tight_layout()
-    #+END_SRC
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   [[file:figure/deconvolution.org/chromium1-npmle-examples.png]]
+   :END:
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[13]:
-    [[file:figure/deconvolution.org/chromium2-npmle-examples.png]]
-    :END:
+   #+BEGIN_SRC ipython
+     chromium2 = data['chromium2']()
+     llik_diff = benchmark['chromium2']['npmle'] - benchmark['chromium2']['unimodal']
+     query = llik_diff[np.logical_and(chromium2.sum(axis=0) > 0, llik_diff > 0)].sort_values(ascending=False).head(n=12).index
+   #+END_SRC
 
-    Look at the distribution of size factors.
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   :END:
 
-    #+BEGIN_SRC ipython
-      s = chromium2.sum(axis=1)
-    #+END_SRC
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/chromium2-npmle-examples.png
+     plt.clf()
+     fig, ax = plt.subplots(4, 3)
+     fig.set_size_inches(7, 5)
+     for a, k in zip(ax.ravel(), query):
+       a.hist(chromium2[:,k], bins=np.arange(chromium2[:,k].max() + 2), color='k')
+       a.text(x=.95, y=.95,
+              s=f"$\Delta KL$={llik_diff.loc[k]:.1f}",
+              horizontalalignment='right',
+              verticalalignment='top',
+              transform=a.transAxes)
+     for y in range(ax.shape[0]):
+       ax[y][0].set_ylabel('Num cells')
+     for x in range(ax.shape[1]):
+       ax[-1][x].set_xlabel('Num mols')
+     fig.tight_layout()
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[75]:
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[10]:
+   [[file:figure/deconvolution.org/chromium2-npmle-examples.png]]
+   :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/chromium2-size.png
-      plt.clf()
-      plt.gcf().set_size_inches(3, 3)
-      plt.hist(s, color='k', bins=100)
-      plt.axvline(x=1000, c='r', lw=1, ls=':')
-      plt.xlabel('Size factor')
-      plt.ylabel('Number of cells')
-      plt.tight_layout()
-    #+END_SRC
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/dropseq-npmle-examples.png
+     dropseq = data['dropseq']()
+     llik_diff = benchmark['dropseq']['npmle'] - benchmark['dropseq']['unimodal']
+     query = benchmark['dropseq'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
+     plt.clf()
+     fig, ax = plt.subplots(4, 3)
+     fig.set_size_inches(7, 5)
+     for a, k in zip(ax.ravel(), query):
+       a.hist(dropseq[:,k], bins=np.arange(dropseq[:,k].max() + 2), color='k')
+       a.text(x=.95, y=.95,
+              s=f"$\Delta KL$={llik_diff.loc[k]:.1f}",
+              horizontalalignment='right',
+              verticalalignment='top',
+              transform=a.transAxes)
+     for y in range(ax.shape[0]):
+       ax[y][0].set_ylabel('Num cells')
+     for x in range(ax.shape[1]):
+       ax[-1][x].set_xlabel('Num mols')
+     fig.tight_layout()
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[566]:
-    [[file:figure/deconvolution.org/chromium2-size.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[14]:
+   [[file:figure/deconvolution.org/dropseq-npmle-examples.png]]
+   :END:
 
-    Show that the bimodal distribution of counts is totally explained by the
-    bimodal distribution of size factors. 
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/gemcode-npmle-examples.png
+     gemcode = data['gemcode']()
+     llik_diff = benchmark['gemcode']['npmle'] - benchmark['gemcode']['unimodal']
+     query = llik_diff[np.logical_and(gemcode.sum(axis=0) > 0, llik_diff > 0)].sort_values(ascending=False).head(n=12).index
+     plt.clf()
+     fig, ax = plt.subplots(4, 3)
+     fig.set_size_inches(7, 5)
+     for a, k in zip(ax.ravel(), query):
+       a.hist(gemcode[:,k], bins=np.arange(gemcode[:,k].max() + 2), color='k')
+       a.text(x=.95, y=.95,
+              s=f"$\Delta KL$={llik_diff.loc[k]:.1f}",
+              horizontalalignment='right',
+              verticalalignment='top',
+              transform=a.transAxes)
+     for y in range(ax.shape[0]):
+       ax[y][0].set_ylabel('Num cells')
+     for x in range(ax.shape[1]):
+       ax[-1][x].set_xlabel('Num mols')
+     fig.tight_layout()
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/chromium2-npmle-examples-bimodal.png
-      plt.clf()
-      fig, ax = plt.subplots(4, 3)
-      fig.set_size_inches(7, 5)
-      for a, k in zip(ax.ravel(), query):
-        n, *_ = a.hist(chromium2[s < 1000,k], bins=np.arange(chromium2[:,k].max() + 2), color='k')
-        a.hist(chromium2[s >= 1000,k], bottom=n, bins=np.arange(chromium2[:,k].max() + 2), color='r')
-        a.text(x=.95, y=.95,
-               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
-               horizontalalignment='right',
-               verticalalignment='top',
-               transform=a.transAxes)
-      for y in range(ax.shape[0]):
-        ax[y][0].set_ylabel('Num cells')
-      for x in range(ax.shape[1]):
-        ax[-1][x].set_xlabel('Num mols')
-      fig.tight_layout()
-    #+END_SRC
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[567]:
-    [[file:figure/deconvolution.org/chromium2-npmle-examples-bimodal.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[13]:
+   [[file:figure/deconvolution.org/gemcode-npmle-examples.png]]
+   :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/dropseq-npmle-examples.png
-      dropseq = data['dropseq']()
-      llik_diff = benchmark['dropseq']['npmle'] - benchmark['dropseq']['unimodal']
-      query = benchmark['dropseq'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
-      plt.clf()
-      fig, ax = plt.subplots(4, 3)
-      fig.set_size_inches(7, 5)
-      for a, k in zip(ax.ravel(), query):
-        a.hist(dropseq[:,k], bins=np.arange(dropseq[:,k].max() + 2), color='k')
-        a.text(x=.95, y=.95,
-               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
-               horizontalalignment='right',
-               verticalalignment='top',
-               transform=a.transAxes)
-      for y in range(ax.shape[0]):
-        ax[y][0].set_ylabel('Num cells')
-      for x in range(ax.shape[1]):
-        ax[-1][x].set_xlabel('Num mols')
-      fig.tight_layout()
-    #+END_SRC
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/indrops-npmle-examples.png
+     indrops = data['indrops']()
+     llik_diff = benchmark['indrops']['npmle'] - benchmark['indrops']['unimodal']
+     query = llik_diff[np.logical_and(indrops.sum(axis=0) > 0, llik_diff > 0)].sort_values(ascending=False).head(n=12).index
+     plt.clf()
+     fig, ax = plt.subplots(4, 3)
+     fig.set_size_inches(7, 5)
+     for a, k in zip(ax.ravel(), query):
+       a.hist(indrops[:,k], bins=np.arange(indrops[:,k].max() + 2), color='k')
+       a.text(x=.95, y=.95,
+              s=f"$\Delta KL$={llik_diff.loc[k]:.1f}",
+              horizontalalignment='right',
+              verticalalignment='top',
+              transform=a.transAxes)
+     for y in range(ax.shape[0]):
+       ax[y][0].set_ylabel('Num cells')
+     for x in range(ax.shape[1]):
+       ax[-1][x].set_xlabel('Num mols')
+     fig.tight_layout()
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[14]:
-    [[file:figure/deconvolution.org/dropseq-npmle-examples.png]]
-    :END:
+   #+END_SRC
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/gemcode-npmle-examples.png
-      gemcode = data['gemcode']()
-      llik_diff = benchmark['gemcode']['npmle'] - benchmark['gemcode']['unimodal']
-      query = llik_diff[np.logical_and(gemcode.sum(axis=0) > 0, llik_diff > 0)].sort_values(ascending=False).head(n=12).index
-      plt.clf()
-      fig, ax = plt.subplots(4, 3)
-      fig.set_size_inches(7, 5)
-      for a, k in zip(ax.ravel(), query):
-        a.hist(gemcode[:,k], bins=np.arange(gemcode[:,k].max() + 2), color='k')
-        a.text(x=.95, y=.95,
-               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
-               horizontalalignment='right',
-               verticalalignment='top',
-               transform=a.transAxes)
-      for y in range(ax.shape[0]):
-        ax[y][0].set_ylabel('Num cells')
-      for x in range(ax.shape[1]):
-        ax[-1][x].set_xlabel('Num mols')
-      fig.tight_layout()
-
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[15]:
-    [[file:figure/deconvolution.org/gemcode-npmle-examples.png]]
-    :END:
-
-    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/indrops-npmle-examples.png
-      indrops = data['indrops']()
-      llik_diff = benchmark['indrops']['npmle'] - benchmark['indrops']['unimodal']
-      query = llik_diff[np.logical_and(indrops.sum(axis=0) > 0, llik_diff > 0)].sort_values(ascending=False).head(n=12).index
-      plt.clf()
-      fig, ax = plt.subplots(4, 3)
-      fig.set_size_inches(7, 5)
-      for a, k in zip(ax.ravel(), query):
-        a.hist(indrops[:,k], bins=np.arange(indrops[:,k].max() + 2), color='k')
-        a.text(x=.95, y=.95,
-               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
-               horizontalalignment='right',
-               verticalalignment='top',
-               transform=a.transAxes)
-      for y in range(ax.shape[0]):
-        ax[y][0].set_ylabel('Num cells')
-      for x in range(ax.shape[1]):
-        ax[-1][x].set_xlabel('Num mols')
-      fig.tight_layout()
-
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[16]:
-    [[file:figure/deconvolution.org/indrops-npmle-examples.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[15]:
+   [[file:figure/deconvolution.org/indrops-npmle-examples.png]]
+   :END:
 
 ** Homogeneous populations
 
@@ -448,50 +458,50 @@
    [[file:figure/deconvolution.org/ipsc-unimodal-examples.png]]
    :END:
 
-          - /SLC25A5/ ([[https://www.omim.org/entry/300150][Solute carrier family 25
-            member 5]]) codes for a mitochrondrial membrane protein
-            ([[https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5789311/][Rocha et
-            al. 2018]]), and is altered in Parkinson's disease
-          - /TXNDC17/ ([[https://www.omim.org/entry/616967][Thioredoxin
-            domain-containing protein 17]]) appears to be involved in oxidative
-            stress
-          - /PCBP2/ ([[https://www.omim.org/entry/601210][Poly(rC)-binding protein
-            2]]) is involved in post-transcriptional regulation
+   - /SLC25A5/ ([[https://www.omim.org/entry/300150][Solute carrier family 25
+     member 5]]) codes for a mitochrondrial membrane protein
+     ([[https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5789311/][Rocha et
+     al. 2018]]), and is altered in Parkinson's disease
+   - /TXNDC17/ ([[https://www.omim.org/entry/616967][Thioredoxin
+     domain-containing protein 17]]) appears to be involved in oxidative
+     stress
+   - /PCBP2/ ([[https://www.omim.org/entry/601210][Poly(rC)-binding protein
+     2]]) is involved in post-transcriptional regulation
 
-            #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-npmle-examples.png
-             llik_diff = benchmark['ipsc']['npmle'] - benchmark['ipsc']['gamma']
-             query = benchmark['ipsc'].loc[llik_diff > 0].index
-             plt.clf()
-             fig, ax = plt.subplots(9, 5)
-             fig.set_size_inches(8, 10)
-             for a, k in zip(ax.ravel(), query):
-               a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].max() + 1), color='k')
-               a.text(x=.95, y=.95,
-                      s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
-                      horizontalalignment='right',
-                      verticalalignment='top',
-                      transform=a.transAxes)
-               a.set_title(gene_info.loc[k, 'name'])
-             for y in range(ax.shape[0]):
-               ax[y][0].set_ylabel('Num cells')
-             for x in range(ax.shape[1]):
-               ax[-1][x].set_xlabel('Num mols')
-             fig.tight_layout()
-            #+END_SRC
+     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/ipsc-npmle-examples.png
+      llik_diff = benchmark['ipsc']['npmle'] - benchmark['ipsc']['gamma']
+      query = benchmark['ipsc'].loc[llik_diff > 0].index
+      plt.clf()
+      fig, ax = plt.subplots(9, 5)
+      fig.set_size_inches(8, 10)
+      for a, k in zip(ax.ravel(), query):
+        a.hist(ipsc_counts.loc[:,k], bins=np.arange(ipsc_counts.loc[:,k].max() + 1), color='k')
+        a.text(x=.95, y=.95,
+               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
+               horizontalalignment='right',
+               verticalalignment='top',
+               transform=a.transAxes)
+        a.set_title(gene_info.loc[k, 'name'])
+      for y in range(ax.shape[0]):
+        ax[y][0].set_ylabel('Num cells')
+      for x in range(ax.shape[1]):
+        ax[-1][x].set_xlabel('Num mols')
+      fig.tight_layout()
+     #+END_SRC
 
-            #+RESULTS:
-            :RESULTS:
-            # Out[49]:
-            [[file:figure/deconvolution.org/ipsc-npmle-examples.png]]
-            :END:
+     #+RESULTS:
+     :RESULTS:
+     # Out[49]:
+     [[file:figure/deconvolution.org/ipsc-npmle-examples.png]]
+     :END:
 
-            *Conclusions:*
+     *Conclusions:*
 
-            - ZIEF does better for genes which appear very close to Poisson. This could
-              be because it the estimation algorithm can better estimate a point mass,
-              or because two point masses (one zero and one non-zero) would be optimal.
-            - When NPMLE does better than Gamma, unimodal does comparably well. The
-              genes where this happens quite clearly exhibit unimodal gene expression.
+     - ZIEF does better for genes which appear very close to Poisson. This could
+       be because it the estimation algorithm can better estimate a point mass,
+       or because two point masses (one zero and one non-zero) would be optimal.
+     - When NPMLE does better than Gamma, unimodal does comparably well. The
+       genes where this happens quite clearly exhibit unimodal gene expression.
 
 *** Investigate Gamma vs. Point-Gamma in high-depth data
     :PROPERTIES:

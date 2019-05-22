@@ -268,7 +268,7 @@
    Fit DESCEND.
 
    #+BEGIN_SRC ipython
-     descend_res = descend.deconvSingle(xj, scaling_consts=size_factor, verbose=False)
+     descend_res = descend.deconvSingle(xj, scaling_consts=size_factor, verbose=False)2
    #+END_SRC
 
    #+RESULTS:
@@ -751,7 +751,8 @@
    1. ZIG does not perform better than Gamma, supporting the conclusions of
       [[https://www.biorxiv.org/content/10.1101/582064v1][Svensson 2019]]
    2. There is heterogeneity which isn't adequately described by Gamma, but
-      appears equally well described by unimodal/ZIEF/NPMLE
+      [[file:deconv-examples.org::*Spike-in%20data][appears equally well
+      described by unimodal/NPMLE]]
 
 ** Homogeneous cell populations
    :PROPERTIES:
