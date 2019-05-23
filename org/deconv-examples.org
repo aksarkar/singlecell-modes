@@ -1004,8 +1004,7 @@
    # Out[29]:
    :END:
 
-   Look at the genes where ZIG shows the most gain in validation set log
-   likelihood.
+   Fix the cortex count matrix (seems to break the parser in ~pandas~).
 
    #+NAME: fix-cortex
    #+BEGIN_SRC ipython :eval never
@@ -1035,6 +1034,88 @@
    # Out[30]:
    :END:
 
+   Look at the fitted distribution for the genes where NPMLE does worst.
+
+   #+BEGIN_SRC ipython
+     llik_diff = benchmark['cortex']['npmle'] - benchmark['cortex']['gamma']
+     llik_diff.sort_values().head(n=12)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[58]:
+   #+BEGIN_EXAMPLE
+     Ttr           -3.136362
+     Hbb-bs        -3.032071
+     Hba-a2_loc1   -2.053220
+     Hba-a2_loc2   -1.985382
+     Sst           -1.842792
+     Apoe          -1.414460
+     Npy           -1.403264
+     Hbb-b2        -1.365434
+     Ccl3          -1.226098
+     Mgp           -1.198429
+     Acta2         -1.139285
+     Ptgds         -1.132885
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-ttr.png
+     k = 'Ttr'
+     x = cortex_counts.loc[:,k].values
+     s = cortex_counts.sum(axis=1).values
+
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(6, 4)
+     ax[0].hist(x, bins=np.arange(0, x.max() + 1, 100), color='k')
+     ax[0].set_title(k.upper())
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
+
+     for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{k.lower()}')(x, s), color=c, lw=1, label=k)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+     ax[1].legend(frameon=False)
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[60]:
+   [[file:figure/deconvolution.org/cortex-ttr.png]]
+   :END:
+
+   Look at the distribution of latent gene expression values (naively
+   estimated) for /TTR/.
+
+   #+BEGIN_SRC ipython
+     pd.Series((x / s)[x > 0]).describe()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[61]:
+   #+BEGIN_EXAMPLE
+     count    90.000000
+     mean      0.059269
+     std       0.152847
+     min       0.000055
+     25%       0.000368
+     50%       0.003031
+     75%       0.008099
+     max       0.610003
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   For these genes, more than 90% of the samples have observed count 0, so the
+   optimal model appears to predict 0 for all samples.
+
+   Look at genes where ZIG does better than Gamma.
+
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-zig-examples.png
      llik_diff = benchmark['cortex']['point_gamma'] - benchmark['cortex']['gamma']
      query = benchmark['cortex'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
@@ -1044,7 +1125,7 @@
      for a, k in zip(ax.ravel(), query):
        a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].max() + 1), color='k')
        a.text(x=.95, y=.95,
-              s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
+              s=f"$\Delta KL$={llik_diff.loc[k]:.1f}",
               horizontalalignment='right',
               verticalalignment='top',
               transform=a.transAxes)
@@ -1058,7 +1139,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[14]:
+   # Out[65]:
    [[file:figure/deconvolution.org/cortex-zig-examples.png]]
    :END:
 
@@ -1073,7 +1154,7 @@
       for a, k in zip(ax.ravel(), query):
         a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].max() + 1), color='k')
         a.text(x=.95, y=.95,
-               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
+               s=f"$\Delta KL$={llik_diff.loc[k]:.1f}",
                horizontalalignment='right',
                verticalalignment='top',
                transform=a.transAxes)
@@ -1088,7 +1169,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[13]:
+   # Out[66]:
    [[file:figure/deconvolution.org/cortex-unimodal-examples.png]]
    :END:
 
@@ -1103,7 +1184,7 @@
       for a, k in zip(ax.ravel(), query):
         a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].max() + 1), color='k')
         a.text(x=.95, y=.95,
-               s=f"$\Delta l$={llik_diff.loc[k]:.1f}",
+               s=f"$\Delta KL$={llik_diff.loc[k]:.1f}",
                horizontalalignment='right',
                verticalalignment='top',
                transform=a.transAxes)
@@ -1117,7 +1198,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[15]:
+   # Out[67]:
    [[file:figure/deconvolution.org/cortex-npmle-examples.png]]
    :END:
 
@@ -1128,27 +1209,27 @@
      voltage-gated, type II, alpha]]) is needed for propagating actions
      potentials in neurons
 
-     Stratify the gene expression of these genes by inferred cell type.
+   Stratify the gene expression of these genes by inferred cell type.
 
-     #+BEGIN_SRC sh :dir /project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/
+   #+BEGIN_SRC sh :dir /project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/
       curl -sLO "https://storage.googleapis.com/linnarsson-lab-www-blobs/blobs/cortex/expression_mRNA_17-Aug-2014.txt"
       gzip expression_mRNA_17-Aug-2014.txt
-     #+END_SRC
+   #+END_SRC
 
-     #+RESULTS:
+   #+RESULTS:
 
-     #+BEGIN_SRC ipython
+   #+BEGIN_SRC ipython
       cortex_celltypes = (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/expression_mRNA_17-Aug-2014.txt.gz', sep='\t', header=None, index_col=0, nrows=10)
                           .reset_index(drop=True)
                           .set_index(1))
-     #+END_SRC
+   #+END_SRC
 
-     #+RESULTS:
-     :RESULTS:
-     # Out[75]:
-     :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[75]:
+   :END:
 
-     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-gpm6a.png
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-gpm6a.png
       plt.clf()
       fig, ax = plt.subplots(3, 3)
       fig.set_size_inches(6, 6)
@@ -1161,15 +1242,15 @@
       for a in ax.T:
         a[-1].set_xlabel('Num mols')
       fig.tight_layout()
-     #+END_SRC
+   #+END_SRC
 
-     #+RESULTS:
-     :RESULTS:
-     # Out[78]:
-     [[file:figure/deconvolution.org/cortex-gpm6a.png]]
-     :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[78]:
+   [[file:figure/deconvolution.org/cortex-gpm6a.png]]
+   :END:
 
-     #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-scn2a.png
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-scn2a.png
       plt.clf()
       fig, ax = plt.subplots(3, 3)
       fig.set_size_inches(6, 6)
@@ -1182,12 +1263,12 @@
       for a in ax.T:
         a[-1].set_xlabel('Num mols')
       fig.tight_layout()
-     #+END_SRC
+   #+END_SRC
 
-     #+RESULTS:
-     :RESULTS:
-     # Out[84]:
-     [[file:figure/deconvolution.org/cortex-scn2a.png]]
-     :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[84]:
+   [[file:figure/deconvolution.org/cortex-scn2a.png]]
+   :END:
 
 

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-22 Wed 15:25 -->
+<!-- 2019-05-23 Thu 15:32 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Distribution deconvolution examples</title>
@@ -1233,8 +1233,7 @@ Read the results.
 </div>
 
 <p>
-Look at the genes where ZIG shows the most gain in validation set log
-likelihood.
+Fix the cortex count matrix (seems to break the parser in <code>pandas</code>).
 </p>
 
 <div class="org-src-container">
@@ -1259,6 +1258,91 @@ EOF
 </pre>
 </div>
 
+<p>
+Look at the fitted distribution for the genes where NPMLE does worst.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cortex'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'cortex'</span>][<span class="org-string">'gamma'</span>]
+llik_diff.sort_values().head(n=12)
+</pre>
+</div>
+
+<pre class="example">
+Ttr           -3.136362
+Hbb-bs        -3.032071
+Hba-a2_loc1   -2.053220
+Hba-a2_loc2   -1.985382
+Sst           -1.842792
+Apoe          -1.414460
+Npy           -1.403264
+Hbb-b2        -1.365434
+Ccl3          -1.226098
+Mgp           -1.198429
+Acta2         -1.139285
+Ptgds         -1.132885
+dtype: float64
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">k</span> = <span class="org-string">'Ttr'</span>
+<span class="org-variable-name">x</span> = cortex_counts.loc[:,k].values
+<span class="org-variable-name">s</span> = cortex_counts.<span class="org-builtin">sum</span>(axis=1).values
+
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
+fig.set_size_inches(6, 4)
+ax[0].hist(x, bins=np.arange(0, x.<span class="org-builtin">max</span>() + 1, 100), color=<span class="org-string">'k'</span>)
+ax[0].set_title(k.upper())
+ax[0].set_xlabel(<span class="org-string">'Num mols'</span>)
+ax[0].set_ylabel(<span class="org-string">'Num cells'</span>)
+
+<span class="org-keyword">for</span> c, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(plt.get_cmap(<span class="org-string">'Dark2'</span>).colors, [<span class="org-string">'Gamma'</span>, <span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>]):
+  ax[1].plot(*<span class="org-builtin">getattr</span>(scmodes.deconvolve, f<span class="org-string">'fit_{k.lower()}'</span>)(x, s), color=c, lw=1, label=k)
+ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
+ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
+ax[1].legend(frameon=<span class="org-constant">False</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/cortex-ttr.png" alt="cortex-ttr.png">
+</p>
+</div>
+
+<p>
+Look at the distribution of latent gene expression values (naively
+estimated) for <i>TTR</i>.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pd.Series((x / s)[x &gt; 0]).describe()
+</pre>
+</div>
+
+<pre class="example">
+count    90.000000
+mean      0.059269
+std       0.152847
+min       0.000055
+25%       0.000368
+50%       0.003031
+75%       0.008099
+max       0.610003
+dtype: float64
+</pre>
+
+<p>
+For these genes, more than 90% of the samples have observed count 0, so the
+optimal model appears to predict 0 for all samples.
+</p>
+
+<p>
+Look at genes where ZIG does better than Gamma.
+</p>
+
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cortex'</span>][<span class="org-string">'point_gamma'</span>] - benchmark[<span class="org-string">'cortex'</span>][<span class="org-string">'gamma'</span>]
 <span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cortex'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
@@ -1268,7 +1352,7 @@ fig.set_size_inches(7, 5)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
   a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
   a.text(x=.95, y=.95,
-         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         s=f<span class="org-string">"$\Delta KL$={llik_diff.loc[k]:.1f}"</span>,
          horizontalalignment=<span class="org-string">'right'</span>,
          verticalalignment=<span class="org-string">'top'</span>,
          transform=a.transAxes)
@@ -1300,7 +1384,7 @@ fig.set_size_inches(7, 5)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
   a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
   a.text(x=.95, y=.95,
-         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         s=f<span class="org-string">"$\Delta KL$={llik_diff.loc[k]:.1f}"</span>,
          horizontalalignment=<span class="org-string">'right'</span>,
          verticalalignment=<span class="org-string">'top'</span>,
          transform=a.transAxes)
@@ -1333,7 +1417,7 @@ fig.set_size_inches(7, 5)
 <span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
   a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
   a.text(x=.95, y=.95,
-         s=f<span class="org-string">"$\Delta l$={llik_diff.loc[k]:.1f}"</span>,
+         s=f<span class="org-string">"$\Delta KL$={llik_diff.loc[k]:.1f}"</span>,
          horizontalalignment=<span class="org-string">'right'</span>,
          verticalalignment=<span class="org-string">'top'</span>,
          transform=a.transAxes)
@@ -1356,11 +1440,10 @@ fig.tight_layout()
 <li><i>GPM6A</i> (<a href="https://www.ncbi.nlm.nih.gov/gene/234267">Glycoprotein m6a</a>)
 appears to be required for mouse brain develoment, and is expressed in
 specific brain regions</li>
-<li><p>
-<i>SCN2A</i> (<a href="https://www.ncbi.nlm.nih.gov/gene/110876">Sodium channel,
+<li><i>SCN2A</i> (<a href="https://www.ncbi.nlm.nih.gov/gene/110876">Sodium channel,
 voltage-gated, type II, alpha</a>) is needed for propagating actions
-potentials in neurons
-</p>
+potentials in neurons</li>
+</ul>
 
 <p>
 Stratify the gene expression of these genes by inferred cell type.
@@ -1421,15 +1504,14 @@ fig.tight_layout()
 <div class="figure">
 <p><img src="figure/deconvolution.org/cortex-scn2a.png" alt="cortex-scn2a.png">
 </p>
-</div></li>
-</ul>
+</div>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-22 Wed 15:25</p>
+<p class="date">Created: 2019-05-23 Thu 15:32</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
