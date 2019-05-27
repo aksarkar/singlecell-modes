@@ -24,3 +24,4 @@ Technical details:
 - [[file:npmle.org][NPMLE on C1 spike-in data]]
 - [[file:deconv-examples.org][Distribution deconvolution examples]]
 - [[file:deconv-de.org][Differential expression from distribution deconvolution]]
+- [[file:ep.org][Posterior approximation for scRNA-seq data]]

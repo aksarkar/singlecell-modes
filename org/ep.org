@@ -1,0 +1,84 @@
+#+TITLE: Posterior approximation for scRNA-seq data
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  We are studying the model:
+
+  \[ x_i \mid s_i, \lambda_i \sim \mathrm{Poisson}(s_i \lambda_i) \]
+
+  \[ \lambda_i \sim g(\cdot) \]
+
+  If we consider \(g\) a prior, then estimating \(g\) via maximum likelihood is
+  Empirical Bayes, and we can recover the posterior distribution \(p(\lambda_i
+  \mid x_1, \ldots, x_n)\). What can we do with this distribution?
+
+  One inference task is to generate Gaussian pseudodata (represented by a mean
+  and variance) per count observation. One natural way to do this is Taylor
+  expansion. For one observation, suppose \(l(\theta) = \ln p(x \mid
+  \theta)\). Then, taking second-order Taylor expansion about \(\theta_0\):
+
+  \[ l(\theta) \approx l(\theta_0) + (\theta - \theta_0)\,l'(\theta_0) +
+  \frac{(\theta - \theta)^2}{2}\,l''(\theta_0) \]
+
+  \[= \mathcal{N}\left(\theta_0 - \frac{l'(\theta_0)}{l''(\theta_0)}; \theta,
+  -\frac{1}{l''(\theta_0)}\right) + \mathrm{const} \]
+
+  In our model above, define \(\theta_i = \ln\lambda_i\). Now, the problem
+  becomes: how do we choose \(\theta_0\)? The obvious choice is \(\ln(x_i /
+  s_i)\). However, this choice breaks down for \(x_i = 0\).
+
+  Here, we investigate whether we can use the posterior distribution of
+  \(\lambda_i\) to find a better point to expand about. The intuition is that
+  \(x_i = 0\) does not imply that \(\lambda_i = 0\), and we should use the rest
+  of the data to regularize (shrink) the \(\lambda_i\) towards each other.
+
+* Idea
+
+  The posterior of interest is
+
+  \[ p(\lambda_i \mid x_1, \ldots, x_n) \propto \hat{g}(\lambda_i) p(x_i \mid
+  \lambda_i) \triangleq P_i \]
+
+  For each observation \(x_i\), we want to find a new "likelihood" \(q(x_i
+  \mid \mu_i, \sigma^2_i)\), such that the resulting approximate posterior
+
+  \[ \hat{g}(\lambda_i) q(x_i \mid \mu_i, \sigma^2_i) \triangleq Q_i \]
+
+  is as close to the true posterior as possible. This entails finding \(q^*\):
+
+  \[ q^* = \arg\min_q \mathcal{KL}\left(P_i \Vert Q_i\right) \]
+
+  \[ = \arg\max_q \mathbb{E}_{P_i} \left[ \ln Q_i \right] \]
+
+  \[ = \arg\max_q \mathbb{E}_{P_i} \left[\ln q(x_i \mid \mu_i, \sigma^2_i) \right] \]
+
+  *Is there an easy solution?* Suppose \(\hat{g}\) is Gamma with mean \(m\) and
+  variance \(v\). Then, the optimization is finding a Gaussian MLE for negative
+  binomial data with mean \(s_i m\) and variance \((s_i m)^2 v\).
+
+  *Is this a sensible solution?* Intuitively, we want \(\sigma^2_i\) to capture
+  uncertainty in the measurement. As \(s_i\) and \(m\) become smaller, we want
+  \(\sigma^2_i\) to become larger. But the above solution has the exact
+  opposite property.
+
+  Further, variation in \(\mu_i\) will only capture variation in \(s_i\), since
+  \(m\) is assumed to be the same for each observation \(x_i\). This also seems
+  to defeat the purpose of producing Gaussian pseudodata.
+
+* Connection to EP
+
+  We have:
+
+  \[ \Pr(\mathbf{x}, \boldsymbol{\lambda}) = \prod_i \hat{g}(\lambda_i) p(x_i \mid \lambda_i) \]
+
+  where \(p\) is Poisson. We want to approximate this as:
+
+  \[ \prod_i \hat{g}(\lambda_i) q_i(x_i \mid \mu_i, \sigma^2_i) \]
+
+  where \(q_i\) is Gaussian. This is an instance of expectation propagation
+  ([[https://tminka.github.io/papers/ep/][Minka 2001]]), which is phrased in
+  terms of joint probability distributions instead of posteriors.
+
+  The difference between general EP and the idea above is that we are fixing
+  the factors \(\hat{g}(\lambda_i)\). 
