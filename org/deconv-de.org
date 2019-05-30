@@ -39,7 +39,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 60552767
+  : Submitted batch job 60555765
 
   #+BEGIN_SRC ipython
     import numpy as np
@@ -401,7 +401,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[229]:
+   # Out[14]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -550,6 +550,7 @@
      out %>% group_by(data_poisthin.nsamp, data_poisthin.prop_null) %>% summarise(mean(V1), sd(V1))
    #+END_SRC
 
+   #+ATTR_HTML: :class table
    #+RESULTS:
    | 100 | 0.9 | 0.0233333333333333 |  0.0114155814869796 |
    | 100 |   1 |             0.0235 |  0.0104163333279998 |
@@ -561,6 +562,7 @@
      head(out)
    #+END_SRC
 
+   #+ATTR_HTML: :class table
    #+RESULTS:
    | 0.9 | 100 | type1error/data_poisthin_1_glm_nb_1_type1error_1  | 0.0133333333333333 |
    | 0.9 | 100 | type1error/data_poisthin_13_glm_nb_2_type1error_2 | 0.0333333333333333 |
@@ -636,6 +638,7 @@
      c(mean(y[z == 0]), mean(y[z == 1]))
    #+END_SRC
 
+   #+ATTR_HTML: :class table
    #+RESULTS:
    | 0.92 |
    | 0.26 |
@@ -672,3 +675,43 @@
      Log-likelihood: -89.21 on 4 Df
 
    #+END_EXAMPLE
+
+   Can we fix this by fitting group-specific dispersions?
+
+   #+BEGIN_SRC ipython
+     dat = rpy2.robjects.r['readRDS']('/project2/mstephens/aksarkar/projects/dsc-log-fold-change/dsc/benchmark/data_poisthin/data_poisthin_29.rds')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     x = np.array(dat.rx2('Y')).T
+     s = x.sum(axis=1)
+     z = np.zeros(100)
+     z[:50] = 1
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[15]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     de_nb(x[:,10], s, z.astype(bool))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[23]:
+   #+BEGIN_EXAMPLE
+     mu0    0.000120
+     mu1    0.000115
+     mu2    0.000126
+     llr   -0.026038
+     p      0.974298
+     dtype: float64
+   #+END_EXAMPLE
+   :END:

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-23 Thu 16:18 -->
+<!-- 2019-05-30 Thu 11:30 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Differential expression based on distribution deconvolution</title>
@@ -263,13 +263,15 @@ for the JavaScript code in this tag.
 <li><a href="#orgf34f6e5">Methods</a>
 <ul>
 <li><a href="#orgc7a887d">Deconvolution-based test</a></li>
+<li><a href="#org7b05d73">Realistic null simulation</a></li>
 </ul>
 </li>
 <li><a href="#org2f0fa32">Results</a>
 <ul>
-<li><a href="#org2cbf224">Idealized simulation</a></li>
-<li><a href="#org7b05d73">Realistic null simulation</a></li>
-<li><a href="#orgb04ebae">Follow up</a></li>
+<li><a href="#poisson">Point-mass deconvolution</a></li>
+<li><a href="#nb">Gamma deconvolution</a></li>
+<li><a href="#glm">NB GLM</a></li>
+<li><a href="#org6378c01">Debugging NB GLM</a></li>
 </ul>
 </li>
 </ul>
@@ -285,7 +287,7 @@ For gene \(j\), consider the generative model for counts \(x_i, i=1, \ldots,
 </p>
 
 <p>
-\[ x_i \sim \mathrm{Pois}(s_i \lambda_i) \]
+\[ x_i \mid s_i, \lambda_i \sim \mathrm{Pois}(s_i \lambda_i) \]
 </p>
 
 <p>
@@ -293,12 +295,23 @@ For gene \(j\), consider the generative model for counts \(x_i, i=1, \ldots,
 </p>
 
 <p>
-where \(z_i\) denotes group membership.
+where \(z_i\) denotes group membership. <b>How do we use this model to test for
+differential expression?</b>
 </p>
 
 <p>
-How do we use this model to test for differential expression?
+Joyce Hsiao
+<a href="https://stephenslab.github.io/dsc-log-fold-change/eval_initial_type1.html">reports</a>
+that commonly used count-based methods (deSeq2, edgeR) do not successfully
+control Type 1 error. But our preliminary results show a relatively simple
+count-based approach adequately controls Type 1 error here. There are two
+possible reasons:
 </p>
+
+<ol class="org-ol">
+<li>We are comparing much larger groups</li>
+<li>We are not shrinking dispersion parameters across genes</li>
+</ol>
 </div>
 </div>
 
@@ -308,9 +321,14 @@ How do we use this model to test for differential expression?
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> rpy2.robjects.packages
+<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 <span class="org-keyword">import</span> scmodes
 <span class="org-keyword">import</span> scqtl.simple
+
+<span class="org-variable-name">mass</span> = rpy2.robjects.packages.importr(<span class="org-string">'MASS'</span>)
+rpy2.robjects.pandas2ri.activate()
 </pre>
 </div>
 
@@ -391,17 +409,45 @@ we allow dispersions to vary across groups also.
 </p>
 </div>
 </div>
+
+<div id="outline-container-org7b05d73" class="outline-3">
+<h3 id="org7b05d73">Realistic null simulation</h3>
+<div class="outline-text-3" id="text-org7b05d73">
+<p>
+Take a real homogeneous data set (sorted cells from Zheng et al. 2017), and
+randomly partition samples into two groups.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cd8</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
+<span class="org-variable-name">s</span> = cd8.<span class="org-builtin">sum</span>(axis=1)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(0)
+<span class="org-variable-name">z</span> = np.random.uniform(size=cd8.shape[0]) &lt; 0.5
+z.mean()
+</pre>
+</div>
+
+<pre class="example">
+0.5071015770398668
+
+</pre>
+</div>
+</div>
 </div>
 
 <div id="outline-container-org2f0fa32" class="outline-2">
 <h2 id="org2f0fa32">Results</h2>
 <div class="outline-text-2" id="text-org2f0fa32">
 </div>
-<div id="outline-container-org2cbf224" class="outline-3">
-<h3 id="org2cbf224">Idealized simulation</h3>
-<div class="outline-text-3" id="text-org2cbf224">
+<div id="outline-container-org31e6fce" class="outline-3">
+<h3 id="poisson"><a id="org31e6fce"></a>Point-mass deconvolution</h3>
+<div class="outline-text-3" id="text-poisson">
 <p>
-Look at a case where
+First look at an idealized case where
 <a href="https://stephens999.github.io/misc/simple_transform_simulation.html">log-transform
 fails</a>.
 </p>
@@ -472,39 +518,9 @@ plt.tight_layout()
 <p><img src="figure/deconv-de.org/idealized.png" alt="idealized.png">
 </p>
 </div>
-</div>
-</div>
 
-<div id="outline-container-org7b05d73" class="outline-3">
-<h3 id="org7b05d73">Realistic null simulation</h3>
-<div class="outline-text-3" id="text-org7b05d73">
-<p>
-Take a real homogeneous data set (sorted cells from Zheng et al. 2017), and
-randomly partition samples into two groups.
-</p>
 
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">cd8</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
-<span class="org-variable-name">s</span> = cd8.<span class="org-builtin">sum</span>(axis=1)
-</pre>
-</div>
 
-<div class="org-src-container">
-<pre class="src src-ipython">np.random.seed(0)
-<span class="org-variable-name">z</span> = np.random.uniform(size=cd8.shape[0]) &lt; 0.5
-z.mean()
-</pre>
-</div>
-
-<pre class="example">
-0.5071015770398668
-
-</pre>
-</div>
-
-<div id="outline-container-org31e6fce" class="outline-4">
-<h4 id="org31e6fce">Point-mass deconvolution</h4>
-<div class="outline-text-4" id="text-org31e6fce">
 <p>
 Deconvolve gene expression assuming \(g\) is a point mass (counts are
 marginally Poisson distributed). Naively, this should work because the data
@@ -643,12 +659,17 @@ llr, st.chi2(2).sf(-2 * llr)
 (-2.176938147920737, 0.11338817750598136)
 
 </pre>
+
+<p>
+This result suggests that the Poisson sampling variance is not correctly
+estimated.
+</p>
 </div>
 </div>
 
-<div id="outline-container-org262be24" class="outline-4">
-<h4 id="org262be24">Gamma deconvolution</h4>
-<div class="outline-text-4" id="text-org262be24">
+<div id="outline-container-org262be24" class="outline-3">
+<h3 id="nb"><a id="org262be24"></a>Gamma deconvolution</h3>
+<div class="outline-text-3" id="text-nb">
 <p>
 Deconvolve gene expression assuming group-specific Gammas under the
 alternative.
@@ -739,34 +760,367 @@ Text(0, 0.5, 'Observed chi-square')
 </div>
 </div>
 </div>
+
+<div id="outline-container-orgafdf1b6" class="outline-3">
+<h3 id="glm"><a id="orgafdf1b6"></a>NB GLM</h3>
+<div class="outline-text-3" id="text-glm">
+<p>
+The Gamma deconvolution approach above corresponds to a generalized linear model:
+</p>
+
+<p>
+\[ x_i \sim \mathrm{NB}(\mu_i, \phi_{z_i}) \]
+</p>
+
+<p>
+\[ \ln(\mu_i) = \mathbf{z}_i + \ln s_i \]
+</p>
+
+<p>
+where \(\mathrm{NB}(\mu, \phi)\) denotes the negative binomial distribution
+with mean \(\mu\) and variance \(\mu^2\phi\) and \(\mathbf{z}_i\) denotes a
+one-hot vector representing the group membership.
+</p>
+
+<p>
+This level of flexibility in the dispersion parameters isn't readily
+available in existing GLM implementations. However, it is not obvious this
+level of flexibility is actually required.
+</p>
+
+<p>
+If we consider the Gamma deconvolution approach essentially a \(t\)-test
+(mean and variance per group), we can compare the GLM approach with a single
+dispersion parameter \(\phi\) to a \(t\)-test with pooled variance.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">de_glm</span>(x, s, z):
+  <span class="org-variable-name">f</span> = rpy2.robjects.Formula(<span class="org-string">'x ~ z + offset(log(s))'</span>)
+  <span class="org-variable-name">f.environment</span>[<span class="org-string">'x'</span>] = x
+  <span class="org-variable-name">f.environment</span>[<span class="org-string">'z'</span>] = pd.Series(z.astype(<span class="org-builtin">int</span>))
+  <span class="org-variable-name">f.environment</span>[<span class="org-string">'s'</span>] = s
+  <span class="org-variable-name">res</span> = mass.glm_nb(f)
+  <span class="org-variable-name">pval</span> = np.array(rpy2.robjects.r[<span class="org-string">'coef'</span>](rpy2.robjects.r[<span class="org-string">'summary'</span>](res)))[1,-1]
+  <span class="org-keyword">return</span> pval
+</pre>
 </div>
 
-<div id="outline-container-orgb04ebae" class="outline-3">
-<h3 id="orgb04ebae">Follow up</h3>
-<div class="outline-text-3" id="text-orgb04ebae">
-<p>
-Joyce Hsiao
-<a href="https://stephenslab.github.io/dsc-log-fold-change/eval_initial_type1.html">reports</a>
-that commonly used count-based methods (deSeq2, edgeR) do not successfully
-control Type 1 error.
-</p>
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">de_glm_res</span> = cd8.sample(n=100, axis=1, random_state=1).<span class="org-builtin">apply</span>(de_glm, axis=0, args=(s, z)).T
+</pre>
+</div>
 
 <p>
-Why do we see a relatively simple count-based approach adequately
-controlling Type 1 error here?
+Look at the histogram of p-values.
 </p>
 
-<ol class="org-ol">
-<li>We are comparing much larger groups</li>
-<li>We are not shrinking dispersion parameters across genes</li>
-</ol>
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.hist(de_glm_res, np.linspace(0, 1, 11), density=<span class="org-constant">True</span>, color=<span class="org-string">'black'</span>)
+plt.axhline(y=1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+plt.xlabel(<span class="org-string">'P-value'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconv-de.org/zheng-cd8-glm.png" alt="zheng-cd8-glm.png">
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org6378c01" class="outline-3">
+<h3 id="org6378c01">Debugging NB GLM</h3>
+<div class="outline-text-3" id="text-org6378c01">
+<p>
+Figure out what happened in the <a href="https://github.com/aksarkar/dsc-log-fold-change">DSC</a>.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R"><span class="org-ess-modifiers">library</span>(dplyr)
+res = dscrutils::dscquery(<span class="org-string">"/project2/mstephens/aksarkar/projects/dsc-log-fold-change/dsc/benchmark"</span>,
+                          targets=c(<span class="org-string">"data_poisthin.prop_null"</span>, <span class="org-string">"data_poisthin.nsamp"</span>, <span class="org-string">"type1error"</span>), verbose=<span class="org-ess-constant">FALSE</span>)
+out = plyr::ddply(res, c(<span class="org-string">"data_poisthin.prop_null"</span>, <span class="org-string">"data_poisthin.nsamp"</span>, <span class="org-string">"type1error.output.file"</span>),
+                  <span class="org-ess-keyword">function</span> (x) {readRDS(sprintf(<span class="org-string">"/project2/mstephens/aksarkar/projects/dsc-log-fold-change/dsc/benchmark/%s.rds"</span>,
+                                                x$type1error.output.file))$type_one_error})
+out <span class="org-ess-XopX">%&gt;%</span> group_by(data_poisthin.nsamp, data_poisthin.prop_null) <span class="org-ess-XopX">%&gt;%</span> summarise(mean(V1), sd(V1))
+</pre>
+</div>
+
+<table class="table">
+
+
+<colgroup>
+<col  class="org-right">
+
+<col  class="org-right">
+
+<col  class="org-right">
+
+<col  class="org-right">
+</colgroup>
+<tbody>
+<tr>
+<td class="org-right">100</td>
+<td class="org-right">0.9</td>
+<td class="org-right">0.0233333333333333</td>
+<td class="org-right">0.0114155814869796</td>
+</tr>
+
+<tr>
+<td class="org-right">100</td>
+<td class="org-right">1</td>
+<td class="org-right">0.0235</td>
+<td class="org-right">0.0104163333279998</td>
+</tr>
+
+<tr>
+<td class="org-right">500</td>
+<td class="org-right">0.9</td>
+<td class="org-right">0.0448888888888889</td>
+<td class="org-right">0.00838379781743461</td>
+</tr>
+
+<tr>
+<td class="org-right">500</td>
+<td class="org-right">1</td>
+<td class="org-right">0.0426</td>
+<td class="org-right">0.00783439709089205</td>
+</tr>
+</tbody>
+</table>
+
+
+<div class="org-src-container">
+<pre class="src src-R">head(out)
+</pre>
+</div>
+
+<table class="table">
+
+
+<colgroup>
+<col  class="org-right">
+
+<col  class="org-right">
+
+<col  class="org-left">
+
+<col  class="org-right">
+</colgroup>
+<tbody>
+<tr>
+<td class="org-right">0.9</td>
+<td class="org-right">100</td>
+<td class="org-left">type1error/data<sub>poisthin</sub><sub>1</sub><sub>glm</sub><sub>nb</sub><sub>1</sub><sub>type1error</sub><sub>1</sub></td>
+<td class="org-right">0.0133333333333333</td>
+</tr>
+
+<tr>
+<td class="org-right">0.9</td>
+<td class="org-right">100</td>
+<td class="org-left">type1error/data<sub>poisthin</sub><sub>13</sub><sub>glm</sub><sub>nb</sub><sub>2</sub><sub>type1error</sub><sub>2</sub></td>
+<td class="org-right">0.0333333333333333</td>
+</tr>
+
+<tr>
+<td class="org-right">0.9</td>
+<td class="org-right">100</td>
+<td class="org-left">type1error/data<sub>poisthin</sub><sub>17</sub><sub>glm</sub><sub>nb</sub><sub>2</sub><sub>type1error</sub><sub>2</sub></td>
+<td class="org-right">0.0244444444444444</td>
+</tr>
+
+<tr>
+<td class="org-right">0.9</td>
+<td class="org-right">100</td>
+<td class="org-left">type1error/data<sub>poisthin</sub><sub>21</sub><sub>glm</sub><sub>nb</sub><sub>2</sub><sub>type1error</sub><sub>2</sub></td>
+<td class="org-right">0.0166666666666667</td>
+</tr>
+
+<tr>
+<td class="org-right">0.9</td>
+<td class="org-right">100</td>
+<td class="org-left">type1error/data<sub>poisthin</sub><sub>25</sub><sub>glm</sub><sub>nb</sub><sub>2</sub><sub>type1error</sub><sub>2</sub></td>
+<td class="org-right">0.0244444444444444</td>
+</tr>
+
+<tr>
+<td class="org-right">0.9</td>
+<td class="org-right">100</td>
+<td class="org-left">type1error/data<sub>poisthin</sub><sub>29</sub><sub>glm</sub><sub>nb</sub><sub>2</sub><sub>type1error</sub><sub>2</sub></td>
+<td class="org-right">0.05</td>
+</tr>
+</tbody>
+</table>
+
+<p>
+Look at a false positive.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R">dat = readRDS(<span class="org-string">"/project2/mstephens/aksarkar/projects/dsc-log-fold-change/dsc/benchmark/data_poisthin/data_poisthin_29.rds"</span>)
+glm_res = readRDS(<span class="org-string">"/project2/mstephens/aksarkar/projects/dsc-log-fold-change/dsc/benchmark/glm_nb/data_poisthin_29_glm_nb_2.rds"</span>)
+parsed = data.frame(beta=dat$beta, betahat=glm_res$log_fold_change_est, shat=glm_res$s_hat, p=glm_res$pval)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-R">y = dat$Y[10,]
+s = colSums(dat$Y)
+z = dat$X[,2]
+fit = MASS::glm.nb(y ~ z + offset(log(s)))
+summary(fit)
+</pre>
+</div>
+
+<pre class="example">
+
+Call:
+MASS::glm.nb(formula = y ~ z + offset(log(s)), init.theta = 0.3319585934, 
+    link = log)
+
+Deviance Residuals: 
+    Min       1Q   Median       3Q      Max  
+-1.0912  -0.8465  -0.5935  -0.0329   3.6257  
+
+Coefficients:
+            Estimate Std. Error z value Pr(&gt;|z|)    
+(Intercept)  -7.6827     0.2914 -26.360  &lt; 2e-16 ***
+z            -1.2983     0.4794  -2.708  0.00676 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+(Dispersion parameter for Negative Binomial(0.332) family taken to be 1)
+
+    Null deviance: 70.030  on 99  degrees of freedom
+Residual deviance: 62.383  on 98  degrees of freedom
+AIC: 184.42
+
+Number of Fisher Scoring iterations: 1
+
+
+              Theta:  0.332 
+          Std. Err.:  0.105 
+
+ 2 x log-likelihood:  -178.425 
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-R">summary(y)
+</pre>
+</div>
+
+<pre class="example">
+Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+0.00    0.00    0.00    0.59    1.00   27.00 
+</pre>
+
+<p>
+Is the false positive explained by differential proportion of zeros between
+the two groups?
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R">c(mean(y[z == 0]), mean(y[z == 1]))
+</pre>
+</div>
+
+<table class="table">
+
+
+<colgroup>
+<col  class="org-right">
+</colgroup>
+<tbody>
+<tr>
+<td class="org-right">0.92</td>
+</tr>
+
+<tr>
+<td class="org-right">0.26</td>
+</tr>
+</tbody>
+</table>
+
+<p>
+Can we fix this by fitting a ZINB GLM instead?
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R">zinb_fit = pscl::zeroinfl(y ~ z + offset(log(s)) | 1, dist=<span class="org-string">"negbin"</span>)
+summary(zinb_fit)
+</pre>
+</div>
+
+<pre class="example">
+Call:
+pscl::zeroinfl(formula = y ~ z + offset(log(s)) | 1, dist = "negbin")
+
+Pearson residuals:
+     Min       1Q   Median       3Q      Max 
+-0.52605 -0.46814 -0.36971 -0.03213 13.28411 
+
+Count model coefficients (negbin with log link):
+            Estimate Std. Error z value Pr(&gt;|z|)    
+(Intercept)  -7.6827     0.2896 -26.526  &lt; 2e-16 ***
+z            -1.2983     0.4759  -2.728 0.006367 ** 
+Log(theta)   -1.1027     0.3161  -3.488 0.000486 ***
+
+Zero-inflation model coefficients (binomial with logit link):
+            Estimate Std. Error z value Pr(&gt;|z|)
+(Intercept)   -10.35     100.73  -0.103    0.918
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1 
+
+Theta = 0.332 
+Number of iterations in BFGS optimization: 168 
+Log-likelihood: -89.21 on 4 Df
+
+</pre>
+
+<p>
+Can we fix this by fitting group-specific dispersions?
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">dat</span> = rpy2.robjects.r[<span class="org-string">'readRDS'</span>](<span class="org-string">'/project2/mstephens/aksarkar/projects/dsc-log-fold-change/dsc/benchmark/data_poisthin/data_poisthin_29.rds'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = np.array(dat.rx2(<span class="org-string">'Y'</span>)).T
+<span class="org-variable-name">s</span> = x.<span class="org-builtin">sum</span>(axis=1)
+<span class="org-variable-name">z</span> = np.zeros(100)
+<span class="org-variable-name">z</span>[:50] = 1
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">de_nb(x[:,10], s, z.astype(<span class="org-builtin">bool</span>))
+</pre>
+</div>
+
+<pre class="example">
+mu0    0.000120
+mu1    0.000115
+mu2    0.000126
+llr   -0.026038
+p      0.974298
+dtype: float64
+</pre>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-23 Thu 16:18</p>
+<p class="date">Created: 2019-05-30 Thu 11:30</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
