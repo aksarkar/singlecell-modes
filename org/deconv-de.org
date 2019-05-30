@@ -688,30 +688,57 @@
    :END:
 
    #+BEGIN_SRC ipython
-     x = np.array(dat.rx2('Y')).T
-     s = x.sum(axis=1)
-     z = np.zeros(100)
+     X = np.array(dat.rx2('Y')).T
+     x = X[:,9]
+     s = X.sum(axis=1)
+     z = np.zeros(100).astype(bool)
      z[:50] = 1
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[15]:
+   # Out[32]:
    :END:
 
    #+BEGIN_SRC ipython
-     de_nb(x[:,10], s, z.astype(bool))
+     de_nb(x, s, z)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[23]:
+   # Out[24]:
    #+BEGIN_EXAMPLE
-     mu0    0.000120
-     mu1    0.000115
-     mu2    0.000126
-     llr   -0.026038
-     p      0.974298
+     mu0    0.000292
+     mu1    0.000167
+     mu2    0.000404
+     llr   -4.349299
+     p      0.012916
      dtype: float64
    #+END_EXAMPLE
+   :END:
+
+   Look at this gene.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconv-de.org/debug-example.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(6, 4)
+     ax[0].hist(x[z], bins=np.arange(x.max() + 1), color='k', alpha=0.6, label='Group 1')
+     ax[0].hist(x[~z], bins=np.arange(x.max() + 1), color='r', alpha=0.6, label='Group 2')
+     ax[0].legend(frameon=False)
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
+
+     for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{k.lower()}')(x, s), color=c, lw=1, label=k)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+     ax[1].legend(frameon=False)
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[34]:
+   [[file:figure/deconv-de.org/debug-example.png]]
    :END:

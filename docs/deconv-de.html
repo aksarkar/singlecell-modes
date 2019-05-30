@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-30 Thu 11:30 -->
+<!-- 2019-05-30 Thu 11:35 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Differential expression based on distribution deconvolution</title>
@@ -1094,33 +1094,63 @@ Can we fix this by fitting group-specific dispersions?
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">x</span> = np.array(dat.rx2(<span class="org-string">'Y'</span>)).T
-<span class="org-variable-name">s</span> = x.<span class="org-builtin">sum</span>(axis=1)
-<span class="org-variable-name">z</span> = np.zeros(100)
+<pre class="src src-ipython"><span class="org-variable-name">X</span> = np.array(dat.rx2(<span class="org-string">'Y'</span>)).T
+<span class="org-variable-name">x</span> = X[:,9]
+<span class="org-variable-name">s</span> = X.<span class="org-builtin">sum</span>(axis=1)
+<span class="org-variable-name">z</span> = np.zeros(100).astype(<span class="org-builtin">bool</span>)
 <span class="org-variable-name">z</span>[:50] = 1
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython">de_nb(x[:,10], s, z.astype(<span class="org-builtin">bool</span>))
+<pre class="src src-ipython">de_nb(x, s, z)
 </pre>
 </div>
 
 <pre class="example">
-mu0    0.000120
-mu1    0.000115
-mu2    0.000126
-llr   -0.026038
-p      0.974298
+mu0    0.000292
+mu1    0.000167
+mu2    0.000404
+llr   -4.349299
+p      0.012916
 dtype: float64
 </pre>
+
+<p>
+Look at this gene.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
+fig.set_size_inches(6, 4)
+ax[0].hist(x[z], bins=np.arange(x.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>, alpha=0.6, label=<span class="org-string">'Group 1'</span>)
+ax[0].hist(x[~z], bins=np.arange(x.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'r'</span>, alpha=0.6, label=<span class="org-string">'Group 2'</span>)
+ax[0].legend(frameon=<span class="org-constant">False</span>)
+ax[0].set_xlabel(<span class="org-string">'Num mols'</span>)
+ax[0].set_ylabel(<span class="org-string">'Num cells'</span>)
+
+<span class="org-keyword">for</span> c, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(plt.get_cmap(<span class="org-string">'Dark2'</span>).colors, [<span class="org-string">'Gamma'</span>, <span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>]):
+  ax[1].plot(*<span class="org-builtin">getattr</span>(scmodes.deconvolve, f<span class="org-string">'fit_{k.lower()}'</span>)(x, s), color=c, lw=1, label=k)
+ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
+ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
+ax[1].legend(frameon=<span class="org-constant">False</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconv-de.org/debug-example.png" alt="debug-example.png">
+</p>
+</div>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-30 Thu 11:30</p>
+<p class="date">Created: 2019-05-30 Thu 11:35</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
