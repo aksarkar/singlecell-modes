@@ -515,3 +515,160 @@
    [[file:figure/deconv-de.org/zheng-cd8-glm.png]]
    :END:
 
+** Debugging NB GLM
+
+   Figure out what happened in the [[https://github.com/aksarkar/dsc-log-fold-change][DSC]].
+
+   #+BEGIN_SRC sh :session mstephens :exports none
+     srun --pty --partition=mstephens bash
+     source activate dsc-log-fold-change
+     export TMPDIR=/scratch/midway2/aksarkar/
+     R --quiet --no-save
+   #+END_SRC
+
+   #+RESULTS:
+   : 
+   : source activate dsc-log-fold-change
+   : export TMPDIR=/scratch/midway2/aksarkar/
+   : R --quiet --no-save
+
+   #+BEGIN_SRC emacs-lisp :exports none
+     (load-library "aksarkar-ess")
+     (setq org-babel-temporary-directory "/scratch/midway2/aksarkar/")
+     (with-current-buffer "mstephens" (ess-remote))
+   #+END_SRC
+
+   #+RESULTS:
+
+   #+BEGIN_SRC R
+     library(dplyr)
+     res = dscrutils::dscquery("/project2/mstephens/aksarkar/projects/dsc-log-fold-change/dsc/benchmark",
+                               targets=c("data_poisthin.prop_null", "data_poisthin.nsamp", "type1error"), verbose=FALSE)
+     out = plyr::ddply(res, c("data_poisthin.prop_null", "data_poisthin.nsamp", "type1error.output.file"),
+                       function (x) {readRDS(sprintf("/project2/mstephens/aksarkar/projects/dsc-log-fold-change/dsc/benchmark/%s.rds",
+                                                     x$type1error.output.file))$type_one_error})
+     out %>% group_by(data_poisthin.nsamp, data_poisthin.prop_null) %>% summarise(mean(V1), sd(V1))
+   #+END_SRC
+
+   #+RESULTS:
+   | 100 | 0.9 | 0.0233333333333333 |  0.0114155814869796 |
+   | 100 |   1 |             0.0235 |  0.0104163333279998 |
+   | 500 | 0.9 | 0.0448888888888889 | 0.00838379781743461 |
+   | 500 |   1 |             0.0426 | 0.00783439709089205 |
+
+
+   #+BEGIN_SRC R
+     head(out)
+   #+END_SRC
+
+   #+RESULTS:
+   | 0.9 | 100 | type1error/data_poisthin_1_glm_nb_1_type1error_1  | 0.0133333333333333 |
+   | 0.9 | 100 | type1error/data_poisthin_13_glm_nb_2_type1error_2 | 0.0333333333333333 |
+   | 0.9 | 100 | type1error/data_poisthin_17_glm_nb_2_type1error_2 | 0.0244444444444444 |
+   | 0.9 | 100 | type1error/data_poisthin_21_glm_nb_2_type1error_2 | 0.0166666666666667 |
+   | 0.9 | 100 | type1error/data_poisthin_25_glm_nb_2_type1error_2 | 0.0244444444444444 |
+   | 0.9 | 100 | type1error/data_poisthin_29_glm_nb_2_type1error_2 |               0.05 |
+
+   Look at a false positive.
+
+   #+BEGIN_SRC R
+     dat = readRDS("/project2/mstephens/aksarkar/projects/dsc-log-fold-change/dsc/benchmark/data_poisthin/data_poisthin_29.rds")
+     glm_res = readRDS("/project2/mstephens/aksarkar/projects/dsc-log-fold-change/dsc/benchmark/glm_nb/data_poisthin_29_glm_nb_2.rds")
+     parsed = data.frame(beta=dat$beta, betahat=glm_res$log_fold_change_est, shat=glm_res$s_hat, p=glm_res$pval)
+   #+END_SRC
+
+   #+RESULTS:
+
+   #+BEGIN_SRC R
+     y = dat$Y[10,]
+     s = colSums(dat$Y)
+     z = dat$X[,2]
+     fit = MASS::glm.nb(y ~ z + offset(log(s)))
+     summary(fit)
+   #+END_SRC
+
+   #+BEGIN_EXAMPLE
+
+     Call:
+     MASS::glm.nb(formula = y ~ z + offset(log(s)), init.theta = 0.3319585934, 
+         link = log)
+
+     Deviance Residuals: 
+         Min       1Q   Median       3Q      Max  
+     -1.0912  -0.8465  -0.5935  -0.0329   3.6257  
+
+     Coefficients:
+                 Estimate Std. Error z value Pr(>|z|)    
+     (Intercept)  -7.6827     0.2914 -26.360  < 2e-16 ***
+     z            -1.2983     0.4794  -2.708  0.00676 ** 
+     ---
+     Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+     (Dispersion parameter for Negative Binomial(0.332) family taken to be 1)
+
+         Null deviance: 70.030  on 99  degrees of freedom
+     Residual deviance: 62.383  on 98  degrees of freedom
+     AIC: 184.42
+
+     Number of Fisher Scoring iterations: 1
+
+
+                   Theta:  0.332 
+               Std. Err.:  0.105 
+
+      2 x log-likelihood:  -178.425 
+
+   #+END_EXAMPLE
+
+   #+BEGIN_SRC R
+     summary(y)
+   #+END_SRC
+
+   #+BEGIN_EXAMPLE
+        Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+        0.00    0.00    0.00    0.59    1.00   27.00 
+   #+END_EXAMPLE
+
+   Is the false positive explained by differential proportion of zeros between
+   the two groups?
+
+   #+BEGIN_SRC R
+     c(mean(y[z == 0]), mean(y[z == 1]))
+   #+END_SRC
+
+   #+RESULTS:
+   | 0.92 |
+   | 0.26 |
+
+   Can we fix this by fitting a ZINB GLM instead?
+
+   #+BEGIN_SRC R
+     zinb_fit = pscl::zeroinfl(y ~ z + offset(log(s)) | 1, dist="negbin")
+     summary(zinb_fit)
+   #+END_SRC
+
+   #+BEGIN_EXAMPLE
+     Call:
+     pscl::zeroinfl(formula = y ~ z + offset(log(s)) | 1, dist = "negbin")
+
+     Pearson residuals:
+          Min       1Q   Median       3Q      Max 
+     -0.52605 -0.46814 -0.36971 -0.03213 13.28411 
+
+     Count model coefficients (negbin with log link):
+                 Estimate Std. Error z value Pr(>|z|)    
+     (Intercept)  -7.6827     0.2896 -26.526  < 2e-16 ***
+     z            -1.2983     0.4759  -2.728 0.006367 ** 
+     Log(theta)   -1.1027     0.3161  -3.488 0.000486 ***
+
+     Zero-inflation model coefficients (binomial with logit link):
+                 Estimate Std. Error z value Pr(>|z|)
+     (Intercept)   -10.35     100.73  -0.103    0.918
+     ---
+     Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1 
+
+     Theta = 0.332 
+     Number of iterations in BFGS optimization: 168 
+     Log-likelihood: -89.21 on 4 Df
+
+   #+END_EXAMPLE
