@@ -6,13 +6,22 @@
   For gene \(j\), consider the generative model for counts \(x_i, i=1, \ldots,
   n\):
 
-  \[ x_i \sim \mathrm{Pois}(s_i \lambda_i) \]
+  \[ x_i \mid s_i, \lambda_i \sim \mathrm{Pois}(s_i \lambda_i) \]
 
   \[ \lambda_i \sim g_{z_i}(\cdot) \]
 
-  where \(z_i\) denotes group membership.
+  where \(z_i\) denotes group membership. *How do we use this model to test for
+  differential expression?*
 
-  How do we use this model to test for differential expression?
+  Joyce Hsiao
+  [[https://stephenslab.github.io/dsc-log-fold-change/eval_initial_type1.html][reports]]
+  that commonly used count-based methods (deSeq2, edgeR) do not successfully
+  control Type 1 error. But our preliminary results show a relatively simple
+  count-based approach adequately controls Type 1 error here. There are two
+  possible reasons:
+
+  1. We are comparing much larger groups
+  2. We are not shrinking dispersion parameters across genes
 
 * Setup
   :PROPERTIES:
@@ -30,19 +39,24 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 60441995
+  : Submitted batch job 60552767
 
   #+BEGIN_SRC ipython
     import numpy as np
     import pandas as pd
+    import rpy2.robjects.packages
+    import rpy2.robjects.pandas2ri
     import scipy.stats as st
     import scmodes
     import scqtl.simple
+
+    mass = rpy2.robjects.packages.importr('MASS')
+    rpy2.robjects.pandas2ri.activate()
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[180]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -97,10 +111,40 @@
    distributed, it will be \(\chi^2_1\) or \(\chi^2_2\), depending on whether
    we allow dispersions to vary across groups also.
 
-* Results
-** Idealized simulation
+** Realistic null simulation
 
-   Look at a case where
+   Take a real homogeneous data set (sorted cells from Zheng et al. 2017), and
+   randomly partition samples into two groups.
+
+   #+BEGIN_SRC ipython
+     cd8 = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
+     s = cd8.sum(axis=1)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     np.random.seed(0)
+     z = np.random.uniform(size=cd8.shape[0]) < 0.5
+     z.mean()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[5]:
+   : 0.5071015770398668
+   :END:
+
+* Results
+** Point-mass deconvolution
+   :PROPERTIES:
+   :CUSTOM_ID: poisson
+   :END:
+
+   First look at an idealized case where
    [[https://stephens999.github.io/misc/simple_transform_simulation.html][log-transform
    fails]].
 
@@ -166,275 +210,308 @@
    [[file:figure/deconv-de.org/idealized.png]]
    :END:
 
-** Realistic null simulation
 
-   Take a real homogeneous data set (sorted cells from Zheng et al. 2017), and
-   randomly partition samples into two groups.
+
+   Deconvolve gene expression assuming \(g\) is a point mass (counts are
+   marginally Poisson distributed). Naively, this should work because the data
+   are informative about the mean.
 
    #+BEGIN_SRC ipython
-     cd8 = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
-     s = cd8.sum(axis=1)
+     def de(x, s, z):
+       """Return LRT p-value
+
+       x - counts (n,)
+       s - size factors (n,)
+       z - boolean group assignment (n,)
+
+       """
+       mu0 = x.sum() / s.sum()
+       mu1 = x[z].sum() / s[z].sum()
+       mu2 = x[~z].sum() / s[~z].sum()
+       onehot = pd.get_dummies(z)
+       llr = st.poisson(mu=mu0).logpmf(x).sum() - st.poisson(mu=onehot.dot(np.array([mu1, mu2]))).logpmf(x).sum()
+       return pd.Series({'mu0': mu0, 'mu1': mu1, 'mu2': mu2, 'llr': llr, 'p': st.chi2(1).sf(-2 * llr)})
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[95]:
+   # Out[135]:
    :END:
 
-   #+BEGIN_SRC ipython
-     np.random.seed(0)
-     z = np.random.uniform(size=cd8.shape[0]) < 0.5
-     z.mean()
+   #+BEGIN_SRC ipython :async t
+     de_res = cd8.apply(de, axis=0, args=(s, z)).T
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[98]:
-   : 0.5071015770398668
+   # Out[138]:
    :END:
 
-*** Point-mass deconvolution
+   #+BEGIN_SRC ipython :ipyfile figure/deconv-de.org/zheng-null.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.hist(de_res.loc[:,'p'], np.linspace(0, 1, 11), density=True, color='black')
+     plt.axhline(y=1, lw=1, ls=':', c='r')
+     plt.xlabel('P-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
 
-    Deconvolve gene expression assuming \(g\) is a point mass (counts are
-    marginally Poisson distributed). Naively, this should work because the data
-    are informative about the mean.
+   #+RESULTS:
+   :RESULTS:
+   # Out[144]:
+   [[file:figure/deconv-de.org/zheng-null.png]]
+   :END:
 
-    #+BEGIN_SRC ipython
-      def de(x, s, z):
-        """Return LRT p-value
+   Report the proportion of genes for which the null model fit better than the
+   alternative model.
 
-        x - counts (n,)
-        s - size factors (n,)
-        z - boolean group assignment (n,)
+   #+BEGIN_SRC ipython
+     (de_res['llr'] > 0).mean()
+   #+END_SRC
 
-        """
-        mu0 = x.sum() / s.sum()
-        mu1 = x[z].sum() / s[z].sum()
-        mu2 = x[~z].sum() / s[~z].sum()
-        onehot = pd.get_dummies(z)
-        llr = st.poisson(mu=mu0).logpmf(x).sum() - st.poisson(mu=onehot.dot(np.array([mu1, mu2]))).logpmf(x).sum()
-        return pd.Series({'mu0': mu0, 'mu1': mu1, 'mu2': mu2, 'llr': llr, 'p': st.chi2(1).sf(-2 * llr)})
-    #+END_SRC
+   #+RESULTS:
+   :RESULTS:
+   # Out[154]:
+   : 0.6529284164859002
+   :END:
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[135]:
-    :END:
+   Look at the gene where the null model did best against the alternative.
 
-    #+BEGIN_SRC ipython :async t
-      de_res = cd8.apply(de, axis=0, args=(s, z)).T
-    #+END_SRC
+   #+NAME: read-gene-info
+   #+BEGIN_SRC ipython
+     gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[138]:
-    :END:
+   #+RESULTS: read-gene-info
+   :RESULTS:
+   # Out[159]:
+   :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconv-de.org/zheng-null.png
-      plt.clf()
-      plt.gcf().set_size_inches(3, 3)
-      plt.hist(de_res.loc[:,'p'], np.linspace(0, 1, 11), density=True, color='black')
-      plt.axhline(y=1, lw=1, ls=':', c='r')
-      plt.xlabel('P-value')
-      plt.ylabel('Density')
-      plt.tight_layout()
-    #+END_SRC
+   #+BEGIN_SRC ipython
+     k = de_res['llr'].idxmax()
+     x = cd8.loc[:,k]
+     gene_info.loc[k]
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[144]:
-    [[file:figure/deconv-de.org/zheng-null.png]]
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[172]:
+   #+BEGIN_EXAMPLE
+     chr             hs15
+     start       69745123
+     end         69748255
+     name           RPLP1
+     strand             +
+     source    H. sapiens
+     Name: ENSG00000137818, dtype: object
+   #+END_EXAMPLE
+   :END:
 
-    Report the proportion of genes for which the null model fit better than the
-    alternative model.
+   Look at the deconvolved distributions for this gene. Superimpose the Poisson
+   point-mass estimates for the two groups (dotted lines), and the Gamma mean
+   estimate (dashed line).
 
-    #+BEGIN_SRC ipython
-      (de_res['llr'] > 0).mean()
-    #+END_SRC
+   #+BEGIN_SRC ipython :ipyfile figure/deconv-de.org/cd8-rplp1.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(6, 4)
+     ax[0].hist(x[z], bins=np.arange(x.max() + 1), alpha=0.6, color='k', label='Group 1')
+     ax[0].hist(x[~z], bins=np.arange(x.max() + 1), alpha=0.6, color='r', label='Group 2')
+     ax[0].legend(frameon=False)
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[154]:
-    : 0.6529284164859002
-    :END:
+     for c, m in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{m.lower()}')(x, s), color=c, lw=1, label=m)
 
-    Look at the gene where the null model did best against the alternative.
+     ax[1].axvline(x=scqtl.simple.fit_nb(x, s)[0], c=plt.get_cmap('Dark2').colors[0], ls='--', lw=1)
+     ax[1].axvline(x=de_res.loc[k, 'mu1'], c='k', ls=':', lw=1)
+     ax[1].axvline(x=de_res.loc[k, 'mu2'], c='r', ls=':', lw=1)
 
-    #+NAME: read-gene-info
-    #+BEGIN_SRC ipython
-      gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
-    #+END_SRC
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+     ax[1].legend(frameon=False)
+     fig.tight_layout()
+   #+END_SRC
 
-    #+RESULTS: read-gene-info
-    :RESULTS:
-    # Out[159]:
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[190]:
+   [[file:figure/deconv-de.org/cd8-rplp1.png]]
+   :END:
 
-    #+BEGIN_SRC ipython
-      k = de_res['llr'].idxmax()
-      x = cd8.loc[:,k]
-      gene_info.loc[k]
-    #+END_SRC
+   Check whether also allowing dispersions to vary across groups fixes this
+   gene.
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[172]:
-    #+BEGIN_EXAMPLE
-      chr             hs15
-      start       69745123
-      end         69748255
-      name           RPLP1
-      strand             +
-      source    H. sapiens
-      Name: ENSG00000137818, dtype: object
-    #+END_EXAMPLE
-    :END:
+   #+BEGIN_SRC ipython
+     llr = scqtl.simple.fit_nb(x, s)[-1] - (scqtl.simple.fit_nb(x[z], s[z])[-1] + scqtl.simple.fit_nb(x[~z], s[~z])[-1])
+     llr, st.chi2(2).sf(-2 * llr)
+   #+END_SRC
 
-    Look at the deconvolved distributions for this gene. Superimpose the Poisson
-    point-mass estimates for the two groups (dotted lines), and the Gamma mean
-    estimate (dashed line).
+   #+RESULTS:
+   :RESULTS:
+   # Out[198]:
+   : (-2.176938147920737, 0.11338817750598136)
+   :END:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconv-de.org/cd8-rplp1.png
-      plt.clf()
-      fig, ax = plt.subplots(2, 1)
-      fig.set_size_inches(6, 4)
-      ax[0].hist(x[z], bins=np.arange(x.max() + 1), alpha=0.6, color='k', label='Group 1')
-      ax[0].hist(x[~z], bins=np.arange(x.max() + 1), alpha=0.6, color='r', label='Group 2')
-      ax[0].legend(frameon=False)
-      ax[0].set_xlabel('Num mols')
-      ax[0].set_ylabel('Num cells')
+   This result suggests that the Poisson sampling variance is not correctly
+   estimated.
 
-      for c, m in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
-        ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{m.lower()}')(x, s), color=c, lw=1, label=m)
+** Gamma deconvolution
+   :PROPERTIES:
+   :CUSTOM_ID: nb
+   :END:
 
-      ax[1].axvline(x=scqtl.simple.fit_nb(x, s)[0], c=plt.get_cmap('Dark2').colors[0], ls='--', lw=1)
-      ax[1].axvline(x=de_res.loc[k, 'mu1'], c='k', ls=':', lw=1)
-      ax[1].axvline(x=de_res.loc[k, 'mu2'], c='r', ls=':', lw=1)
+   Deconvolve gene expression assuming group-specific Gammas under the
+   alternative.
 
-      ax[1].set_xlabel('Latent gene expression')
-      ax[1].set_ylabel('CDF')
-      ax[1].legend(frameon=False)
-      fig.tight_layout()
-    #+END_SRC
+   #+BEGIN_SRC ipython
+     def fit_nb_collapse(x, s):
+       """Return NB or Poisson solution, whichever is more sensible"""
+       try:
+         res = scqtl.simple.fit_nb(x, s)
+       except:
+         # Failure to converge
+         res = scqtl.simple.fit_pois(x, s)
+       # Converged to solution with large inverse overdispersion, so log likelihood
+       # is nonsense
+       if res[-1] > 0:
+         res = scqtl.simple.fit_pois(x, s)
+       return res
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[190]:
-    [[file:figure/deconv-de.org/cd8-rplp1.png]]
-    :END:
+     def de_nb(x, s, z):
+       """Return LRT p-value
 
-    Check whether also allowing dispersions to vary across groups fixes this
-    gene.
+       x - counts (n,)
+       s - size factors (n,)
+       z - boolean group assignment (n,)
 
-    #+BEGIN_SRC ipython
-      llr = scqtl.simple.fit_nb(x, s)[-1] - (scqtl.simple.fit_nb(x[z], s[z])[-1] + scqtl.simple.fit_nb(x[~z], s[~z])[-1])
-      llr, st.chi2(2).sf(-2 * llr)
-    #+END_SRC
+       """
+       res0 = fit_nb_collapse(x, s)
+       res1 = fit_nb_collapse(x[z], s[z])
+       res2 = fit_nb_collapse(x[~z], s[~z])
+       llr = res0[-1] - (res1[-1] + res2[-1])
+       return pd.Series({'mu0': res0[0],
+                         'mu1': res1[0],
+                         'mu2': res2[0],
+                         'llr': llr,
+                         'p': st.chi2(2).sf(-2 * llr)})
+   #+END_SRC
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[198]:
-    : (-2.176938147920737, 0.11338817750598136)
-    :END:
+   #+RESULTS:
+   :RESULTS:
+   # Out[229]:
+   :END:
 
-*** Gamma deconvolution
+   #+BEGIN_SRC ipython :async t
+     de_nb_res = cd8.sample(n=100, axis=1, random_state=1).apply(de_nb, axis=0, args=(s, z)).T
+   #+END_SRC
 
-    Deconvolve gene expression assuming group-specific Gammas under the
-    alternative.
+   #+RESULTS:
+   :RESULTS:
+   # Out[230]:
+   :END:
 
-    #+BEGIN_SRC ipython
-      def fit_nb_collapse(x, s):
-        """Return NB or Poisson solution, whichever is more sensible"""
-        try:
-          res = scqtl.simple.fit_nb(x, s)
-        except:
-          # Failure to converge
-          res = scqtl.simple.fit_pois(x, s)
-        # Converged to solution with large inverse overdispersion, so log likelihood
-        # is nonsense
-        if res[-1] > 0:
-          res = scqtl.simple.fit_pois(x, s)
-        return res
+   Look at the histogram of p-values.
 
-      def de_nb(x, s, z):
-        """Return LRT p-value
+   #+BEGIN_SRC ipython :ipyfile figure/deconv-de.org/zheng-cd8-nb.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.hist(de_nb_res['p'], np.linspace(0, 1, 11), density=True, color='black')
+     plt.axhline(y=1, lw=1, ls=':', c='r')
+     plt.xlabel('P-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
 
-        x - counts (n,)
-        s - size factors (n,)
-        z - boolean group assignment (n,)
+   #+RESULTS:
+   :RESULTS:
+   # Out[231]:
+   [[file:figure/deconv-de.org/zheng-cd8-nb.png]]
+   :END:
 
-        """
-        res0 = fit_nb_collapse(x, s)
-        res1 = fit_nb_collapse(x[z], s[z])
-        res2 = fit_nb_collapse(x[~z], s[~z])
-        llr = res0[-1] - (res1[-1] + res2[-1])
-        return pd.Series({'mu0': res0[0],
-                          'mu1': res1[0],
-                          'mu2': res2[0],
-                          'llr': llr,
-                          'p': st.chi2(2).sf(-2 * llr)})
-    #+END_SRC
+   Look at the QQ plot.
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[229]:
-    :END:
+   #+BEGIN_SRC ipython :ipyfile figure/deconv-de.org/zheng-cd8-nb-qq.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.scatter(st.chi2(2).ppf(np.linspace(0, 1, de_nb_res.shape[0])), np.sort(-2 * de_nb_res['llr']), c='k', s=2)
+     plt.plot([0, 11], [0, 11], c='r', lw=1, ls=':')
+     plt.xlabel('Expected chi-square')
+     plt.ylabel('Observed chi-square')
+   #+END_SRC
 
-    #+BEGIN_SRC ipython :async t
-      de_nb_res = cd8.sample(n=100, axis=1, random_state=1).apply(de_nb, axis=0, args=(s, z)).T
-    #+END_SRC
+   #+RESULTS:
+   :RESULTS:
+   # Out[233]:
+   : Text(0, 0.5, 'Observed chi-square')
+   [[file:figure/deconv-de.org/zheng-cd8-nb-qq.png]]
+   :END:
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[230]:
-    :END:
+** NB GLM
+   :PROPERTIES:
+   :CUSTOM_ID: glm
+   :END:
 
-    Look at the histogram of p-values.
+   The Gamma deconvolution approach above corresponds to a generalized linear model:
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconv-de.org/zheng-cd8-nb.png
-      plt.clf()
-      plt.gcf().set_size_inches(3, 3)
-      plt.hist(de_nb_res['p'], np.linspace(0, 1, 11), density=True, color='black')
-      plt.axhline(y=1, lw=1, ls=':', c='r')
-      plt.xlabel('P-value')
-      plt.ylabel('Density')
-      plt.tight_layout()
-    #+END_SRC
+   \[ x_i \sim \mathrm{NB}(\mu_i, \phi_{z_i}) \]
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[231]:
-    [[file:figure/deconv-de.org/zheng-cd8-nb.png]]
-    :END:
+   \[ \ln(\mu_i) = \mathbf{z}_i + \ln s_i \]
 
-    Look at the QQ plot.
+   where \(\mathrm{NB}(\mu, \phi)\) denotes the negative binomial distribution
+   with mean \(\mu\) and variance \(\mu^2\phi\) and \(\mathbf{z}_i\) denotes a
+   one-hot vector representing the group membership.
 
-    #+BEGIN_SRC ipython :ipyfile figure/deconv-de.org/zheng-cd8-nb-qq.png
-      plt.clf()
-      plt.gcf().set_size_inches(3, 3)
-      plt.scatter(st.chi2(2).ppf(np.linspace(0, 1, de_nb_res.shape[0])), np.sort(-2 * de_nb_res['llr']), c='k', s=2)
-      plt.plot([0, 11], [0, 11], c='r', lw=1, ls=':')
-      plt.xlabel('Expected chi-square')
-      plt.ylabel('Observed chi-square')
-    #+END_SRC
+   This level of flexibility in the dispersion parameters isn't readily
+   available in existing GLM implementations. However, it is not obvious this
+   level of flexibility is actually required.
 
-    #+RESULTS:
-    :RESULTS:
-    # Out[233]:
-    : Text(0, 0.5, 'Observed chi-square')
-    [[file:figure/deconv-de.org/zheng-cd8-nb-qq.png]]
-    :END:
+   If we consider the Gamma deconvolution approach essentially a \(t\)-test
+   (mean and variance per group), we can compare the GLM approach with a single
+   dispersion parameter \(\phi\) to a \(t\)-test with pooled variance.
 
-** Follow up
+   #+BEGIN_SRC ipython
+     def de_glm(x, s, z):
+       f = rpy2.robjects.Formula('x ~ z + offset(log(s))')
+       f.environment['x'] = x
+       f.environment['z'] = pd.Series(z.astype(int))
+       f.environment['s'] = s
+       res = mass.glm_nb(f)
+       pval = np.array(rpy2.robjects.r['coef'](rpy2.robjects.r['summary'](res)))[1,-1]
+       return pval
+   #+END_SRC
 
-   Joyce Hsiao
-   [[https://stephenslab.github.io/dsc-log-fold-change/eval_initial_type1.html][reports]]
-   that commonly used count-based methods (deSeq2, edgeR) do not successfully
-   control Type 1 error.
-   
-   Why do we see a relatively simple count-based approach adequately
-   controlling Type 1 error here?
+   #+RESULTS:
+   :RESULTS:
+   # Out[53]:
+   :END:
 
-   1. We are comparing much larger groups
-   2. We are not shrinking dispersion parameters across genes
+   #+BEGIN_SRC ipython :async t
+     de_glm_res = cd8.sample(n=100, axis=1, random_state=1).apply(de_glm, axis=0, args=(s, z)).T
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[54]:
+   :END:
+
+   Look at the histogram of p-values.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconv-de.org/zheng-cd8-glm.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.hist(de_glm_res, np.linspace(0, 1, 11), density=True, color='black')
+     plt.axhline(y=1, lw=1, ls=':', c='r')
+     plt.xlabel('P-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[61]:
+   [[file:figure/deconv-de.org/zheng-cd8-glm.png]]
+   :END:
+
