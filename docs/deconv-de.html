@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-30 Thu 11:35 -->
+<!-- 2019-05-30 Thu 17:22 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Differential expression based on distribution deconvolution</title>
@@ -1011,79 +1011,6 @@ Number of Fisher Scoring iterations: 1
 
 </pre>
 
-<div class="org-src-container">
-<pre class="src src-R">summary(y)
-</pre>
-</div>
-
-<pre class="example">
-Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-0.00    0.00    0.00    0.59    1.00   27.00 
-</pre>
-
-<p>
-Is the false positive explained by differential proportion of zeros between
-the two groups?
-</p>
-
-<div class="org-src-container">
-<pre class="src src-R">c(mean(y[z == 0]), mean(y[z == 1]))
-</pre>
-</div>
-
-<table class="table">
-
-
-<colgroup>
-<col  class="org-right">
-</colgroup>
-<tbody>
-<tr>
-<td class="org-right">0.92</td>
-</tr>
-
-<tr>
-<td class="org-right">0.26</td>
-</tr>
-</tbody>
-</table>
-
-<p>
-Can we fix this by fitting a ZINB GLM instead?
-</p>
-
-<div class="org-src-container">
-<pre class="src src-R">zinb_fit = pscl::zeroinfl(y ~ z + offset(log(s)) | 1, dist=<span class="org-string">"negbin"</span>)
-summary(zinb_fit)
-</pre>
-</div>
-
-<pre class="example">
-Call:
-pscl::zeroinfl(formula = y ~ z + offset(log(s)) | 1, dist = "negbin")
-
-Pearson residuals:
-     Min       1Q   Median       3Q      Max 
--0.52605 -0.46814 -0.36971 -0.03213 13.28411 
-
-Count model coefficients (negbin with log link):
-            Estimate Std. Error z value Pr(&gt;|z|)    
-(Intercept)  -7.6827     0.2896 -26.526  &lt; 2e-16 ***
-z            -1.2983     0.4759  -2.728 0.006367 ** 
-Log(theta)   -1.1027     0.3161  -3.488 0.000486 ***
-
-Zero-inflation model coefficients (binomial with logit link):
-            Estimate Std. Error z value Pr(&gt;|z|)
-(Intercept)   -10.35     100.73  -0.103    0.918
----
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1 
-
-Theta = 0.332 
-Number of iterations in BFGS optimization: 168 
-Log-likelihood: -89.21 on 4 Df
-
-</pre>
-
 <p>
 Can we fix this by fitting group-specific dispersions?
 </p>
@@ -1150,7 +1077,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-30 Thu 11:35</p>
+<p class="date">Created: 2019-05-30 Thu 17:22</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

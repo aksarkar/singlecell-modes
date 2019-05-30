@@ -622,60 +622,6 @@
 
    #+END_EXAMPLE
 
-   #+BEGIN_SRC R
-     summary(y)
-   #+END_SRC
-
-   #+BEGIN_EXAMPLE
-        Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-        0.00    0.00    0.00    0.59    1.00   27.00 
-   #+END_EXAMPLE
-
-   Is the false positive explained by differential proportion of zeros between
-   the two groups?
-
-   #+BEGIN_SRC R
-     c(mean(y[z == 0]), mean(y[z == 1]))
-   #+END_SRC
-
-   #+ATTR_HTML: :class table
-   #+RESULTS:
-   | 0.92 |
-   | 0.26 |
-
-   Can we fix this by fitting a ZINB GLM instead?
-
-   #+BEGIN_SRC R
-     zinb_fit = pscl::zeroinfl(y ~ z + offset(log(s)) | 1, dist="negbin")
-     summary(zinb_fit)
-   #+END_SRC
-
-   #+BEGIN_EXAMPLE
-     Call:
-     pscl::zeroinfl(formula = y ~ z + offset(log(s)) | 1, dist = "negbin")
-
-     Pearson residuals:
-          Min       1Q   Median       3Q      Max 
-     -0.52605 -0.46814 -0.36971 -0.03213 13.28411 
-
-     Count model coefficients (negbin with log link):
-                 Estimate Std. Error z value Pr(>|z|)    
-     (Intercept)  -7.6827     0.2896 -26.526  < 2e-16 ***
-     z            -1.2983     0.4759  -2.728 0.006367 ** 
-     Log(theta)   -1.1027     0.3161  -3.488 0.000486 ***
-
-     Zero-inflation model coefficients (binomial with logit link):
-                 Estimate Std. Error z value Pr(>|z|)
-     (Intercept)   -10.35     100.73  -0.103    0.918
-     ---
-     Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1 
-
-     Theta = 0.332 
-     Number of iterations in BFGS optimization: 168 
-     Log-likelihood: -89.21 on 4 Df
-
-   #+END_EXAMPLE
-
    Can we fix this by fitting group-specific dispersions?
 
    #+BEGIN_SRC ipython
