@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-28 Tue 10:59 -->
+<!-- 2019-05-30 Thu 17:31 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Posterior approximation for scRNA-seq data</title>
@@ -258,16 +258,17 @@ for the JavaScript code in this tag.
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
-<li><a href="#org11d341a">Introduction</a></li>
-<li><a href="#org4cf39fa">Idea</a></li>
-<li><a href="#org9ebb9ed">Connection to EP</a></li>
+<li><a href="#intro">Introduction</a></li>
+<li><a href="#idea">Idea</a></li>
+<li><a href="#ep">Connection to EP</a></li>
+<li><a href="#analytic">Analytic solution</a></li>
 </ul>
 </div>
 </div>
 
 <div id="outline-container-org11d341a" class="outline-2">
-<h2 id="org11d341a">Introduction</h2>
-<div class="outline-text-2" id="text-org11d341a">
+<h2 id="intro"><a id="org11d341a"></a>Introduction</h2>
+<div class="outline-text-2" id="text-intro">
 <p>
 We are studying the model:
 </p>
@@ -319,8 +320,8 @@ of the data to regularize (shrink) the \(\lambda_i\) towards each other.
 </div>
 
 <div id="outline-container-org4cf39fa" class="outline-2">
-<h2 id="org4cf39fa">Idea</h2>
-<div class="outline-text-2" id="text-org4cf39fa">
+<h2 id="idea"><a id="org4cf39fa"></a>Idea</h2>
+<div class="outline-text-2" id="text-idea">
 <p>
 The posterior of interest is
 </p>
@@ -354,31 +355,12 @@ is as close to the true posterior as possible. This entails finding \(q^*\):
 <p>
 \[ = \arg\max_q \mathbb{E}_{P_i} \left[\ln q(x_i \mid \mu_i, \sigma^2_i) \right] \]
 </p>
-
-<p>
-<b>Is there an easy solution?</b> Suppose \(\hat{g}\) is Gamma with mean \(m\) and
-variance \(v\). Then, the optimization is finding a Gaussian MLE for negative
-binomial data with mean \(s_i m\) and variance \((s_i m)^2 v\).
-</p>
-
-<p>
-<b>Is this a sensible solution?</b> Intuitively, we want \(\sigma^2_i\) to capture
-uncertainty in the measurement. As \(s_i\) and \(m\) become smaller, we want
-\(\sigma^2_i\) to become larger. But the above solution has the exact
-opposite property.
-</p>
-
-<p>
-Further, variation in \(\mu_i\) will only capture variation in \(s_i\), since
-\(m\) is assumed to be the same for each observation \(x_i\). This also seems
-to defeat the purpose of producing Gaussian pseudodata.
-</p>
 </div>
 </div>
 
 <div id="outline-container-org9ebb9ed" class="outline-2">
-<h2 id="org9ebb9ed">Connection to EP</h2>
-<div class="outline-text-2" id="text-org9ebb9ed">
+<h2 id="ep"><a id="org9ebb9ed"></a>Connection to EP</h2>
+<div class="outline-text-2" id="text-ep">
 <p>
 We have:
 </p>
@@ -407,10 +389,80 @@ the factors \(\hat{g}(\lambda_i)\).
 </p>
 </div>
 </div>
+
+<div id="outline-container-org9cdcd09" class="outline-2">
+<h2 id="analytic"><a id="org9cdcd09"></a>Analytic solution</h2>
+<div class="outline-text-2" id="text-analytic">
+<p>
+Suppose we have estimated \(\mu, \phi\) by Empirical Bayes such that:
+</p>
+
+<p>
+\[ \lambda_i \mid \mu, \phi \sim \mathrm{Gamma}\left(\frac{1}{\phi},
+  \frac{1}{\mu\phi}\right) \]
+</p>
+
+<p>
+where we assume the shape/rate parameterization. Then, \(E[\lambda] = \mu\)
+and \(V[\lambda] = \mu^2\phi\). In this case, the posterior can be computed
+exactly:
+</p>
+
+<p>
+\[ p_{\text{post}} = p(\lambda_i \mid x_1, \ldots, x_n, s_1, \ldots, s_n, \mu, \phi) \]
+</p>
+
+<p>
+\[ = p(\lambda_i \mid x_i, s_i, \mu, \phi) \]
+</p>
+
+<p>
+by conditional independences
+</p>
+
+<p>
+\[ \propto p(x_i, \lambda_i \mid s_i, \mu, \phi) \]
+</p>
+
+<p>
+\[ \propto (s_i\lambda_i)^{x_i} \exp(-s_i \lambda_i) \lambda_i^{\phi^{-1} -
+  1} \exp(-\lambda_i(\mu\phi)^{-1}) \]
+</p>
+
+<p>
+\[ \propto \lambda_i^{x_i + \phi^{-1} - 1} \exp(-\lambda_i (s_i -
+  (\mu\phi)^{-1})) \]
+</p>
+
+<p>
+where the constants do not depend on \(\lambda_i\)
+</p>
+
+<p>
+\[ = \mathrm{Gamma}\left(x_i - \phi^{-1}, s_i - (\mu\phi)^{-1}\right) \]
+</p>
+
+<p>
+Now, the solution to
+</p>
+
+<p>
+\[ \min_q \mathcal{KL}(p_{\text{post}} \Vert q) \]
+</p>
+
+<p>
+where \(q\) is Gaussian is:
+</p>
+
+<p>
+\[ \mathcal{N}\left(\frac{x_i - \phi^{-1}}{s_i - (\mu\phi)^{-1}}, \frac{x_i - \phi^{-1}}{\left(s_i - (\mu\phi)^{-1}\right)^2}\right) \]
+</p>
+</div>
+</div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-28 Tue 10:59</p>
+<p class="date">Created: 2019-05-30 Thu 17:31</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

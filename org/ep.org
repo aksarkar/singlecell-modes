@@ -2,6 +2,9 @@
 #+SETUPFILE: setup.org
 
 * Introduction
+  :PROPERTIES:
+  :CUSTOM_ID: intro
+  :END:
 
   We are studying the model:
 
@@ -34,6 +37,9 @@
   of the data to regularize (shrink) the \(\lambda_i\) towards each other.
 
 * Idea
+  :PROPERTIES:
+  :CUSTOM_ID: idea
+  :END:
 
   The posterior of interest is
 
@@ -53,20 +59,10 @@
 
   \[ = \arg\max_q \mathbb{E}_{P_i} \left[\ln q(x_i \mid \mu_i, \sigma^2_i) \right] \]
 
-  *Is there an easy solution?* Suppose \(\hat{g}\) is Gamma with mean \(m\) and
-  variance \(v\). Then, the optimization is finding a Gaussian MLE for negative
-  binomial data with mean \(s_i m\) and variance \((s_i m)^2 v\).
-
-  *Is this a sensible solution?* Intuitively, we want \(\sigma^2_i\) to capture
-  uncertainty in the measurement. As \(s_i\) and \(m\) become smaller, we want
-  \(\sigma^2_i\) to become larger. But the above solution has the exact
-  opposite property.
-
-  Further, variation in \(\mu_i\) will only capture variation in \(s_i\), since
-  \(m\) is assumed to be the same for each observation \(x_i\). This also seems
-  to defeat the purpose of producing Gaussian pseudodata.
-
 * Connection to EP
+  :PROPERTIES:
+  :CUSTOM_ID: ep
+  :END:
 
   We have:
 
@@ -82,3 +78,43 @@
 
   The difference between general EP and the idea above is that we are fixing
   the factors \(\hat{g}(\lambda_i)\). 
+
+* Analytic solution
+  :PROPERTIES:
+  :CUSTOM_ID: analytic
+  :END:
+
+  Suppose we have estimated \(\mu, \phi\) by Empirical Bayes such that:
+
+  \[ \lambda_i \mid \mu, \phi \sim \mathrm{Gamma}\left(\frac{1}{\phi},
+  \frac{1}{\mu\phi}\right) \]
+
+  where we assume the shape/rate parameterization. Then, \(E[\lambda] = \mu\)
+  and \(V[\lambda] = \mu^2\phi\). In this case, the posterior can be computed
+  exactly:
+
+  \[ p_{\text{post}} = p(\lambda_i \mid x_1, \ldots, x_n, s_1, \ldots, s_n, \mu, \phi) \]
+
+  \[ = p(\lambda_i \mid x_i, s_i, \mu, \phi) \]
+
+  by conditional independences
+
+  \[ \propto p(x_i, \lambda_i \mid s_i, \mu, \phi) \]
+
+  \[ \propto (s_i\lambda_i)^{x_i} \exp(-s_i \lambda_i) \lambda_i^{\phi^{-1} -
+  1} \exp(-\lambda_i(\mu\phi)^{-1}) \]
+
+  \[ \propto \lambda_i^{x_i + \phi^{-1} - 1} \exp(-\lambda_i (s_i -
+  (\mu\phi)^{-1})) \]
+
+  where the constants do not depend on \(\lambda_i\)
+
+  \[ = \mathrm{Gamma}\left(x_i - \phi^{-1}, s_i - (\mu\phi)^{-1}\right) \]
+
+  Now, the solution to
+
+  \[ \min_q \mathcal{KL}(p_{\text{post}} \Vert q) \]
+
+  where \(q\) is Gaussian is:
+
+  \[ \mathcal{N}\left(\frac{x_i - \phi^{-1}}{s_i - (\mu\phi)^{-1}}, \frac{x_i - \phi^{-1}}{\left(s_i - (\mu\phi)^{-1}\right)^2}\right) \]
