@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-30 Thu 17:24 -->
+<!-- 2019-06-01 Sat 11:24 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Differential expression based on distribution deconvolution</title>
@@ -272,6 +272,7 @@ for the JavaScript code in this tag.
 <li><a href="#nb">Gamma deconvolution</a></li>
 <li><a href="#glm">NB GLM</a></li>
 <li><a href="#org6378c01">Debugging NB GLM</a></li>
+<li><a href="#org369bb46">Correct null model for Gamma deconvolution DE</a></li>
 </ul>
 </li>
 </ul>
@@ -323,6 +324,7 @@ possible reasons:
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
 <span class="org-keyword">import</span> rpy2.robjects.packages
 <span class="org-keyword">import</span> rpy2.robjects.pandas2ri
+<span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 <span class="org-keyword">import</span> scmodes
 <span class="org-keyword">import</span> scqtl.simple
@@ -1073,11 +1075,157 @@ fig.tight_layout()
 </div>
 </div>
 </div>
+
+<div id="outline-container-org369bb46" class="outline-3">
+<h3 id="org369bb46">Correct null model for Gamma deconvolution DE</h3>
+<div class="outline-text-3" id="text-org369bb46">
+<p>
+Above we compared \(M_0\):
+</p>
+
+<p>
+\[ x_i \mid s_i, \lambda_i \sim \mathrm{Poisson}(s_i \lambda_i) \]
+</p>
+
+<p>
+\[ \lambda_i \mid \cdot \sim \mathrm{Gamma}(\mu_0, \phi_0) \]
+</p>
+
+<p>
+to \(M_1\):
+</p>
+
+<p>
+\[ x_i \mid s_i, \lambda_i \sim \mathrm{Poisson}(s_i \lambda_i) \]
+</p>
+
+<p>
+\[ \lambda_i \mid \cdot \sim \mathrm{Gamma}(\mu_{z_i}, \phi_{z_i}) \]
+</p>
+
+<p>
+However, this model comparison tests something more than just differential
+expression: \(M_1\) will fit the data better even if \(\mu_1 = \mu_2\), but
+\(\phi_1 \neq \phi_2\).
+</p>
+
+<p>
+We really need to test \(\mu_1 \neq \mu_2\), allowing \(\phi_1 \neq
+   \phi_2\). In principle, this could be achieved by computing a
+\(t\)-statistic; however, the necessary variance (standard error) is
+difficult to estimate.
+</p>
+
+<p>
+Instead, we could test \(M_1\) against \(M'_0\):
+</p>
+
+<p>
+\[ x_i \mid s_i, \lambda_i \sim \mathrm{Poisson}(s_i \lambda_i) \]
+</p>
+
+<p>
+\[ \lambda_i \mid \cdot \sim \mathrm{Gamma}(\mu_0, \phi_{z_i}) \]
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">nb_null_obj</span>(theta, x, s, Z):
+  <span class="org-variable-name">mean</span> = np.exp(theta[0])
+  <span class="org-variable-name">inv_disp</span> = Z.dot(np.exp(theta[1:]))
+  <span class="org-keyword">return</span> -st.nbinom(n=inv_disp, p=1 / (1 + s * mean / inv_disp)).logpmf(x).<span class="org-builtin">sum</span>()
+
+<span class="org-keyword">def</span> <span class="org-function-name">fit_nb_null</span>(x, s, z):
+  <span class="org-variable-name">x</span>, <span class="org-variable-name">s</span> = scqtl.simple.check_args(x, s)
+  <span class="org-variable-name">Z</span> = pd.get_dummies(z).values
+  <span class="org-variable-name">opt</span> = so.minimize(nb_null_obj, x0=[np.log(x.<span class="org-builtin">sum</span>() / s.<span class="org-builtin">sum</span>()), 10, 10], args=(x, s, Z), method=<span class="org-string">'Nelder-Mead'</span>)
+  <span class="org-keyword">if</span> <span class="org-keyword">not</span> opt.success:
+    <span class="org-keyword">raise</span> <span class="org-type">RuntimeError</span>(opt.message)
+  <span class="org-variable-name">mean</span> = np.exp(opt.x[0])
+  <span class="org-variable-name">inv_disp0</span> = np.exp(opt.x[1])
+  <span class="org-variable-name">inv_disp1</span> = np.exp(opt.x[2])
+  <span class="org-variable-name">nll</span> = opt.fun
+  <span class="org-keyword">return</span> mean, inv_disp0, inv_disp1, -nll
+
+<span class="org-keyword">def</span> <span class="org-function-name">de_nb2</span>(x, s, z):
+  <span class="org-doc">"""Return LRT p-value</span>
+
+<span class="org-doc">  x - counts (n,)</span>
+<span class="org-doc">  s - size factors (n,)</span>
+<span class="org-doc">  z - boolean group assignment (n,)</span>
+
+<span class="org-doc">  """</span>
+  <span class="org-variable-name">res0</span> = fit_nb_null(x, s, z)
+  <span class="org-variable-name">res1</span> = fit_nb_collapse(x[z], s[z])
+  <span class="org-variable-name">res2</span> = fit_nb_collapse(x[~z], s[~z])
+  <span class="org-variable-name">llr</span> = res0[-1] - (res1[-1] + res2[-1])
+  <span class="org-keyword">return</span> pd.Series({<span class="org-string">'mu0'</span>: res0[0],
+                    <span class="org-string">'inv_disp01'</span>: res0[1],
+                    <span class="org-string">'inv_disp02'</span>: res0[2],
+                    <span class="org-string">'mu1'</span>: res1[0],
+                    <span class="org-string">'inv_disp1'</span>: res1[1],
+                    <span class="org-string">'mu2'</span>: res2[0],
+                    <span class="org-string">'inv_disp2'</span>: res2[1],
+                    <span class="org-string">'llr'</span>: llr,
+                    <span class="org-string">'p'</span>: st.chi2(2).sf(-2 * llr)})
+
+</pre>
+</div>
+
+<p>
+Try on an example.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">dat</span> = rpy2.robjects.r[<span class="org-string">'readRDS'</span>](<span class="org-string">'/project2/mstephens/aksarkar/projects/dsc-log-fold-change/dsc/benchmark/data_poisthin/data_poisthin_29.rds'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">X</span> = np.array(dat.rx2(<span class="org-string">'Y'</span>)).T
+<span class="org-variable-name">x</span> = X[:,9]
+<span class="org-variable-name">s</span> = X.<span class="org-builtin">sum</span>(axis=1)
+<span class="org-variable-name">z</span> = np.zeros(100).astype(<span class="org-builtin">bool</span>)
+<span class="org-variable-name">z</span>[:50] = 1
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">res</span> = fit_nb_null(x, s, z)
+res
+</pre>
+</div>
+
+<pre class="example">
+(0.0002303843030721306,
+0.17676454746805434,
+2.057596627861452,
+-90.55969515068075)
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">de_nb2(x, s, z)
+</pre>
+</div>
+
+<pre class="example">
+mu0           0.000230
+inv_disp01    0.176765
+inv_disp02    2.057597
+mu1           0.000167
+inv_disp1     4.781742
+mu2           0.000404
+inv_disp2     0.204504
+llr          -2.118471
+p             0.120215
+dtype: float64
+</pre>
+</div>
+</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-30 Thu 17:24</p>
+<p class="date">Created: 2019-06-01 Sat 11:24</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

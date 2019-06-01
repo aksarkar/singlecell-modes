@@ -39,13 +39,14 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 60555765
+  : Submitted batch job 60588942
 
   #+BEGIN_SRC ipython
     import numpy as np
     import pandas as pd
     import rpy2.robjects.packages
     import rpy2.robjects.pandas2ri
+    import scipy.optimize as so
     import scipy.stats as st
     import scmodes
     import scqtl.simple
@@ -56,7 +57,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[10]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -401,7 +402,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[14]:
+   # Out[4]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -687,4 +688,141 @@
    :RESULTS:
    # Out[34]:
    [[file:figure/deconv-de.org/debug-example.png]]
+   :END:
+
+** Correct null model for Gamma deconvolution DE
+
+   Above we compared \(M_0\):
+
+   \[ x_i \mid s_i, \lambda_i \sim \mathrm{Poisson}(s_i \lambda_i) \]
+
+   \[ \lambda_i \mid \cdot \sim \mathrm{Gamma}(\mu_0, \phi_0) \]
+
+   to \(M_1\):
+
+   \[ x_i \mid s_i, \lambda_i \sim \mathrm{Poisson}(s_i \lambda_i) \]
+
+   \[ \lambda_i \mid \cdot \sim \mathrm{Gamma}(\mu_{z_i}, \phi_{z_i}) \]
+
+   However, this model comparison tests something more than just differential
+   expression: \(M_1\) will fit the data better even if \(\mu_1 = \mu_2\), but
+   \(\phi_1 \neq \phi_2\).
+
+   We really need to test \(\mu_1 \neq \mu_2\), allowing \(\phi_1 \neq
+   \phi_2\). In principle, this could be achieved by computing a
+   \(t\)-statistic; however, the necessary variance (standard error) is
+   difficult to estimate.
+
+   Instead, we could test \(M_1\) against \(M'_0\):
+
+   \[ x_i \mid s_i, \lambda_i \sim \mathrm{Poisson}(s_i \lambda_i) \]
+
+   \[ \lambda_i \mid \cdot \sim \mathrm{Gamma}(\mu_0, \phi_{z_i}) \]
+
+   #+BEGIN_SRC ipython
+     def nb_null_obj(theta, x, s, Z):
+       mean = np.exp(theta[0])
+       inv_disp = Z.dot(np.exp(theta[1:]))
+       return -st.nbinom(n=inv_disp, p=1 / (1 + s * mean / inv_disp)).logpmf(x).sum()
+
+     def fit_nb_null(x, s, z):
+       x, s = scqtl.simple.check_args(x, s)
+       Z = pd.get_dummies(z).values
+       opt = so.minimize(nb_null_obj, x0=[np.log(x.sum() / s.sum()), 10, 10], args=(x, s, Z), method='Nelder-Mead')
+       if not opt.success:
+         raise RuntimeError(opt.message)
+       mean = np.exp(opt.x[0])
+       inv_disp0 = np.exp(opt.x[1])
+       inv_disp1 = np.exp(opt.x[2])
+       nll = opt.fun
+       return mean, inv_disp0, inv_disp1, -nll
+
+     def de_nb2(x, s, z):
+       """Return LRT p-value
+
+       x - counts (n,)
+       s - size factors (n,)
+       z - boolean group assignment (n,)
+
+       """
+       res0 = fit_nb_null(x, s, z)
+       res1 = fit_nb_collapse(x[z], s[z])
+       res2 = fit_nb_collapse(x[~z], s[~z])
+       llr = res0[-1] - (res1[-1] + res2[-1])
+       return pd.Series({'mu0': res0[0],
+                         'inv_disp01': res0[1],
+                         'inv_disp02': res0[2],
+                         'mu1': res1[0],
+                         'inv_disp1': res1[1],
+                         'mu2': res2[0],
+                         'inv_disp2': res2[1],
+                         'llr': llr,
+                         'p': st.chi2(2).sf(-2 * llr)})
+
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[25]:
+   :END:
+
+   Try on an example.
+
+   #+BEGIN_SRC ipython
+     dat = rpy2.robjects.r['readRDS']('/project2/mstephens/aksarkar/projects/dsc-log-fold-change/dsc/benchmark/data_poisthin/data_poisthin_29.rds')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[16]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     X = np.array(dat.rx2('Y')).T
+     x = X[:,9]
+     s = X.sum(axis=1)
+     z = np.zeros(100).astype(bool)
+     z[:50] = 1
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     res = fit_nb_null(x, s, z)
+     res
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[23]:
+   #+BEGIN_EXAMPLE
+     (0.0002303843030721306,
+     0.17676454746805434,
+     2.057596627861452,
+     -90.55969515068075)
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython
+     de_nb2(x, s, z)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[26]:
+   #+BEGIN_EXAMPLE
+     mu0           0.000230
+     inv_disp01    0.176765
+     inv_disp02    2.057597
+     mu1           0.000167
+     inv_disp1     4.781742
+     mu2           0.000404
+     inv_disp2     0.204504
+     llr          -2.118471
+     p             0.120215
+     dtype: float64
+   #+END_EXAMPLE
    :END:
