@@ -36,10 +36,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="broadwl") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 60588942
+  : Submitted batch job 60695387
 
   #+BEGIN_SRC ipython
     import numpy as np
@@ -57,7 +57,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[10]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -124,7 +124,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[6]:
    :END:
 
    #+BEGIN_SRC ipython
@@ -135,7 +135,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[7]:
    : 0.5071015770398668
    :END:
 
@@ -211,8 +211,6 @@
    [[file:figure/deconv-de.org/idealized.png]]
    :END:
 
-
-
    Deconvolve gene expression assuming \(g\) is a point mass (counts are
    marginally Poisson distributed). Naively, this should work because the data
    are informative about the mean.
@@ -230,13 +228,14 @@
        mu1 = x[z].sum() / s[z].sum()
        mu2 = x[~z].sum() / s[~z].sum()
        onehot = pd.get_dummies(z)
-       llr = st.poisson(mu=mu0).logpmf(x).sum() - st.poisson(mu=onehot.dot(np.array([mu1, mu2]))).logpmf(x).sum()
+       llr = st.poisson(mu=mu0).logpmf(x).sum() - st.poisson(mu=onehot.dot(np.array([mu2, mu1]))).logpmf(x).sum()
+       assert llr < 0
        return pd.Series({'mu0': mu0, 'mu1': mu1, 'mu2': mu2, 'llr': llr, 'p': st.chi2(1).sf(-2 * llr)})
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[135]:
+   # Out[14]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -245,7 +244,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[138]:
+   # Out[16]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/deconv-de.org/zheng-null.png
@@ -260,104 +259,11 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[144]:
+   # Out[18]:
    [[file:figure/deconv-de.org/zheng-null.png]]
    :END:
 
-   Report the proportion of genes for which the null model fit better than the
-   alternative model.
-
-   #+BEGIN_SRC ipython
-     (de_res['llr'] > 0).mean()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[154]:
-   : 0.6529284164859002
-   :END:
-
-   Look at the gene where the null model did best against the alternative.
-
-   #+NAME: read-gene-info
-   #+BEGIN_SRC ipython
-     gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
-   #+END_SRC
-
-   #+RESULTS: read-gene-info
-   :RESULTS:
-   # Out[159]:
-   :END:
-
-   #+BEGIN_SRC ipython
-     k = de_res['llr'].idxmax()
-     x = cd8.loc[:,k]
-     gene_info.loc[k]
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[172]:
-   #+BEGIN_EXAMPLE
-     chr             hs15
-     start       69745123
-     end         69748255
-     name           RPLP1
-     strand             +
-     source    H. sapiens
-     Name: ENSG00000137818, dtype: object
-   #+END_EXAMPLE
-   :END:
-
-   Look at the deconvolved distributions for this gene. Superimpose the Poisson
-   point-mass estimates for the two groups (dotted lines), and the Gamma mean
-   estimate (dashed line).
-
-   #+BEGIN_SRC ipython :ipyfile figure/deconv-de.org/cd8-rplp1.png
-     plt.clf()
-     fig, ax = plt.subplots(2, 1)
-     fig.set_size_inches(6, 4)
-     ax[0].hist(x[z], bins=np.arange(x.max() + 1), alpha=0.6, color='k', label='Group 1')
-     ax[0].hist(x[~z], bins=np.arange(x.max() + 1), alpha=0.6, color='r', label='Group 2')
-     ax[0].legend(frameon=False)
-     ax[0].set_xlabel('Num mols')
-     ax[0].set_ylabel('Num cells')
-
-     for c, m in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
-       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{m.lower()}')(x, s), color=c, lw=1, label=m)
-
-     ax[1].axvline(x=scqtl.simple.fit_nb(x, s)[0], c=plt.get_cmap('Dark2').colors[0], ls='--', lw=1)
-     ax[1].axvline(x=de_res.loc[k, 'mu1'], c='k', ls=':', lw=1)
-     ax[1].axvline(x=de_res.loc[k, 'mu2'], c='r', ls=':', lw=1)
-
-     ax[1].set_xlabel('Latent gene expression')
-     ax[1].set_ylabel('CDF')
-     ax[1].legend(frameon=False)
-     fig.tight_layout()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[190]:
-   [[file:figure/deconv-de.org/cd8-rplp1.png]]
-   :END:
-
-   Check whether also allowing dispersions to vary across groups fixes this
-   gene.
-
-   #+BEGIN_SRC ipython
-     llr = scqtl.simple.fit_nb(x, s)[-1] - (scqtl.simple.fit_nb(x[z], s[z])[-1] + scqtl.simple.fit_nb(x[~z], s[~z])[-1])
-     llr, st.chi2(2).sf(-2 * llr)
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[198]:
-   : (-2.176938147920737, 0.11338817750598136)
-   :END:
-
-   This result suggests that the Poisson sampling variance is not correctly
-   estimated.
+   This result suggests that the sampling variance is not correctly estimated.
 
 ** Gamma deconvolution
    :PROPERTIES:

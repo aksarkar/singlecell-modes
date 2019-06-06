@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-06-01 Sat 11:24 -->
+<!-- 2019-06-06 Thu 17:08 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Differential expression based on distribution deconvolution</title>
@@ -521,8 +521,6 @@ plt.tight_layout()
 </p>
 </div>
 
-
-
 <p>
 Deconvolve gene expression assuming \(g\) is a point mass (counts are
 marginally Poisson distributed). Naively, this should work because the data
@@ -542,7 +540,8 @@ are informative about the mean.
   <span class="org-variable-name">mu1</span> = x[z].<span class="org-builtin">sum</span>() / s[z].<span class="org-builtin">sum</span>()
   <span class="org-variable-name">mu2</span> = x[~z].<span class="org-builtin">sum</span>() / s[~z].<span class="org-builtin">sum</span>()
   <span class="org-variable-name">onehot</span> = pd.get_dummies(z)
-  <span class="org-variable-name">llr</span> = st.poisson(mu=mu0).logpmf(x).<span class="org-builtin">sum</span>() - st.poisson(mu=onehot.dot(np.array([mu1, mu2]))).logpmf(x).<span class="org-builtin">sum</span>()
+  <span class="org-variable-name">llr</span> = st.poisson(mu=mu0).logpmf(x).<span class="org-builtin">sum</span>() - st.poisson(mu=onehot.dot(np.array([mu2, mu1]))).logpmf(x).<span class="org-builtin">sum</span>()
+  <span class="org-keyword">assert</span> llr &lt; 0
   <span class="org-keyword">return</span> pd.Series({<span class="org-string">'mu0'</span>: mu0, <span class="org-string">'mu1'</span>: mu1, <span class="org-string">'mu2'</span>: mu2, <span class="org-string">'llr'</span>: llr, <span class="org-string">'p'</span>: st.chi2(1).sf(-2 * llr)})
 </pre>
 </div>
@@ -570,101 +569,7 @@ plt.tight_layout()
 </div>
 
 <p>
-Report the proportion of genes for which the null model fit better than the
-alternative model.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">(de_res[<span class="org-string">'llr'</span>] &gt; 0).mean()
-</pre>
-</div>
-
-<pre class="example">
-0.6529284164859002
-
-</pre>
-
-<p>
-Look at the gene where the null model did best against the alternative.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython" id="orgeea08c4"><span class="org-variable-name">gene_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">k</span> = de_res[<span class="org-string">'llr'</span>].idxmax()
-<span class="org-variable-name">x</span> = cd8.loc[:,k]
-gene_info.loc[k]
-</pre>
-</div>
-
-<pre class="example">
-chr             hs15
-start       69745123
-end         69748255
-name           RPLP1
-strand             +
-source    H. sapiens
-Name: ENSG00000137818, dtype: object
-</pre>
-
-<p>
-Look at the deconvolved distributions for this gene. Superimpose the Poisson
-point-mass estimates for the two groups (dotted lines), and the Gamma mean
-estimate (dashed line).
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
-fig.set_size_inches(6, 4)
-ax[0].hist(x[z], bins=np.arange(x.<span class="org-builtin">max</span>() + 1), alpha=0.6, color=<span class="org-string">'k'</span>, label=<span class="org-string">'Group 1'</span>)
-ax[0].hist(x[~z], bins=np.arange(x.<span class="org-builtin">max</span>() + 1), alpha=0.6, color=<span class="org-string">'r'</span>, label=<span class="org-string">'Group 2'</span>)
-ax[0].legend(frameon=<span class="org-constant">False</span>)
-ax[0].set_xlabel(<span class="org-string">'Num mols'</span>)
-ax[0].set_ylabel(<span class="org-string">'Num cells'</span>)
-
-<span class="org-keyword">for</span> c, m <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(plt.get_cmap(<span class="org-string">'Dark2'</span>).colors, [<span class="org-string">'Gamma'</span>, <span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>]):
-  ax[1].plot(*<span class="org-builtin">getattr</span>(scmodes.deconvolve, f<span class="org-string">'fit_{m.lower()}'</span>)(x, s), color=c, lw=1, label=m)
-
-ax[1].axvline(x=scqtl.simple.fit_nb(x, s)[0], c=plt.get_cmap(<span class="org-string">'Dark2'</span>).colors[0], ls=<span class="org-string">'--'</span>, lw=1)
-ax[1].axvline(x=de_res.loc[k, <span class="org-string">'mu1'</span>], c=<span class="org-string">'k'</span>, ls=<span class="org-string">':'</span>, lw=1)
-ax[1].axvline(x=de_res.loc[k, <span class="org-string">'mu2'</span>], c=<span class="org-string">'r'</span>, ls=<span class="org-string">':'</span>, lw=1)
-
-ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
-ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
-ax[1].legend(frameon=<span class="org-constant">False</span>)
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/deconv-de.org/cd8-rplp1.png" alt="cd8-rplp1.png">
-</p>
-</div>
-
-<p>
-Check whether also allowing dispersions to vary across groups fixes this
-gene.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">llr</span> = scqtl.simple.fit_nb(x, s)[-1] - (scqtl.simple.fit_nb(x[z], s[z])[-1] + scqtl.simple.fit_nb(x[~z], s[~z])[-1])
-llr, st.chi2(2).sf(-2 * llr)
-</pre>
-</div>
-
-<pre class="example">
-(-2.176938147920737, 0.11338817750598136)
-
-</pre>
-
-<p>
-This result suggests that the Poisson sampling variance is not correctly
-estimated.
+This result suggests that the sampling variance is not correctly estimated.
 </p>
 </div>
 </div>
@@ -1225,7 +1130,7 @@ dtype: float64
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-06-01 Sat 11:24</p>
+<p class="date">Created: 2019-06-06 Thu 17:08</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
