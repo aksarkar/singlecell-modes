@@ -10,8 +10,8 @@
   \alpha_p)) \]
 
   where \(\alpha_j\) denotes the relative abundance of gene \(j\) in the
-  cell. This implicitly assumes sampling with replacement, i.e. that the pool
-  of molecules is *much* larger than the sampled molecules. But what happens if
+  cell. This implicitly assumes sampling /with replacement/, i.e. that the pool
+  of molecules is much larger than the sampled molecules. But what happens if
   we sample a non-trivial fraction of all available molecules, say 10-40%
   (e.g., [[https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4193940/][Shalek 2014]])? In the extreme case, what would happen if we actually
   managed to sequence all of the available molecules?
@@ -73,7 +73,7 @@
    hypergeometric distribution.
 
    Suppose we have a total of \(N\) molecules, of which \(n_i\) come from gene
-   \(i\). Further suppose we capture \(p\) fraction of the molecules. Then, we
+   \(i\). Further suppose we sequence \(p\) fraction of the molecules. Then, we
    have two descriptions of the data:
 
    \[ x_1 \sim \mathrm{Binomial}(Np, n_1 / N) \triangleq p \]
@@ -89,20 +89,22 @@
    Look at the log likelihood for some settings of these parameters.
 
    #+BEGIN_SRC ipython
-     N = 1e6
-     n1 = 1e-3 * N
-     p = .1
+     N = 1e5
+     n1 = .01 * N
+     p = .05
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[35]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/capture.org/simple-1.png
      plt.clf()
      plt.gcf().set_size_inches(5, 3)
-     grid = np.arange(200)
+     mean = n1 * p
+     sd = n1 * p * (N - n1) / N
+     grid = np.arange(np.floor(mean - 10), np.ceil(mean + 10) + 1)
      plt.plot(grid, st.binom(n=N * p, p=n1 / N).logpmf(grid), lw=1, c='k', label='Binomial')
      plt.plot(grid, st.hypergeom(M=N, n=n1, N=N * p).logpmf(grid), lw=1, c='r', label='Hypergeometric')
      plt.axvline(x=n1 * p, ls='--', lw=1, c='k')
@@ -114,7 +116,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[25]:
+   # Out[42]:
    [[file:figure/capture.org/simple-1.png]]
    :END:
 
