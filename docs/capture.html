@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-07-22 Mon 11:09 -->
+<!-- 2019-07-22 Mon 11:43 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Effect of capture rate on sampling variation</title>
@@ -337,15 +337,27 @@ have two descriptions of the data:
 </p>
 
 <p>
-\[ x_1 \sim \mathrm{Binomial}(Np, n_1 / N) \]
+\[ x_1 \sim \mathrm{Binomial}(Np, n_1 / N) \triangleq p \]
 </p>
 
 <p>
-\[ x_1 \sim \mathrm{Hypergeometric}(Np, N, n_1) \]
+\[ x_1 \sim \mathrm{Hypergeometric}(Np, N, n_1) \triangleq q \]
 </p>
 
 <p>
-These have equal expected value \(n_1 p\). Look at the log likelihood for some settings of these parameters.
+These have equal expected value \(n_1 p\), but unequal variances:
+</p>
+
+<p>
+\[ V_p[x_1] = n_1 p \frac{n_2}{N} \]
+</p>
+
+<p>
+\[ V_q[x_1] = n_1 p \frac{n_2}{N} \frac{N(1 - p)}{N - 1} \]
+</p>
+
+<p>
+Look at the log likelihood for some settings of these parameters.
 </p>
 
 <div class="org-src-container">
@@ -374,13 +386,17 @@ plt.tight_layout()
 <p><img src="figure/capture.org/simple-1.png" alt="simple-1.png">
 </p>
 </div>
+
+<p>
+We built an <a href="http://shiny.stephenslab.uchicago.edu:5009/capture">interactive simulation</a> to look at different parameter settings.
+</p>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-07-22 Mon 11:09</p>
+<p class="date">Created: 2019-07-22 Mon 11:43</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

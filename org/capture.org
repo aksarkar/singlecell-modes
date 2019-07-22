@@ -76,11 +76,17 @@
    \(i\). Further suppose we capture \(p\) fraction of the molecules. Then, we
    have two descriptions of the data:
 
-   \[ x_1 \sim \mathrm{Binomial}(Np, n_1 / N) \]
+   \[ x_1 \sim \mathrm{Binomial}(Np, n_1 / N) \triangleq p \]
 
-   \[ x_1 \sim \mathrm{Hypergeometric}(Np, N, n_1) \]
+   \[ x_1 \sim \mathrm{Hypergeometric}(Np, N, n_1) \triangleq q \]
 
-   These have equal expected value \(n_1 p\). Look at the log likelihood for some settings of these parameters.
+   These have equal expected value \(n_1 p\), but unequal variances:
+
+   \[ V_p[x_1] = n_1 p \frac{n_2}{N} \]
+
+   \[ V_q[x_1] = n_1 p \frac{n_2}{N} \frac{N(1 - p)}{N - 1} \]
+
+   Look at the log likelihood for some settings of these parameters.
 
    #+BEGIN_SRC ipython
      N = 1e6
@@ -111,3 +117,5 @@
    # Out[25]:
    [[file:figure/capture.org/simple-1.png]]
    :END:
+
+   We built an [[http://shiny.stephenslab.uchicago.edu:5009/capture][interactive simulation]] to look at different parameter settings.
