@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-07-22 Mon 11:55 -->
+<!-- 2019-07-22 Mon 13:53 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Effect of capture rate on sampling variation</title>
@@ -260,11 +260,7 @@ for the JavaScript code in this tag.
 <ul>
 <li><a href="#org72f5f3a">Introduction</a></li>
 <li><a href="#setup">Setup</a></li>
-<li><a href="#org4750724">Results</a>
-<ul>
-<li><a href="#org5df0b91">Simple case</a></li>
-</ul>
-</li>
+<li><a href="#org4750724">Results</a></li>
 </ul>
 </div>
 </div>
@@ -278,17 +274,18 @@ follows:
 </p>
 
 <p>
-\[ x_1, \ldots, x_p \mid n \sim \mathrm{Multinomial}(n, (\alpha_1, \ldots,
+\[ x_1, \ldots, x_p \mid s \sim \mathrm{Multinomial}(s, (\alpha_1, \ldots,
   \alpha_p)) \]
 </p>
 
 <p>
 where \(\alpha_j\) denotes the relative abundance of gene \(j\) in the
-cell. This implicitly assumes sampling <i>with replacement</i>, i.e. that the pool
-of molecules is much larger than the sampled molecules. But what happens if
-we sample a non-trivial fraction of all available molecules, say 10-40%
-(e.g., <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4193940/">Shalek 2014</a>)? In the extreme case, what would happen if we actually
-managed to sequence all of the available molecules?
+cell. This model implicitly assumes sampling <i>with replacement</i>, i.e. that
+the pool of molecules is much larger than the number of sampled
+molecules. But what happens if we sample a non-trivial fraction of all
+available molecules, say 10-40% (e.g., <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4193940/">Shalek 2014</a>)? In the extreme case,
+what would happen if we actually managed to sequence all of the available
+molecules?
 </p>
 </div>
 </div>
@@ -320,48 +317,45 @@ managed to sequence all of the available molecules?
 <div id="outline-container-org4750724" class="outline-2">
 <h2 id="org4750724">Results</h2>
 <div class="outline-text-2" id="text-org4750724">
-</div>
-<div id="outline-container-org5df0b91" class="outline-3">
-<h3 id="org5df0b91">Simple case</h3>
-<div class="outline-text-3" id="text-org5df0b91">
 <p>
-Suppose there are only two genes. Then, the Multinomial distribution reduces
-to the binomial distribution, and its analogue <i>without replacement</i> is the
+Consider gene \(j\), and partition the molecules into those which map to gene
+\(j\) and those which do not. Then, the Multinomial distribution reduces to
+the binomial distribution, and its analogue <i>without replacement</i> is the
 hypergeometric distribution.
 </p>
 
 <p>
-Suppose we have a total of \(N\) molecules, of which \(n_i\) come from gene
-\(i\). Further suppose we sequence \(p\) fraction of the molecules. Then, we
-have multiple descriptions of the data:
+Suppose there are a total of \(N\) molecules, of which \(n_j\) come from the
+gene \(j\). Further suppose we sequence \(p\) fraction of the
+molecules. Then, we have multiple descriptions of the data:
 </p>
 
 <p>
-\[ x_1 \sim \mathrm{Binomial}(Np, n_1 / N) \triangleq P_1 \]
+\[ x_j \sim \mathrm{Poisson}(n_j p) \triangleq P_1 \]
 </p>
 
 <p>
-\[ x_1 \sim \mathrm{Hypergeometric}(Np, N, n_1) \triangleq P_2 \]
+\[ x_j \sim \mathrm{Binomial}(Np, n_j / N) \triangleq P_2 \]
 </p>
 
 <p>
-\[ x_1 \sim \mathrm{Poisson}(n_1 p) \triangleq P_3 \]
+\[ x_j \sim \mathrm{Hypergeometric}(Np, N, n_j) \triangleq P_3 \]
 </p>
 
 <p>
-These have equal expected value \(n_1 p\), but unequal variances:
+These have equal expected value \(n_j p\), but unequal variances:
 </p>
 
 <p>
-\[ V_{P_1}[x_1] = n_1 p \frac{n_2}{N} \]
+\[ V_{P_1}[x_j] = n_j p \]
 </p>
 
 <p>
-\[ V_{P_2}[x_1] = n_1 p \frac{n_2}{N} \frac{N(1 - p)}{N - 1} \]
+\[ V_{P_2}[x_j] = n_j p \frac{N - n_j}{N} \]
 </p>
 
 <p>
-\[ V_{P_3}[x_1] = n_1 p \]
+\[ V_{P_3}[x_j] = n_j p \frac{N - n_j}{N} \frac{N}{N - 1} (1 - p) \]
 </p>
 
 <p>
@@ -404,10 +398,9 @@ We built an <a href="http://shiny.stephenslab.uchicago.edu:5009/capture">interac
 </div>
 </div>
 </div>
-</div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-07-22 Mon 11:55</p>
+<p class="date">Created: 2019-07-22 Mon 13:53</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

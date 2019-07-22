@@ -6,15 +6,16 @@
   We and others argue that sampling variation in observed scRNA-seq counts
   follows:
 
-  \[ x_1, \ldots, x_p \mid n \sim \mathrm{Multinomial}(n, (\alpha_1, \ldots,
+  \[ x_1, \ldots, x_p \mid s \sim \mathrm{Multinomial}(s, (\alpha_1, \ldots,
   \alpha_p)) \]
 
   where \(\alpha_j\) denotes the relative abundance of gene \(j\) in the
-  cell. This implicitly assumes sampling /with replacement/, i.e. that the pool
-  of molecules is much larger than the sampled molecules. But what happens if
-  we sample a non-trivial fraction of all available molecules, say 10-40%
-  (e.g., [[https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4193940/][Shalek 2014]])? In the extreme case, what would happen if we actually
-  managed to sequence all of the available molecules?
+  cell. This model implicitly assumes sampling /with replacement/, i.e. that
+  the pool of molecules is much larger than the number of sampled
+  molecules. But what happens if we sample a non-trivial fraction of all
+  available molecules, say 10-40% (e.g., [[https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4193940/][Shalek 2014]])? In the extreme case,
+  what would happen if we actually managed to sequence all of the available
+  molecules?
 
 * Setup
   :PROPERTIES:
@@ -66,44 +67,44 @@
   :END:
 
 * Results
-** Simple case
 
-   Suppose there are only two genes. Then, the Multinomial distribution reduces
-   to the binomial distribution, and its analogue /without replacement/ is the
-   hypergeometric distribution.
+  Consider gene \(j\), and partition the molecules into those which map to gene
+  \(j\) and those which do not. Then, the Multinomial distribution reduces to
+  the binomial distribution, and its analogue /without replacement/ is the
+  hypergeometric distribution.
 
-   Suppose we have a total of \(N\) molecules, of which \(n_i\) come from gene
-   \(i\). Further suppose we sequence \(p\) fraction of the molecules. Then, we
-   have multiple descriptions of the data:
+  Suppose there are a total of \(N\) molecules, of which \(n_j\) come from the
+  gene \(j\). Further suppose we sequence \(p\) fraction of the
+  molecules. Then, we have multiple descriptions of the data:
 
-   \[ x_1 \sim \mathrm{Binomial}(Np, n_1 / N) \triangleq P_1 \]
+  \[ x_j \sim \mathrm{Poisson}(n_j p) \triangleq P_1 \]
 
-   \[ x_1 \sim \mathrm{Hypergeometric}(Np, N, n_1) \triangleq P_2 \]
+  \[ x_j \sim \mathrm{Binomial}(Np, n_j / N) \triangleq P_2 \]
 
-   \[ x_1 \sim \mathrm{Poisson}(n_1 p) \triangleq P_3 \]
+  \[ x_j \sim \mathrm{Hypergeometric}(Np, N, n_j) \triangleq P_3 \]
 
-   These have equal expected value \(n_1 p\), but unequal variances:
+  These have equal expected value \(n_j p\), but unequal variances:
 
-   \[ V_{P_1}[x_1] = n_1 p \frac{n_2}{N} \]
+  \[ V_{P_1}[x_j] = n_j p \]
 
-   \[ V_{P_2}[x_1] = n_1 p \frac{n_2}{N} \frac{N(1 - p)}{N - 1} \]
+  \[ V_{P_2}[x_j] = n_j p \frac{N - n_j}{N} \]
 
-   \[ V_{P_3}[x_1] = n_1 p \]
+  \[ V_{P_3}[x_j] = n_j p \frac{N - n_j}{N} \frac{N}{N - 1} (1 - p) \]
 
-   Look at the log likelihood for some settings of these parameters.
+  Look at the log likelihood for some settings of these parameters.
 
-   #+BEGIN_SRC ipython
+  #+BEGIN_SRC ipython
      N = 1e5
      n1 = .01 * N
      p = .05
-   #+END_SRC
+  #+END_SRC
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[35]:
-   :END:
+  #+RESULTS:
+  :RESULTS:
+  # Out[35]:
+  :END:
 
-   #+BEGIN_SRC ipython :ipyfile figure/capture.org/simple-1.png
+  #+BEGIN_SRC ipython :ipyfile figure/capture.org/simple-1.png
      plt.clf()
      plt.gcf().set_size_inches(5, 3)
      mean = n1 * p
@@ -117,12 +118,12 @@
      plt.xlabel('Molecule count')
      plt.ylabel('Log likelihood')
      plt.tight_layout()
-   #+END_SRC
+  #+END_SRC
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[45]:
-   [[file:figure/capture.org/simple-1.png]]
-   :END:
+  #+RESULTS:
+  :RESULTS:
+  # Out[45]:
+  [[file:figure/capture.org/simple-1.png]]
+  :END:
 
-   We built an [[http://shiny.stephenslab.uchicago.edu:5009/capture][interactive simulation]] to look at different parameter settings.
+  We built an [[http://shiny.stephenslab.uchicago.edu:5009/capture][interactive simulation]] to look at different parameter settings.
