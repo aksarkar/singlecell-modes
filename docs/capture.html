@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-07-22 Mon 11:08 -->
+<!-- 2019-07-22 Mon 11:09 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Modeling single cell data</title>
+<title>Effect of capture rate on sampling variation</title>
 <meta name="generator" content="Org mode">
 <meta name="author" content="Abhishek Sarkar">
 <style type="text/css">
@@ -228,47 +228,159 @@ for the JavaScript code in this tag.
  }
 /*]]>*///-->
 </script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
 </head>
 <body>
 <div id="content">
-<h1 class="title">Modeling single cell data</h1>
+<h1 class="title">Effect of capture rate on sampling variation</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org72f5f3a">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#org4750724">Results</a>
+<ul>
+<li><a href="#org5df0b91">Simple case</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org72f5f3a" class="outline-2">
+<h2 id="org72f5f3a">Introduction</h2>
+<div class="outline-text-2" id="text-org72f5f3a">
 <p>
-The development of single cell RNA sequencing (scRNA-Seq) technology has
-enabled investigation of heterogeneity between individuals cells, dynamics of
-cellular processes, and the biological pathways underlying cellular
-differentiation. However, a number of features of scRNA-seq data continue to
-cause confusion among practitioners applying published methods to analyze new
-datasets, as well as researchers developing and benchmarking new methods.
+We and others argue that sampling variation in observed scRNA-seq counts
+follows:
 </p>
 
-<ul class="org-ul">
-<li><a href="pitfalls.html">Technical zero-generating mechanism in scRNA-seq data</a></li>
-<li><a href="modes.html">Estimating the number of modes</a></li>
-<li><a href="deconvolution.html">Comparison of distribution deconvolution methods</a></li>
-<li><a href="lra.html">Low rank approximation</a></li>
-<li><a href="transforms.html">Transformations of deconvolved gene expression distributions</a></li>
-</ul>
-
 <p>
-Technical details:
+\[ x_1, \ldots, x_p \mid n \sim \mathrm{Multinomial}(n, (\alpha_1, \ldots,
+  \alpha_p)) \]
 </p>
 
-<ul class="org-ul">
-<li><a href="capture.html">Effect of capture rate on sampling variation</a></li>
-<li><a href="ash-estmode.html">Speed up ash mode estimation</a></li>
-<li><a href="nb-mix.html">Mixture of negative binomials</a></li>
-<li><a href="gamma.html">Convergence of Gamma deconvolution</a></li>
-<li><a href="poisson.html">Deconvolution of near-Poisson data</a></li>
-<li><a href="validation.html">Validation set log likelihood comparison</a></li>
-<li><a href="npmle.html">NPMLE on C1 spike-in data</a></li>
-<li><a href="deconv-examples.html">Distribution deconvolution examples</a></li>
-<li><a href="deconv-de.html">Differential expression from distribution deconvolution</a></li>
-<li><a href="ep.html">Posterior approximation for scRNA-seq data</a></li>
-</ul>
+<p>
+where \(\alpha_j\) denotes the relative abundance of gene \(j\) in the
+cell. This implicitly assumes sampling with replacement, i.e. that the pool
+of molecules is <b>much</b> larger than the sampled molecules. But what happens if
+we sample a non-trivial fraction of all available molecules, say 10-40%
+(e.g., <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4193940/">Shalek 2014</a>)? In the extreme case, what would happen if we actually
+managed to sequence all of the available molecules?
+</p>
+</div>
+</div>
+
+<div id="outline-container-org4e01049" class="outline-2">
+<h2 id="setup"><a id="org4e01049"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org4750724" class="outline-2">
+<h2 id="org4750724">Results</h2>
+<div class="outline-text-2" id="text-org4750724">
+</div>
+<div id="outline-container-org5df0b91" class="outline-3">
+<h3 id="org5df0b91">Simple case</h3>
+<div class="outline-text-3" id="text-org5df0b91">
+<p>
+Suppose there are only two genes. Then, the Multinomial distribution reduces
+to the binomial distribution, and its analogue <i>without replacement</i> is the
+hypergeometric distribution.
+</p>
+
+<p>
+Suppose we have a total of \(N\) molecules, of which \(n_i\) come from gene
+\(i\). Further suppose we capture \(p\) fraction of the molecules. Then, we
+have two descriptions of the data:
+</p>
+
+<p>
+\[ x_1 \sim \mathrm{Binomial}(Np, n_1 / N) \]
+</p>
+
+<p>
+\[ x_1 \sim \mathrm{Hypergeometric}(Np, N, n_1) \]
+</p>
+
+<p>
+These have equal expected value \(n_1 p\). Look at the log likelihood for some settings of these parameters.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">N</span> = 1e6
+<span class="org-variable-name">n1</span> = 1e-3 * N
+<span class="org-variable-name">p</span> = .1
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(5, 3)
+<span class="org-variable-name">grid</span> = np.arange(200)
+plt.plot(grid, st.binom(n=N * p, p=n1 / N).logpmf(grid), lw=1, c=<span class="org-string">'k'</span>, label=<span class="org-string">'Binomial'</span>)
+plt.plot(grid, st.hypergeom(M=N, n=n1, N=N * p).logpmf(grid), lw=1, c=<span class="org-string">'r'</span>, label=<span class="org-string">'Hypergeometric'</span>)
+plt.axvline(x=n1 * p, ls=<span class="org-string">'--'</span>, lw=1, c=<span class="org-string">'k'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>, bbox_to_anchor=(1, .5), loc=<span class="org-string">'center left'</span>)
+plt.xlabel(<span class="org-string">'Molecule count'</span>)
+plt.ylabel(<span class="org-string">'Log likelihood'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/capture.org/simple-1.png" alt="simple-1.png">
+</p>
+</div>
+</div>
+</div>
+</div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-07-22 Mon 11:08</p>
+<p class="date">Created: 2019-07-22 Mon 11:09</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
