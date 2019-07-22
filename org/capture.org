@@ -74,17 +74,21 @@
 
    Suppose we have a total of \(N\) molecules, of which \(n_i\) come from gene
    \(i\). Further suppose we sequence \(p\) fraction of the molecules. Then, we
-   have two descriptions of the data:
+   have multiple descriptions of the data:
 
-   \[ x_1 \sim \mathrm{Binomial}(Np, n_1 / N) \triangleq p \]
+   \[ x_1 \sim \mathrm{Binomial}(Np, n_1 / N) \triangleq P_1 \]
 
-   \[ x_1 \sim \mathrm{Hypergeometric}(Np, N, n_1) \triangleq q \]
+   \[ x_1 \sim \mathrm{Hypergeometric}(Np, N, n_1) \triangleq P_2 \]
+
+   \[ x_1 \sim \mathrm{Poisson}(n_1 p) \triangleq P_3 \]
 
    These have equal expected value \(n_1 p\), but unequal variances:
 
-   \[ V_p[x_1] = n_1 p \frac{n_2}{N} \]
+   \[ V_{P_1}[x_1] = n_1 p \frac{n_2}{N} \]
 
-   \[ V_q[x_1] = n_1 p \frac{n_2}{N} \frac{N(1 - p)}{N - 1} \]
+   \[ V_{P_2}[x_1] = n_1 p \frac{n_2}{N} \frac{N(1 - p)}{N - 1} \]
+
+   \[ V_{P_3}[x_1] = n_1 p \]
 
    Look at the log likelihood for some settings of these parameters.
 
@@ -107,6 +111,7 @@
      grid = np.arange(np.floor(mean - 10), np.ceil(mean + 10) + 1)
      plt.plot(grid, st.binom(n=N * p, p=n1 / N).logpmf(grid), lw=1, c='k', label='Binomial')
      plt.plot(grid, st.hypergeom(M=N, n=n1, N=N * p).logpmf(grid), lw=1, c='r', label='Hypergeometric')
+     plt.plot(grid, st.poisson(mu=n1 * p).logpmf(grid), lw=1, c='b', label='Poisson')
      plt.axvline(x=n1 * p, ls='--', lw=1, c='k')
      plt.legend(frameon=False, bbox_to_anchor=(1, .5), loc='center left')
      plt.xlabel('Molecule count')
@@ -116,7 +121,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[42]:
+   # Out[45]:
    [[file:figure/capture.org/simple-1.png]]
    :END:
 
