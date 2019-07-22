@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-07-22 Mon 11:08 -->
+<!-- 2019-07-22 Mon 11:42 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>QTL browser</title>
+<title>Interactive simulations</title>
 <meta name="generator" content="Org mode">
 <meta name="author" content="Abhishek Sarkar">
 <style type="text/css">
@@ -231,26 +231,14 @@ for the JavaScript code in this tag.
 </head>
 <body>
 <div id="content">
-<h1 class="title">QTL browser</h1>
+<h1 class="title">Interactive simulations</h1>
 <div id="table-of-contents">
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
-<li><a href="#setup">Setup</a></li>
 <li><a href="#org8ef35b4">Test environment</a></li>
 <li><a href="#orgab18353">Production environment</a></li>
 </ul>
-</div>
-</div>
-
-<div id="outline-container-org3491c46" class="outline-2">
-<h2 id="setup"><a id="org3491c46"></a>Setup</h2>
-<div class="outline-text-2" id="text-setup">
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
-<span class="org-keyword">import</span> sqlite3
-</pre>
-</div>
 </div>
 </div>
 
@@ -309,7 +297,7 @@ Initialize the VM.
 <div class="org-src-container">
 <pre class="src src-ruby"><span class="org-type">Vagrant</span>.configure(2) <span class="org-keyword">do</span> |config|
   config.vm.box = <span class="org-string">"debian/stretch64"</span>
-  config.vm.network <span class="org-string">"forwarded_port"</span>, <span class="org-constant">guest:</span> 5006, <span class="org-constant">host:</span> 5008
+  config.vm.network <span class="org-string">"forwarded_port"</span>, <span class="org-constant">guest:</span> 5006, <span class="org-constant">host:</span> 5009
   config.vm.provider <span class="org-string">"virtualbox"</span> <span class="org-keyword">do</span> |vb|
     vb.name = <span class="org-string">"singlecell-modes"</span>
     vb.customize [<span class="org-string">"modifyvm"</span>, <span class="org-constant">:id</span>, <span class="org-string">"--cableconnected1"</span>, <span class="org-string">"on"</span>]
@@ -327,7 +315,7 @@ Initialize the VM.
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython">cd ~/singlecell-modes
+<pre class="src src-sh"><span class="org-builtin">cd</span> ~/scmodes
 vagrant up --provision
 </pre>
 </div>
@@ -337,7 +325,7 @@ vagrant up --provision
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh"><span class="org-builtin">cd</span> ~/singlecell-modes
+<pre class="src src-sh"><span class="org-builtin">cd</span> ~/scmodes
 vagrant halt
 vagrant up --no-provision
 </pre>
@@ -353,7 +341,7 @@ ssh into the VM.
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">vagrant ssh f7b1184
+<pre class="src src-sh">vagrant ssh 4233c3c
 </pre>
 </div>
 
@@ -386,7 +374,7 @@ Initialize a new environment.
 
 <div class="org-src-container">
 <pre class="src src-sh">conda update -yn base conda
-conda create -yqn <span class="org-string">"singlecell-modes"</span> numpy scipy pandas <span class="org-variable-name">bokeh</span>=1.2.0=py37_0
+conda create -yqn scmodes numpy scipy pandas <span class="org-variable-name">bokeh</span>=1.2.0=py37_0
 </pre>
 </div>
 
@@ -397,7 +385,7 @@ conda create -yqn <span class="org-string">"singlecell-modes"</span> numpy scipy
 <div class="org-src-container">
 <pre class="src src-sh">sbatch --partition=broadwl --job-name=rsync
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
-rsync -au /project2/mstephens/aksarkar/projects/singlecell-modes/browser/ shiny:singlecell-modes/
+rsync -au /project2/mstephens/aksarkar/projects/singlecell-modes/browser/ shiny:scmodes/
 </pre>
 </div>
 
@@ -407,8 +395,8 @@ Start the QTL browser. The code/data are available under <code>/vagrant</code> i
 
 <div class="org-src-container">
 <pre class="src src-sh"><span class="org-builtin">cd</span> /vagrant
-<span class="org-builtin">source</span> activate singlecell-modes
-nohup bokeh serve qtls --port 5006 --allow-websocket-origin=shiny.stephenslab.uchicago.edu:5008 &amp;
+<span class="org-builtin">source</span> activate scmodes
+nohup bokeh serve capture --port 5006 --allow-websocket-origin=shiny.stephenslab.uchicago.edu:5009 &amp;
 </pre>
 </div>
 </div>
@@ -416,7 +404,7 @@ nohup bokeh serve qtls --port 5006 --allow-websocket-origin=shiny.stephenslab.uc
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-07-22 Mon 11:08</p>
+<p class="date">Created: 2019-07-22 Mon 11:42</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
