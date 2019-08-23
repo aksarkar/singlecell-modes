@@ -3,13 +3,67 @@
 
 * Introduction
 
-  Suppose we have observations \(x_{ij} \sim f(\lambda_{ij})\). Rather than
-  making a distributional assumption \(\lambda_j \sim g_j(\cdot)\) (as in
+  Suppose we have observations \(x_{ij} \sim
+  \operatorname{Pois}(\lambda_{ij})\). Rather than making a distributional
+  assumption \(\lambda_j \sim g_j(\cdot)\) (as in
   [[file:deconvolution.org][expression deconvolution]]), we might make a /low
-  rank assumption/ \(h(\lambda_{ij}) = [\mathbf{L F}]_{ij}\).
+  rank assumption/ \(h(\lambda_{ij}) = [\mathbf{L F}]_{ij}\).  This assumption
+  can be interpreted as regularizing cells/genes towards each other, or as
+  discovering clusters in the data.
 
-  This assumption can be interpreted as regularizing cells/genes towards each
-  other, or as discovering clusters in the data.
+  A number of methods have been proposed to estimate low rank structure from
+  count data, several specialized for scRNA-seq data. 
+
+  - Non-negative matrix factorization
+    ([[https://papers.nips.cc/paper/1861-algorithms-for-non-negative-matrix-factorization.pdf][Lee
+    and Seung 2001]], [[https://arxiv.org/abs/1010.1763][Févotte and Idier
+    2011]])
+  - Latent dirichlet allocation
+    ([[http://www.jmlr.org/papers/volume3/blei03a/blei03a.pdf][Blei et al
+    2003]],
+    [[https://papers.nips.cc/paper/3902-online-learning-for-latent-dirichlet-allocation][Hoffman
+    et al. 2010]], [[http://proceedings.mlr.press/v22/taddy12.html][Taddy
+    2012]])
+  - Hierarchical Bayesian Poisson Factorization
+    ([[http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf][Gopalan
+    et al. 2015]],
+    [[https://onlinelibrary.wiley.com/doi/full/10.15252/msb.20188557][Levitin
+    et al. 2019]])
+  - ZINB-WAVE ([[https://www.nature.com/articles/s41467-017-02554-5][Risso et
+    al. 2018]])
+  - scVI ([[https://www.nature.com/articles/s41592-018-0229-2][Lopez et al.
+    2018]])
+  - DCA ([[https://www.nature.com/articles/s41467-018-07931-2][Eraslan et
+    al. 2019]])
+  - GLM-PCA ([[https://www.biorxiv.org/content/10.1101/574574v1][Townes et
+    al. 2019]])
+
+  There is one fundamental modelling decision which is not obvious from first
+  principles: what precisely is low rank? In other words, what is the
+  functional form of \(h(\cdot)\)? The methods above use either: \(h(x) = x\),
+  \(h(x) = \ln(x)\), or learn \(h\) from the data.
+
+  Here, we evaluate methods on their ability to generalize to new data. We use
+  real data, assuming:
+
+  \begin{align*}
+    x_{ij} &\sim \mathrm{Poisson}(s_i \lambda_{ij})\\
+    h(\lambda_{ij}) &= [\mathbf{L F}]_{ij}
+  \end{align*}
+
+  and hold out molecules by randomly thinning the observed counts:
+
+  \begin{align*}
+    y_{ij} &\sim \mathrm{Binomial}(x_{ij}, 0.5)\\
+    \tilde{y}_{ij} &= x_{ij} - y_{ij}\\
+  \end{align*}
+
+  This approach leaves the relative abundance of the transcripts unchanged in
+  expectation, implying that the low rank structure learned in \(\mathbf{Y}\)
+  should explain the data in \(\tilde{\mathbf{Y}}\).
+
+  Our metric is then the likelihood of the held-out data. We simply need to
+  re-scale to account for different size factors \(s_i\).
 
 * Setup
 
@@ -24,7 +78,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 60042226
+  : Submitted batch job 62023636
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -38,9 +92,19 @@
   # Out[1]:
   :END:
 
+  #+BEGIN_SRC ipython
+    import rpy2.robjects.packages
+    import rpy2.robjects.pandas2ri
+    import sklearn.decomposition as skd
+    import scipy.stats as st
+
+    rpy2.robjects.pandas2ri.activate()
+    glmpca = rpy2.robjects.packages.importr('glmpca')
+  #+END_SRC
+
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -50,13 +114,14 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
     import colorcet
     import matplotlib.pyplot as plt
     plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
   #+END_SRC
 
   #+RESULTS:
@@ -65,78 +130,7 @@
   :END:
 
 * Methods
-** Low rank approximation of count data
-
-   A number of methods have been proposed to estimate low rank structure from
-   count data, several specialized for scRNA-seq data. 
-
-   - Non-negative matrix factorization
-     ([[https://papers.nips.cc/paper/1861-algorithms-for-non-negative-matrix-factorization.pdf][Lee
-     and Seung 2001]], [[https://arxiv.org/abs/1010.1763][Févotte and Idier
-     2011]])
-   - Latent dirichlet allocation
-     ([[http://www.jmlr.org/papers/volume3/blei03a/blei03a.pdf][Blei et al
-     2003]],
-     [[https://papers.nips.cc/paper/3902-online-learning-for-latent-dirichlet-allocation][Hoffman
-     et al. 2010]], [[http://proceedings.mlr.press/v22/taddy12.html][Taddy
-     2012]])
-   - Hierarchical Bayesian Poisson Factorization
-     ([[http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf][Gopalan
-     et al. 2015]],
-     [[https://onlinelibrary.wiley.com/doi/full/10.15252/msb.20188557][Levitin
-     et al. 2019]])
-   - ZINB-WAVE ([[https://www.nature.com/articles/s41467-017-02554-5][Risso et
-     al. 2018]])
-   - scVI ([[https://www.nature.com/articles/s41592-018-0229-2][Lopez et al.
-     2018]])
-   - DCA ([[https://www.nature.com/articles/s41467-018-07931-2][Eraslan et
-     al. 2019]])
-   - GLM-PCA ([[https://www.biorxiv.org/content/10.1101/574574v1][Townes et
-     al. 2019]])
-
-   There is one fundamental modelling decision which is not obvious from first
-   principles: what precisely is low rank? In other words, what is the
-   functional form of \(h(\cdot)\)? The methods above use either: \(h(x) = x\),
-   \(h(x) = \ln(x)\), or learn \(h\) from the data.
-
-   Here, we evaluate methods on their ability to generalize to new data. We use
-   real data, assuming:
-
-   \[ x_{ij} \sim \mathrm{Poisson}(R_i \lambda_{ij}) \]
-
-   \[ \lambda_{ij} = [\mathbf{L F}]_{ij} \]
-
-   and hold out molecules by randomly thinning the observed counts:
-
-   \[ y_{ij} \sim \mathrm{Binomial}(x_{ij}, 0.5) \]
-
-   \[ \tilde{y}_{ij} = x_{ij} - y_{ij} \]
-
-   This approach leaves the relative abundance of the transcripts unchanged in
-   expectation, implying that the low rank structure learned in \(\mathbf{Y}\)
-   should explain the data in \(\tilde{\mathbf{Y}}\).
-
-   Our metric is then the likelihood of the held-out data. We simply need to
-   re-scale to account for different size factors \(R_i\).
-
 ** LRA of transformed data
-
-   We can write principal components analysis as a generative model (Tipping
-   1999):
-
-   \[ \mathbf{y}_i \sim \mathcal{N}(\mathbf{y}_i; \mathbf{W z}_i, \sigma^2 \mathbf{I}) \]
-
-   Now, suppose \(y_{ij} = \ln(x_{ij} + \epsilon)\). Then, via
-   change of variables we have:
-
-   \[ p(\mathbf{x}_i) = \frac{1}{\mathbf{x}_i + \epsilon}
-   \mathcal{N}(\ln(\mathbf{x}_i + \epsilon); \mathbf{W z}_i, \sigma^2
-   \mathbf{I}) \]
-
-   where we abuse notation for element-wise operations.
-
-   In general, this means we can compare the likelihood of the observed data
-   under models of different transformations of the observations.
 
 ** Datasets
 
@@ -150,11 +144,56 @@
    2. Fresh PBMCs sequenced on the 10X platform
       ([[https://www.nature.com/articles/ncomms14049][Zheng et al. 2017]])
 
+** Implementation
+
+   Wrap around GLM-PCA.
+
+   #+BEGIN_SRC ipython
+     def _glmpca(x, n_components, max_iters=None, eps=None):
+       ctl = {'maxIter': 100, 'eps': 1e-4}
+       if max_iters is not None:
+         ctl['maxIter'] = max_iters
+       if eps is not None:
+         ctl['eps'] = eps
+       ctl = rpy2.robjects.ListVector(ctl)
+       # GLM-PCA expects [genes, samples]
+       res = glmpca.glmpca(x.T, L=n_components, ctl=ctl)
+       # Follow GLM-PCA code for size factors, not the paper
+       s = np.log(x.mean(axis=1))
+       L = np.array(res.rx2('loadings'))
+       F = np.array(res.rx2('factors'))
+       etahat = s.reshape(-1, 1) + F.T.dot(L)
+       trace = np.array(res.rx2('dev'))
+       return etahat, trace
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[30]:
+   :END:
+
 * Results
-** iPSCs
+** PCA on (log) counts
    :PROPERTIES:
    :CUSTOM_ID: ipsc
    :END:
+
+   Investigate whether PCA on counts or log counts gives better log likelihood.
+   We can write principal components analysis as a generative model (Tipping
+   1999):
+
+   \[ \mathbf{y}_i \sim \mathcal{N}(\mathbf{y}_i; \mathbf{W z}_i, \sigma^2 \mathbf{I}) \]
+
+   Now, suppose \(y_{ij} = \ln(x_{ij} + \epsilon)\). Then, via
+   change of variables we have:
+
+   \[ p(\mathbf{x}_i) = \frac{1}{\mathbf{x}_i + \epsilon}
+   \mathcal{N}(\ln(\mathbf{x}_i + \epsilon); \mathbf{W z}_i, \sigma^2
+   \mathbf{I}) \]
+
+   where we abuse notation for element-wise operations. In general, this means
+   we can compare the likelihood of the observed data under models of different
+   transformations of the observations.
 
    #+NAME: pca
    #+BEGIN_SRC ipython :eval never
@@ -191,6 +230,150 @@
      PCA of untransformed counts: -4.712e+08
      PCA of log1p counts: -3.57e+09
    #+END_EXAMPLE
+
+** GLM-PCA on simulated data
+
+   Make sure we understand GLM-PCA on a simulated dataset.
+
+   \begin{align*}
+     x_{ij} &\sim \operatorname{Pois}(\exp(\eta_{ij}))\\
+     \eta_{ij} &= \sum_k l_{ik} f_{jk}\\
+     l_{ik} &\sim \mathcal{N}(0, 1)\\
+     f_{jk} &\sim \mathcal{N}(0, 1)
+   \end{align*}
+
+   #+BEGIN_SRC ipython
+     x, eta = scmodes.dataset.simulate_pois(500, 1000, 3, eta_max=3)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[17]:
+   :END:
+
+   Compute the oracle log likliehood.
+
+   #+BEGIN_SRC ipython
+     st.poisson(mu=np.exp(eta)).logpmf(x).sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[18]:
+   : -655323.8735824303
+   :END:
+
+   Fit the model using PLRA1.
+
+   #+BEGIN_SRC ipython
+     etahat = wlra.plra(x, rank=3)
+     st.poisson(mu=np.exp(etahat)).logpmf(x).sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[24]:
+   : -653862.7854399089
+   :END:
+
+   We simulated the data assuming \([\eta_{ij}]\) was low rank. Get the oracle
+   rank of \([\exp(\eta_{ij})]\).
+
+   #+BEGIN_SRC ipython :ipyfile figure/lra.org/sim-spectrum.png
+     d = np.linalg.svd(np.exp(eta))[1]
+     plt.clf()
+     plt.gcf().set_size_inches(5, 3)
+     plt.plot(d, lw=1, c='k')
+     plt.xlabel('Singular value')
+     plt.ylabel('Magnitude')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[28]:
+   [[file:figure/lra.org/sim-spectrum.png]]
+   :END:
+
+   For comparison, fit NMF using the oracle rank.
+
+   #+BEGIN_SRC ipython :async t
+     m = skd.NMF(n_components=100, beta_loss=1, solver='mu', max_iter=1000)
+     L = m.fit_transform(x)
+     F = m.components_
+     lam = (L / L.sum(axis=0)).dot(F)
+     st.poisson(mu=lam).logpmf(x).sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[27]:
+   : -2144790.5600828375
+   :END:
+
+   Fit GLM-PCA using the oracle rank and default optimization
+   parameters. Compute the log likelihood of the fit.
+
+   #+BEGIN_SRC ipython :async t
+     etahat, trace = _glmpca(x, n_components=3)
+     st.poisson(mu=np.exp(etahat)).logpmf(x).sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[31]:
+   : -656295.9809819672
+   :END:
+
+   Check whether GLM-PCA actually converged. By default, it runs 100
+   iterations.
+
+   #+BEGIN_SRC ipython :ipyfile figure/lra.org/glmpca-trace0.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.plot(trace, lw=1, c='k')
+     plt.xlabel('Iteration')
+     plt.ylabel('Deviance')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[32]:
+   [[file:figure/lra.org/glmpca-trace0.png]]
+   :END:
+
+   Run GLM-PCA with stricter stopping criteria.
+
+   #+BEGIN_SRC ipython :async t
+     etahat, trace = _glmpca(x, n_components=3, eps=1e-8)
+     st.poisson(mu=np.exp(etahat)).logpmf(x).sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[33]:
+   : -656216.9528662462
+   :END:
+
+   Check convergence.
+
+   #+BEGIN_SRC ipython :ipyfile figure/lra.org/glmpca-trace1.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.plot(trace, lw=1, c='k')
+     plt.xlabel('Iteration')
+     plt.ylabel('Deviance')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[34]:
+   [[file:figure/lra.org/glmpca-trace1.png]]
+   :END:
+   
+   GLM-PCA still does worse than oracle even on this simple simulated dataset.
 
 ** Cortex
    :PROPERTIES:
@@ -251,4 +434,18 @@
      EOF
    #+END_SRC
 
-   
+** Plot the results
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     cortex = pd.concat([
+       pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/cortex-glmpca.txt.gz', sep='\t', index_col=0),
+       pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/cortex-nmf.txt.gz', sep='\t', index_col=0)
+     ], axis='columns')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   :END:

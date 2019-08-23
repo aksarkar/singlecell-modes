@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-02 Thu 23:17 -->
+<!-- 2019-08-23 Fri 12:12 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Low rank approximation</title>
@@ -262,16 +262,18 @@ for the JavaScript code in this tag.
 <li><a href="#org5889bba">Setup</a></li>
 <li><a href="#org9a4fac9">Methods</a>
 <ul>
-<li><a href="#orgd4cbf9b">Low rank approximation of count data</a></li>
 <li><a href="#orgfb96e03">LRA of transformed data</a></li>
 <li><a href="#org42bd0a9">Datasets</a></li>
+<li><a href="#org1dfce43">Implementation</a></li>
 </ul>
 </li>
 <li><a href="#org77d27ef">Results</a>
 <ul>
-<li><a href="#ipsc">iPSCs</a></li>
+<li><a href="#ipsc">PCA on (log) counts</a></li>
+<li><a href="#org79a636a">GLM-PCA on simulated data</a></li>
 <li><a href="#cortex">Cortex</a></li>
 <li><a href="#pbmc">PBMCs</a></li>
+<li><a href="#org443406e">Plot the results</a></li>
 </ul>
 </li>
 </ul>
@@ -282,51 +284,15 @@ for the JavaScript code in this tag.
 <h2 id="orga9ab311">Introduction</h2>
 <div class="outline-text-2" id="text-orga9ab311">
 <p>
-Suppose we have observations \(x_{ij} \sim f(\lambda_{ij})\). Rather than
-making a distributional assumption \(\lambda_j \sim g_j(\cdot)\) (as in
+Suppose we have observations \(x_{ij} \sim
+  \operatorname{Pois}(\lambda_{ij})\). Rather than making a distributional
+assumption \(\lambda_j \sim g_j(\cdot)\) (as in
 <a href="deconvolution.html">expression deconvolution</a>), we might make a <i>low
-rank assumption</i> \(h(\lambda_{ij}) = [\mathbf{L F}]_{ij}\).
+rank assumption</i> \(h(\lambda_{ij}) = [\mathbf{L F}]_{ij}\).  This assumption
+can be interpreted as regularizing cells/genes towards each other, or as
+discovering clusters in the data.
 </p>
 
-<p>
-This assumption can be interpreted as regularizing cells/genes towards each
-other, or as discovering clusters in the data.
-</p>
-</div>
-</div>
-
-<div id="outline-container-org5889bba" class="outline-2">
-<h2 id="org5889bba">Setup</h2>
-<div class="outline-text-2" id="text-org5889bba">
-<div class="org-src-container">
-<pre class="src src-ipython" id="org5d4dd9b"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
-<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
-<span class="org-keyword">import</span> scmodes
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">%matplotlib inline
-%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> colorcet
-<span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
-<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
-</pre>
-</div>
-</div>
-</div>
-
-<div id="outline-container-org9a4fac9" class="outline-2">
-<h2 id="org9a4fac9">Methods</h2>
-<div class="outline-text-2" id="text-org9a4fac9">
-</div>
-<div id="outline-container-orgd4cbf9b" class="outline-3">
-<h3 id="orgd4cbf9b">Low rank approximation of count data</h3>
-<div class="outline-text-3" id="text-orgd4cbf9b">
 <p>
 A number of methods have been proposed to estimate low rank structure from
 count data, several specialized for scRNA-seq data. 
@@ -370,25 +336,19 @@ Here, we evaluate methods on their ability to generalize to new data. We use
 real data, assuming:
 </p>
 
-<p>
-\[ x_{ij} \sim \mathrm{Poisson}(R_i \lambda_{ij}) \]
-</p>
-
-<p>
-\[ \lambda_{ij} = [\mathbf{L F}]_{ij} \]
-</p>
+\begin{align*}
+  x_{ij} &\sim \mathrm{Poisson}(s_i \lambda_{ij})\\
+  h(\lambda_{ij}) &= [\mathbf{L F}]_{ij}
+\end{align*}
 
 <p>
 and hold out molecules by randomly thinning the observed counts:
 </p>
 
-<p>
-\[ y_{ij} \sim \mathrm{Binomial}(x_{ij}, 0.5) \]
-</p>
-
-<p>
-\[ \tilde{y}_{ij} = x_{ij} - y_{ij} \]
-</p>
+\begin{align*}
+  y_{ij} &\sim \mathrm{Binomial}(x_{ij}, 0.5)\\
+  \tilde{y}_{ij} &= x_{ij} - y_{ij}\\
+\end{align*}
 
 <p>
 This approach leaves the relative abundance of the transcripts unchanged in
@@ -398,43 +358,54 @@ should explain the data in \(\tilde{\mathbf{Y}}\).
 
 <p>
 Our metric is then the likelihood of the held-out data. We simply need to
-re-scale to account for different size factors \(R_i\).
+re-scale to account for different size factors \(s_i\).
 </p>
 </div>
 </div>
 
+<div id="outline-container-org5889bba" class="outline-2">
+<h2 id="org5889bba">Setup</h2>
+<div class="outline-text-2" id="text-org5889bba">
+<div class="org-src-container">
+<pre class="src src-ipython" id="org5d4dd9b"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scmodes
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> rpy2.robjects.packages
+<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
+<span class="org-keyword">import</span> sklearn.decomposition <span class="org-keyword">as</span> skd
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+
+rpy2.robjects.pandas2ri.activate()
+<span class="org-variable-name">glmpca</span> = rpy2.robjects.packages.importr(<span class="org-string">'glmpca'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> colorcet
+<span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org9a4fac9" class="outline-2">
+<h2 id="org9a4fac9">Methods</h2>
+<div class="outline-text-2" id="text-org9a4fac9">
+</div>
 <div id="outline-container-orgfb96e03" class="outline-3">
 <h3 id="orgfb96e03">LRA of transformed data</h3>
-<div class="outline-text-3" id="text-orgfb96e03">
-<p>
-We can write principal components analysis as a generative model (Tipping
-1999):
-</p>
-
-<p>
-\[ \mathbf{y}_i \sim \mathcal{N}(\mathbf{y}_i; \mathbf{W z}_i, \sigma^2 \mathbf{I}) \]
-</p>
-
-<p>
-Now, suppose \(y_{ij} = \ln(x_{ij} + \epsilon)\). Then, via
-change of variables we have:
-</p>
-
-<p>
-\[ p(\mathbf{x}_i) = \frac{1}{\mathbf{x}_i + \epsilon}
-   \mathcal{N}(\ln(\mathbf{x}_i + \epsilon); \mathbf{W z}_i, \sigma^2
-   \mathbf{I}) \]
-</p>
-
-<p>
-where we abuse notation for element-wise operations.
-</p>
-
-<p>
-In general, this means we can compare the likelihood of the observed data
-under models of different transformations of the observations.
-</p>
-</div>
 </div>
 
 <div id="outline-container-org42bd0a9" class="outline-3">
@@ -455,15 +426,71 @@ al. 2015</a>)</li>
 </ol>
 </div>
 </div>
+
+<div id="outline-container-org1dfce43" class="outline-3">
+<h3 id="org1dfce43">Implementation</h3>
+<div class="outline-text-3" id="text-org1dfce43">
+<p>
+Wrap around GLM-PCA.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_glmpca</span>(x, n_components, max_iters=<span class="org-constant">None</span>, eps=<span class="org-constant">None</span>):
+  <span class="org-variable-name">ctl</span> = {<span class="org-string">'maxIter'</span>: 100, <span class="org-string">'eps'</span>: 1e-4}
+  <span class="org-keyword">if</span> max_iters <span class="org-keyword">is</span> <span class="org-keyword">not</span> <span class="org-constant">None</span>:
+    <span class="org-variable-name">ctl</span>[<span class="org-string">'maxIter'</span>] = max_iters
+  <span class="org-keyword">if</span> eps <span class="org-keyword">is</span> <span class="org-keyword">not</span> <span class="org-constant">None</span>:
+    <span class="org-variable-name">ctl</span>[<span class="org-string">'eps'</span>] = eps
+  <span class="org-variable-name">ctl</span> = rpy2.robjects.ListVector(ctl)
+  <span class="org-comment-delimiter"># </span><span class="org-comment">GLM-PCA expects [genes, samples]</span>
+  <span class="org-variable-name">res</span> = glmpca.glmpca(x.T, L=n_components, ctl=ctl)
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Follow GLM-PCA code for size factors, not the paper</span>
+  <span class="org-variable-name">s</span> = np.log(x.mean(axis=1))
+  <span class="org-variable-name">L</span> = np.array(res.rx2(<span class="org-string">'loadings'</span>))
+  <span class="org-variable-name">F</span> = np.array(res.rx2(<span class="org-string">'factors'</span>))
+  <span class="org-variable-name">etahat</span> = s.reshape(-1, 1) + F.T.dot(L)
+  <span class="org-variable-name">trace</span> = np.array(res.rx2(<span class="org-string">'dev'</span>))
+  <span class="org-keyword">return</span> etahat, trace
+</pre>
+</div>
+</div>
+</div>
 </div>
 
 <div id="outline-container-org77d27ef" class="outline-2">
 <h2 id="org77d27ef">Results</h2>
 <div class="outline-text-2" id="text-org77d27ef">
 </div>
-<div id="outline-container-org07cda86" class="outline-3">
-<h3 id="ipsc"><a id="org07cda86"></a>iPSCs</h3>
+<div id="outline-container-org8391426" class="outline-3">
+<h3 id="ipsc"><a id="org8391426"></a>PCA on (log) counts</h3>
 <div class="outline-text-3" id="text-ipsc">
+<p>
+Investigate whether PCA on counts or log counts gives better log likelihood.
+We can write principal components analysis as a generative model (Tipping
+1999):
+</p>
+
+<p>
+\[ \mathbf{y}_i \sim \mathcal{N}(\mathbf{y}_i; \mathbf{W z}_i, \sigma^2 \mathbf{I}) \]
+</p>
+
+<p>
+Now, suppose \(y_{ij} = \ln(x_{ij} + \epsilon)\). Then, via
+change of variables we have:
+</p>
+
+<p>
+\[ p(\mathbf{x}_i) = \frac{1}{\mathbf{x}_i + \epsilon}
+   \mathcal{N}(\ln(\mathbf{x}_i + \epsilon); \mathbf{W z}_i, \sigma^2
+   \mathbf{I}) \]
+</p>
+
+<p>
+where we abuse notation for element-wise operations. In general, this means
+we can compare the likelihood of the observed data under models of different
+transformations of the observations.
+</p>
+
 <div class="org-src-container">
 <pre class="src src-ipython" id="org73942cb">&lt;&lt;imports&gt;&gt;
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
@@ -500,11 +527,177 @@ PCA of log1p counts: -3.57e+09
 </div>
 </div>
 
-<div id="outline-container-org400376e" class="outline-3">
-<h3 id="cortex"><a id="org400376e"></a>Cortex</h3>
+<div id="outline-container-org79a636a" class="outline-3">
+<h3 id="org79a636a">GLM-PCA on simulated data</h3>
+<div class="outline-text-3" id="text-org79a636a">
+<p>
+Make sure we understand GLM-PCA on a simulated dataset.
+</p>
+
+\begin{align*}
+  x_{ij} &\sim \operatorname{Pois}(\exp(\eta_{ij}))\\
+  \eta_{ij} &= \sum_k l_{ik} f_{jk}\\
+  l_{ik} &\sim \mathcal{N}(0, 1)\\
+  f_{jk} &\sim \mathcal{N}(0, 1)
+\end{align*}
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span>, <span class="org-variable-name">eta</span> = scmodes.dataset.simulate_pois(500, 1000, 3, eta_max=3)
+</pre>
+</div>
+
+<p>
+Compute the oracle log likliehood.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">st.poisson(mu=np.exp(eta)).logpmf(x).<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<pre class="example">
+-655323.8735824303
+
+</pre>
+
+<p>
+Fit the model using PLRA1.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">etahat</span> = wlra.plra(x, rank=3)
+st.poisson(mu=np.exp(etahat)).logpmf(x).<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<pre class="example">
+-653862.7854399089
+
+</pre>
+
+<p>
+We simulated the data assuming \([\eta_{ij}]\) was low rank. Get the oracle
+rank of \([\exp(\eta_{ij})]\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">d</span> = np.linalg.svd(np.exp(eta))[1]
+plt.clf()
+plt.gcf().set_size_inches(5, 3)
+plt.plot(d, lw=1, c=<span class="org-string">'k'</span>)
+plt.xlabel(<span class="org-string">'Singular value'</span>)
+plt.ylabel(<span class="org-string">'Magnitude'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/lra.org/sim-spectrum.png" alt="sim-spectrum.png">
+</p>
+</div>
+
+<p>
+For comparison, fit NMF using the oracle rank.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">m</span> = skd.NMF(n_components=100, beta_loss=1, solver=<span class="org-string">'mu'</span>, max_iter=1000)
+<span class="org-variable-name">L</span> = m.fit_transform(x)
+<span class="org-variable-name">F</span> = m.components_
+<span class="org-variable-name">lam</span> = (L / L.<span class="org-builtin">sum</span>(axis=0)).dot(F)
+st.poisson(mu=lam).logpmf(x).<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<pre class="example">
+-2144790.5600828375
+
+</pre>
+
+<p>
+Fit GLM-PCA using the oracle rank and default optimization
+parameters. Compute the log likelihood of the fit.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">etahat</span>, <span class="org-variable-name">trace</span> = _glmpca(x, n_components=3)
+st.poisson(mu=np.exp(etahat)).logpmf(x).<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<pre class="example">
+-656295.9809819672
+
+</pre>
+
+<p>
+Check whether GLM-PCA actually converged. By default, it runs 100
+iterations.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.plot(trace, lw=1, c=<span class="org-string">'k'</span>)
+plt.xlabel(<span class="org-string">'Iteration'</span>)
+plt.ylabel(<span class="org-string">'Deviance'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/lra.org/glmpca-trace0.png" alt="glmpca-trace0.png">
+</p>
+</div>
+
+<p>
+Run GLM-PCA with stricter stopping criteria.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">etahat</span>, <span class="org-variable-name">trace</span> = _glmpca(x, n_components=3, eps=1e-8)
+st.poisson(mu=np.exp(etahat)).logpmf(x).<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<pre class="example">
+-656216.9528662462
+
+</pre>
+
+<p>
+Check convergence.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.plot(trace, lw=1, c=<span class="org-string">'k'</span>)
+plt.xlabel(<span class="org-string">'Iteration'</span>)
+plt.ylabel(<span class="org-string">'Deviance'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/lra.org/glmpca-trace1.png" alt="glmpca-trace1.png">
+</p>
+</div>
+
+<p>
+GLM-PCA still does worse than oracle even on this simple simulated dataset.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org62b5ee3" class="outline-3">
+<h3 id="cortex"><a id="org62b5ee3"></a>Cortex</h3>
 <div class="outline-text-3" id="text-cortex">
 <div class="org-src-container">
-<pre class="src src-ipython" id="org7be02fe">&lt;&lt;imports&gt;&gt;
+<pre class="src src-ipython" id="orgd50dfce">&lt;&lt;imports&gt;&gt;
 <span class="org-keyword">import</span> os
 <span class="org-variable-name">tasks</span> = [<span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>]
 <span class="org-variable-name">task</span> = tasks[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
@@ -536,11 +729,11 @@ EOF
 </div>
 </div>
 
-<div id="outline-container-orgc9a788e" class="outline-3">
-<h3 id="pbmc"><a id="orgc9a788e"></a>PBMCs</h3>
+<div id="outline-container-orgf25d6c7" class="outline-3">
+<h3 id="pbmc"><a id="orgf25d6c7"></a>PBMCs</h3>
 <div class="outline-text-3" id="text-pbmc">
 <div class="org-src-container">
-<pre class="src src-ipython" id="orgb5c3261">&lt;&lt;imports&gt;&gt;
+<pre class="src src-ipython" id="org5c83d2e">&lt;&lt;imports&gt;&gt;
 <span class="org-keyword">import</span> os
 <span class="org-variable-name">tasks</span> = [<span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>]
 <span class="org-variable-name">task</span> = tasks[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
@@ -561,11 +754,28 @@ EOF
 </div>
 </div>
 </div>
+
+<div id="outline-container-org443406e" class="outline-3">
+<h3 id="org443406e">Plot the results</h3>
+<div class="outline-text-3" id="text-org443406e">
+<p>
+Read the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cortex</span> = pd.concat([
+  pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/cortex-glmpca.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0),
+  pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/cortex-nmf.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+], axis=<span class="org-string">'columns'</span>)
+</pre>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-02 Thu 23:17</p>
+<p class="date">Created: 2019-08-23 Fri 12:12</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
