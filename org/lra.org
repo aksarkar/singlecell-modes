@@ -70,6 +70,7 @@
   #+BEGIN_SRC emacs-lisp :exports none
     (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
     (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+    (org-babel-lob-ingest "lra.org")
   #+END_SRC
 
   #+RESULTS:
@@ -78,7 +79,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 62023636
+  : Submitted batch job 62059511
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -97,6 +98,7 @@
     import rpy2.robjects.pandas2ri
     import sklearn.decomposition as skd
     import scipy.stats as st
+    import wlra
 
     rpy2.robjects.pandas2ri.activate()
     glmpca = rpy2.robjects.packages.importr('glmpca')
@@ -130,8 +132,6 @@
   :END:
 
 * Methods
-** LRA of transformed data
-
 ** Datasets
 
    We use real scRNA-seq datasets in heterogeneous tissues to benchmark
@@ -380,8 +380,60 @@
    :CUSTOM_ID: cortex
    :END:
 
-   #+NAME: cortex-bench
-   #+BEGIN_SRC ipython :eval never
+   Figure out why GLM-PCA broke. There is a bug in the software in fitting a
+   rank 1 model.
+
+   #+BEGIN_SRC ipython :async t
+     X = scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
+     llik = []
+     for k in range(2, 11):
+       try:
+         res = scmodes.benchmark.training_score_glmpca(X, n_components=k)
+       except:
+         res = np.nan
+       llik.append(res)
+     llik = np.array(llik)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[5]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/lra.org/cortex-glmpca.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.plot(llik, lw=1, c='k')
+     plt.xlabel('Rank')
+     plt.ylabel('Training llik')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   [[file:figure/lra.org/cortex-glmpca.png]]
+   :END:
+
+   Is the problem initialization? GLM-PCA uses a random initialization, so try
+   multiple restarts.
+
+   #+BEGIN_SRC ipython :async t
+     for i in range(10):
+       try:
+         res = scmodes.benchmark.training_score_glmpca(X, n_components=10)
+       except:
+         continue
+     res
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[25]:
+   : -25499577.33000473
+   :END:
+
+   #+BEGIN_SRC ipython :eval never :noweb tangle :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/cortex-bench.py
      <<imports>>
      import os
      tasks = ['nmf', 'glmpca']
@@ -391,23 +443,15 @@
      res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/cortex-{task}.txt.gz', compression='gzip', sep='\t')
    #+END_SRC
 
-   #+BEGIN_SRC sh
-     sbatch --partition=broadwl -a 1 -n1 -c28 --exclusive --mem=16G --time=60:00 --job-name=lra-benchmark --out=lra-benchmark.out   
+   #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -a 1 -n1 --mem=16G --time=60:00 --job-name=lra-benchmark --out=lra-benchmark.out   
      #!/bin/bash
      source activate scmodes
-     python <<EOF
-     <<cortex-bench>>
-     EOF
+     python /project2/mstephens/aksarkar/projects/singlecell-modes/code/cortex-bench.py
    #+END_SRC
 
-   #+BEGIN_SRC sh :noweb eval :session mstephens :dir /scratch/midway2/aksarkar/modes :results none
-     python <<EOF
-     <<imports>>
-     cortex = scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
-     res = scmodes.benchmark.evaluate_lra_generalization(cortex, methods=['glmpca'], n_trials=1) 
-     print(res)
-     EOF
-   #+END_SRC
+   #+RESULTS:
+   : Submitted batch job 62060774
 
 ** PBMCs
    :PROPERTIES:
