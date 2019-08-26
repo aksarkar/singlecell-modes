@@ -34,7 +34,7 @@
   #+CALL: ipython3(memory="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 60415367
+  : Submitted batch job 62078000
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -77,11 +77,12 @@
     import colorcet
     import matplotlib.pyplot as plt
     plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[21]:
   :END:
 
 * Methods
@@ -935,7 +936,7 @@
       <<cd8-cd19-mix>>
       res = scmodes.benchmark.evaluate_deconv_generalization(x.values, stratify=y, pool=None, train_size=0.5, test_size=0.1, random_state=0, methods=['gamma', 'point_gamma'])
       res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/cd8-cd19-mix-gpu.txt.gz', compression='gzip', sep='\t')
-    #+END_SRC
+(Figure \ref{fig:data-deconv}A)    #+END_SRC
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
       sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=12:00:00 --job-name=benchmark --output=benchmark-gpu.out
@@ -1235,4 +1236,162 @@
    :RESULTS:
    # Out[25]:
    [[file:figure/deconvolution.org/heterogeneous-benchmark.png]]
+   :END:
+** Finalize plots
+
+   #+BEGIN_SRC ipython :async t
+     benchmark = {
+       k: g.reset_index(level=0, drop=True) for k, g in
+       (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/homogeneous-kl.txt.gz',
+                    sep='\t', index_col=[0, 1])
+        .groupby(level=0))}
+     benchmark.update({
+       k: g.reset_index(level=0, drop=True) for k, g in
+       (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/synthetic-mix-kl.txt.gz',
+                    sep='\t', index_col=[0, 1])
+        .groupby(level=0))})
+     benchmark.update({
+       k: g.reset_index(level=0, drop=True) for k, g in
+       (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/heterogeneous-kl.txt.gz',
+                    sep='\t', index_col=[0, 1])
+        .groupby(level=0))})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     del benchmark['cortex']
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[23]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/mlcb-bench.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 3, sharex=True, sharey=False)
+     fig.set_size_inches(5, 4)
+     for a, k, t in zip(ax.ravel(), benchmark, ['B cell', 'Cytotoxic T', 'iPSC', 'B cell/T cell', 'Naive/cytotoxic T', 'PBMC']):
+       T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
+       a.boxplot([x[~np.isnan(x)] for x in T.T], widths=.5, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+       a.axhline(y=0, ls=':', lw=1, c='k')
+       a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+       a.set_title(t)
+     for a in ax:
+       a[0].set_ylabel('Improvement $KL(p \Vert \hat{p})$')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[27]:
+   [[file:figure/deconvolution.org/mlcb-bench.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     ipsc_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz', index_col=0, sep='\t')
+     lrt = st.chi2(1).sf(-2 * (ipsc_res['gamma'] - ipsc_res['point_gamma']))
+     ipsc_counts = scmodes.dataset.ipsc(prefix='/project2/mstephens/aksarkar/projects/singlecell-qtl/data/',
+                                        query=list(ipsc_res[lrt < .05 / lrt.shape[0]].index), return_df=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[29]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     annotation = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt', sep='\t')
+     keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', index_col=0, header=None, sep='\t')
+     annotation = annotation.loc[keep_samples.values.ravel()]
+     s = annotation['mol_hs']
+     donor_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/20130606_sample_info.txt', sep='\t')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[31]:
+   :END:
+
+   #+BEGIN_SRC ipython
+      ipsc_log_mu = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-log-mu.txt.gz', sep=' ', index_col=0)
+      ipsc_log_phi = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-log-phi.txt.gz', sep=' ', index_col=0)
+      ipsc_logodds = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-logodds.txt.gz', sep=' ', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[32]:
+   :END:
+
+   #+BEGIN_SRC ipython
+      def point_gamma_cdf(grid, log_mu, log_phi, logodds):
+        res = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).cdf(grid)
+        res *= sp.expit(-logodds)
+        res += sp.expit(logodds)
+        return res
+
+      lam = ipsc_counts.values / s.values.reshape(-1, 1)
+      grid = np.linspace(lam.min(), lam.max(), 1000)
+      cdfs = np.array([[point_gamma_cdf(grid,
+                                        ipsc_log_mu.loc[j, k],
+                                        ipsc_log_phi.loc[j, k],
+                                        ipsc_logodds.loc[j, k])
+                        for k in ipsc_log_mu]
+                       for j in ipsc_counts.columns
+                       if j != list(ipsc_log_mu.columns).index('NA18498')])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[33]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
+     colors = {k: 'r' if v == 'male' else 'b' for k, v in
+               donor_info.set_index('Sample')
+               .filter(items=list(ipsc_log_mu.columns), axis=0)
+               ['Gender']
+               .iteritems()}
+
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[35]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/mlcb-ex.png
+     k = 'ENSG00000129824'
+     x = ipsc_counts.loc[:,k].values
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(4, 4)
+
+     ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+     ax[0].set_title(gene_info.loc[k, 'name'])
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
+
+     for f, k in zip(cdfs[1], ipsc_log_mu.columns):
+       ax[1].plot(grid, f, lw=1, alpha=0.2, c=colors.get(k, 'k'))
+     ax[1].set_xlim(0, 2e-4)
+     ax[1].set_xticks(np.linspace(0, 2e-4, 3))
+     dummy = [plt.Line2D([0], [0], c='r'), plt.Line2D([0], [0], c='b')]
+     ax[1].legend(dummy, ['Male', 'Female'], frameon=False)
+     ax[1].set_ylabel('CDF')
+     ax[1].set_xlabel('Latent gene expression')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[48]:
+   [[file:figure/deconvolution.org/mlcb-ex.png]]
    :END:
