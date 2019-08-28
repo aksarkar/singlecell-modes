@@ -79,7 +79,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 62059511
+  : Submitted batch job 62145068
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -106,7 +106,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -116,7 +116,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[4]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -128,7 +128,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[5]:
   :END:
 
 * Methods
@@ -381,10 +381,18 @@
    :END:
 
    Figure out why GLM-PCA broke. There is a bug in the software in fitting a
-   rank 1 model.
+   rank 1 model. /Townes et al. did not analyze this dataset in their paper./
+
+   #+BEGIN_SRC ipython
+     X = scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[5]:
+   :END:
 
    #+BEGIN_SRC ipython :async t
-     X = scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
      llik = []
      for k in range(2, 11):
        try:
@@ -433,13 +441,22 @@
    : -25499577.33000473
    :END:
 
+   Try our Python implementation.
+
+   #+BEGIN_SRC ipython
+     import scmodes.pois
+     res1 = scmodes.pois.pois_fa_glm(X, n_components=1, verbose=True)
+   #+END_SRC
+
+   Run the benchmark.
+
    #+BEGIN_SRC ipython :eval never :noweb tangle :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/cortex-bench.py
      <<imports>>
      import os
      tasks = ['nmf', 'glmpca']
      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      cortex = scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
-     res = scmodes.benchmark.evaluate_lra_generalization(cortex, methods=[task], n_trials=1)
+     res = scmodes.benchmark.evaluate_lra_generalization(cortex, methods=[task], n_trials=1, n_components=5, max_restarts=10)
      res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/cortex-{task}.txt.gz', compression='gzip', sep='\t')
    #+END_SRC
 
@@ -451,45 +468,124 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 62060774
+   : Submitted batch job 62075344
 
-** PBMCs
+** Sorted cells benchmark
+
+   #+NAME: zheng-bench
+   #+BEGIN_SRC ipython :eval never :noweb tangle :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/zheng-bench-lra.py
+     <<imports>>
+     import os
+     methods = ['nmf', 'glmpca', 'scvi']
+     datasets = ['b_cells', 'cytotoxic_t', 'naive_t']
+     d = datasets[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     data = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{d}/filtered_matrices_mex/hg19/', return_df=True)
+     res = scmodes.benchmark.evaluate_lra_generalization(data, methods=methods, n_trials=10)
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}.txt.gz')
+   #+END_SRC
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes
+     sbatch --partition=broadwl -a 0-2 -n1 --exclusive --time=3:00:00 --job-name=lra-benchmark
+     #!/bin/bash
+     source activate scmodes
+     python /project2/mstephens/aksarkar/projects/singlecell-modes/code/zheng-bench-lra.py
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 62145781
+
+** Synthetic mixtures benchmark
+
+   #+NAME: synthetic-mix-bench
+   #+BEGIN_SRC ipython :eval never :noweb tangle :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/synthetic-mix-lra.py
+     <<imports>>
+     import os
+     methods = ['nmf', 'glmpca', 'scvi']
+     datasets = [('cytotoxic_t', 'b_cells'), ('cytotoxic_t', 'naive_t')]
+     d1, d2 = datasets[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     x1 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{d1}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
+     x2 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{d2}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
+     x, y = scmodes.dataset.synthetic_mix(x1, x2, min_detect=.25)
+     res = scmodes.benchmark.evaluate_lra_generalization(x, methods=methods, n_trials=10)
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d1}-{d2}.txt.gz')
+   #+END_SRC
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -a 0-1 -n1 --exclusive --time=6:00:00 --job-name=lra-benchmark
+     #!/bin/bash
+     source activate scmodes
+     python /project2/mstephens/aksarkar/projects/singlecell-modes/code/synthetic-mix-lra.py
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 62145912
+
+** PBMCs benchmark
    :PROPERTIES:
    :CUSTOM_ID: pbmc
    :END:
 
-   #+NAME: pbmcs-bench
-   #+BEGIN_SRC ipython :eval never
+   #+BEGIN_SRC ipython :eval never :noweb tangle :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lra.py
      <<imports>>
      import os
-     tasks = ['nmf', 'glmpca']
+     tasks = ['nmf', 'glmpca', 'scvi']
      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-     data = scmodes.dataset.read10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19/')
-     res = scmodes.benchmark.evaluate_lra_generalization(data, methods=[task])
-     res.to_csv('/scratch/midway2/aksarkar/modes/lra-generalization/pbmcs-{task}.txt.gz')
+     data = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19/', return_df=True)
+     res = scmodes.benchmark.evaluate_lra_generalization(data, methods=[task], n_trials=10)
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/pbmcs-{task}.txt.gz')
    #+END_SRC
 
-   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes
-     sbatch --partition=broadwl -a 0 -n1 -c28 --exclusive --mem=16G --time=60:00 --job-name=lra-benchmark --out=lra-benchmark.out
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -a 0-2 -n1 -c28 --exclusive --time=60:00 --job-name=lra-benchmark
      #!/bin/bash
      source activate scmodes
-     python <<EOF
-     <<cortex-bench>>
-     EOF
+     python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lra.py
    #+END_SRC
 
+   #+RESULTS:
+   : Submitted batch job 62145919
+
 ** Plot the results
+
+   #+BEGIN_SRC sh
+     rsync -au /scratch/midway2/aksarkar/modes/lra-generalization/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/
+   #+END_SRC
+
+   #+RESULTS:
 
    Read the results.
 
    #+BEGIN_SRC ipython
-     cortex = pd.concat([
-       pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/cortex-glmpca.txt.gz', sep='\t', index_col=0),
-       pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/cortex-nmf.txt.gz', sep='\t', index_col=0)
-     ], axis='columns')
+     data = ['b_cells', 'cytotoxic_t', 'naive_t', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t']
+     titles = ['B cells', 'Cytotoxic T', 'Naive T', 'B cell/T cell', 'Naive/cytotoxic T']
+     results = {k: pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/{k}.txt.gz', header=[0, 1], index_col=0)
+                for k in data}
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[43]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/lra.org/mlcb-bench-lra.png
+     plt.clf()
+     fig, ax = plt.subplots(1, len(results), sharey=True)
+     fig.set_size_inches(7, 2)
+     for a, k, t in zip(ax, results, titles):
+       llik = results[k]['validation']
+       for x, m in enumerate(llik):
+         a.scatter(x + np.random.normal(scale=0.1, size=llik.shape[0]), llik[m].values, s=1, c='k', zorder=3)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xlim(-0.5, 2.5)
+       a.set_xticks(np.arange(3))
+       a.set_xticklabels(['NMF', 'GLMPCA', 'SCVI'], rotation=90)
+       a.set_title(t)
+     ax[0].set_ylabel('Validation log lik')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[44]:
+   [[file:figure/lra.org/mlcb-bench-lra.png]]
    :END:
