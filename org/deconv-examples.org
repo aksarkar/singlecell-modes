@@ -24,7 +24,7 @@
   #+CALL: ipython3(memory="32G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 60431630
+  : Submitted batch job 62153033
 
   #+BEGIN_SRC ipython
     import functools as ft
@@ -72,6 +72,7 @@
     import colorcet
     import matplotlib.pyplot as plt
     plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
   #+END_SRC
 
   #+RESULTS:
@@ -887,11 +888,11 @@
    Read the results.
 
    #+BEGIN_SRC ipython
-      benchmark = {
-        k: g.reset_index(level=0, drop=True) for k, g in
-        (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/synthetic-mix-kl.txt.gz',
-                     sep='\t', index_col=[0, 1])
-         .groupby(level=0))}
+     benchmark = {
+       k: g.reset_index(level=0, drop=True) for k, g in
+       (pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/synthetic-mix-kl.txt.gz',
+                    sep='\t', index_col=[0, 1])
+        .groupby(level=0))}
    #+END_SRC
 
    #+RESULTS:
@@ -948,6 +949,35 @@
    [[file:figure/deconvolution.org/cd8-cd19-mix-npmle-examples.png]]
    :END:
 
+   #+BEGIN_SRC ipython :ipyfile figure/deconv-examples.org/cd8-cd19-mlcb-examples.png
+     llik_diff = benchmark['cd8-cd19-mix']['npmle'] - benchmark['cd8-cd19-mix']['unimodal']
+     query = benchmark['cd8-cd19-mix'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=4).index].index.astype(int)
+     plt.clf()
+     fig, ax = plt.subplots(2, 2)
+     fig.set_size_inches(4, 4)
+     for a, k in zip(ax.ravel(), query):
+       h = a.hist(mix1.loc[y1 == 1,mix1.columns[k]], bins=np.arange(mix1.iloc[:,k].max() + 1), color='k', alpha=0.6, label='T cells')
+       a.hist(mix1.loc[y1 == 0,mix1.columns[k]], bins=np.arange(mix1.iloc[:,k].max() + 1), color='r', alpha=0.6, label='B cells')
+       a.text(x=.95, y=.95,
+              s=f"$\Delta KL$={llik_diff.iloc[k]:.1g}",
+              horizontalalignment='right',
+              verticalalignment='top',
+              transform=a.transAxes)
+       a.set_title(gene_info.loc[mix1.columns[k], 'name'] if mix1.columns[k] in gene_info.index else mix1.columns[k])
+     ax[0, 0].legend(frameon=False, loc='center right')
+     for a in ax:
+       a[0].set_ylabel('Num cells')
+     for a in ax.T:
+       a[-1].set_xlabel('Num molecules')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[13]:
+   [[file:figure/deconv-examples.org/cd8-cd19-mlcb-examples.png]]
+   :END:
+
    Look cytotoxic/naive T cell mix.
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cyto-naive-t-mix-npmle-examples.png
@@ -1001,8 +1031,10 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[29]:
+   # Out[45]:
    :END:
+
+** Cortex
 
    Fix the cortex count matrix (seems to break the parser in ~pandas~).
 
@@ -1176,24 +1208,24 @@
    Show genes where NPMLE shows greatest performance gain.
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/cortex-npmle-examples.png
-      llik_diff = benchmark['cortex']['npmle'] - benchmark['cortex']['gamma']
-      query = benchmark['cortex'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
-      plt.clf()
-      fig, ax = plt.subplots(4, 3)
-      fig.set_size_inches(7, 5)
-      for a, k in zip(ax.ravel(), query):
-        a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].max() + 1), color='k')
-        a.text(x=.95, y=.95,
-               s=f"$\Delta KL$={llik_diff.loc[k]:.1f}",
-               horizontalalignment='right',
-               verticalalignment='top',
-               transform=a.transAxes)
-        a.set_title(k.upper())
-      for y in range(ax.shape[0]):
-        ax[y][0].set_ylabel('Num cells')
-      for x in range(ax.shape[1]):
-        ax[-1][x].set_xlabel('Num mols')
-      fig.tight_layout()
+     llik_diff = benchmark['cortex']['npmle'] - benchmark['cortex']['gamma']
+     query = benchmark['cortex'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
+     plt.clf()
+     fig, ax = plt.subplots(4, 3)
+     fig.set_size_inches(7, 5)
+     for a, k in zip(ax.ravel(), query):
+       a.hist(cortex_counts.loc[:,k], bins=np.arange(cortex_counts.loc[:,k].max() + 1), color='k')
+       a.text(x=.95, y=.95,
+              s=f"$\Delta KL$={llik_diff.loc[k]:.1f}",
+              horizontalalignment='right',
+              verticalalignment='top',
+              transform=a.transAxes)
+       a.set_title(k.upper())
+     for y in range(ax.shape[0]):
+       ax[y][0].set_ylabel('Num cells')
+     for x in range(ax.shape[1]):
+       ax[-1][x].set_xlabel('Num mols')
+     fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
@@ -1271,4 +1303,42 @@
    [[file:figure/deconvolution.org/cortex-scn2a.png]]
    :END:
 
+** PBMCs
 
+   Read the PBMC data.
+
+   #+BEGIN_SRC ipython :async t
+     pbmcs_68k_counts = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19/', return_df=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[53]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconv-examples.org/pbmc-npmle-examples.png
+     llik_diff = benchmark['pbmcs_68k']['npmle'] - benchmark['pbmcs_68k']['unimodal']
+     query = benchmark['pbmcs_68k'].loc[llik_diff[llik_diff > 0].sort_values(ascending=False).head(n=12).index].index
+     plt.clf()
+     fig, ax = plt.subplots(4, 3)
+     fig.set_size_inches(7, 5)
+     for a, k in zip(ax.ravel(), query):
+       a.hist(pbmcs_68k_counts.loc[:,k], bins=np.arange(pbmcs_68k_counts.loc[:,k].max() + 1), color='k')
+       a.text(x=.95, y=.95,
+              s=f"$\Delta KL$={llik_diff.loc[k]:.2f}",
+              horizontalalignment='right',
+              verticalalignment='top',
+              transform=a.transAxes)
+       a.set_title(gene_info.loc[k, 'name'].upper())
+     for y in range(ax.shape[0]):
+       ax[y][0].set_ylabel('Num cells')
+     for x in range(ax.shape[1]):
+       ax[-1][x].set_xlabel('Num mols')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[63]:
+   [[file:figure/deconv-examples.org/pbmc-npmle-examples.png]]
+   :END:

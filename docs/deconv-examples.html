@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-07-22 Mon 11:09 -->
+<!-- 2019-08-29 Thu 15:21 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Distribution deconvolution examples</title>
@@ -246,6 +246,8 @@ for the JavaScript code in this tag.
 <li><a href="#orgef19613">Homogeneous populations</a></li>
 <li><a href="#org442ed69">Synthetic mixtures</a></li>
 <li><a href="#org97b471c">Heterogeneous populations</a></li>
+<li><a href="#org9ac8f84">Cortex</a></li>
+<li><a href="#org15bd898">PBMCs</a></li>
 </ul>
 </li>
 </ul>
@@ -299,6 +301,7 @@ rpy2.robjects.numpy2ri.activate()
 <pre class="src src-ipython"><span class="org-keyword">import</span> colorcet
 <span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
 <span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
 </pre>
 </div>
 </div>
@@ -1170,6 +1173,36 @@ fig.tight_layout()
 </p>
 </div>
 
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'cd8-cd19-mix'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'cd8-cd19-mix'</span>][<span class="org-string">'unimodal'</span>]
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'cd8-cd19-mix'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=4).index].index.astype(<span class="org-builtin">int</span>)
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 2)
+fig.set_size_inches(4, 4)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  <span class="org-variable-name">h</span> = a.hist(mix1.loc[y1 == 1,mix1.columns[k]], bins=np.arange(mix1.iloc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>, alpha=0.6, label=<span class="org-string">'T cells'</span>)
+  a.hist(mix1.loc[y1 == 0,mix1.columns[k]], bins=np.arange(mix1.iloc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'r'</span>, alpha=0.6, label=<span class="org-string">'B cells'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta KL$={llik_diff.iloc[k]:.1g}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+  a.set_title(gene_info.loc[mix1.columns[k], <span class="org-string">'name'</span>] <span class="org-keyword">if</span> mix1.columns[k] <span class="org-keyword">in</span> gene_info.index <span class="org-keyword">else</span> mix1.columns[k])
+ax[0, 0].legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center right'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
+  a[-1].set_xlabel(<span class="org-string">'Num molecules'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconv-examples.org/cd8-cd19-mlcb-examples.png" alt="cd8-cd19-mlcb-examples.png">
+</p>
+</div>
+
 <p>
 Look cytotoxic/naive T cell mix.
 </p>
@@ -1231,7 +1264,12 @@ Read the results.
    .groupby(level=0))}
 </pre>
 </div>
+</div>
+</div>
 
+<div id="outline-container-org9ac8f84" class="outline-3">
+<h3 id="org9ac8f84">Cortex</h3>
+<div class="outline-text-3" id="text-org9ac8f84">
 <p>
 Fix the cortex count matrix (seems to break the parser in <code>pandas</code>).
 </p>
@@ -1507,11 +1545,53 @@ fig.tight_layout()
 </div>
 </div>
 </div>
+
+<div id="outline-container-org15bd898" class="outline-3">
+<h3 id="org15bd898">PBMCs</h3>
+<div class="outline-text-3" id="text-org15bd898">
+<p>
+Read the PBMC data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">pbmcs_68k_counts</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik_diff</span> = benchmark[<span class="org-string">'pbmcs_68k'</span>][<span class="org-string">'npmle'</span>] - benchmark[<span class="org-string">'pbmcs_68k'</span>][<span class="org-string">'unimodal'</span>]
+<span class="org-variable-name">query</span> = benchmark[<span class="org-string">'pbmcs_68k'</span>].loc[llik_diff[llik_diff &gt; 0].sort_values(ascending=<span class="org-constant">False</span>).head(n=12).index].index
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 3)
+fig.set_size_inches(7, 5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query):
+  a.hist(pbmcs_68k_counts.loc[:,k], bins=np.arange(pbmcs_68k_counts.loc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.text(x=.95, y=.95,
+         s=f<span class="org-string">"$\Delta KL$={llik_diff.loc[k]:.2f}"</span>,
+         horizontalalignment=<span class="org-string">'right'</span>,
+         verticalalignment=<span class="org-string">'top'</span>,
+         transform=a.transAxes)
+  a.set_title(gene_info.loc[k, <span class="org-string">'name'</span>].upper())
+<span class="org-keyword">for</span> y <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[0]):
+  ax[y][0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> x <span class="org-keyword">in</span> <span class="org-builtin">range</span>(ax.shape[1]):
+  ax[-1][x].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconv-examples.org/pbmc-npmle-examples.png" alt="pbmc-npmle-examples.png">
+</p>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-07-22 Mon 11:09</p>
+<p class="date">Created: 2019-08-29 Thu 15:21</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
