@@ -536,14 +536,14 @@
    #+END_SRC
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -a 0-2 -n1 -c28 --exclusive --time=60:00 --job-name=lra-benchmark
+     sbatch --partition=broadwl -a 1-2 -n1 -c28 --exclusive --time=3:00:00 --job-name=lra-benchmark
      #!/bin/bash
      source activate scmodes
      python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lra.py
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 62145919
+   : Submitted batch job 62156286
 
 ** Plot the results
 

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-08-29 Thu 14:03 -->
+<!-- 2019-08-29 Thu 15:21 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Low rank approximation</title>
@@ -854,7 +854,7 @@ res.to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/lra-genera
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -a 0-2 -n1 -c28 --exclusive --time=60:00 --job-name=lra-benchmark
+<pre class="src src-sh">sbatch --partition=broadwl -a 1-2 -n1 -c28 --exclusive --time=60:00 --job-name=lra-benchmark
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lra.py
@@ -912,7 +912,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-08-29 Thu 14:03</p>
+<p class="date">Created: 2019-08-29 Thu 15:21</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
