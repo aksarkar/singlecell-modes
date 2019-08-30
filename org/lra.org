@@ -79,7 +79,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 62145068
+  : Submitted batch job 62182479
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -106,7 +106,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -116,7 +116,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -128,7 +128,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[5]:
+  # Out[4]:
   :END:
 
 * Methods
@@ -535,15 +535,27 @@
      res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/pbmcs-{task}.txt.gz')
    #+END_SRC
 
-   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -a 1-2 -n1 -c28 --exclusive --time=3:00:00 --job-name=lra-benchmark
+   #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -a 1 -n1 -c28 --exclusive --time=6:00:00 --job-name=lra-benchmark
      #!/bin/bash
      source activate scmodes
      python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lra.py
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 62156286
+   : Submitted batch job 62160371
+
+   Run SCVI on GPU.
+
+   #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 -a 2 --mem=16G --time=6:00:00 --job-name=lra-benchmark
+     #!/bin/bash
+     source activate scmodes
+     python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lra.py
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 62174419
 
 ** Plot the results
 
@@ -557,20 +569,21 @@
 
    #+BEGIN_SRC ipython
      data = ['b_cells', 'cytotoxic_t', 'naive_t', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t']
-     titles = ['B cells', 'Cytotoxic T', 'Naive T', 'B cell/T cell', 'Naive/cytotoxic T']
+     titles = ['B cell', 'Cytotoxic T', 'Naive T', 'B cell/T cell', 'Naive/cytotoxic T', 'PBMC']
      results = {k: pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/{k}.txt.gz', header=[0, 1], index_col=0)
                 for k in data}
+     results['pbmc'] = pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/pbmcs-{m}.txt.gz', header=[0, 1], index_col=0) for m in ['nmf', 'glmpca', 'scvi']], axis='columns')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[43]:
+   # Out[5]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/lra.org/mlcb-bench-lra.png
      plt.clf()
      fig, ax = plt.subplots(1, len(results), sharey=True)
-     fig.set_size_inches(7, 2)
+     fig.set_size_inches(8, 2)
      for a, k, t in zip(ax, results, titles):
        llik = results[k]['validation']
        for x, m in enumerate(llik):
@@ -586,6 +599,6 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[44]:
+   # Out[6]:
    [[file:figure/lra.org/mlcb-bench-lra.png]]
    :END:

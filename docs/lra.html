@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-08-29 Thu 15:21 -->
+<!-- 2019-08-30 Fri 17:59 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Low rank approximation</title>
@@ -854,7 +854,19 @@ res.to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/lra-genera
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -a 1-2 -n1 -c28 --exclusive --time=60:00 --job-name=lra-benchmark
+<pre class="src src-sh">sbatch --partition=broadwl -a 1 -n1 -c28 --exclusive --time=6:00:00 --job-name=lra-benchmark
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lra.py
+</pre>
+</div>
+
+<p>
+Run SCVI on GPU.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 -a 2 --mem=16G --time=6:00:00 --job-name=lra-benchmark
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lra.py
@@ -877,16 +889,17 @@ Read the results.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">data</span> = [<span class="org-string">'b_cells'</span>, <span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>, <span class="org-string">'cytotoxic_t-b_cells'</span>, <span class="org-string">'cytotoxic_t-naive_t'</span>]
-<span class="org-variable-name">titles</span> = [<span class="org-string">'B cells'</span>, <span class="org-string">'Cytotoxic T'</span>, <span class="org-string">'Naive T'</span>, <span class="org-string">'B cell/T cell'</span>, <span class="org-string">'Naive/cytotoxic T'</span>]
+<span class="org-variable-name">titles</span> = [<span class="org-string">'B cell'</span>, <span class="org-string">'Cytotoxic T'</span>, <span class="org-string">'Naive T'</span>, <span class="org-string">'B cell/T cell'</span>, <span class="org-string">'Naive/cytotoxic T'</span>, <span class="org-string">'PBMC'</span>]
 <span class="org-variable-name">results</span> = {k: pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/{k}.txt.gz'</span>, header=[0, 1], index_col=0)
            <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data}
+<span class="org-variable-name">results</span>[<span class="org-string">'pbmc'</span>] = pd.concat([pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/pbmcs-{m}.txt.gz'</span>, header=[0, 1], index_col=0) <span class="org-keyword">for</span> m <span class="org-keyword">in</span> [<span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>, <span class="org-string">'scvi'</span>]], axis=<span class="org-string">'columns'</span>)
 </pre>
 </div>
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, <span class="org-builtin">len</span>(results), sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(7, 2)
+fig.set_size_inches(8, 2)
 <span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, results, titles):
   <span class="org-variable-name">llik</span> = results[k][<span class="org-string">'validation'</span>]
   <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(llik):
@@ -912,7 +925,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-08-29 Thu 15:21</p>
+<p class="date">Created: 2019-08-30 Fri 17:59</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
