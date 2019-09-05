@@ -27,3 +27,4 @@ Technical details:
 - [[file:deconv-examples.org][Distribution deconvolution examples]]
 - [[file:deconv-de.org][Differential expression from distribution deconvolution]]
 - [[file:ep.org][Posterior approximation for scRNA-seq data]]
+- [[file:link.org][Link functions in Poisson LRA]]

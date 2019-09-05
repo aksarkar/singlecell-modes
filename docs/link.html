@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-05 Thu 18:18 -->
+<!-- 2019-09-05 Thu 21:09 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Modeling single cell data</title>
+<title>Link functions in Poisson LRA</title>
 <meta name="generator" content="Org mode">
 <meta name="author" content="Abhishek Sarkar">
 <style type="text/css">
@@ -228,49 +228,305 @@ for the JavaScript code in this tag.
  }
 /*]]>*///-->
 </script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
 </head>
 <body>
 <div id="content">
-<h1 class="title">Modeling single cell data</h1>
+<h1 class="title">Link functions in Poisson LRA</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org8c63169">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#org88ea76a">Results</a>
+<ul>
+<li><a href="#org5974aa2">Cortex data</a></li>
+<li><a href="#cortex">GLM-PCA</a></li>
+<li><a href="#org4663e60">PLRA1</a></li>
+<li><a href="#orge14627e">Gradient descent</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org8c63169" class="outline-2">
+<h2 id="org8c63169">Introduction</h2>
+<div class="outline-text-2" id="text-org8c63169">
 <p>
-The development of single cell RNA sequencing (scRNA-Seq) technology has
-enabled investigation of heterogeneity between individuals cells, dynamics of
-cellular processes, and the biological pathways underlying cellular
-differentiation. However, a number of features of scRNA-seq data continue to
-cause confusion among practitioners applying published methods to analyze new
-datasets, as well as researchers developing and benchmarking new methods.
+We are interested in fitting the model: \(
+  \newcommand\ml{\mathbf{L}}
+  \newcommand\mf{\mathbf{F}}
+  \)
 </p>
 
-<ul class="org-ul">
-<li><a href="pitfalls.html">Technical zero-generating mechanism in scRNA-seq data</a></li>
-<li><a href="modes.html">Estimating the number of modes</a></li>
-<li><a href="deconvolution.html">Comparison of distribution deconvolution methods</a></li>
-<li><a href="lra.html">Low rank approximation</a></li>
-<li><a href="transforms.html">Transformations of deconvolved gene expression distributions</a></li>
-</ul>
+\begin{align*}
+  x_{ij} &\sim \operatorname{Poisson}(s_i \lambda_{ij})\\
+  h(\lambda_{ij}) &= (\ml\mf)_{ij}
+\end{align*}
 
 <p>
-Technical details:
+GLM-PCA fits this model assuming \(h(x) = \ln x\) using Fisher scoring
+(Newton-Raphson updates). More precisely, GLM-PCA writes \(\lambda_{ij} =
+  \exp(\ln s_i + (\mathbf{LF}')_{ij})\). If \([\ln\lambda_{ij}]\) is rank
+\(K\), then \([\ln s_i + \ln\lambda_{ij}]\) is no more than rank \(K + 1\)
+(subadditivity of rank), which we will use in implementations which don't
+include size factors \(s_i\).
 </p>
 
+<p>
+In benchmarking GLM-PCA on the <code>cortex</code> dataset (Zeisel et al. 2015), we
+found severe numerical problems. Here, we investigate whether this is because
+of the link function or the optimization algorithm.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org3a957f4" class="outline-2">
+<h2 id="setup"><a id="org3a957f4"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+<span class="org-keyword">import</span> scmodes
+<span class="org-keyword">import</span> wlra
+<span class="org-keyword">import</span> wlra.grad
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org88ea76a" class="outline-2">
+<h2 id="org88ea76a">Results</h2>
+<div class="outline-text-2" id="text-org88ea76a">
+</div>
+<div id="outline-container-org5974aa2" class="outline-3">
+<h3 id="org5974aa2">Cortex data</h3>
+<div class="outline-text-3" id="text-org5974aa2">
+<p>
+Read the data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">X</span> = scmodes.dataset.cortex(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz'</span>, return_df=<span class="org-constant">True</span>)
+</pre>
+</div>
+</div>
+</div>
+<div id="outline-container-org2f33162" class="outline-3">
+<h3 id="cortex"><a id="org2f33162"></a>GLM-PCA</h3>
+<div class="outline-text-3" id="text-cortex">
+<p>
+Run GLM-PCA for different choices of rank \(K\) and report the <i>per-sample</i>
+training log likelihood.
+</p>
+
+<p>
+<b>Remarks.</b> 
+</p>
 <ul class="org-ul">
-<li><a href="browser.html">Interactive simulations</a></li>
-<li><a href="capture.html">Effect of capture rate on sampling variation</a></li>
-<li><a href="ash-estmode.html">Speed up ash mode estimation</a></li>
-<li><a href="nb-mix.html">Mixture of negative binomials</a></li>
-<li><a href="gamma.html">Convergence of Gamma deconvolution</a></li>
-<li><a href="poisson.html">Deconvolution of near-Poisson data</a></li>
-<li><a href="validation.html">Validation set log likelihood comparison</a></li>
-<li><a href="npmle.html">NPMLE on C1 spike-in data</a></li>
-<li><a href="deconv-examples.html">Distribution deconvolution examples</a></li>
-<li><a href="deconv-de.html">Differential expression from distribution deconvolution</a></li>
-<li><a href="ep.html">Posterior approximation for scRNA-seq data</a></li>
-<li><a href="link.html">Link functions in Poisson LRA</a></li>
+<li>There is a bug in the software in fitting a rank 1 model.</li>
+<li>Townes et al. did not analyze this dataset in their paper.</li>
 </ul>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik</span> = []
+<span class="org-keyword">for</span> k <span class="org-keyword">in</span> <span class="org-builtin">range</span>(2, 11):
+  <span class="org-keyword">try</span>:
+    <span class="org-variable-name">res</span> = scmodes.benchmark.training_score_glmpca(X, n_components=k)
+  <span class="org-keyword">except</span>:
+    <span class="org-variable-name">res</span> = np.nan
+  llik.append(res)
+<span class="org-variable-name">llik</span> = np.array(llik)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pd.Series({k: l <span class="org-keyword">for</span> k, l <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(np.arange(2, 11), llik)})
+</pre>
+</div>
+
+<pre class="example">
+2    -4.805854e+02
+3    -3.209583e+03
+4    -5.343589e+01
+5    -1.073886e+02
+6              NaN
+7    -7.383533e+01
+8    -2.566765e+09
+9              NaN
+10             NaN
+dtype: float64
+</pre>
+
+<p>
+Is the problem initialization? GLM-PCA uses a random initialization, so try
+multiple restarts.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">opt</span> = -np.inf
+<span class="org-keyword">for</span> i <span class="org-keyword">in</span> <span class="org-builtin">range</span>(5):
+  <span class="org-keyword">try</span>:
+    <span class="org-variable-name">res</span> = scmodes.benchmark.training_score_glmpca(X, n_components=10)
+    <span class="org-keyword">if</span> res &gt; opt:
+      <span class="org-variable-name">opt</span> = res
+  <span class="org-keyword">except</span>:
+    <span class="org-keyword">continue</span>
+opt
+</pre>
+</div>
+
+<pre class="example">
+-53.37463058913195
+
+</pre>
+</div>
+</div>
+
+<div id="outline-container-org4663e60" class="outline-3">
+<h3 id="org4663e60">PLRA1</h3>
+<div class="outline-text-3" id="text-org4663e60">
+<p>
+Fit the model via
+<a href="https://aksarkar.github.io/singlecell-ideas/wlra.html#orgd5da9e0">expectation
+maximization</a>.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">res</span> = wlra.plra(X.values, rank=10, max_iters=50000, verbose=<span class="org-constant">True</span>)
+</pre>
+</div>
+
+<p>
+Estimate the training log likelihood.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">l</span> = st.poisson(mu=np.exp(res)).logpmf(X.values)
+l.mean()
+</pre>
+</div>
+
+<pre class="example">
+-inf
+
+</pre>
+
+<p>
+Find data where we estimated \(\lambda_{ij} = 0\)  for \(x_{ij} > 0\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.where(~np.isfinite(l))
+</pre>
+</div>
+
+<pre class="example">
+(array([2928]), array([0]))
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">X.iloc[2928, 0]
+</pre>
+</div>
+
+<pre class="example">
+2
+
+</pre>
+
+<p>
+Estimate the log likelihood of the remaining data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.ma.masked_invalid(l).mean()
+</pre>
+</div>
+
+<pre class="example">
+-13.571587027584892
+
+</pre>
+</div>
+</div>
+
+<div id="outline-container-orge14627e" class="outline-3">
+<h3 id="orge14627e">Gradient descent</h3>
+<div class="outline-text-3" id="text-orge14627e">
+<p>
+Fit the model using gradient descent, accelerated by <a href="https://arxiv.org/abs/1412.6980">Adam</a>.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">m</span> = (wlra.grad.PoissonFA(n_samples=X.shape[0], n_features=X.shape[1], n_components=10, log_link=<span class="org-constant">True</span>)
+     .fit(X.values, lr=1e-2, max_epochs=10000, atol=1, verbose=<span class="org-constant">True</span>))
+</pre>
+</div>
+
+<p>
+Estimate the training log likelihood.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">st.poisson(mu=np.exp(m.L.dot(m.F))).logpmf(X.values).mean()
+</pre>
+</div>
+
+<pre class="example">
+-2.9916342744465516
+
+</pre>
+
+<p>
+This result appears to be in line with
+<a href="lra.html#org443406e">our previous GLM-PCA results</a>.
+</p>
+</div>
+</div>
+</div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-05 Thu 18:18</p>
+<p class="date">Created: 2019-09-05 Thu 21:09</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

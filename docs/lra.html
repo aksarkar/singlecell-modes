@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-08-30 Fri 17:59 -->
+<!-- 2019-09-05 Thu 18:17 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Low rank approximation</title>
@@ -269,8 +269,6 @@ for the JavaScript code in this tag.
 <li><a href="#org77d27ef">Results</a>
 <ul>
 <li><a href="#ipsc">PCA on (log) counts</a></li>
-<li><a href="#org79a636a">GLM-PCA on simulated data</a></li>
-<li><a href="#cortex">Cortex</a></li>
 <li><a href="#orge68d487">Sorted cells benchmark</a></li>
 <li><a href="#org924d356">Synthetic mixtures benchmark</a></li>
 <li><a href="#pbmc">PBMCs benchmark</a></li>
@@ -525,268 +523,6 @@ PCA of log1p counts: -3.57e+09
 </div>
 </div>
 
-<div id="outline-container-org79a636a" class="outline-3">
-<h3 id="org79a636a">GLM-PCA on simulated data</h3>
-<div class="outline-text-3" id="text-org79a636a">
-<p>
-Make sure we understand GLM-PCA on a simulated dataset.
-</p>
-
-\begin{align*}
-  x_{ij} &\sim \operatorname{Pois}(\exp(\eta_{ij}))\\
-  \eta_{ij} &= \sum_k l_{ik} f_{jk}\\
-  l_{ik} &\sim \mathcal{N}(0, 1)\\
-  f_{jk} &\sim \mathcal{N}(0, 1)
-\end{align*}
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">x</span>, <span class="org-variable-name">eta</span> = scmodes.dataset.simulate_pois(500, 1000, 3, eta_max=3)
-</pre>
-</div>
-
-<p>
-Compute the oracle log likliehood.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">st.poisson(mu=np.exp(eta)).logpmf(x).<span class="org-builtin">sum</span>()
-</pre>
-</div>
-
-<pre class="example">
--655323.8735824303
-
-</pre>
-
-<p>
-Fit the model using PLRA1.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">etahat</span> = wlra.plra(x, rank=3)
-st.poisson(mu=np.exp(etahat)).logpmf(x).<span class="org-builtin">sum</span>()
-</pre>
-</div>
-
-<pre class="example">
--653862.7854399089
-
-</pre>
-
-<p>
-We simulated the data assuming \([\eta_{ij}]\) was low rank. Get the oracle
-rank of \([\exp(\eta_{ij})]\).
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">d</span> = np.linalg.svd(np.exp(eta))[1]
-plt.clf()
-plt.gcf().set_size_inches(5, 3)
-plt.plot(d, lw=1, c=<span class="org-string">'k'</span>)
-plt.xlabel(<span class="org-string">'Singular value'</span>)
-plt.ylabel(<span class="org-string">'Magnitude'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/lra.org/sim-spectrum.png" alt="sim-spectrum.png">
-</p>
-</div>
-
-<p>
-For comparison, fit NMF using the oracle rank.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">m</span> = skd.NMF(n_components=100, beta_loss=1, solver=<span class="org-string">'mu'</span>, max_iter=1000)
-<span class="org-variable-name">L</span> = m.fit_transform(x)
-<span class="org-variable-name">F</span> = m.components_
-<span class="org-variable-name">lam</span> = (L / L.<span class="org-builtin">sum</span>(axis=0)).dot(F)
-st.poisson(mu=lam).logpmf(x).<span class="org-builtin">sum</span>()
-</pre>
-</div>
-
-<pre class="example">
--2144790.5600828375
-
-</pre>
-
-<p>
-Fit GLM-PCA using the oracle rank and default optimization
-parameters. Compute the log likelihood of the fit.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">etahat</span>, <span class="org-variable-name">trace</span> = _glmpca(x, n_components=3)
-st.poisson(mu=np.exp(etahat)).logpmf(x).<span class="org-builtin">sum</span>()
-</pre>
-</div>
-
-<pre class="example">
--656295.9809819672
-
-</pre>
-
-<p>
-Check whether GLM-PCA actually converged. By default, it runs 100
-iterations.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(3, 3)
-plt.plot(trace, lw=1, c=<span class="org-string">'k'</span>)
-plt.xlabel(<span class="org-string">'Iteration'</span>)
-plt.ylabel(<span class="org-string">'Deviance'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/lra.org/glmpca-trace0.png" alt="glmpca-trace0.png">
-</p>
-</div>
-
-<p>
-Run GLM-PCA with stricter stopping criteria.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">etahat</span>, <span class="org-variable-name">trace</span> = _glmpca(x, n_components=3, eps=1e-8)
-st.poisson(mu=np.exp(etahat)).logpmf(x).<span class="org-builtin">sum</span>()
-</pre>
-</div>
-
-<pre class="example">
--656216.9528662462
-
-</pre>
-
-<p>
-Check convergence.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(3, 3)
-plt.plot(trace, lw=1, c=<span class="org-string">'k'</span>)
-plt.xlabel(<span class="org-string">'Iteration'</span>)
-plt.ylabel(<span class="org-string">'Deviance'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/lra.org/glmpca-trace1.png" alt="glmpca-trace1.png">
-</p>
-</div>
-
-<p>
-GLM-PCA still does worse than oracle even on this simple simulated dataset.
-</p>
-</div>
-</div>
-
-<div id="outline-container-org62b5ee3" class="outline-3">
-<h3 id="cortex"><a id="org62b5ee3"></a>Cortex</h3>
-<div class="outline-text-3" id="text-cortex">
-<p>
-Figure out why GLM-PCA broke. There is a bug in the software in fitting a
-rank 1 model. <i>Townes et al. did not analyze this dataset in their paper.</i>
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">X</span> = scmodes.dataset.cortex(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz'</span>, return_df=<span class="org-constant">True</span>)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">llik</span> = []
-<span class="org-keyword">for</span> k <span class="org-keyword">in</span> <span class="org-builtin">range</span>(2, 11):
-  <span class="org-keyword">try</span>:
-    <span class="org-variable-name">res</span> = scmodes.benchmark.training_score_glmpca(X, n_components=k)
-  <span class="org-keyword">except</span>:
-    <span class="org-variable-name">res</span> = np.nan
-  llik.append(res)
-<span class="org-variable-name">llik</span> = np.array(llik)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(3, 3)
-plt.plot(llik, lw=1, c=<span class="org-string">'k'</span>)
-plt.xlabel(<span class="org-string">'Rank'</span>)
-plt.ylabel(<span class="org-string">'Training llik'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/lra.org/cortex-glmpca.png" alt="cortex-glmpca.png">
-</p>
-</div>
-
-<p>
-Is the problem initialization? GLM-PCA uses a random initialization, so try
-multiple restarts.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">for</span> i <span class="org-keyword">in</span> <span class="org-builtin">range</span>(10):
-  <span class="org-keyword">try</span>:
-    <span class="org-variable-name">res</span> = scmodes.benchmark.training_score_glmpca(X, n_components=10)
-  <span class="org-keyword">except</span>:
-    <span class="org-keyword">continue</span>
-res
-</pre>
-</div>
-
-<pre class="example">
--25499577.33000473
-
-</pre>
-
-<p>
-Try our Python implementation.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> scmodes.pois
-<span class="org-variable-name">res1</span> = scmodes.pois.pois_fa_glm(X, n_components=1, verbose=<span class="org-constant">True</span>)
-</pre>
-</div>
-
-<p>
-Run the benchmark.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">&lt;&lt;imports&gt;&gt;
-<span class="org-keyword">import</span> os
-<span class="org-variable-name">tasks</span> = [<span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>]
-<span class="org-variable-name">task</span> = tasks[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
-<span class="org-variable-name">cortex</span> = scmodes.dataset.cortex(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz'</span>, return_df=<span class="org-constant">True</span>)
-<span class="org-variable-name">res</span> = scmodes.benchmark.evaluate_lra_generalization(cortex, methods=[task], n_trials=1, n_components=5, max_restarts=10)
-res.to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/lra-generalization/cortex-{task}.txt.gz'</span>, compression=<span class="org-string">'gzip'</span>, sep=<span class="org-string">'\t'</span>)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -a 1 -n1 --mem=16G --time=60:00 --job-name=lra-benchmark --out=lra-benchmark.out   
-<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
-<span class="org-builtin">source</span> activate scmodes
-python /project2/mstephens/aksarkar/projects/singlecell-modes/code/cortex-bench.py
-</pre>
-</div>
-</div>
-</div>
-
 <div id="outline-container-orge68d487" class="outline-3">
 <h3 id="orge68d487">Sorted cells benchmark</h3>
 <div class="outline-text-3" id="text-orge68d487">
@@ -925,7 +661,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-08-30 Fri 17:59</p>
+<p class="date">Created: 2019-09-05 Thu 18:17</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

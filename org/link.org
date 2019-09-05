@@ -1,0 +1,251 @@
+#+TITLE: Link functions in Poisson LRA
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  We are interested in fitting the model: \(
+  \newcommand\ml{\mathbf{L}}
+  \newcommand\mf{\mathbf{F}}
+  \)
+
+  \begin{align*}
+    x_{ij} &\sim \operatorname{Poisson}(s_i \lambda_{ij})\\
+    h(\lambda_{ij}) &= (\ml\mf)_{ij}
+  \end{align*}
+
+  GLM-PCA fits this model assuming \(h(x) = \ln x\) using Fisher scoring
+  (Newton-Raphson updates). More precisely, GLM-PCA writes \(\lambda_{ij} =
+  \exp(\ln s_i + (\mathbf{LF}')_{ij})\). If \([\ln\lambda_{ij}]\) is rank
+  \(K\), then \([\ln s_i + \ln\lambda_{ij}]\) is no more than rank \(K + 1\)
+  (subadditivity of rank), which we will use in implementations which don't
+  include size factors \(s_i\).
+
+  In benchmarking GLM-PCA on the ~cortex~ dataset (Zeisel et al. 2015), we
+  found severe numerical problems. Here, we investigate whether this is because
+  of the link function or the optimization algorithm.
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",modules="cuda/9.0",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes
+
+  #+RESULTS:
+  : Submitted batch job 62303920
+
+  #+BEGIN_SRC ipython
+    import numpy as np
+    import pandas as pd
+    import scipy.stats as st
+    import scmodes
+    import wlra
+    import wlra.grad
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[5]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[6]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[7]:
+  :END:
+
+* Results
+** Cortex data
+
+   Read the data.
+
+   #+BEGIN_SRC ipython
+     X = scmodes.dataset.cortex('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/zeisel-2015/GSE60361_C1-3005-Expression.txt.gz', return_df=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   :END:
+** GLM-PCA
+   :PROPERTIES:
+   :CUSTOM_ID: cortex
+   :END:
+
+   Run GLM-PCA for different choices of rank \(K\) and report the /per-sample/
+   training log likelihood.
+
+   *Remarks.* 
+   - There is a bug in the software in fitting a rank 1 model. 
+   - Townes et al. did not analyze this dataset in their paper.
+
+   #+BEGIN_SRC ipython :async t
+     llik = []
+     for k in range(2, 11):
+       try:
+         res = scmodes.benchmark.training_score_glmpca(X, n_components=k)
+       except:
+         res = np.nan
+       llik.append(res)
+     llik = np.array(llik)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[15]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     pd.Series({k: l for k, l in zip(np.arange(2, 11), llik)})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[16]:
+   #+BEGIN_EXAMPLE
+     2    -4.805854e+02
+     3    -3.209583e+03
+     4    -5.343589e+01
+     5    -1.073886e+02
+     6              NaN
+     7    -7.383533e+01
+     8    -2.566765e+09
+     9              NaN
+     10             NaN
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Is the problem initialization? GLM-PCA uses a random initialization, so try
+   multiple restarts.
+
+   #+BEGIN_SRC ipython :async t
+     opt = -np.inf
+     for i in range(5):
+       try:
+         res = scmodes.benchmark.training_score_glmpca(X, n_components=10)
+         if res > opt:
+           opt = res
+       except:
+         continue
+     opt
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[18]:
+   : -53.37463058913195
+   :END:
+
+** PLRA1
+
+   Fit the model via
+   [[https://aksarkar.github.io/singlecell-ideas/wlra.html#orgd5da9e0][expectation
+   maximization]].
+
+   #+BEGIN_SRC ipython :async t
+     res = wlra.plra(X.values, rank=10, max_iters=50000, verbose=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   :END:
+
+   Estimate the training log likelihood.
+
+   #+BEGIN_SRC ipython
+     l = st.poisson(mu=np.exp(res)).logpmf(X.values)
+     l.mean()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[19]:
+   : -inf
+   :END:
+
+   Find data where we estimated \(\lambda_{ij} = 0\)  for \(x_{ij} > 0\).
+
+   #+BEGIN_SRC ipython
+     np.where(~np.isfinite(l))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[21]:
+   : (array([2928]), array([0]))
+   :END:
+
+   #+BEGIN_SRC ipython
+     X.iloc[2928, 0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[22]:
+   : 2
+   :END:
+
+   Estimate the log likelihood of the remaining data.
+
+   #+BEGIN_SRC ipython
+     np.ma.masked_invalid(l).mean()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[23]:
+   : -13.571587027584892
+   :END:
+
+** Gradient descent
+
+   Fit the model using gradient descent, accelerated by [[https://arxiv.org/abs/1412.6980][Adam]].
+
+   #+BEGIN_SRC ipython :async t
+     m = (wlra.grad.PoissonFA(n_samples=X.shape[0], n_features=X.shape[1], n_components=10, log_link=True)
+          .fit(X.values, lr=1e-2, max_epochs=10000, atol=1, verbose=True))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   :END:
+
+   Estimate the training log likelihood.
+
+   #+BEGIN_SRC ipython
+     st.poisson(mu=np.exp(m.L.dot(m.F))).logpmf(X.values).mean()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[10]:
+   : -2.9916342744465516
+   :END:
+
+   This result appears to be in line with
+   [[file:lra.org::*Plot the results][our previous GLM-PCA results]].
