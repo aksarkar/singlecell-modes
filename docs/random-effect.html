@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-06 Fri 11:39 -->
+<!-- 2019-09-07 Sat 22:01 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Modeling single cell data</title>
+<title>Distributional assumptions in Poisson LRA</title>
 <meta name="generator" content="Org mode">
 <meta name="author" content="Abhishek Sarkar">
 <style type="text/css">
@@ -228,50 +228,146 @@ for the JavaScript code in this tag.
  }
 /*]]>*///-->
 </script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
 </head>
 <body>
 <div id="content">
-<h1 class="title">Modeling single cell data</h1>
+<h1 class="title">Distributional assumptions in Poisson LRA</h1>
 <p>
-The development of single cell RNA sequencing (scRNA-Seq) technology has
-enabled investigation of heterogeneity between individuals cells, dynamics of
-cellular processes, and the biological pathways underlying cellular
-differentiation. However, a number of features of scRNA-seq data continue to
-cause confusion among practitioners applying published methods to analyze new
-datasets, as well as researchers developing and benchmarking new methods.
+We are interested in fitting the model: \(
+  \newcommand\ml{\mathbf{L}}
+  \newcommand\mf{\mathbf{F}}
+  \newcommand\mx{\mathbf{X}}
+  \newcommand\vs{\mathbf{s}}
+  \newcommand\mm{\mathbf{M}}
+  \newcommand\mphi{\boldsymbol{\Phi}}
+  \)
 </p>
 
-<ul class="org-ul">
-<li><a href="pitfalls.html">Technical zero-generating mechanism in scRNA-seq data</a></li>
-<li><a href="modes.html">Estimating the number of modes</a></li>
-<li><a href="deconvolution.html">Comparison of distribution deconvolution methods</a></li>
-<li><a href="lra.html">Low rank approximation</a></li>
-<li><a href="transforms.html">Transformations of deconvolved gene expression distributions</a></li>
-</ul>
+\begin{align*}
+  x_{ij} \mid s_i, \lambda_{ij} &\sim \operatorname{Poisson}(s_i \lambda_{ij})\\
+  \lambda_{ij} \mid \ml, \mf &= h^{-1}((\ml\mf)_{ij})
+\end{align*}
 
 <p>
-Technical details:
+where \(i = 1, \ldots, n\), \(j = 1, \ldots, p\), \(\ml\) is an \(n \times
+  K\) matrix, and \(\mf\) is a \(p \times K\) matrix. In this model, we make a
+structural (low rank) assumption but not a distributional assumption. This is
+analogous to choosing \(g = \delta_\mu\) (a point mass) in distribution
+deconvolution, and assuming that variation in the data is only introduced by
+the measurement process.
 </p>
 
-<ul class="org-ul">
-<li><a href="browser.html">Interactive simulations</a></li>
-<li><a href="capture.html">Effect of capture rate on sampling variation</a></li>
-<li><a href="ash-estmode.html">Speed up ash mode estimation</a></li>
-<li><a href="nb-mix.html">Mixture of negative binomials</a></li>
-<li><a href="gamma.html">Convergence of Gamma deconvolution</a></li>
-<li><a href="poisson.html">Deconvolution of near-Poisson data</a></li>
-<li><a href="validation.html">Validation set log likelihood comparison</a></li>
-<li><a href="npmle.html">NPMLE on C1 spike-in data</a></li>
-<li><a href="deconv-examples.html">Distribution deconvolution examples</a></li>
-<li><a href="deconv-de.html">Differential expression from distribution deconvolution</a></li>
-<li><a href="ep.html">Posterior approximation for scRNA-seq data</a></li>
-<li><a href="link.html">Link functions in Poisson LRA</a></li>
-<li><a href="random-effect.html">Distributional assumptions in Poisson LRA</a></li>
-</ul>
+<p>
+One way we can add a distributional assumption to this model is to introduce
+a random effect:
+</p>
+
+\begin{align*}
+  \lambda_{ij} \mid \mu_{ij}, u_{ij} &= \mu_{ij} u_{ij}\\
+  \mu_{ij} &= h^{-1}((\ml\mf)_{ij})\\
+  u_{ij} &\sim \operatorname{Gamma}(\phi_{ij}, \phi_{ij})
+\end{align*}
+
+<p>
+Under this assumption \(E[u_{ij}] = 1\), \(V[u_{ij}] = 1 / \phi_{ij}\), and
+\(\lambda_{ij} \mid \mu_{ij}, \phi_{ij} \sim \operatorname{Gamma}(\phi_{ij},
+  \phi_{ij} / \mu_{ij})\). (This is actually the same way we derive the Gamma
+prior on latent gene expression in distribution deconvolution of a single
+gene.)
+</p>
+
+<p>
+Under this model, \(\lambda_{ij}\) follows a "multivariate" Gamma
+distribution (the \(\mu_{ij}\) are dependent) centered around some
+low-dimensional manifold. (For comparison, in probabilistic PCA data are
+generated by picking a latent point on the manifold and adding isotropic
+Gaussian noise in the measurement process.)  We can make various
+simplifications, such as assuming \(\phi_{ij} = \phi_j\) or even \(\phi_{ij}
+  = \phi\), or assume more complicated structured random effects such as
+\(\phi_{ij} = \alpha_i \beta_j\). This assumption has been previously
+proposed, but not derived in this manner
+(<a href="https://arxiv.org/abs/1801.01708">Gouvert et al. 2018</a>).
+</p>
+
+<p>
+We could go further and assume:
+</p>
+
+<p>
+\[ \lambda_{ij} \mid \pi_{ij}, \mu_{ij}, \phi_{ij} \sim \pi_{ij}
+  \delta_0(\cdot) + (1 - \pi_{ij}) \operatorname{Gamma}(\phi_{ij}, \phi_{ij} /
+  \mu_{ij}) \]
+</p>
+
+<p>
+where the \(\pi_{ij}\) also have some structure (e.g. constant,
+gene-specific, label-specific). This assumption has also been previously
+proposed, but not derived in this manner (Risso et al. 2018, Lopez et
+al. 2018).
+</p>
+
+<p>
+We are interested in the practical problem: given estimates of \(\mu_{ij},
+  \phi_{ij}\) (and any other assumed parameters), how do we estimate
+\(\lambda_{ij}\)? By analogy to distribution deconvolution, we can treat
+\(p(\lambda_{ij})\) as a prior and get the posterior \(p(\lambda_{ij} \mid
+  \cdot)\) directly. The posterior is easy in the case of a Gamma prior:
+</p>
+
+\begin{align*}
+  p(\lambda_{ij} \mid \mu_{ij}, \phi_{ij}) &= \operatorname{Gamma}(\phi_{ij}, \phi_{ij} / \mu_{ij})\\
+  p(\lambda_{ij} \mid \mx, \vs, \mm, \mphi) &= p(\lambda_{ij} \mid x_{ij}, s_i, \mu_{ij}, \phi_{ij})\\
+  &\propto p(x_{ij} \mid s_i, \lambda_{ij}) p(\lambda_{ij} \mid \mu_{ij}, \phi_{ij})\\
+  &\propto \lambda_{ij}^{x_{ij}} \exp(-s_i \lambda_{ij}) \lambda_{ij}^{\phi_{ij} -
+    1}\exp(-\phi_{ij} \lambda_{ij} / \mu_{ij})\\
+  &\propto \lambda_{ij}^{x_{ij} + \phi_{ij} - 1} \exp(-\lambda_{ij}(s_i + \phi_{ij} / \mu_{ij}))\\
+  &= \operatorname{Gamma}(x_{ij} + \phi_{ij}, s_i + \phi_{ij} / \mu_{ij})\\
+  E[\lambda_{ij} \mid \mx, \cdot] &= \frac{x_{ij} + \phi_{ij}}{s_i + \phi_{ij} / \mu_{ij}}
+\end{align*}
+
+<p>
+If we assume the \(p(\lambda_{ij})\) is a mixture of a point mass on zero of
+size \(\pi_{ij}\) and a Gamma distribution, then the posterior will also be a
+point-Gamma mixture, with posterior mean
+</p>
+
+<p>
+\[ E[\lambda_{ij} \mid \mx, \cdot] = (1 - \pi_{ij}) \frac{x_{ij} +
+  \phi_{ij}}{s_i + \phi_{ij} / \mu_{ij}} \]
+</p>
+
+<p>
+This is derived by introducing an indicator variable \(z_{ij}\) denoting
+whether \(\lambda_{ij}\) was drawn from from the Gamma distribution, and
+marginalizing over \(z_{ij}\). (The posterior given \(z_{ij} = 0\) is a point
+mass on zero).
+</p>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-06 Fri 11:39</p>
+<p class="date">Created: 2019-09-07 Sat 22:01</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
