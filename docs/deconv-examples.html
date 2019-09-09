@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-08-29 Thu 15:21 -->
+<!-- 2019-09-08 Sun 22:16 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Distribution deconvolution examples</title>
@@ -1183,7 +1183,7 @@ fig.set_size_inches(4, 4)
   <span class="org-variable-name">h</span> = a.hist(mix1.loc[y1 == 1,mix1.columns[k]], bins=np.arange(mix1.iloc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>, alpha=0.6, label=<span class="org-string">'T cells'</span>)
   a.hist(mix1.loc[y1 == 0,mix1.columns[k]], bins=np.arange(mix1.iloc[:,k].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'r'</span>, alpha=0.6, label=<span class="org-string">'B cells'</span>)
   a.text(x=.95, y=.95,
-         s=f<span class="org-string">"$\Delta KL$={llik_diff.iloc[k]:.1g}"</span>,
+         s=f<span class="org-string">"$\Delta l$={llik_diff.iloc[k]:.1g}"</span>,
          horizontalalignment=<span class="org-string">'right'</span>,
          verticalalignment=<span class="org-string">'top'</span>,
          transform=a.transAxes)
@@ -1591,7 +1591,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-08-29 Thu 15:21</p>
+<p class="date">Created: 2019-09-08 Sun 22:16</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

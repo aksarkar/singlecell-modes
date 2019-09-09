@@ -24,7 +24,7 @@
   #+CALL: ipython3(memory="32G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 62153033
+  : Submitted batch job 62379119
 
   #+BEGIN_SRC ipython
     import functools as ft
@@ -50,11 +50,6 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
-  :END:
-
-  #+RESULTS: imports
-  :RESULTS:
   # Out[1]:
   :END:
 
@@ -65,7 +60,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -77,7 +72,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[3]:
   :END:
 
 * Results
@@ -137,7 +132,7 @@
 
    #+RESULTS: read-gene-info
    :RESULTS:
-   # Out[8]:
+   # Out[7]:
    :END:
 
 ** Spike-in data
@@ -897,7 +892,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[4]:
    :END:
 
    Read the data.
@@ -914,7 +909,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[5]:
    :END:
 
    Look at T cell/B cell mix.
@@ -959,7 +954,7 @@
        h = a.hist(mix1.loc[y1 == 1,mix1.columns[k]], bins=np.arange(mix1.iloc[:,k].max() + 1), color='k', alpha=0.6, label='T cells')
        a.hist(mix1.loc[y1 == 0,mix1.columns[k]], bins=np.arange(mix1.iloc[:,k].max() + 1), color='r', alpha=0.6, label='B cells')
        a.text(x=.95, y=.95,
-              s=f"$\Delta KL$={llik_diff.iloc[k]:.1g}",
+              s=f"$\Delta l$={llik_diff.iloc[k]:.1g}",
               horizontalalignment='right',
               verticalalignment='top',
               transform=a.transAxes)
@@ -974,7 +969,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[13]:
+   # Out[8]:
    [[file:figure/deconv-examples.org/cd8-cd19-mlcb-examples.png]]
    :END:
 
