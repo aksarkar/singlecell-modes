@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-08-27 Tue 23:40 -->
+<!-- 2019-09-08 Sun 19:45 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -274,7 +274,7 @@ for the JavaScript code in this tag.
 <li><a href="#homogeneous">Homogeneous cell populations</a></li>
 <li><a href="#synthetic">Synthetic cell mixtures</a></li>
 <li><a href="#heterogeneous">Heterogeneous cell populations</a></li>
-<li><a href="#org99de990">Finalize plots</a></li>
+<li><a href="#mlcb">MLCB plots</a></li>
 </ul>
 </li>
 </ul>
@@ -1048,7 +1048,7 @@ Plot the generalization performance of each method.
 <li>ZIG does not perform better than Gamma, supporting the conclusions of
 <a href="https://www.biorxiv.org/content/10.1101/582064v1">Svensson 2019</a></li>
 <li>There is heterogeneity which isn't adequately described by Gamma, but
-<a href="deconv-examples.html#org3205fdb">appears equally well
+<a href="deconv-examples.html#org421ce52">appears equally well
 described by unimodal/NPMLE</a></li>
 </ol>
 </div>
@@ -1498,9 +1498,9 @@ Plot the results.
 </div>
 </div>
 </div>
-<div id="outline-container-org99de990" class="outline-3">
-<h3 id="org99de990">Finalize plots</h3>
-<div class="outline-text-3" id="text-org99de990">
+<div id="outline-container-orge3cdfae" class="outline-3">
+<h3 id="mlcb"><a id="orge3cdfae"></a>MLCB plots</h3>
+<div class="outline-text-3" id="text-mlcb">
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">benchmark</span> = {
   k: g.reset_index(level=0, drop=<span class="org-constant">True</span>) <span class="org-keyword">for</span> k, g <span class="org-keyword">in</span>
@@ -1525,18 +1525,26 @@ benchmark.update({
 </pre>
 </div>
 
+<p>
+Plot the improvement in validation log likelihood against Gamma baseline.
+</p>
+
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>, sharey=<span class="org-constant">False</span>)
 fig.set_size_inches(5, 4)
 <span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), benchmark, [<span class="org-string">'B cell'</span>, <span class="org-string">'Cytotoxic T'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'B cell/T cell'</span>, <span class="org-string">'Naive/cytotoxic T'</span>, <span class="org-string">'PBMC'</span>]):
-  <span class="org-variable-name">T</span> = (benchmark[f<span class="org-string">'{k}'</span>].values - benchmark[f<span class="org-string">'{k}'</span>][<span class="org-string">'gamma'</span>].values.reshape(-1, 1))[:,1:]
-  a.boxplot([x[~np.isnan(x)] <span class="org-keyword">for</span> x <span class="org-keyword">in</span> T.T], widths=.5, medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
+  <span class="org-variable-name">T</span> = benchmark[k].sub(benchmark[k][<span class="org-string">'gamma'</span>], axis=0)
+  <span class="org-keyword">del</span> T[<span class="org-string">'gamma'</span>]
+  a.boxplot([x[~np.isnan(x)] <span class="org-keyword">for</span> x <span class="org-keyword">in</span> T.values.T],
+            widths=.5,
+            medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>},
+            flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
   a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
   a.set_xticklabels([<span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
   a.set_title(t)
 <span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
-  a[0].set_ylabel(<span class="org-string">'Improvement $KL(p \Vert \hat{p})$'</span>)
+  a[0].set_ylabel(<span class="org-string">'Diff val log lik'</span>)  
 fig.tight_layout()
 </pre>
 </div>
@@ -1546,6 +1554,114 @@ fig.tight_layout()
 <p><img src="figure/deconvolution.org/mlcb-bench.png" alt="mlcb-bench.png">
 </p>
 </div>
+
+<p>
+Try to plot the benchmark results using violin plots.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>, sharey=<span class="org-constant">False</span>)
+fig.set_size_inches(5, 4)
+<span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), benchmark, [<span class="org-string">'B cell'</span>, <span class="org-string">'Cytotoxic T'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'B cell/T cell'</span>, <span class="org-string">'Naive/cytotoxic T'</span>, <span class="org-string">'PBMC'</span>]):
+  <span class="org-variable-name">T</span> = benchmark[k].sub(benchmark[k][<span class="org-string">'gamma'</span>], axis=0)
+  <span class="org-keyword">del</span> T[<span class="org-string">'gamma'</span>]
+  <span class="org-variable-name">vp</span> = a.violinplot([x[~np.isnan(x)] <span class="org-keyword">for</span> x <span class="org-keyword">in</span> T.values.T], widths=0.75, showextrema=<span class="org-constant">True</span>)
+  <span class="org-keyword">for</span> pc <span class="org-keyword">in</span> vp[<span class="org-string">'bodies'</span>]:
+    pc.set_linewidth(0)
+    pc.set_color(<span class="org-string">'0.4'</span>)
+  <span class="org-keyword">for</span> key <span class="org-keyword">in</span> (<span class="org-string">'cmins'</span>, <span class="org-string">'cmaxes'</span>, <span class="org-string">'cbars'</span>):
+    vp[key].set_linewidth(1)
+    vp[key].set_color(<span class="org-string">'0.4'</span>)
+
+  a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
+  a.set_xticks(np.arange(1, 5))
+  a.set_xticklabels([<span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
+  a.set_title(t)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Diff val log lik'</span>)  
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/mlcb-bench-violin.png" alt="mlcb-bench-violin.png">
+</p>
+</div>
+
+<p>
+Plot with unimodal as the baseline.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>, sharey=<span class="org-constant">False</span>)
+fig.set_size_inches(5, 4)
+<span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), benchmark, [<span class="org-string">'B cell'</span>, <span class="org-string">'Cytotoxic T'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'B cell/T cell'</span>, <span class="org-string">'Naive/cytotoxic T'</span>, <span class="org-string">'PBMC'</span>]):
+  <span class="org-variable-name">T</span> = benchmark[k].sub(benchmark[k][<span class="org-string">'unimodal'</span>], axis=0)
+  <span class="org-keyword">del</span> T[<span class="org-string">'unimodal'</span>]
+  <span class="org-variable-name">vp</span> = a.violinplot([x[~np.isnan(x)] <span class="org-keyword">for</span> x <span class="org-keyword">in</span> T.values.T], widths=0.75, showextrema=<span class="org-constant">True</span>)
+  <span class="org-keyword">for</span> pc <span class="org-keyword">in</span> vp[<span class="org-string">'bodies'</span>]:
+    pc.set_linewidth(0)
+    pc.set_color(<span class="org-string">'0.4'</span>)
+  <span class="org-keyword">for</span> key <span class="org-keyword">in</span> (<span class="org-string">'cmins'</span>, <span class="org-string">'cmaxes'</span>, <span class="org-string">'cbars'</span>):
+    vp[key].set_linewidth(1)
+    vp[key].set_color(<span class="org-string">'0.4'</span>)
+  a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
+  a.set_xticks(np.arange(1, 5))
+  a.set_xticklabels([<span class="org-string">'Gamma'</span>, <span class="org-string">'ZIG'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
+  a.set_title(t)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Diff val log lik'</span>)  
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/mlcb-bench-unimodal-baseline.png" alt="mlcb-bench-unimodal-baseline.png">
+</p>
+</div>
+
+<p>
+Plot a zoomed in version of the benchmark results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>, sharey=<span class="org-constant">False</span>)
+fig.set_size_inches(5, 4)
+<span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), benchmark, [<span class="org-string">'B cell'</span>, <span class="org-string">'Cytotoxic T'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'B cell/T cell'</span>, <span class="org-string">'Naive/cytotoxic T'</span>, <span class="org-string">'PBMC'</span>]):
+  <span class="org-variable-name">T</span> = benchmark[k].sub(benchmark[k][<span class="org-string">'unimodal'</span>], axis=0)
+  <span class="org-keyword">del</span> T[<span class="org-string">'unimodal'</span>]
+  <span class="org-variable-name">vp</span> = a.violinplot([x[~np.isnan(x)] <span class="org-keyword">for</span> x <span class="org-keyword">in</span> T.values.T], widths=0.75, showextrema=<span class="org-constant">True</span>)
+  <span class="org-keyword">for</span> pc <span class="org-keyword">in</span> vp[<span class="org-string">'bodies'</span>]:
+    pc.set_linewidth(0)
+    pc.set_color(<span class="org-string">'0.4'</span>)
+  <span class="org-keyword">for</span> key <span class="org-keyword">in</span> (<span class="org-string">'cmins'</span>, <span class="org-string">'cmaxes'</span>, <span class="org-string">'cbars'</span>):
+    vp[key].set_linewidth(1)
+    vp[key].set_color(<span class="org-string">'0.4'</span>)
+  a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
+  a.set_xticks(np.arange(1, 5))
+  a.set_xticklabels([<span class="org-string">'Gamma'</span>, <span class="org-string">'ZIG'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
+  a.set_title(t)
+  a.set_ylim(-0.02, 0.02)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Diff val log lik'</span>)  
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/deconvolution.org/mlcb-bench-unimodal-baseline-inset.png" alt="mlcb-bench-unimodal-baseline-inset.png">
+</p>
+</div>
+
+<p>
+Plot the iPSC example.
+</p>
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">ipsc_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
@@ -1637,7 +1753,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-08-27 Tue 23:40</p>
+<p class="date">Created: 2019-09-08 Sun 19:45</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

@@ -34,7 +34,7 @@
   #+CALL: ipython3(memory="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 62078000
+  : Submitted batch job 62375298
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -82,7 +82,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[21]:
+  # Out[3]:
   :END:
 
 * Methods
@@ -1237,7 +1237,10 @@
    # Out[25]:
    [[file:figure/deconvolution.org/heterogeneous-benchmark.png]]
    :END:
-** Finalize plots
+** MLCB plots
+   :PROPERTIES:
+   :CUSTOM_ID: mlcb
+   :END:
 
    #+BEGIN_SRC ipython :async t
      benchmark = {
@@ -1268,29 +1271,132 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[23]:
+   # Out[5]:
    :END:
+
+   Plot the improvement in validation log likelihood against Gamma baseline.
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/mlcb-bench.png
      plt.clf()
      fig, ax = plt.subplots(2, 3, sharex=True, sharey=False)
      fig.set_size_inches(5, 4)
      for a, k, t in zip(ax.ravel(), benchmark, ['B cell', 'Cytotoxic T', 'iPSC', 'B cell/T cell', 'Naive/cytotoxic T', 'PBMC']):
-       T = (benchmark[f'{k}'].values - benchmark[f'{k}']['gamma'].values.reshape(-1, 1))[:,1:]
-       a.boxplot([x[~np.isnan(x)] for x in T.T], widths=.5, medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 4})
+       T = benchmark[k].sub(benchmark[k]['gamma'], axis=0)
+       del T['gamma']
+       a.boxplot([x[~np.isnan(x)] for x in T.values.T],
+                 widths=.5,
+                 medianprops={'color': 'k'},
+                 flierprops={'marker': '.', 'markersize': 4})
        a.axhline(y=0, ls=':', lw=1, c='k')
        a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
        a.set_title(t)
      for a in ax:
-       a[0].set_ylabel('Improvement $KL(p \Vert \hat{p})$')
+       a[0].set_ylabel('Diff val log lik')  
      fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[27]:
+   # Out[60]:
    [[file:figure/deconvolution.org/mlcb-bench.png]]
    :END:
+
+   Try to plot the benchmark results using violin plots.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/mlcb-bench-violin.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 3, sharex=True, sharey=False)
+     fig.set_size_inches(5, 4)
+     for a, k, t in zip(ax.ravel(), benchmark, ['B cell', 'Cytotoxic T', 'iPSC', 'B cell/T cell', 'Naive/cytotoxic T', 'PBMC']):
+       T = benchmark[k].sub(benchmark[k]['gamma'], axis=0)
+       del T['gamma']
+       vp = a.violinplot([x[~np.isnan(x)] for x in T.values.T], widths=0.75, showextrema=True)
+       for pc in vp['bodies']:
+         pc.set_linewidth(0)
+         pc.set_color('0.4')
+       for key in ('cmins', 'cmaxes', 'cbars'):
+         vp[key].set_linewidth(1)
+         vp[key].set_color('0.4')
+
+       a.axhline(y=0, ls=':', lw=1, c='k')
+       a.set_xticks(np.arange(1, 5))
+       a.set_xticklabels(['ZIG', 'Unimodal', 'ZIEF', 'NPMLE'], rotation=90)
+       a.set_title(t)
+     for a in ax:
+       a[0].set_ylabel('Diff val log lik')  
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[61]:
+   [[file:figure/deconvolution.org/mlcb-bench-violin.png]]
+   :END:
+
+   Plot with unimodal as the baseline.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/mlcb-bench-unimodal-baseline.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 3, sharex=True, sharey=False)
+     fig.set_size_inches(5, 4)
+     for a, k, t in zip(ax.ravel(), benchmark, ['B cell', 'Cytotoxic T', 'iPSC', 'B cell/T cell', 'Naive/cytotoxic T', 'PBMC']):
+       T = benchmark[k].sub(benchmark[k]['unimodal'], axis=0)
+       del T['unimodal']
+       vp = a.violinplot([x[~np.isnan(x)] for x in T.values.T], widths=0.75, showextrema=True)
+       for pc in vp['bodies']:
+         pc.set_linewidth(0)
+         pc.set_color('0.4')
+       for key in ('cmins', 'cmaxes', 'cbars'):
+         vp[key].set_linewidth(1)
+         vp[key].set_color('0.4')
+       a.axhline(y=0, ls=':', lw=1, c='k')
+       a.set_xticks(np.arange(1, 5))
+       a.set_xticklabels(['Gamma', 'ZIG', 'ZIEF', 'NPMLE'], rotation=90)
+       a.set_title(t)
+     for a in ax:
+       a[0].set_ylabel('Diff val log lik')  
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[62]:
+   [[file:figure/deconvolution.org/mlcb-bench-unimodal-baseline.png]]
+   :END:
+
+   Plot a zoomed in version of the benchmark results.
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/mlcb-bench-unimodal-baseline-inset.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 3, sharex=True, sharey=False)
+     fig.set_size_inches(5, 4)
+     for a, k, t in zip(ax.ravel(), benchmark, ['B cell', 'Cytotoxic T', 'iPSC', 'B cell/T cell', 'Naive/cytotoxic T', 'PBMC']):
+       T = benchmark[k].sub(benchmark[k]['unimodal'], axis=0)
+       del T['unimodal']
+       vp = a.violinplot([x[~np.isnan(x)] for x in T.values.T], widths=0.75, showextrema=True)
+       for pc in vp['bodies']:
+         pc.set_linewidth(0)
+         pc.set_color('0.4')
+       for key in ('cmins', 'cmaxes', 'cbars'):
+         vp[key].set_linewidth(1)
+         vp[key].set_color('0.4')
+       a.axhline(y=0, ls=':', lw=1, c='k')
+       a.set_xticks(np.arange(1, 5))
+       a.set_xticklabels(['Gamma', 'ZIG', 'ZIEF', 'NPMLE'], rotation=90)
+       a.set_title(t)
+       a.set_ylim(-0.02, 0.02)
+     for a in ax:
+       a[0].set_ylabel('Diff val log lik')  
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[63]:
+   [[file:figure/deconvolution.org/mlcb-bench-unimodal-baseline-inset.png]]
+   :END:
+
+   Plot the iPSC example.
 
    #+BEGIN_SRC ipython :async t
      ipsc_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz', index_col=0, sep='\t')
@@ -1301,7 +1407,6 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[29]:
    :END:
 
    #+BEGIN_SRC ipython
