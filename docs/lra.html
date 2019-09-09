@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-05 Thu 18:17 -->
+<!-- 2019-09-08 Sun 21:44 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Low rank approximation</title>
@@ -529,17 +529,18 @@ PCA of log1p counts: -3.57e+09
 <div class="org-src-container">
 <pre class="src src-ipython" id="orgc308207">&lt;&lt;imports&gt;&gt;
 <span class="org-keyword">import</span> os
-<span class="org-variable-name">methods</span> = [<span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>, <span class="org-string">'scvi'</span>]
+<span class="org-variable-name">methods</span> = [<span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>, <span class="org-string">'pvae'</span>]
 <span class="org-variable-name">datasets</span> = [<span class="org-string">'b_cells'</span>, <span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>]
-<span class="org-variable-name">d</span> = datasets[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
-<span class="org-variable-name">data</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{d}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
-<span class="org-variable-name">res</span> = scmodes.benchmark.evaluate_lra_generalization(data, methods=methods, n_trials=10)
-res.to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/lra-generalization/{d}.txt.gz'</span>)
+<span class="org-variable-name">m</span> = methods[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
+<span class="org-keyword">for</span> d <span class="org-keyword">in</span> datasets:
+  <span class="org-variable-name">data</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{d}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
+  <span class="org-variable-name">res</span> = scmodes.benchmark.evaluate_lra_generalization(data, methods=[m], n_trials=10)
+  res.to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz'</span>)
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -a 0-2 -n1 --exclusive --time=3:00:00 --job-name=lra-benchmark
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 -a 2 --time=2:00:00 --job-name=lra-benchmark
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python /project2/mstephens/aksarkar/projects/singlecell-modes/code/zheng-bench-lra.py
@@ -554,19 +555,19 @@ python /project2/mstephens/aksarkar/projects/singlecell-modes/code/zheng-bench-l
 <div class="org-src-container">
 <pre class="src src-ipython" id="orgec82fc0">&lt;&lt;imports&gt;&gt;
 <span class="org-keyword">import</span> os
-<span class="org-variable-name">methods</span> = [<span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>, <span class="org-string">'scvi'</span>]
+<span class="org-variable-name">methods</span> = [<span class="org-string">'pvae'</span>]
 <span class="org-variable-name">datasets</span> = [(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'b_cells'</span>), (<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>)]
 <span class="org-variable-name">d1</span>, <span class="org-variable-name">d2</span> = datasets[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
 <span class="org-variable-name">x1</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{d1}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
 <span class="org-variable-name">x2</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{d2}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
 <span class="org-variable-name">x</span>, <span class="org-variable-name">y</span> = scmodes.dataset.synthetic_mix(x1, x2, min_detect=.25)
 <span class="org-variable-name">res</span> = scmodes.benchmark.evaluate_lra_generalization(x, methods=methods, n_trials=10)
-res.to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/lra-generalization/{d1}-{d2}.txt.gz'</span>)
+res.to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/lra-generalization/{d1}-{d2}-pvae.txt.gz'</span>)
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -a 0-1 -n1 --exclusive --time=6:00:00 --job-name=lra-benchmark
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 -a 0-1 --mem=16G --time=6:00:00 --job-name=lra-benchmark
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python /project2/mstephens/aksarkar/projects/singlecell-modes/code/synthetic-mix-lra.py
@@ -581,7 +582,7 @@ python /project2/mstephens/aksarkar/projects/singlecell-modes/code/synthetic-mix
 <div class="org-src-container">
 <pre class="src src-ipython">&lt;&lt;imports&gt;&gt;
 <span class="org-keyword">import</span> os
-<span class="org-variable-name">tasks</span> = [<span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>, <span class="org-string">'scvi'</span>]
+<span class="org-variable-name">tasks</span> = [<span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>, <span class="org-string">'pvae'</span>]
 <span class="org-variable-name">task</span> = tasks[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
 <span class="org-variable-name">data</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
 <span class="org-variable-name">res</span> = scmodes.benchmark.evaluate_lra_generalization(data, methods=[task], n_trials=10)
@@ -598,7 +599,7 @@ python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lr
 </div>
 
 <p>
-Run SCVI on GPU.
+Run PVAE on GPU.
 </p>
 
 <div class="org-src-container">
@@ -614,6 +615,10 @@ python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lr
 <div id="outline-container-org443406e" class="outline-3">
 <h3 id="org443406e">Plot the results</h3>
 <div class="outline-text-3" id="text-org443406e">
+<p>
+Move the results to permanent storage.
+</p>
+
 <div class="org-src-container">
 <pre class="src src-sh">rsync -au /scratch/midway2/aksarkar/modes/lra-generalization/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/
 </pre>
@@ -624,11 +629,14 @@ Read the results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">data</span> = [<span class="org-string">'b_cells'</span>, <span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>, <span class="org-string">'cytotoxic_t-b_cells'</span>, <span class="org-string">'cytotoxic_t-naive_t'</span>]
+<pre class="src src-ipython"><span class="org-variable-name">methods</span> = [<span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>, <span class="org-string">'pvae'</span>]
+<span class="org-variable-name">data</span> = [<span class="org-string">'b_cells'</span>, <span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>, <span class="org-string">'cytotoxic_t-b_cells'</span>, <span class="org-string">'cytotoxic_t-naive_t'</span>, <span class="org-string">'pbmcs'</span>]
 <span class="org-variable-name">titles</span> = [<span class="org-string">'B cell'</span>, <span class="org-string">'Cytotoxic T'</span>, <span class="org-string">'Naive T'</span>, <span class="org-string">'B cell/T cell'</span>, <span class="org-string">'Naive/cytotoxic T'</span>, <span class="org-string">'PBMC'</span>]
-<span class="org-variable-name">results</span> = {k: pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/{k}.txt.gz'</span>, header=[0, 1], index_col=0)
+<span class="org-variable-name">results</span> = {k: pd.concat([pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/{k}-{m}.txt.gz'</span>,
+                                     header=[0, 1],
+                                     index_col=0)
+                         <span class="org-keyword">for</span> m <span class="org-keyword">in</span> methods], axis=<span class="org-string">'columns'</span>)
            <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data}
-<span class="org-variable-name">results</span>[<span class="org-string">'pbmc'</span>] = pd.concat([pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/pbmcs-{m}.txt.gz'</span>, header=[0, 1], index_col=0) <span class="org-keyword">for</span> m <span class="org-keyword">in</span> [<span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>, <span class="org-string">'scvi'</span>]], axis=<span class="org-string">'columns'</span>)
 </pre>
 </div>
 
@@ -643,7 +651,7 @@ fig.set_size_inches(8, 2)
   a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
   a.set_xlim(-0.5, 2.5)
   a.set_xticks(np.arange(3))
-  a.set_xticklabels([<span class="org-string">'NMF'</span>, <span class="org-string">'GLMPCA'</span>, <span class="org-string">'SCVI'</span>], rotation=90)
+  a.set_xticklabels([m.upper() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> methods], rotation=90)
   a.set_title(t)
 ax[0].set_ylabel(<span class="org-string">'Validation log lik'</span>)
 fig.tight_layout()
@@ -661,7 +669,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-05 Thu 18:17</p>
+<p class="date">Created: 2019-09-08 Sun 21:44</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
