@@ -13,6 +13,7 @@ datasets, as well as researchers developing and benchmarking new methods.
 - [[file:deconvolution.org][Comparison of distribution deconvolution methods]]
 - [[file:lra.org][Low rank approximation]]
 - [[file:transforms.org][Transformations of deconvolved gene expression distributions]]
+- [[file:gof.org][Goodness of fit of deconvolved distributions]]
 
 Technical details:
 

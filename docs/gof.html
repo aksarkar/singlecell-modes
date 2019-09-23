@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-23 Mon 03:06 -->
+<!-- 2019-09-23 Mon 03:10 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Modeling single cell data</title>
+<title>Goodness of fit of deconvolved distributions</title>
 <meta name="generator" content="Org mode">
 <meta name="author" content="Abhishek Sarkar">
 <style type="text/css">
@@ -228,51 +228,126 @@ for the JavaScript code in this tag.
  }
 /*]]>*///-->
 </script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
 </head>
 <body>
 <div id="content">
-<h1 class="title">Modeling single cell data</h1>
+<h1 class="title">Goodness of fit of deconvolved distributions</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org283b08a">Introduction</a></li>
+<li><a href="#org9458460">Methods</a></li>
+<li><a href="#org2a494f2">Results</a>
+<ul>
+<li><a href="#org3576756">Goodness of fit test</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org283b08a" class="outline-2">
+<h2 id="org283b08a">Introduction</h2>
+<div class="outline-text-2" id="text-org283b08a">
 <p>
-The development of single cell RNA sequencing (scRNA-Seq) technology has
-enabled investigation of heterogeneity between individuals cells, dynamics of
-cellular processes, and the biological pathways underlying cellular
-differentiation. However, a number of features of scRNA-seq data continue to
-cause confusion among practitioners applying published methods to analyze new
-datasets, as well as researchers developing and benchmarking new methods.
+We <a href="deconvolution.html">previously estimated</a> the out-of-sample log likelihood as a measure of the
+generalization performance of distribution deconvolution methods for
+scRNA-seq. However, this is not the simplest way to support some of our key
+results:
 </p>
 
-<ul class="org-ul">
-<li><a href="pitfalls.html">Technical zero-generating mechanism in scRNA-seq data</a></li>
-<li><a href="modes.html">Estimating the number of modes</a></li>
-<li><a href="deconvolution.html">Comparison of distribution deconvolution methods</a></li>
-<li><a href="lra.html">Low rank approximation</a></li>
-<li><a href="transforms.html">Transformations of deconvolved gene expression distributions</a></li>
-<li><a href="gof.html">Goodness of fit of deconvolved distributions</a></li>
-</ul>
+<ol class="org-ol">
+<li>For most genes, in most data sets, a Gamma assumption appears sufficient
+(meaning, more complicated distributional assumptions do not have better
+generalization performance).</li>
+<li>When Gamma is insufficient, it is generally not the case that assuming a
+point mass on zero improves generalization (meaning, departures from Gamma
+do not involve excess zeros).</li>
+</ol>
 
 <p>
-Technical details:
+Here, we directly test for the goodness of fit of the estimated distribution
+(as in <a href="https://dx.doi.org/10.1371/journal.pgen.1008045">Sarkar et al. 2019</a>).
+</p>
+</div>
+</div>
+
+<div id="outline-container-org9458460" class="outline-2">
+<h2 id="org9458460">Methods</h2>
+<div class="outline-text-2" id="text-org9458460">
+<p>
+The key idea underlying our test for goodness of fit is the fact that if
+\(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
+  1)\). Then, to test for goodness of fit of an estimated \(\hat{F}\) to the
+data \(x_{1}, \ldots, x_{n}\), we apply the Kolmogorov-Smirnov (KS) test to
+test whether the values \(\hat{F}(x_1), \ldots, \hat{F}(x_n)\) are uniformly
+distributed. (This test is slightly conservative because it uses the data to
+estimate \(\hat{F}\).)
 </p>
 
-<ul class="org-ul">
-<li><a href="browser.html">Interactive simulations</a></li>
-<li><a href="capture.html">Effect of capture rate on sampling variation</a></li>
-<li><a href="ash-estmode.html">Speed up ash mode estimation</a></li>
-<li><a href="nb-mix.html">Mixture of negative binomials</a></li>
-<li><a href="gamma.html">Convergence of Gamma deconvolution</a></li>
-<li><a href="poisson.html">Deconvolution of near-Poisson data</a></li>
-<li><a href="validation.html">Validation set log likelihood comparison</a></li>
-<li><a href="npmle.html">NPMLE on C1 spike-in data</a></li>
-<li><a href="deconv-examples.html">Distribution deconvolution examples</a></li>
-<li><a href="deconv-de.html">Differential expression from distribution deconvolution</a></li>
-<li><a href="ep.html">Posterior approximation for scRNA-seq data</a></li>
-<li><a href="link.html">Link functions in Poisson LRA</a></li>
-<li><a href="random-effect.html">Distributional assumptions in Poisson LRA</a></li>
-</ul>
+<p>
+Here, we have to modify this simple procedure to account for the fact that
+our data are discrete counts, so \(F\) is not continuous. To address this
+issue, we used randomized quantiles (<a href="https://www.jstor.org/stable/1390802">Dunn 1996</a>): we sample one random value
+per observation \(u_{i} \mid x_{i} \sim \mathrm{Uniform}(\hat{F}(x_i - 1),
+  \hat{F}(x_i))\). These have the property that if \(x_i \sim F\) then \(u_i
+  \sim \mathrm{Uniform}(0, 1)\).
+</p>
+
+<p>
+In our model, each observed UMI count \(x_{i}\) comes from a different
+distribution \(F_{i}\):
+</p>
+
+<p>
+\[ F_i(x_i) = \sum_{k=0}^{x_i} \int_0^\infty \operatorname{Poisson}(k; s_i
+  \lambda_i) g(d\lambda_i) \]
+</p>
+
+<p>
+We therefore draw \(u_{i} \mid x_{i} \sim
+  \mathrm{Uniform}(\hat{F}_{i}(x_{i} - 1), \hat{F}_{i}(x_{i}))\). Then, for we
+apply the KS test to whether the randomized quantiles \(u_{i}\) are uniformly
+distributed.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org2a494f2" class="outline-2">
+<h2 id="org2a494f2">Results</h2>
+<div class="outline-text-2" id="text-org2a494f2">
+</div>
+<div id="outline-container-org3576756" class="outline-3">
+<h3 id="org3576756">Goodness of fit test</h3>
+</div>
+</div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-23 Mon 03:06</p>
+<p class="date">Created: 2019-09-23 Mon 03:10</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

@@ -1,0 +1,50 @@
+#+TITLE: Goodness of fit of deconvolved distributions
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  We [[file:deconvolution.org][previously estimated]] the out-of-sample log likelihood as a measure of the
+  generalization performance of distribution deconvolution methods for
+  scRNA-seq. However, this is not the simplest way to support some of our key
+  results:
+
+  1. For most genes, in most data sets, a Gamma assumption appears sufficient
+     (meaning, more complicated distributional assumptions do not have better
+     generalization performance).
+  2. When Gamma is insufficient, it is generally not the case that assuming a
+     point mass on zero improves generalization (meaning, departures from Gamma
+     do not involve excess zeros).
+
+  Here, we directly test for the goodness of fit of the estimated distribution
+  (as in [[https://dx.doi.org/10.1371/journal.pgen.1008045][Sarkar et al. 2019]]).
+
+* Methods
+
+  The key idea underlying our test for goodness of fit is the fact that if
+  \(x_{i} \sim F(\cdot)\), then $F(x_{i}) \sim \operatorname{Uniform}(0,
+  1)$. Then, to test for goodness of fit of an estimated \(\hat{F}\) to the
+  data \(x_{1}, \ldots, x_{n}\), we apply the Kolmogorov-Smirnov (KS) test to
+  test whether the values \(\hat{F}(x_1), \ldots, \hat{F}(x_n)\) are uniformly
+  distributed. (This test is slightly conservative because it uses the data to
+  estimate \(\hat{F}\).)
+
+  Here, we have to modify this simple procedure to account for the fact that
+  our data are discrete counts, so $F$ is not continuous. To address this
+  issue, we used randomized quantiles ([[https://www.jstor.org/stable/1390802][Dunn 1996]]): we sample one random value
+  per observation \(u_{i} \mid x_{i} \sim \mathrm{Uniform}(\hat{F}(x_i - 1),
+  \hat{F}(x_i))\). These have the property that if \(x_i \sim F\) then \(u_i
+  \sim \mathrm{Uniform}(0, 1)\).
+
+  In our model, each observed UMI count \(x_{i}\) comes from a different
+  distribution \(F_{i}\):
+
+  \[ F_i(x_i) = \sum_{k=0}^{x_i} \int_0^\infty \operatorname{Poisson}(k; s_i
+  \lambda_i) g(d\lambda_i) \]
+
+  We therefore draw \(u_{i} \mid x_{i} \sim
+  \mathrm{Uniform}(\hat{F}_{i}(x_{i} - 1), \hat{F}_{i}(x_{i}))\). Then, for we
+  apply the KS test to whether the randomized quantiles \(u_{i}\) are uniformly
+  distributed.
+
+* Results
+** Goodness of fit test
