@@ -18,15 +18,52 @@
   Here, we directly test for the goodness of fit of the estimated distribution
   (as in [[https://dx.doi.org/10.1371/journal.pgen.1008045][Sarkar et al. 2019]]).
 
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar/modes/
+
+  #+RESULTS:
+  : Submitted batch job 62649434
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+NAME: imports
+  #+BEGIN_SRC ipython
+    import numpy as np
+    import pandas as pd
+    import scmodes
+  #+END_SRC
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
 * Methods
+** Test for goodness of fit
 
   The key idea underlying our test for goodness of fit is the fact that if
   \(x_{i} \sim F(\cdot)\), then $F(x_{i}) \sim \operatorname{Uniform}(0,
-  1)$. Then, to test for goodness of fit of an estimated \(\hat{F}\) to the
-  data \(x_{1}, \ldots, x_{n}\), we apply the Kolmogorov-Smirnov (KS) test to
-  test whether the values \(\hat{F}(x_1), \ldots, \hat{F}(x_n)\) are uniformly
-  distributed. (This test is slightly conservative because it uses the data to
-  estimate \(\hat{F}\).)
+  1)$. To test for goodness of fit of an estimated \(\hat{F}\) to the data
+  \(x_{1}, \ldots, x_{n}\), we apply the Kolmogorov-Smirnov (KS) test to test
+  whether the values \(\hat{F}(x_1), \ldots, \hat{F}(x_n)\) are uniformly
+  distributed. (This test is slightly conservative because it uses the same
+  data to estimate \(\hat{F}\).)
 
   Here, we have to modify this simple procedure to account for the fact that
   our data are discrete counts, so $F$ is not continuous. To address this
@@ -42,9 +79,78 @@
   \lambda_i) g(d\lambda_i) \]
 
   We therefore draw \(u_{i} \mid x_{i} \sim
-  \mathrm{Uniform}(\hat{F}_{i}(x_{i} - 1), \hat{F}_{i}(x_{i}))\). Then, for we
+  \mathrm{Uniform}(\hat{F}_{i}(x_{i} - 1), \hat{F}_{i}(x_{i}))\). Then, we
   apply the KS test to whether the randomized quantiles \(u_{i}\) are uniformly
   distributed.
 
+** Data
+
+   #+NAME: data
+   #+BEGIN_SRC ipython :eval never
+     def _cd8_cd19_mix():
+       t_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
+       b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
+       return scmodes.dataset.synthetic_mix(t_cells, b_cells, min_detect=0.25)[0]
+
+     def _cyto_naive_mix():
+       cyto = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19', return_df=True, min_detect=0)
+       naive = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_t/filtered_matrices_mex/hg19', return_df=True, min_detect=0)
+       x, y = scmodes.dataset.synthetic_mix(cyto, naive)
+       keep_genes = (x > 0).mean(axis=0) >= 0.25
+       x = x.loc[:,keep_genes]
+
+     data = {
+       'cytotoxic_t': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True),
+       'b_cells': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True),
+       'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', n=100, return_df=True),
+       'cytotoxic_t-b_cells': _cd8_cd19_mix,
+       'cytotoxic_t-naive_t': _cyto_naive_mix,
+     }
+   #+END_SRC
+
 * Results
 ** Goodness of fit test
+
+   Run the GPU-based methods.
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=12:00:00 -a 0
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     import os
+     <<data>>
+     tasks = list(data.keys())
+     task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     x = data[task]()
+     res = scmodes.benchmark.evaluate_gof(x, methods=['gamma', 'zig'])
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/{task}-gpu.txt.gz', compression='gzip', sep='\t')
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 62648881
+
+   Run the CPU methods
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 -a 0
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     import os
+     <<data>>
+     methods = ['unimodal']
+     tasks = list(data.keys())
+     task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     with mp.Pool(maxtasksperchild=20) as pool:
+       # Important: this needs to be done after initializing the pool to avoid
+       # memory duplication
+       x = data[task]()
+       res = scmodes.benchmark.evaluate_gof(x, pool=pool, methods=methods)
+       res.index = x.columns
+       res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-unimodal.txt.gz', compression='gzip', sep='\t')
+     EOF
+   #+END_SRC
