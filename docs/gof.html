@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-23 Mon 11:57 -->
+<!-- 2019-09-24 Tue 11:13 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,13 +262,13 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org965c40b">Test for goodness of fit</a></li>
+<li><a href="#org36e829f">Test for goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
 </li>
 <li><a href="#org2a494f2">Results</a>
 <ul>
-<li><a href="#org3576756">Goodness of fit test</a></li>
+<li><a href="#orgc526635">Test for goodness of fit</a></li>
 </ul>
 </li>
 </ul>
@@ -305,15 +305,15 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <h2 id="setup"><a id="org4b66c4c"></a>Setup</h2>
 <div class="outline-text-2" id="text-setup">
 <div class="org-src-container">
-<pre class="src src-ipython">%matplotlib inline
-%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+<pre class="src src-ipython" id="orgde1bf22"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scmodes
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="orgde1bf22"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
-<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
-<span class="org-keyword">import</span> scmodes
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
 </pre>
 </div>
 
@@ -330,9 +330,9 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org965c40b" class="outline-3">
-<h3 id="org965c40b">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org965c40b">
+<div id="outline-container-org36e829f" class="outline-3">
+<h3 id="org36e829f">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-org36e829f">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -383,9 +383,7 @@ distributed.
 <span class="org-keyword">def</span> <span class="org-function-name">_cyto_naive_mix</span>():
   <span class="org-variable-name">cyto</span> = scmodes.dataset.read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
   <span class="org-variable-name">naive</span> = scmodes.dataset.read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_t/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
-  <span class="org-variable-name">x</span>, <span class="org-variable-name">y</span> = scmodes.dataset.synthetic_mix(cyto, naive)
-  <span class="org-variable-name">keep_genes</span> = (x &gt; 0).mean(axis=0) &gt;= 0.25
-  <span class="org-variable-name">x</span> = x.loc[:,keep_genes]
+  <span class="org-keyword">return</span> scmodes.dataset.synthetic_mix(cyto, naive, min_detect=0.25)[0]
 
 <span class="org-variable-name">data</span> = {
   <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>),
@@ -393,6 +391,7 @@ distributed.
   <span class="org-string">'ipsc'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>, n=100, return_df=<span class="org-constant">True</span>),
   <span class="org-string">'cytotoxic_t-b_cells'</span>: _cd8_cd19_mix,
   <span class="org-string">'cytotoxic_t-naive_t'</span>: _cyto_naive_mix,
+  <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>),
 }
 </pre>
 </div>
@@ -404,15 +403,15 @@ distributed.
 <h2 id="org2a494f2">Results</h2>
 <div class="outline-text-2" id="text-org2a494f2">
 </div>
-<div id="outline-container-org3576756" class="outline-3">
-<h3 id="org3576756">Goodness of fit test</h3>
-<div class="outline-text-3" id="text-org3576756">
+<div id="outline-container-orgc526635" class="outline-3">
+<h3 id="orgc526635">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-orgc526635">
 <p>
 Run the GPU-based methods.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=12:00:00 -a 0
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=12:00:00 -a 1-5
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -423,7 +422,7 @@ import os
 <span class="org-sh-heredoc">task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
 <span class="org-sh-heredoc">x = data[task]()</span>
 <span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_gof(x, methods=['gamma', 'zig'])</span>
-<span class="org-sh-heredoc">res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/{task}-gpu.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-gpu.txt.gz', compression='gzip', sep='\t')</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
 </div>
@@ -453,13 +452,163 @@ import os
 <span class="org-sh-heredoc">EOF</span>
 </pre>
 </div>
+
+<p>
+Move the results to permanent storage.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">rsync -au /scratch/midway2/aksarkar/modes/gof/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/
+</pre>
+</div>
+
+<p>
+Read the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gof_res</span> = (pd.concat([pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-gpu.txt.gz'</span>,
+                                 sep=<span class="org-string">'\t'</span>, index_col=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data],
+                     keys=data.keys())
+           .reset_index(level=0)
+           .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=<span class="org-string">'columns'</span>))
+</pre>
+</div>
+
+<p>
+Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
+distribution.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>)
+fig.set_size_inches(6, 4)
+<span class="org-keyword">for</span> a, t, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(),
+                        [<span class="org-string">'T cell'</span>, <span class="org-string">'B cell'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cytotoxic/naive T'</span>, <span class="org-string">'PBMC'</span>],
+                        gof_res.groupby(<span class="org-string">'dataset'</span>)):
+  a.hist(g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'gamma'</span>, <span class="org-string">'p'</span>], bins=10, color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+  a.axhline(y=1, c=<span class="org-string">'k'</span>, ls=<span class="org-string">':'</span>, lw=1)
+  a.set_xlim([0, 1])
+  a.set_title(t)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Density'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
+  a[-1].set_xlabel(<span class="org-string">'$p$-value'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/gamma-gof-hist.png" alt="gamma-gof-hist.png">
+</p>
+</div>
+
+<p>
+Plot the histogram of goodness of fit test \(p\)-values for the fitted
+point-Gamma distribution.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>)
+fig.set_size_inches(6, 4)
+<span class="org-keyword">for</span> a, t, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(),
+                        [<span class="org-string">'T cell'</span>, <span class="org-string">'B cell'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cytotoxic/naive T'</span>, <span class="org-string">'PBMC'</span>],
+                        gof_res.groupby(<span class="org-string">'dataset'</span>)):
+  a.hist(g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'zig'</span>, <span class="org-string">'p'</span>], bins=10, color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+  a.axhline(y=1, c=<span class="org-string">'k'</span>, ls=<span class="org-string">':'</span>, lw=1)
+  a.set_xlim([0, 1])
+  a.set_title(t)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Density'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
+  a[-1].set_xlabel(<span class="org-string">'$p$-value'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/zig-gof-hist.png" alt="zig-gof-hist.png">
+</p>
+</div>
+
+<p>
+Report the number of genes which depart from the null that the data for the
+gene follows the fitted distribution (after Bonferroni correction at level
+0.05).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">gof_res.groupby([<span class="org-string">'dataset'</span>, <span class="org-string">'method'</span>]).<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]).<span class="org-builtin">sum</span>()).reset_index().pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
+</pre>
+</div>
+
+<pre class="example">
+0
+method              gamma  zig
+dataset
+b_cells                12   10
+cytotoxic_t             7    6
+cytotoxic_t-b_cells    35   24
+cytotoxic_t-naive_t    29   28
+ipsc                    2    2
+pbmcs_68k             108  109
+</pre>
+
+<p>
+Report the fraction of genes which depart from the null that the data for
+the gene follows the fitted distribution (after Bonferroni correction at
+level 0.05).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">gof_res.groupby([<span class="org-string">'dataset'</span>, <span class="org-string">'method'</span>]).<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]).mean()).reset_index().pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
+</pre>
+</div>
+
+<pre class="example">
+0
+method                  gamma       zig
+dataset
+b_cells              0.032000  0.026667
+cytotoxic_t          0.015184  0.013015
+cytotoxic_t-b_cells  0.086634  0.059406
+cytotoxic_t-naive_t  0.069212  0.066826
+ipsc                 0.037736  0.037736
+pbmcs_68k            0.267327  0.269802
+</pre>
+
+<p>
+<b>Remark</b> We previously fit point-Gamma distributions to the iPSC data
+(Sarkar et al. 2019), and <a href="https://jdblischak.github.io/singlecell-qtl/zinb.html#org17af587">reported</a>:
+</p>
+
+<blockquote>
+<p>
+We tested the goodness of fit for each individual and each gene, and
+rejected the null that the model fit the data for only 60 of 537,658
+individual-gene combinations (0.01%) after Bonferroni correction (\(p < 9
+   \times 10^{−8}\))
+</p>
+</blockquote>
+
+<p>
+The key difference between the approach taken here and the previous result
+is that here we do not account for the fact that the cells are derived from
+multiple donors. The differing genetic backgrounds of the donor individuals
+means both the mean and variance of gene expression vary, such that the
+marginal distribution is not well-described by a single Gamma distribution.
+</p>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-23 Mon 11:57</p>
+<p class="date">Created: 2019-09-24 Tue 11:13</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

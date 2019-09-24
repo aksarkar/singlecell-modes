@@ -2,3 +2,6 @@ pre.src, pre.example {
     max-height: 12em;
     overflow: auto;
 }
+blockquote {
+    font-size: 15px;
+}

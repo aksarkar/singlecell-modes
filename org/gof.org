@@ -34,12 +34,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 62649434
-
-  #+BEGIN_SRC ipython
-    %matplotlib inline
-    %config InlineBackend.figure_formats = set(['retina'])
-  #+END_SRC
+  : Submitted batch job 62671573
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -48,11 +43,31 @@
     import scmodes
   #+END_SRC
 
+  #+RESULTS: imports
+  :RESULTS:
+  # Out[1]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
   #+BEGIN_SRC ipython
     import matplotlib.pyplot as plt
     plt.rcParams['figure.facecolor'] = 'w'
     plt.rcParams['font.family'] = 'Nimbus Sans'
   #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
 
 * Methods
 ** Test for goodness of fit
@@ -86,7 +101,7 @@
 ** Data
 
    #+NAME: data
-   #+BEGIN_SRC ipython :eval never
+   #+BEGIN_SRC ipython
      def _cd8_cd19_mix():
        t_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
        b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
@@ -95,9 +110,7 @@
      def _cyto_naive_mix():
        cyto = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19', return_df=True, min_detect=0)
        naive = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_t/filtered_matrices_mex/hg19', return_df=True, min_detect=0)
-       x, y = scmodes.dataset.synthetic_mix(cyto, naive)
-       keep_genes = (x > 0).mean(axis=0) >= 0.25
-       x = x.loc[:,keep_genes]
+       return scmodes.dataset.synthetic_mix(cyto, naive, min_detect=0.25)[0]
 
      data = {
        'cytotoxic_t': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True),
@@ -105,16 +118,22 @@
        'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', n=100, return_df=True),
        'cytotoxic_t-b_cells': _cd8_cd19_mix,
        'cytotoxic_t-naive_t': _cyto_naive_mix,
+       'pbmcs_68k': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19', return_df=True),
      }
    #+END_SRC
 
+   #+RESULTS: data
+   :RESULTS:
+   # Out[5]:
+   :END:
+
 * Results
-** Goodness of fit test
+** Test for goodness of fit
 
    Run the GPU-based methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=12:00:00 -a 0
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=12:00:00 -a 1-5
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -125,12 +144,12 @@
      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      x = data[task]()
      res = scmodes.benchmark.evaluate_gof(x, methods=['gamma', 'zig'])
-     res.to_csv(f'/scratch/midway2/aksarkar/modes/deconv-generalization/{task}-gpu.txt.gz', compression='gzip', sep='\t')
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-gpu.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 62648881
+   : Submitted batch job 62661167
 
    Run the CPU methods
 
@@ -154,3 +173,144 @@
        res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-unimodal.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
+
+   Move the results to permanent storage.
+
+   #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
+     rsync -au /scratch/midway2/aksarkar/modes/gof/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/
+   #+END_SRC
+
+   #+RESULTS:
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     gof_res = (pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-gpu.txt.gz',
+                                      sep='\t', index_col=0) for k in data],
+                          keys=data.keys())
+                .reset_index(level=0)
+                .rename({'level_0': 'dataset'}, axis='columns'))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   :END:
+
+   Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
+   distribution.
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/gamma-gof-hist.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 3, sharex=True)
+     fig.set_size_inches(6, 4)
+     for a, t, (k, g) in zip(ax.ravel(),
+                             ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC'],
+                             gof_res.groupby('dataset')):
+       a.hist(g.loc[g['method'] == 'gamma', 'p'], bins=10, color='0.7', density=True)
+       a.axhline(y=1, c='k', ls=':', lw=1)
+       a.set_xlim([0, 1])
+       a.set_title(t)
+     for a in ax:
+       a[0].set_ylabel('Density')
+     for a in ax.T:
+       a[-1].set_xlabel('$p$-value')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   [[file:figure/gof.org/gamma-gof-hist.png]]
+   :END:
+
+   Plot the histogram of goodness of fit test \(p\)-values for the fitted
+   point-Gamma distribution.
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/zig-gof-hist.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 3, sharex=True)
+     fig.set_size_inches(6, 4)
+     for a, t, (k, g) in zip(ax.ravel(),
+                             ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC'],
+                             gof_res.groupby('dataset')):
+       a.hist(g.loc[g['method'] == 'zig', 'p'], bins=10, color='0.7', density=True)
+       a.axhline(y=1, c='k', ls=':', lw=1)
+       a.set_xlim([0, 1])
+       a.set_title(t)
+     for a in ax:
+       a[0].set_ylabel('Density')
+     for a in ax.T:
+       a[-1].set_xlabel('$p$-value')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[10]:
+   [[file:figure/gof.org/zig-gof-hist.png]]
+   :END:
+
+   Report the number of genes which depart from the null that the data for the
+   gene follows the fitted distribution (after Bonferroni correction at level
+   0.05).
+
+   #+BEGIN_SRC ipython
+     gof_res.groupby(['dataset', 'method']).apply(lambda x: (x['p'] < 0.05 / x.shape[0]).sum()).reset_index().pivot(index='dataset', columns='method')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[11]:
+   #+BEGIN_EXAMPLE
+     0
+     method              gamma  zig
+     dataset
+     b_cells                12   10
+     cytotoxic_t             7    6
+     cytotoxic_t-b_cells    35   24
+     cytotoxic_t-naive_t    29   28
+     ipsc                    2    2
+     pbmcs_68k             108  109
+   #+END_EXAMPLE
+   :END:
+
+   Report the fraction of genes which depart from the null that the data for
+   the gene follows the fitted distribution (after Bonferroni correction at
+   level 0.05).
+
+   #+BEGIN_SRC ipython
+     gof_res.groupby(['dataset', 'method']).apply(lambda x: (x['p'] < 0.05 / x.shape[0]).mean()).reset_index().pivot(index='dataset', columns='method')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[12]:
+   #+BEGIN_EXAMPLE
+     0
+     method                  gamma       zig
+     dataset
+     b_cells              0.032000  0.026667
+     cytotoxic_t          0.015184  0.013015
+     cytotoxic_t-b_cells  0.086634  0.059406
+     cytotoxic_t-naive_t  0.069212  0.066826
+     ipsc                 0.037736  0.037736
+     pbmcs_68k            0.267327  0.269802
+   #+END_EXAMPLE
+   :END:
+
+   *Remark* We previously fit point-Gamma distributions to the iPSC data
+   (Sarkar et al. 2019), and [[https://jdblischak.github.io/singlecell-qtl/zinb.html#org17af587][reported]]:
+
+   #+BEGIN_QUOTE
+   We tested the goodness of fit for each individual and each gene, and
+   rejected the null that the model fit the data for only 60 of 537,658
+   individual-gene combinations (0.01%) after Bonferroni correction ($p < 9
+   \times 10^{−8}$)
+   #+END_QUOTE
+
+   The key difference between the approach taken here and the previous result
+   is that here we do not account for the fact that the cells are derived from
+   multiple donors. The differing genetic backgrounds of the donor individuals
+   means both the mean and variance of gene expression vary, such that the
+   marginal distribution is not well-described by a single Gamma distribution.
