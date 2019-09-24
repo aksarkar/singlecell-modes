@@ -197,7 +197,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[105]:
+   # Out[41]:
    :END:
 
    Run the simulation.
@@ -208,7 +208,29 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[107]:
+   # Out[42]:
+   :END:
+
+   Write out the results.
+
+   #+BEGIN_SRC ipython
+     sim_res.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/simulation.txt.gz', sep='\t', compression='gzip')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[43]:
+   :END:
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     sim_results = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/simulation.txt.gz', sep='\t', compression='gzip', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[44]:
    :END:
 
    Plot the results.
@@ -221,7 +243,7 @@
        jitter = np.random.normal(scale=0.01, size=sim_res.shape[0])
        plt.scatter(sim_res['logodds'] + jitter, -np.log10(sim_res[k]), s=2, c=np.atleast_2d(cm(i)), label=l)
      plt.axhline(y=0, c='k', lw=1)
-     plt.axhline(y=-np.log10(.05 / sim_res.shape[0]), c='0.8', ls=':', lw=1)
+     plt.axhline(y=-np.log10(.05), c='0.8', ls='--', lw=1)
      plt.legend(frameon=False, handletextpad=0, markerscale=4)
      plt.xticks(np.linspace(-5, 0, 10), [f'{x:.2g}' for x in sp.expit(np.linspace(-5, 0, 10))], rotation=90)
      plt.xlabel('$\pi$')
@@ -231,9 +253,35 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[135]:
+   # Out[51]:
    [[file:figure/gof.org/sim.png]]
    :END:
+
+   Plot a zoomed-in version of the results.
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/sim-inset.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     for i, (k, l) in enumerate(zip(['gamma', 'zig'], ['Gamma', 'ZIG'])):
+       jitter = np.random.normal(scale=0.01, size=sim_res.shape[0])
+       plt.scatter(sim_res['logodds'] + jitter, -np.log10(sim_res[k]), s=2, c=np.atleast_2d(cm(i)), label=l)
+     plt.axhline(y=0, c='k', lw=1)
+     plt.axhline(y=-np.log10(.05), c='0.8', ls='--', lw=1)
+     plt.legend(frameon=False, handletextpad=0, markerscale=4)
+     plt.xticks(np.linspace(-5, 0, 10), [f'{x:.2g}' for x in sp.expit(np.linspace(-5, 0, 10))], rotation=90)
+     plt.xlabel('$\pi$')
+     plt.ylim(0, 10)
+     plt.ylabel('Goodness of fit $-\log_{10}(p)$')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[52]:
+   [[file:figure/gof.org/sim-inset.png]]
+   :END:
+
 
 ** Test for goodness of fit
    :PROPERTIES:
