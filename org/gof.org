@@ -31,10 +31,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar/modes/
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 62671573
+  : Submitted batch job 62673206
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -45,7 +45,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[1]:
+  # Out[4]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -55,7 +55,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[129]:
+  # Out[5]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -65,7 +65,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[6]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -76,7 +76,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[7]:
   :END:
 
 * Methods
@@ -112,10 +112,14 @@
 
    #+NAME: data
    #+BEGIN_SRC ipython
-     def _cd8_cd19_mix():
+     def _cd8_cd19_mix(return_y=False):
        t_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
        b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
-       return scmodes.dataset.synthetic_mix(t_cells, b_cells, min_detect=0.25)[0]
+       x, y = scmodes.dataset.synthetic_mix(t_cells, b_cells, min_detect=0.25)
+       if return_y:
+         return x, y
+       else:
+         return x
 
      def _cyto_naive_mix():
        cyto = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19', return_df=True, min_detect=0)
@@ -134,7 +138,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[5]:
+   # Out[12]:
    :END:
 
 * Results
@@ -303,7 +307,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[8]:
    :END:
 
    Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
@@ -423,3 +427,83 @@
    multiple donors. The differing genetic backgrounds of the donor individuals
    means both the mean and variance of gene expression vary, such that the
    marginal distribution is not well-described by a single Gamma distribution.
+
+** Examples
+   :PROPERTIES:
+   :CUSTOM_ID: examples
+   :END:
+
+   Look at genes which significantly depart from Gamma, but not from
+   point-Gamma.
+
+   #+BEGIN_SRC ipython
+     sig0 = gof_res[gof_res['method'] == 'gamma'].groupby('dataset').apply(lambda x: x.loc[x['p'] < 0.05 / x.shape[0]]).reset_index(drop=True)
+     nsig1 = gof_res[gof_res['method'] == 'zig'].groupby('dataset').apply(lambda x: x.loc[x['p'] >= 0.05 / x.shape[0]]).reset_index(drop=True)
+     examples = sig0.merge(nsig1, on=['dataset', 'gene'], suffixes=['_gamma', '_zig'])
+     del examples['method_gamma']
+     del examples['method_zig']
+     examples.sort_values('p_gamma').head()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[25]:
+   #+BEGIN_EXAMPLE
+     dataset             gene  stat_gamma        p_gamma  stat_zig  \
+     6   cytotoxic_t-b_cells  ENSG00000204287    0.181818   0.000000e+00  0.011718
+     11  cytotoxic_t-b_cells  ENSG00000231389    0.095940  1.125366e-162  0.010051
+     17  cytotoxic_t-b_cells  ENSG00000105369    0.093518  1.383684e-154  0.014097
+     16  cytotoxic_t-b_cells  ENSG00000007312    0.072012   7.766159e-92  0.006933
+     7   cytotoxic_t-b_cells  ENSG00000198502    0.066750   5.775193e-79  0.008084
+
+     p_zig
+     6   0.007598
+     11  0.033140
+     17  0.000628
+     16  0.283539
+     7   0.140896
+   #+END_EXAMPLE
+   :END:
+
+   The top examples come from the T cell/B cell mixture.
+
+   #+BEGIN_SRC ipython :async t
+     mix_x, mix_y = _cd8_cd19_mix(return_y=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[13]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[14]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/examples.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 2)
+     fig.set_size_inches(4, 4)
+     for a, k in zip(ax.ravel(), examples.sort_values('p_gamma')['gene'].head(n=4)):
+       for i, (l, c) in enumerate(zip(['B cell', 'T cell'], ['r', 'k'])):
+         x = mix_x.loc[mix_y == i,k]
+         a.hist(x, bins=np.arange(x.max() + 1), color=c, label=l, alpha=0.5)
+         a.set_title(gene_info.loc[k, 'name'])
+     for a in ax:
+       a[0].set_ylabel('Number of cells')
+     for a in ax.T:
+       a[-1].set_xlabel('Number of molecules')
+     ax[0,0].legend(frameon=False)
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[38]:
+   [[file:figure/gof.org/examples.png]]
+   :END:
