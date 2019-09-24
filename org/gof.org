@@ -49,6 +49,16 @@
   :END:
 
   #+BEGIN_SRC ipython
+    import scipy.special as sp
+    import scqtl
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[129]:
+  :END:
+
+  #+BEGIN_SRC ipython
     %matplotlib inline
     %config InlineBackend.figure_formats = set(['retina'])
   #+END_SRC
@@ -128,12 +138,108 @@
    :END:
 
 * Results
+** Simulation
+   :PROPERTIES:
+   :CUSTOM_ID: simulation
+   :END:
+
+   Draw data following the Poisson-point Gamma distribution:
+
+   \begin{align*}
+     x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
+     \lambda_i &\sim \pi \delta_0(\cdot) + (1 - \pi) \operatorname{Gamma}(1/\phi, 1/(\mu\phi))
+   \end{align*}
+
+   Draw simulation parameters \(s_i=10^5, \ln\mu, \ln\phi\) from typical values
+   (Sarkar et al. 2019).
+
+   \begin{align*}
+     \ln\mu &\sim \operatorname{Uniform}(-12, -8)\\
+     \ln\phi &\sim \operatorname{Uniform}(-6, 0)
+   \end{align*}
+
+   Then, test for goodness of fit of Poisson-Gamma and Poisson-point Gamma.
+
+   #+BEGIN_SRC ipython
+     import scmodes.benchmark.gof
+
+     def trial(num_samples, logodds, seed, verbose=False):
+       data, _ = scqtl.simulation.simulate(num_samples=num_samples, logodds=logodds, seed=seed)
+       x = data[:,0]
+       s = data[:,1]
+       # Important: scqtl.simple returns mu, 1/phi
+       fit0 = scqtl.simple.fit_nb(x, s)
+       res0 = scmodes.benchmark.gof._gof(x, cdf=scmodes.benchmark.gof._zig_cdf,
+                                         pmf=scmodes.benchmark.gof._zig_pmf, size=s,
+                                         log_mu=np.log(fit0[0]), log_phi=-np.log(fit0[1]))
+       fit1 = scqtl.simple.fit_zinb(x, s)
+       res1 = scmodes.benchmark.gof._gof(x, cdf=scmodes.benchmark.gof._zig_cdf,
+                                         pmf=scmodes.benchmark.gof._zig_pmf, size=s,
+                                         log_mu=np.log(fit1[0]), log_phi=-np.log(fit1[1]), logodds=fit1[2])
+       if verbose:
+         print(fit0, fit1)
+       return res0[1], res1[1]
+
+     def evaluate(num_samples, num_trials):
+       result = []
+       for logodds in np.linspace(-5, 0, 10):
+         for seed in range(num_trials):
+           gamma_res, zig_res = trial(num_samples, logodds, seed)
+           result.append([logodds, seed, gamma_res, zig_res])
+       result = pd.DataFrame(result)
+       result.columns = ['logodds', 'trial', 'gamma', 'zig']
+       return result
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[105]:
+   :END:
+
+   Run the simulation.
+
+   #+BEGIN_SRC ipython :async t
+     sim_res = evaluate(num_samples=1000, num_trials=10)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[107]:
+   :END:
+
+   Plot the results.
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/sim.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     for i, (k, l) in enumerate(zip(['gamma', 'zig'], ['Gamma', 'ZIG'])):
+       jitter = np.random.normal(scale=0.01, size=sim_res.shape[0])
+       plt.scatter(sim_res['logodds'] + jitter, -np.log10(sim_res[k]), s=2, c=np.atleast_2d(cm(i)), label=l)
+     plt.axhline(y=0, c='k', lw=1)
+     plt.axhline(y=-np.log10(.05 / sim_res.shape[0]), c='0.8', ls=':', lw=1)
+     plt.legend(frameon=False, handletextpad=0, markerscale=4)
+     plt.xticks(np.linspace(-5, 0, 10), [f'{x:.2g}' for x in sp.expit(np.linspace(-5, 0, 10))], rotation=90)
+     plt.xlabel('$\pi$')
+     plt.ylabel('Goodness of fit $-\log_{10}(p)$')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[135]:
+   [[file:figure/gof.org/sim.png]]
+   :END:
+
 ** Test for goodness of fit
+   :PROPERTIES:
+   :CUSTOM_ID: gof
+   :END:
 
    Run the GPU-based methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=12:00:00 -a 1-5
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=4:00:00 -a 1-5
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -159,20 +265,23 @@
      source activate scmodes
      python <<EOF
      <<imports>>
+     import multiprocessing as mp
      import os
      <<data>>
-     methods = ['unimodal']
      tasks = list(data.keys())
      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      with mp.Pool(maxtasksperchild=20) as pool:
        # Important: this needs to be done after initializing the pool to avoid
        # memory duplication
        x = data[task]()
-       res = scmodes.benchmark.evaluate_gof(x, pool=pool, methods=methods)
+       res = scmodes.benchmark.evaluate_gof(x, pool=pool, methods=['unimodal'])
        res.index = x.columns
        res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-unimodal.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 62671900
 
    Move the results to permanent storage.
 
