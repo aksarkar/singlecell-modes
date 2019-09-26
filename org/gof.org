@@ -34,7 +34,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 62707085
+  : Submitted batch job 62738644
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -45,7 +45,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[1]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -55,7 +55,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -65,7 +65,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[4]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -76,7 +76,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[5]:
   :END:
 
 * Methods
@@ -118,32 +118,31 @@
    \end{align*}
 
    where we abuse notation to allow \(a_k < \lambda_0\). To test for goodness
-   of fit, we need the PMF and CDF of \(x\), marginalized over
-   \(\hat{g}\). [[https://lsun.github.io/truncash/diagnostic_plot.html#ash:_(t)_likelihood,_uniform_mixture_prior][These
-   are analytic for certain choices of likelihood and prior.]]  However, in
-   this specific instance, it is not. To derive the marginal PMF, consider a
-   single component:
+   of fit, we need the PMF and CDF of \(x_i\), marginalized over
+   \(\lambda_i\). [[https://lsun.github.io/truncash/diagnostic_plot.html#ash:_(t)_likelihood,_uniform_mixture_prior][These
+   are analytic for certain choices of likelihood and prior.]] In this case, we
+   have (for one component):
 
    \begin{align*}
      x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
      \lambda_i &\sim \operatorname{Uniform}(a, b)
    \end{align*}
 
-   Then, we have:
+   and:
 
    \begin{align*}
      \Pr(x_i = x) &= \int_0^\infty \operatorname{Poisson}(x_i; s_i \lambda_i) \operatorname{Uniform}(a, b) d\lambda_i\\
      &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x_i; s_i \lambda_i) d\lambda_i\\
      &= \frac{1}{s_i (b - a)} \int_a^b \frac{s_i^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-s_i\lambda_i) d\lambda_i\\
-     &= \frac{1}{s_i (b - a)} \left( F_\Gamma(b; x_i + 1, s) - F_\Gamma(a, x_i + 1, s_i) \right)\\
-     \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{s_i (b - a)} \left( F_\Gamma(b; k + 1, s) - F_\Gamma(a, k + 1, s_i) \right)\\
+     &= \frac{1}{s_i (b - a)} \left( F_\Gamma(b; x_i + 1, s_i) - F_\Gamma(a, x_i + 1, s_i) \right)\\
+     \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{s_i (b - a)} \left( F_\Gamma(b; k + 1, s_i) - F_\Gamma(a, k + 1, s_i) \right)\\
    \end{align*}
 
    where \(F_\Gamma(\cdot; \alpha, \beta)\) denotes the CDF of the Gamma
-   distribution with shape \(\alpha\) and rate \(\beta\). Computing this for
-   each data point, for each component gives a matrix of values \(\mathbf{F} =
-   [F_{ik}]\). Then, the marginal CDF of the data is given by
-   \(\mathbf{F}\mathbf{w}\).
+   distribution with shape \(\alpha\) and rate \(\beta\). The marginal PMF is
+   analytic. Computing the CDF for each data point, for each component gives a
+   matrix of values \(\mathbf{F} = [F_{ik}]\). Then, the marginal CDF of the
+   data is given by \(\mathbf{F}\mathbf{w}\).
 
 ** Data
 
@@ -202,7 +201,11 @@
    Then, test for goodness of fit of Poisson-Gamma and Poisson-point Gamma.
 
    #+BEGIN_SRC ipython
+     import rpy2.robjects.packages
+     import rpy2.robjects.pandas2ri
      import scmodes.benchmark.gof
+
+     ashr = rpy2.robjects.packages.importr('ashr')
 
      def trial(num_samples, logodds, seed, verbose=False):
        data, _ = scqtl.simulation.simulate(num_samples=num_samples, logodds=logodds, seed=seed)
@@ -217,9 +220,9 @@
        res1 = scmodes.benchmark.gof._gof(x, cdf=scmodes.benchmark.gof._zig_cdf,
                                          pmf=scmodes.benchmark.gof._zig_pmf, size=s,
                                          log_mu=np.log(fit1[0]), log_phi=-np.log(fit1[1]), logodds=fit1[2])
-       if verbose:
-         print(fit0, fit1)
-       return res0[1], res1[1]
+
+       res2 = scmodes.benchmark.gof._gof_unimodal("", x, s)
+       return res0[1], res1[1], res2[1]
 
      def evaluate(num_samples, num_trials):
        result = []
@@ -228,7 +231,7 @@
            gamma_res, zig_res = trial(num_samples, logodds, seed)
            result.append([logodds, seed, gamma_res, zig_res])
        result = pd.DataFrame(result)
-       result.columns = ['logodds', 'trial', 'gamma', 'zig']
+       result.columns = ['logodds', 'trial', 'gamma', 'zig', 'unimodal']
        return result
    #+END_SRC
 

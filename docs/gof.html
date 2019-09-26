@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-26 Thu 16:42 -->
+<!-- 2019-09-26 Thu 16:57 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org3aeb2e5">Test for goodness of fit</a></li>
+<li><a href="#orgfb07372">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -339,9 +339,9 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org3aeb2e5" class="outline-3">
-<h3 id="org3aeb2e5">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org3aeb2e5">
+<div id="outline-container-orgfb07372" class="outline-3">
+<h3 id="orgfb07372">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-orgfb07372">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -394,11 +394,10 @@ We parameterized the Poisson-unimodal model as:
 
 <p>
 where we abuse notation to allow \(a_k < \lambda_0\). To test for goodness
-of fit, we need the PMF and CDF of \(x\), marginalized over
-\(\hat{g}\). <a href="https://lsun.github.io/truncash/diagnostic_plot.html#ash:_(t)_likelihood,_uniform_mixture_prior">These
-are analytic for certain choices of likelihood and prior.</a>  However, in
-this specific instance, it is not. To derive the marginal PMF, consider a
-single component:
+of fit, we need the PMF and CDF of \(x_i\), marginalized over
+\(\lambda_i\). <a href="https://lsun.github.io/truncash/diagnostic_plot.html#ash:_(t)_likelihood,_uniform_mixture_prior">These
+are analytic for certain choices of likelihood and prior.</a> In this case, we
+have (for one component):
 </p>
 
 \begin{align*}
@@ -407,23 +406,23 @@ single component:
 \end{align*}
 
 <p>
-Then, we have:
+and:
 </p>
 
 \begin{align*}
   \Pr(x_i = x) &= \int_0^\infty \operatorname{Poisson}(x_i; s_i \lambda_i) \operatorname{Uniform}(a, b) d\lambda_i\\
   &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x_i; s_i \lambda_i) d\lambda_i\\
   &= \frac{1}{s_i (b - a)} \int_a^b \frac{s_i^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-s_i\lambda_i) d\lambda_i\\
-  &= \frac{1}{s_i (b - a)} \left( F_\Gamma(b; x_i + 1, s) - F_\Gamma(a, x_i + 1, s_i) \right)\\
-  \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{s_i (b - a)} \left( F_\Gamma(b; k + 1, s) - F_\Gamma(a, k + 1, s_i) \right)\\
+  &= \frac{1}{s_i (b - a)} \left( F_\Gamma(b; x_i + 1, s_i) - F_\Gamma(a, x_i + 1, s_i) \right)\\
+  \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{s_i (b - a)} \left( F_\Gamma(b; k + 1, s_i) - F_\Gamma(a, k + 1, s_i) \right)\\
 \end{align*}
 
 <p>
 where \(F_\Gamma(\cdot; \alpha, \beta)\) denotes the CDF of the Gamma
-distribution with shape \(\alpha\) and rate \(\beta\). Computing this for
-each data point, for each component gives a matrix of values \(\mathbf{F} =
-   [F_{ik}]\). Then, the marginal CDF of the data is given by
-\(\mathbf{F}\mathbf{w}\).
+distribution with shape \(\alpha\) and rate \(\beta\). The marginal PMF is
+analytic. Computing the CDF for each data point, for each component gives a
+matrix of values \(\mathbf{F} = [F_{ik}]\). Then, the marginal CDF of the
+data is given by \(\mathbf{F}\mathbf{w}\).
 </p>
 </div>
 </div>
@@ -491,7 +490,11 @@ Then, test for goodness of fit of Poisson-Gamma and Poisson-point Gamma.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> scmodes.benchmark.gof
+<pre class="src src-ipython"><span class="org-keyword">import</span> rpy2.robjects.packages
+<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
+<span class="org-keyword">import</span> scmodes.benchmark.gof
+
+<span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
 
 <span class="org-keyword">def</span> <span class="org-function-name">trial</span>(num_samples, logodds, seed, verbose=<span class="org-constant">False</span>):
   <span class="org-variable-name">data</span>, <span class="org-variable-name">_</span> = scqtl.simulation.simulate(num_samples=num_samples, logodds=logodds, seed=seed)
@@ -506,9 +509,9 @@ Then, test for goodness of fit of Poisson-Gamma and Poisson-point Gamma.
   <span class="org-variable-name">res1</span> = scmodes.benchmark.gof._gof(x, cdf=scmodes.benchmark.gof._zig_cdf,
                                     pmf=scmodes.benchmark.gof._zig_pmf, size=s,
                                     log_mu=np.log(fit1[0]), log_phi=-np.log(fit1[1]), logodds=fit1[2])
-  <span class="org-keyword">if</span> verbose:
-    <span class="org-keyword">print</span>(fit0, fit1)
-  <span class="org-keyword">return</span> res0[1], res1[1]
+
+  <span class="org-variable-name">res2</span> = scmodes.benchmark.gof._gof_unimodal(<span class="org-string">""</span>, x, s)
+  <span class="org-keyword">return</span> res0[1], res1[1], res2[1]
 
 <span class="org-keyword">def</span> <span class="org-function-name">evaluate</span>(num_samples, num_trials):
   <span class="org-variable-name">result</span> = []
@@ -517,7 +520,7 @@ Then, test for goodness of fit of Poisson-Gamma and Poisson-point Gamma.
       <span class="org-variable-name">gamma_res</span>, <span class="org-variable-name">zig_res</span> = trial(num_samples, logodds, seed)
       result.append([logodds, seed, gamma_res, zig_res])
   <span class="org-variable-name">result</span> = pd.DataFrame(result)
-  <span class="org-variable-name">result.columns</span> = [<span class="org-string">'logodds'</span>, <span class="org-string">'trial'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'zig'</span>]
+  <span class="org-variable-name">result.columns</span> = [<span class="org-string">'logodds'</span>, <span class="org-string">'trial'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'zig'</span>, <span class="org-string">'unimodal'</span>]
   <span class="org-keyword">return</span> result
 </pre>
 </div>
@@ -606,8 +609,8 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-orgfb07372" class="outline-3">
-<h3 id="gof"><a id="orgfb07372"></a>Test for goodness of fit</h3>
+<div id="outline-container-org8d2e65a" class="outline-3">
+<h3 id="gof"><a id="org8d2e65a"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -885,7 +888,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-26 Thu 16:42</p>
+<p class="date">Created: 2019-09-26 Thu 16:57</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
