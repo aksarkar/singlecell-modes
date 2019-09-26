@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-24 Tue 15:01 -->
+<!-- 2019-09-26 Thu 16:42 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,8 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#orgd695d16">Test for goodness of fit</a></li>
+<li><a href="#org3aeb2e5">Test for goodness of fit</a></li>
+<li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
 </li>
@@ -338,9 +339,9 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-orgd695d16" class="outline-3">
-<h3 id="orgd695d16">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-orgd695d16">
+<div id="outline-container-org3aeb2e5" class="outline-3">
+<h3 id="org3aeb2e5">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-org3aeb2e5">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -375,6 +376,54 @@ We therefore draw \(u_{i} \mid x_{i} \sim
   \mathrm{Uniform}(\hat{F}_{i}(x_{i} - 1), \hat{F}_{i}(x_{i}))\). Then, we
 apply the KS test to whether the randomized quantiles \(u_{i}\) are uniformly
 distributed.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org1e959d4" class="outline-3">
+<h3 id="org1e959d4">Poisson-unimodal goodness of fit</h3>
+<div class="outline-text-3" id="text-org1e959d4">
+<p>
+We parameterized the Poisson-unimodal model as:
+</p>
+
+\begin{align*}
+  x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
+  \lambda_i &\sim \sum_k w_k \operatorname{Uniform}(\lambda_0, a_k)
+\end{align*}
+
+<p>
+where we abuse notation to allow \(a_k < \lambda_0\). To test for goodness
+of fit, we need the PMF and CDF of \(x\), marginalized over
+\(\hat{g}\). <a href="https://lsun.github.io/truncash/diagnostic_plot.html#ash:_(t)_likelihood,_uniform_mixture_prior">These
+are analytic for certain choices of likelihood and prior.</a>  However, in
+this specific instance, it is not. To derive the marginal PMF, consider a
+single component:
+</p>
+
+\begin{align*}
+  x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
+  \lambda_i &\sim \operatorname{Uniform}(a, b)
+\end{align*}
+
+<p>
+Then, we have:
+</p>
+
+\begin{align*}
+  \Pr(x_i = x) &= \int_0^\infty \operatorname{Poisson}(x_i; s_i \lambda_i) \operatorname{Uniform}(a, b) d\lambda_i\\
+  &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x_i; s_i \lambda_i) d\lambda_i\\
+  &= \frac{1}{s_i (b - a)} \int_a^b \frac{s_i^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-s_i\lambda_i) d\lambda_i\\
+  &= \frac{1}{s_i (b - a)} \left( F_\Gamma(b; x_i + 1, s) - F_\Gamma(a, x_i + 1, s_i) \right)\\
+  \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{s_i (b - a)} \left( F_\Gamma(b; k + 1, s) - F_\Gamma(a, k + 1, s_i) \right)\\
+\end{align*}
+
+<p>
+where \(F_\Gamma(\cdot; \alpha, \beta)\) denotes the CDF of the Gamma
+distribution with shape \(\alpha\) and rate \(\beta\). Computing this for
+each data point, for each component gives a matrix of values \(\mathbf{F} =
+   [F_{ik}]\). Then, the marginal CDF of the data is given by
+\(\mathbf{F}\mathbf{w}\).
 </p>
 </div>
 </div>
@@ -557,9 +606,8 @@ plt.tight_layout()
 </div>
 </div>
 
-
-<div id="outline-container-orgaba6c3d" class="outline-3">
-<h3 id="gof"><a id="orgaba6c3d"></a>Test for goodness of fit</h3>
+<div id="outline-container-orgfb07372" class="outline-3">
+<h3 id="gof"><a id="orgfb07372"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -837,7 +885,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-24 Tue 15:01</p>
+<p class="date">Created: 2019-09-26 Thu 16:42</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
