@@ -346,9 +346,9 @@
        outputlevel=pd.Series(['loglik', 'fitted_g']),
        # numpy2ri doesn't DTRT, so we need to use pandas
        lik=ashr.lik_pois(y=x, scale=s, link='identity'),
-       prior='uniform',
+       # prior='uniform',
        mixcompdist='halfuniform',
-       mixsd=pd.Series(np.geomspace((.5 / s).min(), lam.max(), 25)),
+       mixsd=pd.Series(np.geomspace(lam.min() + 1e-8, lam.max(), 25)),
        mode=pd.Series([lam.min(), lam.max()]))
      grid = np.linspace(lam.min(), lam.max(), 1000)
      Fx = np.array(ashr.cdf_ash(fit, grid).rx2('y')).ravel()
@@ -356,7 +356,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[22]:
+   # Out[47]:
    :END:
 
    For comparison, fit ZINB to this example.
@@ -370,6 +370,17 @@
    #+RESULTS:
    :RESULTS:
    # Out[23]:
+   :END:
+
+   Fit Poisson to this example.
+
+   #+BEGIN_SRC ipython
+     fit2 = scqtl.simple.fit_pois(x, s)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[55]:
    :END:
 
    Plot the data and estimated \(\hat{g}\). Also plot the estimated mode.
@@ -397,27 +408,42 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[24]:
+   # Out[53]:
    [[file:figure/gof.org/unimodal-gof-example.png]]
    :END:
 
    Report the log likelihood.
 
    #+BEGIN_SRC ipython
-     pd.Series({'zig': fit1[-1], 'unimodal': np.array(fit.rx2('loglik'))[0]})
+     pd.Series({'pointmass': fit2[-1],
+                'zig': fit1[-1],
+                'unimodal': np.array(fit.rx2('loglik'))[0]})
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[27]:
+   # Out[52]:
    #+BEGIN_EXAMPLE
-     zig        -2008.407921
-     unimodal   -2076.713111
+     pointmass   -2008.663140
+     zig         -2008.407921
+     unimodal    -2077.552567
      dtype: float64
    #+END_EXAMPLE
    :END:
 
-   Report the goodness of fit.
+   Report the goodness of fit of the Poisson distribution.
+
+   #+BEGIN_SRC ipython
+     scmodes.benchmark.gof._gof(x, cdf=st.poisson.cdf, pmf=st.poisson.pmf, mu=s * fit2[0])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[57]:
+   : KstestResult(statistic=0.017353781706450494, pvalue=0.9240420073670237)
+   :END:
+
+   Report the goodness of fit of the ZINB distribution.
 
    #+BEGIN_SRC ipython
      scmodes.benchmark.gof._gof(x, cdf=scmodes.benchmark.gof._zig_cdf,
@@ -431,14 +457,16 @@
    : KstestResult(statistic=0.02170999399592824, pvalue=0.7335259999575676)
    :END:
 
+   Report the goodness of fit of the Poisson-unimodal distribution.
+
    #+BEGIN_SRC ipython
-     scmodes.benchmark.gof._gof_unimodal("", pd.Series(x), pd.Series(s))
+     scmodes.benchmark.gof._gof_unimodal('', pd.Series(x), pd.Series(s))[1:]
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[29]:
-   : ('', 0.12995423187566046, 3.484390894026589e-15)
+   # Out[58]:
+   : (0.1289853772763987, 5.779830292205654e-15)
    :END:
 
 ** Test for goodness of fit

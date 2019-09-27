@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-27 Fri 13:37 -->
+<!-- 2019-09-27 Fri 14:55 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org06766fc">Test for goodness of fit</a></li>
+<li><a href="#org228d635">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -341,9 +341,9 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org06766fc" class="outline-3">
-<h3 id="org06766fc">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org06766fc">
+<div id="outline-container-org228d635" class="outline-3">
+<h3 id="org228d635">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-org228d635">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -634,9 +634,9 @@ rpy2.robjects.pandas2ri.activate()
   outputlevel=pd.Series([<span class="org-string">'loglik'</span>, <span class="org-string">'fitted_g'</span>]),
   <span class="org-comment-delimiter"># </span><span class="org-comment">numpy2ri doesn't DTRT, so we need to use pandas</span>
   lik=ashr.lik_pois(y=x, scale=s, link=<span class="org-string">'identity'</span>),
-  prior=<span class="org-string">'uniform'</span>,
+  <span class="org-comment-delimiter"># </span><span class="org-comment">prior='uniform',</span>
   mixcompdist=<span class="org-string">'halfuniform'</span>,
-  mixsd=pd.Series(np.geomspace((.5 / s).<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 25)),
+  mixsd=pd.Series(np.geomspace(lam.<span class="org-builtin">min</span>() + 1e-8, lam.<span class="org-builtin">max</span>(), 25)),
   mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]))
 <span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000)
 <span class="org-variable-name">Fx</span> = np.array(ashr.cdf_ash(fit, grid).rx2(<span class="org-string">'y'</span>)).ravel()
@@ -651,6 +651,15 @@ For comparison, fit ZINB to this example.
 <pre class="src src-ipython"><span class="org-variable-name">fit1</span> = scqtl.simple.fit_zinb(x, s)
 <span class="org-comment-delimiter"># </span><span class="org-comment">This calls scqtl.simple.fit_zinb</span>
 <span class="org-variable-name">_</span>, <span class="org-variable-name">zinb_cdf</span> = scmodes.deconvolve.fit_zig(x, s)
+</pre>
+</div>
+
+<p>
+Fit Poisson to this example.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">fit2</span> = scqtl.simple.fit_pois(x, s)
 </pre>
 </div>
 
@@ -691,18 +700,35 @@ Report the log likelihood.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">pd.Series({<span class="org-string">'zig'</span>: fit1[-1], <span class="org-string">'unimodal'</span>: np.array(fit.rx2(<span class="org-string">'loglik'</span>))[0]})
+<pre class="src src-ipython">pd.Series({<span class="org-string">'pointmass'</span>: fit2[-1],
+           <span class="org-string">'zig'</span>: fit1[-1],
+           <span class="org-string">'unimodal'</span>: np.array(fit.rx2(<span class="org-string">'loglik'</span>))[0]})
 </pre>
 </div>
 
 <pre class="example">
-zig        -2008.407921
-unimodal   -2076.713111
+pointmass   -2008.663140
+zig         -2008.407921
+unimodal    -2077.552567
 dtype: float64
 </pre>
 
 <p>
-Report the goodness of fit.
+Report the goodness of fit of the Poisson distribution.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">scmodes.benchmark.gof._gof(x, cdf=st.poisson.cdf, pmf=st.poisson.pmf, mu=s * fit2[0])
+</pre>
+</div>
+
+<pre class="example">
+KstestResult(statistic=0.017353781706450494, pvalue=0.9240420073670237)
+
+</pre>
+
+<p>
+Report the goodness of fit of the ZINB distribution.
 </p>
 
 <div class="org-src-container">
@@ -717,20 +743,24 @@ KstestResult(statistic=0.02170999399592824, pvalue=0.7335259999575676)
 
 </pre>
 
+<p>
+Report the goodness of fit of the Poisson-unimodal distribution.
+</p>
+
 <div class="org-src-container">
-<pre class="src src-ipython">scmodes.benchmark.gof._gof_unimodal(<span class="org-string">""</span>, pd.Series(x), pd.Series(s))
+<pre class="src src-ipython">scmodes.benchmark.gof._gof_unimodal(<span class="org-string">''</span>, pd.Series(x), pd.Series(s))[1:]
 </pre>
 </div>
 
 <pre class="example">
-('', 0.12995423187566046, 3.484390894026589e-15)
+(0.1289853772763987, 5.779830292205654e-15)
 
 </pre>
 </div>
 </div>
 
-<div id="outline-container-org253aa4e" class="outline-3">
-<h3 id="gof"><a id="org253aa4e"></a>Test for goodness of fit</h3>
+<div id="outline-container-org63acfb2" class="outline-3">
+<h3 id="gof"><a id="org63acfb2"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -1008,7 +1038,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-27 Fri 13:37</p>
+<p class="date">Created: 2019-09-27 Fri 14:55</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
