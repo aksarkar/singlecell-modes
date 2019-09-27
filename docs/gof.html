@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-26 Thu 21:12 -->
+<!-- 2019-09-27 Fri 13:37 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#orga204b4e">Test for goodness of fit</a></li>
+<li><a href="#org06766fc">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -341,9 +341,9 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-orga204b4e" class="outline-3">
-<h3 id="orga204b4e">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-orga204b4e">
+<div id="outline-container-org06766fc" class="outline-3">
+<h3 id="org06766fc">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-org06766fc">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -622,7 +622,7 @@ Look at an example:
 rpy2.robjects.pandas2ri.activate()
 <span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
 
-<span class="org-variable-name">data</span>, <span class="org-variable-name">_</span> = scqtl.simulation.simulate(num_samples=1000, logodds=-5, seed=0)
+<span class="org-variable-name">data</span>, <span class="org-variable-name">_</span> = scqtl.simulation.simulate(num_samples=1000, logodds=-5, seed=2)
 <span class="org-variable-name">x</span> = pd.Series(data[:,0])
 <span class="org-variable-name">s</span> = pd.Series(data[:,1])
 <span class="org-variable-name">lam</span> = x / s
@@ -634,6 +634,8 @@ rpy2.robjects.pandas2ri.activate()
   outputlevel=pd.Series([<span class="org-string">'loglik'</span>, <span class="org-string">'fitted_g'</span>]),
   <span class="org-comment-delimiter"># </span><span class="org-comment">numpy2ri doesn't DTRT, so we need to use pandas</span>
   lik=ashr.lik_pois(y=x, scale=s, link=<span class="org-string">'identity'</span>),
+  prior=<span class="org-string">'uniform'</span>,
+  mixcompdist=<span class="org-string">'halfuniform'</span>,
   mixsd=pd.Series(np.geomspace((.5 / s).<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 25)),
   mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]))
 <span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000)
@@ -694,8 +696,8 @@ Report the log likelihood.
 </div>
 
 <pre class="example">
-zig        -2542.181486
-unimodal   -2566.495086
+zig        -2008.407921
+unimodal   -2076.713111
 dtype: float64
 </pre>
 
@@ -711,7 +713,7 @@ Report the goodness of fit.
 </div>
 
 <pre class="example">
-KstestResult(statistic=0.017599923681100874, pvalue=0.9160786776117419)
+KstestResult(statistic=0.02170999399592824, pvalue=0.7335259999575676)
 
 </pre>
 
@@ -721,14 +723,14 @@ KstestResult(statistic=0.017599923681100874, pvalue=0.9160786776117419)
 </div>
 
 <pre class="example">
-('', 0.1068304085858266, 2.1574276423860724e-10)
+('', 0.12995423187566046, 3.484390894026589e-15)
 
 </pre>
 </div>
 </div>
 
-<div id="outline-container-org913fa46" class="outline-3">
-<h3 id="gof"><a id="org913fa46"></a>Test for goodness of fit</h3>
+<div id="outline-container-org253aa4e" class="outline-3">
+<h3 id="gof"><a id="org253aa4e"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -1006,7 +1008,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-26 Thu 21:12</p>
+<p class="date">Created: 2019-09-27 Fri 13:37</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

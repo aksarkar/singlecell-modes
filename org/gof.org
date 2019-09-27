@@ -34,7 +34,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 62738644
+  : Submitted batch job 62748280
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -45,7 +45,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[2]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -56,7 +56,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[71]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -66,7 +66,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -77,7 +77,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[5]:
+  # Out[4]:
   :END:
 
 * Methods
@@ -236,7 +236,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[83]:
+   # Out[15]:
    :END:
 
    Run the simulation.
@@ -247,7 +247,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[85]:
+   # Out[16]:
    :END:
 
    Write out the results.
@@ -258,7 +258,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[86]:
+   # Out[17]:
    :END:
 
    Read the results.
@@ -292,7 +292,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[91]:
+   # Out[19]:
    [[file:figure/gof.org/sim.png]]
    :END:
 
@@ -317,7 +317,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[93]:
+   # Out[20]:
    [[file:figure/gof.org/sim-inset.png]]
    :END:
 
@@ -334,7 +334,7 @@
      rpy2.robjects.pandas2ri.activate()
      ashr = rpy2.robjects.packages.importr('ashr')
 
-     data, _ = scqtl.simulation.simulate(num_samples=1000, logodds=-5, seed=0)
+     data, _ = scqtl.simulation.simulate(num_samples=1000, logodds=-5, seed=2)
      x = pd.Series(data[:,0])
      s = pd.Series(data[:,1])
      lam = x / s
@@ -346,6 +346,8 @@
        outputlevel=pd.Series(['loglik', 'fitted_g']),
        # numpy2ri doesn't DTRT, so we need to use pandas
        lik=ashr.lik_pois(y=x, scale=s, link='identity'),
+       prior='uniform',
+       mixcompdist='halfuniform',
        mixsd=pd.Series(np.geomspace((.5 / s).min(), lam.max(), 25)),
        mode=pd.Series([lam.min(), lam.max()]))
      grid = np.linspace(lam.min(), lam.max(), 1000)
@@ -354,7 +356,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[160]:
+   # Out[22]:
    :END:
 
    For comparison, fit ZINB to this example.
@@ -367,7 +369,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[95]:
+   # Out[23]:
    :END:
 
    Plot the data and estimated \(\hat{g}\). Also plot the estimated mode.
@@ -395,7 +397,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[162]:
+   # Out[24]:
    [[file:figure/gof.org/unimodal-gof-example.png]]
    :END:
 
@@ -407,10 +409,10 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[161]:
+   # Out[27]:
    #+BEGIN_EXAMPLE
-     zig        -2542.181486
-     unimodal   -2566.495086
+     zig        -2008.407921
+     unimodal   -2076.713111
      dtype: float64
    #+END_EXAMPLE
    :END:
@@ -425,8 +427,8 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[119]:
-   : KstestResult(statistic=0.017599923681100874, pvalue=0.9160786776117419)
+   # Out[28]:
+   : KstestResult(statistic=0.02170999399592824, pvalue=0.7335259999575676)
    :END:
 
    #+BEGIN_SRC ipython
@@ -435,8 +437,8 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[127]:
-   : ('', 0.1068304085858266, 2.1574276423860724e-10)
+   # Out[29]:
+   : ('', 0.12995423187566046, 3.484390894026589e-15)
    :END:
 
 ** Test for goodness of fit
