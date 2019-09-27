@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-14 Tue 11:05 -->
+<!-- 2019-09-27 Fri 15:48 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Deconvolution of near-Poisson data</title>
@@ -264,6 +264,7 @@ for the JavaScript code in this tag.
 <ul>
 <li><a href="#org763ee59">Extract the examples.</a></li>
 <li><a href="#orgeac7d5e">Deconvolve specific examples</a></li>
+<li><a href="#orga229ff0">Poisson ash</a></li>
 </ul>
 </li>
 </ul>
@@ -274,12 +275,18 @@ for the JavaScript code in this tag.
 <h2 id="org5c8240e">Introduction</h2>
 <div class="outline-text-2" id="text-org5c8240e">
 <p>
-In real data, ZIEF appears to outperform other methods, but only for trivial
-cases where the data appears to be Poisson-distributed.
+Deconvolution of Poisson data assuming a point mass is trivial:
 </p>
 
+\begin{align*}
+  x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
+  \lambda_i &\sim \delta_\mu(\cdot)\\
+  \hat\mu &= \frac{\sum_i x_i}{\sum_i s_i}
+\end{align*}
+
 <p>
-Investigate why this happens.
+More general approaches should all be able to fit this case. Here, we
+investigate cases where they fail.
 </p>
 </div>
 </div>
@@ -524,11 +531,114 @@ estimated latent distribution \(\hat{g}\), was incorrect.
 </p>
 </div>
 </div>
+
+<div id="outline-container-orga229ff0" class="outline-3">
+<h3 id="orga229ff0">Poisson ash</h3>
+<div class="outline-text-3" id="text-orga229ff0">
+<p>
+Draw some near-Poisson data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">data</span>, <span class="org-variable-name">_</span> = scqtl.simulation.simulate(num_samples=1000, logodds=-5, seed=2)
+<span class="org-variable-name">x</span> = pd.Series(data[:,0])
+<span class="org-variable-name">s</span> = pd.Series(data[:,1])
+<span class="org-variable-name">lam</span> = x / s
+</pre>
+</div>
+
+<p>
+Fit Poisson convolved with point mass.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">fit0</span> = scqtl.simple.fit_pois(x, s)
+</pre>
+</div>
+
+<p>
+Fit ZINB.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">fit1</span> = scqtl.simple.fit_zinb(x, s)
+</pre>
+</div>
+
+<p>
+Fit Poisson ash.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">fit2</span> = ashr.ash_workhorse(
+  <span class="org-comment-delimiter"># </span><span class="org-comment">these are ignored by ash</span>
+  pd.Series(np.zeros(x.shape)),
+  1,
+  outputlevel=pd.Series([<span class="org-string">'loglik'</span>, <span class="org-string">'fitted_g'</span>]),
+  lik=ashr.lik_pois(y=x, scale=s, link=<span class="org-string">'identity'</span>),
+  mixcompdist=<span class="org-string">'halfuniform'</span>,
+  mixsd=pd.Series(np.geomspace(lam.<span class="org-builtin">min</span>() + 1e-8, lam.<span class="org-builtin">max</span>(), 25)),
+  mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]))
+</pre>
+</div>
+
+<p>
+Report the log likelihood.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pd.Series({<span class="org-string">'pointmass'</span>: fit0[-1],
+           <span class="org-string">'zig'</span>: fit1[-1],
+           <span class="org-string">'unimodal'</span>: np.array(fit2.rx2(<span class="org-string">'loglik'</span>))[0]})
+</pre>
+</div>
+
+<pre class="example">
+pointmass   -2008.663140
+zig         -2008.407921
+unimodal    -2077.552567
+dtype: float64
+</pre>
+
+<p>
+Plot the data and estimated \(\hat{g}\). Also plot the estimated mode.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
+fig.set_size_inches(5, 4)
+ax[0].hist(x.values, bins=np.arange(x.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'0.5'</span>)
+ax[0].set_xlim(0, x.<span class="org-builtin">max</span>())
+ax[0].set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+
+ax[1].axvline(x=fit0[0], c=cm(0), lw=1, ls=<span class="org-string">'--'</span>, label=<span class="org-string">'Point mass'</span>)
+ax[1].plot(grid, zinb_cdf, lw=1, c=cm(1), label=<span class="org-string">'ZIG'</span>)
+ax[1].axvline(x=fit1[0], c=cm(1), ls=<span class="org-string">':'</span>, lw=1)
+ax[1].plot(grid, Fx, lw=1, c=cm(2), label=<span class="org-string">'Unimodal'</span>)
+ax[1].axvline(x=np.array(fit2.rx2(<span class="org-string">'fitted_g'</span>).rx2(<span class="org-string">'a'</span>))[0], c=cm(1), ls=<span class="org-string">':'</span>, lw=1)
+ax[1].legend(frameon=<span class="org-constant">False</span>)
+ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
+ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/poisson.org/pois-point-unimodal-example.png" alt="pois-point-unimodal-example.png">
+</p>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-14 Tue 11:05</p>
+<p class="date">Created: 2019-09-27 Fri 15:48</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

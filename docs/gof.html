@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-27 Fri 14:55 -->
+<!-- 2019-09-27 Fri 15:42 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org228d635">Test for goodness of fit</a></li>
+<li><a href="#org63acfb2">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -270,7 +270,6 @@ for the JavaScript code in this tag.
 <li><a href="#org2a494f2">Results</a>
 <ul>
 <li><a href="#simulation">Simulation</a></li>
-<li><a href="#sim-ex">Simulated example</a></li>
 <li><a href="#gof">Test for goodness of fit</a></li>
 <li><a href="#examples">Examples</a></li>
 </ul>
@@ -341,9 +340,9 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org228d635" class="outline-3">
-<h3 id="org228d635">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org228d635">
+<div id="outline-container-org63acfb2" class="outline-3">
+<h3 id="org63acfb2">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-org63acfb2">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -609,158 +608,8 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-orgfce2633" class="outline-3">
-<h3 id="sim-ex"><a id="orgfce2633"></a>Simulated example</h3>
-<div class="outline-text-3" id="text-sim-ex">
-<p>
-Look at an example:
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> rpy2.robjects.packages
-<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
-rpy2.robjects.pandas2ri.activate()
-<span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
-
-<span class="org-variable-name">data</span>, <span class="org-variable-name">_</span> = scqtl.simulation.simulate(num_samples=1000, logodds=-5, seed=2)
-<span class="org-variable-name">x</span> = pd.Series(data[:,0])
-<span class="org-variable-name">s</span> = pd.Series(data[:,1])
-<span class="org-variable-name">lam</span> = x / s
-<span class="org-variable-name">fit</span> = ashr.ash_workhorse(
-  <span class="org-comment-delimiter"># </span><span class="org-comment">these are ignored by ash</span>
-  pd.Series(np.zeros(x.shape)),
-  1,
-  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: we need to access data from inside ash to compute PMF/CDF</span>
-  outputlevel=pd.Series([<span class="org-string">'loglik'</span>, <span class="org-string">'fitted_g'</span>]),
-  <span class="org-comment-delimiter"># </span><span class="org-comment">numpy2ri doesn't DTRT, so we need to use pandas</span>
-  lik=ashr.lik_pois(y=x, scale=s, link=<span class="org-string">'identity'</span>),
-  <span class="org-comment-delimiter"># </span><span class="org-comment">prior='uniform',</span>
-  mixcompdist=<span class="org-string">'halfuniform'</span>,
-  mixsd=pd.Series(np.geomspace(lam.<span class="org-builtin">min</span>() + 1e-8, lam.<span class="org-builtin">max</span>(), 25)),
-  mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]))
-<span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000)
-<span class="org-variable-name">Fx</span> = np.array(ashr.cdf_ash(fit, grid).rx2(<span class="org-string">'y'</span>)).ravel()
-</pre>
-</div>
-
-<p>
-For comparison, fit ZINB to this example.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">fit1</span> = scqtl.simple.fit_zinb(x, s)
-<span class="org-comment-delimiter"># </span><span class="org-comment">This calls scqtl.simple.fit_zinb</span>
-<span class="org-variable-name">_</span>, <span class="org-variable-name">zinb_cdf</span> = scmodes.deconvolve.fit_zig(x, s)
-</pre>
-</div>
-
-<p>
-Fit Poisson to this example.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">fit2</span> = scqtl.simple.fit_pois(x, s)
-</pre>
-</div>
-
-<p>
-Plot the data and estimated \(\hat{g}\). Also plot the estimated mode.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
-plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
-fig.set_size_inches(5, 4)
-ax[0].hist(x.values, bins=np.arange(x.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'0.5'</span>)
-ax[0].set_xlim(0, x.<span class="org-builtin">max</span>())
-ax[0].set_xlabel(<span class="org-string">'Number of molecules'</span>)
-ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
-
-ax[1].plot(grid, zinb_cdf, lw=1, c=cm(0), label=<span class="org-string">'ZIG'</span>)
-ax[1].axvline(x=fit1[0], c=cm(0), ls=<span class="org-string">':'</span>, lw=1)
-ax[1].plot(grid, Fx, lw=1, c=cm(1), label=<span class="org-string">'Unimodal'</span>)
-ax[1].axvline(x=np.array(fit.rx2(<span class="org-string">'fitted_g'</span>).rx2(<span class="org-string">'a'</span>))[0], c=cm(1), ls=<span class="org-string">':'</span>, lw=1)
-ax[1].legend(frameon=<span class="org-constant">False</span>)
-ax[1].set_xlabel(<span class="org-string">'Latent gene expression $\lambda$'</span>)
-ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
-
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/gof.org/unimodal-gof-example.png" alt="unimodal-gof-example.png">
-</p>
-</div>
-
-<p>
-Report the log likelihood.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">pd.Series({<span class="org-string">'pointmass'</span>: fit2[-1],
-           <span class="org-string">'zig'</span>: fit1[-1],
-           <span class="org-string">'unimodal'</span>: np.array(fit.rx2(<span class="org-string">'loglik'</span>))[0]})
-</pre>
-</div>
-
-<pre class="example">
-pointmass   -2008.663140
-zig         -2008.407921
-unimodal    -2077.552567
-dtype: float64
-</pre>
-
-<p>
-Report the goodness of fit of the Poisson distribution.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">scmodes.benchmark.gof._gof(x, cdf=st.poisson.cdf, pmf=st.poisson.pmf, mu=s * fit2[0])
-</pre>
-</div>
-
-<pre class="example">
-KstestResult(statistic=0.017353781706450494, pvalue=0.9240420073670237)
-
-</pre>
-
-<p>
-Report the goodness of fit of the ZINB distribution.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">scmodes.benchmark.gof._gof(x, cdf=scmodes.benchmark.gof._zig_cdf,
-                           pmf=scmodes.benchmark.gof._zig_pmf, size=s,
-                           log_mu=np.log(fit1[0]), log_phi=-np.log(fit1[1]), logodds=fit1[2])
-</pre>
-</div>
-
-<pre class="example">
-KstestResult(statistic=0.02170999399592824, pvalue=0.7335259999575676)
-
-</pre>
-
-<p>
-Report the goodness of fit of the Poisson-unimodal distribution.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">scmodes.benchmark.gof._gof_unimodal(<span class="org-string">''</span>, pd.Series(x), pd.Series(s))[1:]
-</pre>
-</div>
-
-<pre class="example">
-(0.1289853772763987, 5.779830292205654e-15)
-
-</pre>
-</div>
-</div>
-
-<div id="outline-container-org63acfb2" class="outline-3">
-<h3 id="gof"><a id="org63acfb2"></a>Test for goodness of fit</h3>
+<div id="outline-container-org670aa86" class="outline-3">
+<h3 id="gof"><a id="org670aa86"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -1038,7 +887,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-27 Fri 14:55</p>
+<p class="date">Created: 2019-09-27 Fri 15:42</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

@@ -3,10 +3,16 @@
 
 * Introduction
 
-  In real data, ZIEF appears to outperform other methods, but only for trivial
-  cases where the data appears to be Poisson-distributed.
+  Deconvolution of Poisson data assuming a point mass is trivial:
 
-  Investigate why this happens.
+  \begin{align*}
+    x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
+    \lambda_i &\sim \delta_\mu(\cdot)\\
+    \hat\mu &= \frac{\sum_i x_i}{\sum_i s_i}
+  \end{align*}
+
+  More general approaches should all be able to fit this case. Here, we
+  investigate cases where they fail.
 
 * Setup
   :PROPERTIES:
@@ -276,3 +282,109 @@
    The reason ZIEF appeared anomalous in our benchmark was that our
    implementation of the validation set log likelihood, marginalizing over the
    estimated latent distribution \(\hat{g}\), was incorrect.
+
+** Poisson ash 
+
+   Draw some near-Poisson data.
+
+   #+BEGIN_SRC ipython
+     data, _ = scqtl.simulation.simulate(num_samples=1000, logodds=-5, seed=2)
+     x = pd.Series(data[:,0])
+     s = pd.Series(data[:,1])
+     lam = x / s
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[89]:
+   :END:
+
+   Fit Poisson convolved with point mass.
+
+   #+BEGIN_SRC ipython
+     fit0 = scqtl.simple.fit_pois(x, s)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[98]:
+   :END:
+
+   Fit ZINB.
+
+   #+BEGIN_SRC ipython
+     fit1 = scqtl.simple.fit_zinb(x, s)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[99]:
+   :END:
+
+   Fit Poisson ash.
+
+   #+BEGIN_SRC ipython
+     fit2 = ashr.ash_workhorse(
+       # these are ignored by ash
+       pd.Series(np.zeros(x.shape)),
+       1,
+       outputlevel=pd.Series(['loglik', 'fitted_g']),
+       lik=ashr.lik_pois(y=x, scale=s, link='identity'),
+       mixcompdist='halfuniform',
+       mixsd=pd.Series(np.geomspace(lam.min() + 1e-8, lam.max(), 25)),
+       mode=pd.Series([lam.min(), lam.max()]))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[100]:
+   :END:
+
+   Report the log likelihood.
+
+   #+BEGIN_SRC ipython
+     pd.Series({'pointmass': fit0[-1],
+                'zig': fit1[-1],
+                'unimodal': np.array(fit2.rx2('loglik'))[0]})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[52]:
+   #+BEGIN_EXAMPLE
+     pointmass   -2008.663140
+     zig         -2008.407921
+     unimodal    -2077.552567
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Plot the data and estimated \(\hat{g}\). Also plot the estimated mode.
+
+   #+BEGIN_SRC ipython :ipyfile figure/poisson.org/pois-point-unimodal-example.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(5, 4)
+     ax[0].hist(x.values, bins=np.arange(x.max() + 1), color='0.5')
+     ax[0].set_xlim(0, x.max())
+     ax[0].set_xlabel('Number of molecules')
+     ax[0].set_ylabel('Number of cells')
+
+     ax[1].axvline(x=fit0[0], c=cm(0), lw=1, ls='--', label='Point mass')
+     ax[1].plot(grid, zinb_cdf, lw=1, c=cm(1), label='ZIG')
+     ax[1].axvline(x=fit1[0], c=cm(1), ls=':', lw=1)
+     ax[1].plot(grid, Fx, lw=1, c=cm(2), label='Unimodal')
+     ax[1].axvline(x=np.array(fit2.rx2('fitted_g').rx2('a'))[0], c=cm(1), ls=':', lw=1)
+     ax[1].legend(frameon=False)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[104]:
+   [[file:figure/poisson.org/pois-point-unimodal-example.png]]
+   :END:
