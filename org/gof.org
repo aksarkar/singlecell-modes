@@ -50,12 +50,13 @@
 
   #+BEGIN_SRC ipython
     import scipy.special as sp
+    import scipy.stats as st
     import scqtl
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[71]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -198,14 +199,11 @@
      \ln\phi &\sim \operatorname{Uniform}(-6, 0)
    \end{align*}
 
-   Then, test for goodness of fit of Poisson-Gamma and Poisson-point Gamma.
+   Then, test for goodness of fit of Gamma, point-Gamma, and unimodal, each
+   convolved with Poisson.
 
    #+BEGIN_SRC ipython
-     import rpy2.robjects.packages
-     import rpy2.robjects.pandas2ri
      import scmodes.benchmark.gof
-
-     ashr = rpy2.robjects.packages.importr('ashr')
 
      def trial(num_samples, logodds, seed, verbose=False):
        data, _ = scqtl.simulation.simulate(num_samples=num_samples, logodds=logodds, seed=seed)
@@ -221,15 +219,16 @@
                                          pmf=scmodes.benchmark.gof._zig_pmf, size=s,
                                          log_mu=np.log(fit1[0]), log_phi=-np.log(fit1[1]), logodds=fit1[2])
 
-       res2 = scmodes.benchmark.gof._gof_unimodal("", x, s)
-       return res0[1], res1[1], res2[1]
+       # Important: this returns the gene name as the first return value
+       res2 = scmodes.benchmark.gof._gof_unimodal('gene', pd.Series(x), pd.Series(s))
+       return res0[1], res1[1], res2[2]
 
      def evaluate(num_samples, num_trials):
        result = []
        for logodds in np.linspace(-5, 0, 10):
          for seed in range(num_trials):
-           gamma_res, zig_res = trial(num_samples, logodds, seed)
-           result.append([logodds, seed, gamma_res, zig_res])
+           gamma_res, zig_res, unimodal_res = trial(num_samples, logodds, seed)
+           result.append([logodds, seed, gamma_res, zig_res, unimodal_res])
        result = pd.DataFrame(result)
        result.columns = ['logodds', 'trial', 'gamma', 'zig', 'unimodal']
        return result
@@ -237,7 +236,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[83]:
    :END:
 
    Run the simulation.
@@ -248,7 +247,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[42]:
+   # Out[85]:
    :END:
 
    Write out the results.
@@ -259,7 +258,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[43]:
+   # Out[86]:
    :END:
 
    Read the results.
@@ -279,9 +278,9 @@
      cm = plt.get_cmap('Dark2')
      plt.clf()
      plt.gcf().set_size_inches(3, 3)
-     for i, (k, l) in enumerate(zip(['gamma', 'zig'], ['Gamma', 'ZIG'])):
+     for i, (k, l) in enumerate(zip(['gamma', 'zig', 'unimodal'], ['Gamma', 'ZIG', 'Unimodal'])):
        jitter = np.random.normal(scale=0.01, size=sim_res.shape[0])
-       plt.scatter(sim_res['logodds'] + jitter, -np.log10(sim_res[k]), s=2, c=np.atleast_2d(cm(i)), label=l)
+       plt.scatter(sim_res['logodds'] + jitter, -np.log10(sim_res[k] + 1e-100), s=2, c=np.atleast_2d(cm(i)), label=l)
      plt.axhline(y=0, c='k', lw=1)
      plt.axhline(y=-np.log10(.05), c='0.8', ls='--', lw=1)
      plt.legend(frameon=False, handletextpad=0, markerscale=4)
@@ -293,7 +292,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[51]:
+   # Out[91]:
    [[file:figure/gof.org/sim.png]]
    :END:
 
@@ -303,9 +302,9 @@
      cm = plt.get_cmap('Dark2')
      plt.clf()
      plt.gcf().set_size_inches(3, 3)
-     for i, (k, l) in enumerate(zip(['gamma', 'zig'], ['Gamma', 'ZIG'])):
+     for i, (k, l) in enumerate(zip(['gamma', 'zig', 'unimodal'], ['Gamma', 'ZIG', 'Unimodal'])):
        jitter = np.random.normal(scale=0.01, size=sim_res.shape[0])
-       plt.scatter(sim_res['logodds'] + jitter, -np.log10(sim_res[k]), s=2, c=np.atleast_2d(cm(i)), label=l)
+       plt.scatter(sim_res['logodds'] + jitter, -np.log10(sim_res[k] + 1e-100), s=2, c=np.atleast_2d(cm(i)), label=l)
      plt.axhline(y=0, c='k', lw=1)
      plt.axhline(y=-np.log10(.05), c='0.8', ls='--', lw=1)
      plt.legend(frameon=False, handletextpad=0, markerscale=4)
@@ -318,8 +317,126 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[52]:
+   # Out[93]:
    [[file:figure/gof.org/sim-inset.png]]
+   :END:
+
+** Simulated example
+   :PROPERTIES:
+   :CUSTOM_ID: sim-ex
+   :END:
+
+   Look at an example:
+
+   #+BEGIN_SRC ipython :async t
+     import rpy2.robjects.packages
+     import rpy2.robjects.pandas2ri
+     rpy2.robjects.pandas2ri.activate()
+     ashr = rpy2.robjects.packages.importr('ashr')
+
+     data, _ = scqtl.simulation.simulate(num_samples=1000, logodds=-5, seed=0)
+     x = pd.Series(data[:,0])
+     s = pd.Series(data[:,1])
+     lam = x / s
+     fit = ashr.ash_workhorse(
+       # these are ignored by ash
+       pd.Series(np.zeros(x.shape)),
+       1,
+       # Important: we need to access data from inside ash to compute PMF/CDF
+       outputlevel=pd.Series(['loglik', 'fitted_g']),
+       # numpy2ri doesn't DTRT, so we need to use pandas
+       lik=ashr.lik_pois(y=x, scale=s, link='identity'),
+       mixsd=pd.Series(np.geomspace((.5 / s).min(), lam.max(), 25)),
+       mode=pd.Series([lam.min(), lam.max()]))
+     grid = np.linspace(lam.min(), lam.max(), 1000)
+     Fx = np.array(ashr.cdf_ash(fit, grid).rx2('y')).ravel()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[160]:
+   :END:
+
+   For comparison, fit ZINB to this example.
+
+   #+BEGIN_SRC ipython
+     fit1 = scqtl.simple.fit_zinb(x, s)
+     # This calls scqtl.simple.fit_zinb
+     _, zinb_cdf = scmodes.deconvolve.fit_zig(x, s)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[95]:
+   :END:
+
+   Plot the data and estimated \(\hat{g}\). Also plot the estimated mode.
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/unimodal-gof-example.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(5, 4)
+     ax[0].hist(x.values, bins=np.arange(x.max() + 1), color='0.5')
+     ax[0].set_xlim(0, x.max())
+     ax[0].set_xlabel('Number of molecules')
+     ax[0].set_ylabel('Number of cells')
+
+     ax[1].plot(grid, zinb_cdf, lw=1, c=cm(0), label='ZIG')
+     ax[1].axvline(x=fit1[0], c=cm(0), ls=':', lw=1)
+     ax[1].plot(grid, Fx, lw=1, c=cm(1), label='Unimodal')
+     ax[1].axvline(x=np.array(fit.rx2('fitted_g').rx2('a'))[0], c=cm(1), ls=':', lw=1)
+     ax[1].legend(frameon=False)
+     ax[1].set_xlabel('Latent gene expression $\lambda$')
+     ax[1].set_ylabel('CDF')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[162]:
+   [[file:figure/gof.org/unimodal-gof-example.png]]
+   :END:
+
+   Report the log likelihood.
+
+   #+BEGIN_SRC ipython
+     pd.Series({'zig': fit1[-1], 'unimodal': np.array(fit.rx2('loglik'))[0]})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[161]:
+   #+BEGIN_EXAMPLE
+     zig        -2542.181486
+     unimodal   -2566.495086
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Report the goodness of fit.
+
+   #+BEGIN_SRC ipython
+     scmodes.benchmark.gof._gof(x, cdf=scmodes.benchmark.gof._zig_cdf,
+                                pmf=scmodes.benchmark.gof._zig_pmf, size=s,
+                                log_mu=np.log(fit1[0]), log_phi=-np.log(fit1[1]), logodds=fit1[2])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[119]:
+   : KstestResult(statistic=0.017599923681100874, pvalue=0.9160786776117419)
+   :END:
+
+   #+BEGIN_SRC ipython
+     scmodes.benchmark.gof._gof_unimodal("", pd.Series(x), pd.Series(s))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[127]:
+   : ('', 0.1068304085858266, 2.1574276423860724e-10)
    :END:
 
 ** Test for goodness of fit
