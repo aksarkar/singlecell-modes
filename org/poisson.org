@@ -30,7 +30,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",mem="16G") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 60316831
+  : Submitted batch job 62769273
 
   #+BEGIN_SRC ipython
     import numpy as np
@@ -51,7 +51,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[12]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -67,11 +67,12 @@
   #+BEGIN_SRC ipython
     import matplotlib.pyplot as plt
     plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[27]:
   :END:
 
 * Results
@@ -296,7 +297,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[89]:
+   # Out[17]:
    :END:
 
    Fit Poisson convolved with point mass.
@@ -307,7 +308,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[98]:
+   # Out[5]:
    :END:
 
    Fit ZINB.
@@ -318,7 +319,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[99]:
+   # Out[6]:
    :END:
 
    Fit Poisson ash.
@@ -331,13 +332,12 @@
        outputlevel=pd.Series(['loglik', 'fitted_g']),
        lik=ashr.lik_pois(y=x, scale=s, link='identity'),
        mixcompdist='halfuniform',
-       mixsd=pd.Series(np.geomspace(lam.min() + 1e-8, lam.max(), 25)),
-       mode=pd.Series([lam.min(), lam.max()]))
+       mixsd=pd.Series(np.geomspace(lam.min() + 1e-8, lam.max(), 25)))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[100]:
+   # Out[42]:
    :END:
 
    Report the log likelihood.
@@ -387,4 +387,113 @@
    :RESULTS:
    # Out[104]:
    [[file:figure/poisson.org/pois-point-unimodal-example.png]]
+   :END:
+
+   Examine mode estimation.
+
+   #+BEGIN_SRC ipython
+     mode = ashr.ash_estmode(
+       betahat=pd.Series(np.zeros(x.shape)),
+       sebetahat=1,
+       modemin=lam.min(),
+       modemax=lam.max(),
+       lik=ashr.lik_pois(y=x, scale=s, link='identity'),
+       mixcompdist='halfuniform',
+       mixsd=pd.Series(np.geomspace(lam.min() + 1e-8, lam.max(), 25)))
+     mode = np.array(mode)[0]
+     fit3 = ashr.ash_workhorse(
+       # these are ignored by ash
+       pd.Series(np.zeros(x.shape)),
+       1,
+       outputlevel=pd.Series(['loglik', 'fitted_g']),
+       lik=ashr.lik_pois(y=x, scale=s, link='identity'),
+       mixcompdist='halfuniform',
+       mixsd=pd.Series(np.geomspace(lam.min() + 1e-8, lam.max(), 25)),
+       mode=mode)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[91]:
+   :END:
+
+   Evaluate the ~ash~ log likelihood on a grid of modes, over the space that
+   ~ash.estmode~ optimizes over.
+
+   #+BEGIN_SRC ipython
+     grid = np.linspace(lam.min(), lam.max(), 1000)[1:]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[47]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     llik = []
+     for l in grid:
+       fit = ashr.ash_workhorse(
+              # these are ignored by ash
+              pd.Series(np.zeros(x.shape)),
+              1,
+              outputlevel=pd.Series(['loglik']),
+              lik=ashr.lik_pois(y=x, scale=s, link='identity'),
+              mixcompdist='halfuniform',
+              mixsd=pd.Series(np.geomspace(lam.min() + 1e-8, lam.max(), 25)),
+              mode=l)
+       llik.append(np.array(fit.rx2('loglik'))[0])
+     llik = np.array(llik)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[92]:
+   :END:
+
+   Plot the marginal likelihood against the mode.
+
+   #+BEGIN_SRC ipython :ipyfile figure/poisson.org/mode-search.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     fig, ax = plt.subplots(2, 1, sharex=True)
+     fig.set_size_inches(6, 3)
+     for a in ax:
+       a.plot(grid, llik, lw=1, c='k')
+       for i, (m, l) in enumerate(zip([fit0[0], fit1[0], np.array(fit2.rx2('fitted_g').rx2('a'))[0], mode, grid[np.argmax(llik)]], ['Point', 'ZIG', 'ash', 'Two step', 'Grid'])):
+         a.axvline(x=m, lw=1, c=cm(i), ls=':', label=l)
+
+     ax[1].legend(frameon=False, bbox_to_anchor=(1, .5), loc='center left')
+     ax[1].set_xlabel('Mode')
+     ax[1].set_ylim(-2009, -2008)
+     for a in ax:
+       a.set_ylabel('Log lik')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[108]:
+   [[file:figure/poisson.org/mode-search.png]]
+   :END:
+
+   Report the log likelihood of the two step approach.
+
+   #+BEGIN_SRC ipython
+     pd.Series({'pointmass': fit0[-1],
+                'zig': fit1[-1],
+                'unimodal': np.array(fit2.rx2('loglik'))[0],
+                'twostep': np.array(fit3.rx2('loglik'))[0],
+               })
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[93]:
+   #+BEGIN_EXAMPLE
+     pointmass   -2008.663140
+     zig         -2008.407921
+     unimodal    -2077.552567
+     twostep     -2008.891981
+     dtype: float64
+   #+END_EXAMPLE
    :END:
