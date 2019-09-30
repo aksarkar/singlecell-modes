@@ -1,0 +1,269 @@
+#+TITLE: MLCB plots
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  Draw examples for MLCB submission.
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar/modes
+
+  #+BEGIN_SRC ipython
+    import pandas as pd
+    import scmodes
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[7]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[8]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[9]:
+  :END:
+
+* Results
+** MLCB plots
+   :PROPERTIES:
+   :CUSTOM_ID: mlcb
+   :END:
+
+   Plot the iPSC examples.
+
+   #+BEGIN_SRC ipython :async t
+     ipsc_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz', index_col=0, sep='\t')
+     lrt = st.chi2(1).sf(-2 * (ipsc_res['gamma'] - ipsc_res['point_gamma']))
+     query = list(ipsc_res[lrt < .05 / lrt.shape[0]].index)
+
+     # SKP1: top eQTL
+     query.append('ENSG00000113558')
+     ipsc_counts = scmodes.dataset.ipsc(prefix='/project2/mstephens/aksarkar/projects/singlecell-qtl/data/',
+                                        query=query, return_df=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[15]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     annotation = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt', sep='\t')
+     keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', index_col=0, header=None, sep='\t')
+     annotation = annotation.loc[keep_samples.values.ravel()]
+     s = annotation['mol_hs']
+     donor_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/20130606_sample_info.txt', sep='\t')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[16]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     ipsc_log_mu = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-log-mu.txt.gz', sep=' ', index_col=0)
+     ipsc_log_phi = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-log-phi.txt.gz', sep=' ', index_col=0)
+     ipsc_logodds = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-logodds.txt.gz', sep=' ', index_col=0)
+     del ipsc_log_mu['NA18498']
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[61]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     def point_gamma_cdf(grid, log_mu, log_phi, logodds):
+       res = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).cdf(grid)
+       res *= sp.expit(-logodds)
+       res += sp.expit(logodds)
+       return res
+
+     lam = ipsc_counts.values / s.values.reshape(-1, 1)
+     grid = np.linspace(lam.min(), lam.max(), 1000)
+     cdfs = np.array([[point_gamma_cdf(grid,
+                                       ipsc_log_mu.loc[j, k],
+                                       ipsc_log_phi.loc[j, k],
+                                       ipsc_logodds.loc[j, k])
+                       for k in ipsc_log_mu]
+                      for j in ipsc_counts.columns])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[62]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
+     colors = {k: 'r' if v == 'male' else 'b' for k, v in
+               donor_info.set_index('Sample')
+               .filter(items=list(ipsc_log_mu.columns), axis=0)
+               ['Gender']
+               .iteritems()}
+
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[84]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/mlcb-rps4y1.png
+     k = 'ENSG00000129824'
+     x = ipsc_counts.loc[:,k].values
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(4, 4)
+
+     ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+     ax[0].set_title(gene_info.loc[k, 'name'])
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
+
+     for f, k in zip(cdfs[2], ipsc_log_mu.columns):
+       ax[1].plot(grid, f, lw=1, alpha=0.2, c=colors.get(k, 'k'))
+     ax[1].set_xlim(0, 2e-4)
+     ax[1].set_xticks(np.linspace(0, 2e-4, 3))
+     dummy = [plt.Line2D([0], [0], c='r'), plt.Line2D([0], [0], c='b')]
+     ax[1].legend(dummy, ['Male', 'Female'], title='Sex', frameon=False)
+     ax[1].set_ylabel('CDF')
+     ax[1].set_xlabel('Latent gene expression')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[85]:
+   [[file:figure/deconvolution.org/mlcb-rps4y1.png]]
+   :END:
+
+   #+BEGIN_SRC ipython
+     mean_qtl_stats = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-mapping/zinb/mean.txt.gz', sep=' ', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[26]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     import sqlite3
+     with sqlite3.connect('/project2/mstephens/aksarkar/projects/singlecell-qtl/browser/browser.db') as conn:
+       geno = pd.read_sql('select * from mean_qtl_geno where gene = ?', con=conn, params=('ENSG00000113558',)).set_index('ind')['value']
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[55]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/mlcb-skp1.png
+     cm = plt.get_cmap('Dark2')
+     k = 'ENSG00000113558'
+     x = ipsc_counts.loc[:,k].values
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(4, 4)
+
+     ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+     ax[0].set_title(gene_info.loc[k, 'name'])
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
+
+     for f, k in zip(cdfs[1], ipsc_log_mu.columns):
+       ax[1].plot(grid, f, lw=1, alpha=0.3, c=cm(int(geno[k])))
+     dummy = [plt.Line2D([0], [0], c=cm(i)) for i in range(3)]
+     # https://www.ncbi.nlm.nih.gov/snp/?term=rs13356194
+     ax[1].legend(dummy, ['CC', 'CT', 'TT'], title=mean_qtl_stats.loc['ENSG00000113558', 'id'].split('.')[0], frameon=False)
+     ax[1].set_ylabel('CDF')
+     ax[1].set_xlabel('Latent gene expression')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[83]:
+   [[file:figure/deconvolution.org/mlcb-skp1.png]]
+   :END:
+
+** Plot the results
+
+   Move the results to permanent storage.
+
+   #+BEGIN_SRC sh
+     rsync -au /scratch/midway2/aksarkar/modes/lra-generalization/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/
+   #+END_SRC
+
+   #+RESULTS:
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     methods = ['nmf', 'glmpca', 'pvae']
+     data = ['b_cells', 'cytotoxic_t', 'naive_t', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'pbmcs']
+     titles = ['B cell', 'Cytotoxic T', 'Naive T', 'B cell/T cell', 'Naive/cytotoxic T', 'PBMC']
+     results = {k: pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/{k}-{m}.txt.gz',
+                                          header=[0, 1],
+                                          index_col=0)
+                              for m in methods], axis='columns')
+                for k in data}
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[77]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/lra.org/mlcb-bench-lra.png
+     plt.clf()
+     fig, ax = plt.subplots(1, len(results), sharey=True)
+     fig.set_size_inches(8, 2)
+     for a, k, t in zip(ax, results, titles):
+       llik = results[k]['validation']
+       for x, m in enumerate(llik):
+         a.scatter(x + np.random.normal(scale=0.1, size=llik.shape[0]), llik[m].values, s=1, c='k', zorder=3)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xlim(-0.5, 2.5)
+       a.set_xticks(np.arange(3))
+       a.set_xticklabels([m.upper() for m in methods], rotation=90)
+       a.set_title(t)
+     ax[0].set_ylabel('Validation log lik')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[96]:
+   [[file:figure/lra.org/mlcb-bench-lra.png]]
+   :END:

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-08 Sun 19:45 -->
+<!-- 2019-09-29 Sun 20:05 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of expression deconvolution approaches</title>
@@ -274,7 +274,6 @@ for the JavaScript code in this tag.
 <li><a href="#homogeneous">Homogeneous cell populations</a></li>
 <li><a href="#synthetic">Synthetic cell mixtures</a></li>
 <li><a href="#heterogeneous">Heterogeneous cell populations</a></li>
-<li><a href="#mlcb">MLCB plots</a></li>
 </ul>
 </li>
 </ul>
@@ -1048,7 +1047,7 @@ Plot the generalization performance of each method.
 <li>ZIG does not perform better than Gamma, supporting the conclusions of
 <a href="https://www.biorxiv.org/content/10.1101/582064v1">Svensson 2019</a></li>
 <li>There is heterogeneity which isn't adequately described by Gamma, but
-<a href="deconv-examples.html#org421ce52">appears equally well
+<a href="deconv-examples.html#org889c519">appears equally well
 described by unimodal/NPMLE</a></li>
 </ol>
 </div>
@@ -1498,262 +1497,11 @@ Plot the results.
 </div>
 </div>
 </div>
-<div id="outline-container-orge3cdfae" class="outline-3">
-<h3 id="mlcb"><a id="orge3cdfae"></a>MLCB plots</h3>
-<div class="outline-text-3" id="text-mlcb">
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">benchmark</span> = {
-  k: g.reset_index(level=0, drop=<span class="org-constant">True</span>) <span class="org-keyword">for</span> k, g <span class="org-keyword">in</span>
-  (pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/homogeneous-kl.txt.gz'</span>,
-               sep=<span class="org-string">'\t'</span>, index_col=[0, 1])
-   .groupby(level=0))}
-benchmark.update({
-  k: g.reset_index(level=0, drop=<span class="org-constant">True</span>) <span class="org-keyword">for</span> k, g <span class="org-keyword">in</span>
-  (pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/synthetic-mix-kl.txt.gz'</span>,
-               sep=<span class="org-string">'\t'</span>, index_col=[0, 1])
-   .groupby(level=0))})
-benchmark.update({
-  k: g.reset_index(level=0, drop=<span class="org-constant">True</span>) <span class="org-keyword">for</span> k, g <span class="org-keyword">in</span>
-  (pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/heterogeneous-kl.txt.gz'</span>,
-               sep=<span class="org-string">'\t'</span>, index_col=[0, 1])
-   .groupby(level=0))})
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">del</span> benchmark[<span class="org-string">'cortex'</span>]
-</pre>
-</div>
-
-<p>
-Plot the improvement in validation log likelihood against Gamma baseline.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>, sharey=<span class="org-constant">False</span>)
-fig.set_size_inches(5, 4)
-<span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), benchmark, [<span class="org-string">'B cell'</span>, <span class="org-string">'Cytotoxic T'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'B cell/T cell'</span>, <span class="org-string">'Naive/cytotoxic T'</span>, <span class="org-string">'PBMC'</span>]):
-  <span class="org-variable-name">T</span> = benchmark[k].sub(benchmark[k][<span class="org-string">'gamma'</span>], axis=0)
-  <span class="org-keyword">del</span> T[<span class="org-string">'gamma'</span>]
-  a.boxplot([x[~np.isnan(x)] <span class="org-keyword">for</span> x <span class="org-keyword">in</span> T.values.T],
-            widths=.5,
-            medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>},
-            flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 4})
-  a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
-  a.set_xticklabels([<span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
-  a.set_title(t)
-<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
-  a[0].set_ylabel(<span class="org-string">'Diff val log lik'</span>)  
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/deconvolution.org/mlcb-bench.png" alt="mlcb-bench.png">
-</p>
-</div>
-
-<p>
-Try to plot the benchmark results using violin plots.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>, sharey=<span class="org-constant">False</span>)
-fig.set_size_inches(5, 4)
-<span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), benchmark, [<span class="org-string">'B cell'</span>, <span class="org-string">'Cytotoxic T'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'B cell/T cell'</span>, <span class="org-string">'Naive/cytotoxic T'</span>, <span class="org-string">'PBMC'</span>]):
-  <span class="org-variable-name">T</span> = benchmark[k].sub(benchmark[k][<span class="org-string">'gamma'</span>], axis=0)
-  <span class="org-keyword">del</span> T[<span class="org-string">'gamma'</span>]
-  <span class="org-variable-name">vp</span> = a.violinplot([x[~np.isnan(x)] <span class="org-keyword">for</span> x <span class="org-keyword">in</span> T.values.T], widths=0.75, showextrema=<span class="org-constant">True</span>)
-  <span class="org-keyword">for</span> pc <span class="org-keyword">in</span> vp[<span class="org-string">'bodies'</span>]:
-    pc.set_linewidth(0)
-    pc.set_color(<span class="org-string">'0.4'</span>)
-  <span class="org-keyword">for</span> key <span class="org-keyword">in</span> (<span class="org-string">'cmins'</span>, <span class="org-string">'cmaxes'</span>, <span class="org-string">'cbars'</span>):
-    vp[key].set_linewidth(1)
-    vp[key].set_color(<span class="org-string">'0.4'</span>)
-
-  a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
-  a.set_xticks(np.arange(1, 5))
-  a.set_xticklabels([<span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
-  a.set_title(t)
-<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
-  a[0].set_ylabel(<span class="org-string">'Diff val log lik'</span>)  
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/deconvolution.org/mlcb-bench-violin.png" alt="mlcb-bench-violin.png">
-</p>
-</div>
-
-<p>
-Plot with unimodal as the baseline.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>, sharey=<span class="org-constant">False</span>)
-fig.set_size_inches(5, 4)
-<span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), benchmark, [<span class="org-string">'B cell'</span>, <span class="org-string">'Cytotoxic T'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'B cell/T cell'</span>, <span class="org-string">'Naive/cytotoxic T'</span>, <span class="org-string">'PBMC'</span>]):
-  <span class="org-variable-name">T</span> = benchmark[k].sub(benchmark[k][<span class="org-string">'unimodal'</span>], axis=0)
-  <span class="org-keyword">del</span> T[<span class="org-string">'unimodal'</span>]
-  <span class="org-variable-name">vp</span> = a.violinplot([x[~np.isnan(x)] <span class="org-keyword">for</span> x <span class="org-keyword">in</span> T.values.T], widths=0.75, showextrema=<span class="org-constant">True</span>)
-  <span class="org-keyword">for</span> pc <span class="org-keyword">in</span> vp[<span class="org-string">'bodies'</span>]:
-    pc.set_linewidth(0)
-    pc.set_color(<span class="org-string">'0.4'</span>)
-  <span class="org-keyword">for</span> key <span class="org-keyword">in</span> (<span class="org-string">'cmins'</span>, <span class="org-string">'cmaxes'</span>, <span class="org-string">'cbars'</span>):
-    vp[key].set_linewidth(1)
-    vp[key].set_color(<span class="org-string">'0.4'</span>)
-  a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
-  a.set_xticks(np.arange(1, 5))
-  a.set_xticklabels([<span class="org-string">'Gamma'</span>, <span class="org-string">'ZIG'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
-  a.set_title(t)
-<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
-  a[0].set_ylabel(<span class="org-string">'Diff val log lik'</span>)  
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/deconvolution.org/mlcb-bench-unimodal-baseline.png" alt="mlcb-bench-unimodal-baseline.png">
-</p>
-</div>
-
-<p>
-Plot a zoomed in version of the benchmark results.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>, sharey=<span class="org-constant">False</span>)
-fig.set_size_inches(5, 4)
-<span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), benchmark, [<span class="org-string">'B cell'</span>, <span class="org-string">'Cytotoxic T'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'B cell/T cell'</span>, <span class="org-string">'Naive/cytotoxic T'</span>, <span class="org-string">'PBMC'</span>]):
-  <span class="org-variable-name">T</span> = benchmark[k].sub(benchmark[k][<span class="org-string">'unimodal'</span>], axis=0)
-  <span class="org-keyword">del</span> T[<span class="org-string">'unimodal'</span>]
-  <span class="org-variable-name">vp</span> = a.violinplot([x[~np.isnan(x)] <span class="org-keyword">for</span> x <span class="org-keyword">in</span> T.values.T], widths=0.75, showextrema=<span class="org-constant">True</span>)
-  <span class="org-keyword">for</span> pc <span class="org-keyword">in</span> vp[<span class="org-string">'bodies'</span>]:
-    pc.set_linewidth(0)
-    pc.set_color(<span class="org-string">'0.4'</span>)
-  <span class="org-keyword">for</span> key <span class="org-keyword">in</span> (<span class="org-string">'cmins'</span>, <span class="org-string">'cmaxes'</span>, <span class="org-string">'cbars'</span>):
-    vp[key].set_linewidth(1)
-    vp[key].set_color(<span class="org-string">'0.4'</span>)
-  a.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
-  a.set_xticks(np.arange(1, 5))
-  a.set_xticklabels([<span class="org-string">'Gamma'</span>, <span class="org-string">'ZIG'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>], rotation=90)
-  a.set_title(t)
-  a.set_ylim(-0.02, 0.02)
-<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
-  a[0].set_ylabel(<span class="org-string">'Diff val log lik'</span>)  
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/deconvolution.org/mlcb-bench-unimodal-baseline-inset.png" alt="mlcb-bench-unimodal-baseline-inset.png">
-</p>
-</div>
-
-<p>
-Plot the iPSC example.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">ipsc_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
-<span class="org-variable-name">lrt</span> = st.chi2(1).sf(-2 * (ipsc_res[<span class="org-string">'gamma'</span>] - ipsc_res[<span class="org-string">'point_gamma'</span>]))
-<span class="org-variable-name">ipsc_counts</span> = scmodes.dataset.ipsc(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>,
-                                   query=<span class="org-builtin">list</span>(ipsc_res[lrt &lt; .05 / lrt.shape[0]].index), return_df=<span class="org-constant">True</span>)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">annotation</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt'</span>, sep=<span class="org-string">'\t'</span>)
-<span class="org-variable-name">keep_samples</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt'</span>, index_col=0, header=<span class="org-constant">None</span>, sep=<span class="org-string">'\t'</span>)
-<span class="org-variable-name">annotation</span> = annotation.loc[keep_samples.values.ravel()]
-<span class="org-variable-name">s</span> = annotation[<span class="org-string">'mol_hs'</span>]
-<span class="org-variable-name">donor_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/20130606_sample_info.txt'</span>, sep=<span class="org-string">'\t'</span>)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">ipsc_log_mu</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-log-mu.txt.gz'</span>, sep=<span class="org-string">' '</span>, index_col=0)
-<span class="org-variable-name">ipsc_log_phi</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-log-phi.txt.gz'</span>, sep=<span class="org-string">' '</span>, index_col=0)
-<span class="org-variable-name">ipsc_logodds</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-logodds.txt.gz'</span>, sep=<span class="org-string">' '</span>, index_col=0)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">point_gamma_cdf</span>(grid, log_mu, log_phi, logodds):
-  <span class="org-variable-name">res</span> = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).cdf(grid)
-  <span class="org-variable-name">res</span> *= sp.expit(-logodds)
-  <span class="org-variable-name">res</span> += sp.expit(logodds)
-  <span class="org-keyword">return</span> res
-
-<span class="org-variable-name">lam</span> = ipsc_counts.values / s.values.reshape(-1, 1)
-<span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000)
-<span class="org-variable-name">cdfs</span> = np.array([[point_gamma_cdf(grid,
-                                  ipsc_log_mu.loc[j, k],
-                                  ipsc_log_phi.loc[j, k],
-                                  ipsc_logodds.loc[j, k])
-                  <span class="org-keyword">for</span> k <span class="org-keyword">in</span> ipsc_log_mu]
-                 <span class="org-keyword">for</span> j <span class="org-keyword">in</span> ipsc_counts.columns
-                 <span class="org-keyword">if</span> j != <span class="org-builtin">list</span>(ipsc_log_mu.columns).index(<span class="org-string">'NA18498'</span>)])
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">gene_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
-<span class="org-variable-name">colors</span> = {k: <span class="org-string">'r'</span> <span class="org-keyword">if</span> v == <span class="org-string">'male'</span> <span class="org-keyword">else</span> <span class="org-string">'b'</span> <span class="org-keyword">for</span> k, v <span class="org-keyword">in</span>
-          donor_info.set_index(<span class="org-string">'Sample'</span>)
-          .<span class="org-builtin">filter</span>(items=<span class="org-builtin">list</span>(ipsc_log_mu.columns), axis=0)
-          [<span class="org-string">'Gender'</span>]
-          .iteritems()}
-
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">k</span> = <span class="org-string">'ENSG00000129824'</span>
-<span class="org-variable-name">x</span> = ipsc_counts.loc[:,k].values
-plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
-fig.set_size_inches(4, 4)
-
-ax[0].hist(x, bins=np.arange(x.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
-ax[0].set_title(gene_info.loc[k, <span class="org-string">'name'</span>])
-ax[0].set_xlabel(<span class="org-string">'Num mols'</span>)
-ax[0].set_ylabel(<span class="org-string">'Num cells'</span>)
-
-<span class="org-keyword">for</span> f, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(cdfs[1], ipsc_log_mu.columns):
-  ax[1].plot(grid, f, lw=1, alpha=0.2, c=colors.get(k, <span class="org-string">'k'</span>))
-ax[1].set_xlim(0, 2e-4)
-ax[1].set_xticks(np.linspace(0, 2e-4, 3))
-<span class="org-variable-name">dummy</span> = [plt.Line2D([0], [0], c=<span class="org-string">'r'</span>), plt.Line2D([0], [0], c=<span class="org-string">'b'</span>)]
-ax[1].legend(dummy, [<span class="org-string">'Male'</span>, <span class="org-string">'Female'</span>], frameon=<span class="org-constant">False</span>)
-ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
-ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
-
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/deconvolution.org/mlcb-ex.png" alt="mlcb-ex.png">
-</p>
-</div>
-</div>
-</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-08 Sun 19:45</p>
+<p class="date">Created: 2019-09-29 Sun 20:05</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

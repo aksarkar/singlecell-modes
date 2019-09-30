@@ -34,7 +34,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 62748280
+  : Submitted batch job 62784609
 
   #+NAME: imports
   #+BEGIN_SRC ipython
