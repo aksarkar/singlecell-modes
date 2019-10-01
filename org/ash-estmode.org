@@ -523,3 +523,28 @@
    # Out[83]:
    [[file:figure/ash-estmode.org/malat1-gamma-mode.png]]
    :END:
+
+   Try denser grids, and report the log likelihoods.
+
+   #+BEGIN_SRC ipython :async t
+     pd.Series({step: np.array(ashr.ash_workhorse(
+       pd.Series(np.zeros(xj.shape)), 1,
+       lik=ashr.lik_pois(y=xj, scale=s, link='identity'),
+       mixsd=pd.Series(np.exp(np.arange(np.log(1 / s.mean()), np.log((xj / s).max()), step=np.log(step)))),
+       mode=pd.Series([lam.min(), lam.max()]),
+       output=pd.Series(['loglik'])).rx2('loglik'))[0]
+                   for step in (1.1, 1.15, 1.2, 1.25, 1.3)})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[155]:
+   #+BEGIN_EXAMPLE
+     1.10   -41273.537196
+     1.15   -41273.525195
+     1.20   -41273.574435
+     1.25   -41273.954289
+     1.30   -41273.725401
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
