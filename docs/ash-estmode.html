@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-05-01 Wed 22:25 -->
+<!-- 2019-09-30 Mon 23:41 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Speed up ash mode estimation</title>
@@ -258,14 +258,50 @@ for the JavaScript code in this tag.
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
+<li><a href="#orgd6b5d27">Introduction</a></li>
 <li><a href="#org2d39c1f">Setup</a></li>
 <li><a href="#org0093589">Results</a>
 <ul>
 <li><a href="#org212ef0e">Convexity</a></li>
 <li><a href="#org5df3abe">Speed</a></li>
+<li><a href="#unimodal-gamma-mode">Using a simpler model</a></li>
 </ul>
 </li>
 </ul>
+</div>
+</div>
+
+<div id="outline-container-orgd6b5d27" class="outline-2">
+<h2 id="orgd6b5d27">Introduction</h2>
+<div class="outline-text-2" id="text-orgd6b5d27">
+<p>
+We want to deconvolve scRNA-seq data assuming \(g_j\) is some unimodal
+distribution over non-negative reals. In practice, we represent this family
+of distribution as
+</p>
+
+<p>
+\[ g_j = \sum_{k=1}^K \pi_k \mathrm{Uniform}(\cdot; \lambda_0,  a_{jk}) \]
+</p>
+
+<p>
+where \(K\) is sufficiently large and \(\lambda_0\) is the mode
+(<a href="http://dx.doi.org/10.1093/biostatistics/kxw041">Stephens 2016</a>).
+</p>
+
+<p>
+To estimate the mode \(\lambda_{0j}\) for gene \(j\), we find:
+</p>
+
+<p>
+\[ \lambda_{0j}^* = \arg\max_{\lambda_{0j}} \sum_i \int f(x_i \mid \lambda_i) g_j(\lambda_i \mid \pi, \lambda_{0j})\ d\lambda_i \]
+</p>
+
+<p>
+using
+<a href="https://www.rdocumentation.org/packages/stats/versions/3.5.3/topics/optimize">golden
+section search</a>. Here, we investigate practical issues in this approach.
+</p>
 </div>
 </div>
 
@@ -280,6 +316,7 @@ for the JavaScript code in this tag.
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 <span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
 <span class="org-keyword">import</span> scmodes
+<span class="org-keyword">import</span> scqtl
 <span class="org-keyword">import</span> sklearn.model_selection <span class="org-keyword">as</span> skms
 
 <span class="org-keyword">import</span> rpy2.robjects.packages
@@ -304,6 +341,7 @@ rpy2.robjects.numpy2ri.activate()
 <pre class="src src-ipython"><span class="org-keyword">import</span> colorcet
 <span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
 <span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
 </pre>
 </div>
 </div>
@@ -312,21 +350,10 @@ rpy2.robjects.numpy2ri.activate()
 <div id="outline-container-org0093589" class="outline-2">
 <h2 id="org0093589">Results</h2>
 <div class="outline-text-2" id="text-org0093589">
-<p>
-We want to deconvolve scRNA-seq data assuming \(g_j\) is some unimodal
-distribution over non-negative reals. In practice, we represent this family
-of distribution as
-</p>
-
-<p>
-\[ g_j = \sum_{k=1}^K \pi_k \mathrm{Uniform}(\cdot; \lambda_0,  a_{jk}) \]
-</p>
-
-<p>
-where \(K\) is sufficiently large and \(\lambda_0\) is the mode
-(<a href="http://dx.doi.org/10.1093/biostatistics/kxw041">Stephens 2016</a>).
-</p>
-
+</div>
+<div id="outline-container-org212ef0e" class="outline-3">
+<h3 id="org212ef0e">Convexity</h3>
+<div class="outline-text-3" id="text-org212ef0e">
 <p>
 As an example, use the highest expressed genes in 10K sorted CD8+ cytotoxic
 T cells <a href="https://www.nature.com/articles/ncomms14049">Zheng et al. 2017</a>.
@@ -346,24 +373,6 @@ T cells <a href="https://www.nature.com/articles/ncomms14049">Zheng et al. 2017<
 </p>
 </div>
 
-<p>
-To estimate the mode \(\lambda_{0j}\) for gene \(j\), we find:
-</p>
-
-<p>
-\[ \lambda_{0j}^* = \arg\max_{\lambda_{0j}} \sum_i \int f(x_i \mid \lambda_i) g_j(\lambda_i \mid \pi, \lambda_{0j})\ d\lambda_i \]
-</p>
-
-<p>
-using
-<a href="https://www.rdocumentation.org/packages/stats/versions/3.5.3/topics/optimize">golden
-section search</a>.
-</p>
-</div>
-
-<div id="outline-container-org212ef0e" class="outline-3">
-<h3 id="org212ef0e">Convexity</h3>
-<div class="outline-text-3" id="text-org212ef0e">
 <p>
 Mengyin Liu claimed this problem is convex in \(\lambda_{0j}\), However, on
 the above example, the quality of the result depends on the bounds of the
@@ -522,11 +531,281 @@ not pursue that strategy to speed up the model estimation.
 </p>
 </div>
 </div>
+<div id="outline-container-orgdd118bf" class="outline-3">
+<h3 id="unimodal-gamma-mode"><a id="orgdd118bf"></a>Using a simpler model</h3>
+<div class="outline-text-3" id="text-unimodal-gamma-mode">
+<p>
+We <a href="poisson.html#org487b902">previously</a> found an example of
+near-Poisson data where ash mode estimation fails.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">data</span>, <span class="org-variable-name">_</span> = scqtl.simulation.simulate(num_samples=1000, logodds=-5, seed=2)
+<span class="org-variable-name">x</span> = pd.Series(data[:,0])
+<span class="org-variable-name">s</span> = pd.Series(data[:,1])
+<span class="org-variable-name">lam</span> = x / s
+</pre>
+</div>
+
+<p>
+Plot the data.
+</p>
+
+
+<div class="figure">
+<p><img src="figure/poisson.org/pois-point-unimodal-example.png" alt="pois-point-unimodal-example.png">
+</p>
+</div>
+
+<p>
+Fit \(g\) assuming a point mass \(\mu\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">fit0</span> = scqtl.simple.fit_pois(x, s)
+</pre>
+</div>
+
+<p>
+Fit \(g\) assuming Gamma.
+</p>
+
+<p>
+\[ \lambda_i \sim \operatorname{Gamma}(1/\phi, 1/(\mu\phi)) \]
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Important: this returns mu, 1/phi</span>
+<span class="org-variable-name">fit1</span> = scqtl.simple.fit_nb(x, s)
+</pre>
+</div>
+
+<p>
+Report the estimated modes and log likelihoods.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Important: Gamma(a, b) mode is max((a - 1) / b, 0)</span>
+pd.DataFrame({<span class="org-string">'mode'</span>: [fit0[0], fit1[0] * (fit1[1] - 1) / fit1[1]], <span class="org-string">'llik'</span>: [fit0[-1], fit1[-1]]}, index=[<span class="org-string">'pointmass'</span>, <span class="org-string">'gamma'</span>])
+</pre>
+</div>
+
+<pre class="example">
+mode         llik
+pointmass  0.000034 -2008.663140
+gamma      0.000033 -2008.503731
+</pre>
+
+<p>
+The unimodal distribution is parameterized:
+</p>
+
+<p>
+\[ g = \sum_{k=1}^{K} w_k \operatorname{Uniform}(\lambda_0, \lambda_0 \pm a_k) \]
+</p>
+
+<p>
+where we abuse notation for brevity, and the endpoints \(a_k\) follow a
+geometric series. Fix the mode to the Gamma mode, and fit unimodal \(g\) for
+different choices of ratio between successive endpoints.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">ratio</span> = np.linspace(1.1, 1.5, 50)
+<span class="org-variable-name">res</span> = []
+<span class="org-keyword">for</span> r <span class="org-keyword">in</span> ratio:
+  <span class="org-variable-name">low</span> = 1 / s.mean()
+  <span class="org-variable-name">high</span> = (x / s).<span class="org-builtin">max</span>()
+  <span class="org-variable-name">mixsd</span> = pd.Series(np.exp(np.arange(np.log(low), np.log(high), step=np.log(r))))
+  <span class="org-variable-name">fit</span> = ashr.ash_workhorse(
+    pd.Series(np.zeros(x.shape)), 1,
+    lik=ashr.lik_pois(y=x, scale=s, link=<span class="org-string">'identity'</span>),
+    mixsd=mixsd,
+    mode=fit1[0] * (fit1[1] - 1) / fit1[1],
+    output=pd.Series([<span class="org-string">'loglik'</span>, <span class="org-string">'fitted_g'</span>]))
+  res.append([r, np.array(fit.rx2(<span class="org-string">'loglik'</span>))[0], np.array(fit.rx2(<span class="org-string">'fitted_g'</span>).rx2(<span class="org-string">'pi'</span>))[0]])
+<span class="org-variable-name">res</span> = pd.DataFrame(res)
+<span class="org-variable-name">res.columns</span> = [<span class="org-string">'ratio'</span>, <span class="org-string">'llik'</span>, <span class="org-string">'pi0'</span>]
+</pre>
+</div>
+
+<p>
+Plot the log likelihood versus chosen ratio. Mark the location of ratio
+\(\sqrt{2}\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.plot(res[<span class="org-string">'ratio'</span>], res[<span class="org-string">'llik'</span>], lw=1, c=<span class="org-string">'k'</span>)
+plt.axvline(x=np.sqrt(2), ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>, lw=1)
+plt.xlabel(<span class="org-string">'Ratio'</span>)
+plt.ylabel(<span class="org-string">'Log liklihood'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ash-estmode.org/ratio-ex1.png" alt="ratio-ex1.png">
+</p>
+</div>
+
+<p>
+Report the ratio which achieves the best log likelihood.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">res.loc[res[<span class="org-string">'pi0'</span>].idxmax()]
+</pre>
+</div>
+
+<pre class="example">
+ratio       1.434694
+llik    -2008.561414
+pi0         0.966383
+Name: 41, dtype: float64
+</pre>
+
+<p>
+Try applying this approach to the highest expressed genes in 10K sorted CD8+
+cytotoxic T cells <a href="https://www.nature.com/articles/ncomms14049">Zheng et
+al. 2017</a>.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>)
+<span class="org-variable-name">xj</span> = x[x.mean(axis=0).idxmax()]
+<span class="org-variable-name">s</span> = x.<span class="org-builtin">sum</span>(axis=1)
+<span class="org-variable-name">lam</span> = xj / s
+</pre>
+</div>
+
+<p>
+Fit Gamma, and test for goodness of fit.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">init</span> = scqtl.simple.fit_nb(xj, s)
+scmodes.benchmark.gof._gof(
+  xj.values.ravel(),
+  cdf=scmodes.benchmark.gof._zig_cdf,
+  pmf=scmodes.benchmark.gof._zig_pmf,
+  size=s.values.ravel(),
+  log_mu=np.log(init[0]),
+  log_phi=-np.log(init[1]))
+</pre>
+</div>
+
+<pre class="example">
+KstestResult(statistic=0.0186349904442156, pvalue=0.0016661060591321017)
+
+</pre>
+
+<p>
+Fit unimodal, and test for goodness of fit.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">fit</span> = ashr.ash_workhorse(
+  pd.Series(np.zeros(xj.shape)), 1,
+  lik=ashr.lik_pois(y=xj, scale=s, link=<span class="org-string">'identity'</span>),
+  mixsd=pd.Series(np.exp(np.arange(np.log(1 / s.mean()), np.log((xj / s).<span class="org-builtin">max</span>()), step=.5 * np.log(2)))),
+  mode=init[0] * (init[1] - 1) / init[1],
+  output=pd.Series([<span class="org-string">'loglik'</span>, <span class="org-string">'fitted_g'</span>, <span class="org-string">'data'</span>]))
+scmodes.benchmark.gof._gof(xj, cdf=scmodes.benchmark.gof._ash_cdf, pmf=scmodes.benchmark.gof._ash_pmf, fit=fit, s=s)
+</pre>
+</div>
+
+<pre class="example">
+KstestResult(statistic=0.059205028160045026, pvalue=1.6543190838957947e-31)
+
+</pre>
+
+<p>
+<a href="deconvolution.html#examples">Previously</a>, we found full mode search
+worked on this example.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">fit_estmode</span> = ashr.ash_workhorse(
+  pd.Series(np.zeros(xj.shape)), 1,
+  lik=ashr.lik_pois(y=xj, scale=s, link=<span class="org-string">'identity'</span>),
+  mixsd=pd.Series(np.exp(np.arange(np.log(1 / s.mean()), np.log((xj / s).<span class="org-builtin">max</span>()), step=.5 * np.log(2)))),
+  mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]),
+  output=pd.Series([<span class="org-string">'loglik'</span>, <span class="org-string">'fitted_g'</span>, <span class="org-string">'data'</span>]))
+scmodes.benchmark.gof._gof(xj, cdf=scmodes.benchmark.gof._ash_cdf, pmf=scmodes.benchmark.gof._ash_pmf, fit=fit, s=s)
+</pre>
+</div>
+
+<pre class="example">
+KstestResult(statistic=0.06007936493401578, pvalue=1.966951261262836e-32)
+
+</pre>
+
+<p>
+Report the marginal log likelihood of the fits.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pd.Series({
+  <span class="org-string">'gamma'</span>: init[-1],
+  <span class="org-string">'unimodal (gamma mode)'</span>: np.array(fit.rx2(<span class="org-string">'loglik'</span>))[0],
+  <span class="org-string">'unimodal'</span>: np.array(fit_estmode.rx2(<span class="org-string">'loglik'</span>))[0]})
+</pre>
+</div>
+
+<pre class="example">
+gamma                   -41349.739021
+unimodal (gamma mode)   -41409.282482
+unimodal                -41274.359548
+dtype: float64
+</pre>
+
+<p>
+Plot the data, and the fitted distributions.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">grid</span> = pd.Series(np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000))
+<span class="org-variable-name">gamma_cdf</span> = st.gamma(a=init[1], scale=init[0] / init[1]).cdf(grid)
+<span class="org-variable-name">unimodal_cdf</span> = np.array(ashr.cdf_ash(fit, grid).rx2(<span class="org-string">'y'</span>)).ravel()
+<span class="org-variable-name">estmode_cdf</span> = np.array(ashr.cdf_ash(fit_estmode, grid).rx2(<span class="org-string">'y'</span>)).ravel()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
+fig.set_size_inches(6, 4)
+ax[0].hist(xj.values, bins=np.arange(xj.values.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+ax[0].set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+
+<span class="org-keyword">for</span> i, (k, F) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>([<span class="org-string">'Gamma'</span>, <span class="org-string">'Unimodal (Gamma mode)'</span>, <span class="org-string">'Unimodal'</span>], [gamma_cdf, unimodal_cdf, estmode_cdf])):
+  ax[1].plot(grid, F, c=cm(i), label=k, lw=1)
+ax[1].set_xlim(0, 0.1)
+ax[1].legend(frameon=<span class="org-constant">False</span>)
+ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
+ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ash-estmode.org/malat1-gamma-mode.png" alt="malat1-gamma-mode.png">
+</p>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-05-01 Wed 22:25</p>
+<p class="date">Created: 2019-09-30 Mon 23:41</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

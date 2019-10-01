@@ -1,6 +1,25 @@
 #+TITLE: Speed up ash mode estimation
 #+SETUPFILE: setup.org
 
+* Introduction
+
+  We want to deconvolve scRNA-seq data assuming \(g_j\) is some unimodal
+  distribution over non-negative reals. In practice, we represent this family
+  of distribution as
+
+  \[ g_j = \sum_{k=1}^K \pi_k \mathrm{Uniform}(\cdot; \lambda_0,  a_{jk}) \]
+
+  where \(K\) is sufficiently large and \(\lambda_0\) is the mode
+  ([[http://dx.doi.org/10.1093/biostatistics/kxw041][Stephens 2016]]).
+
+  To estimate the mode \(\lambda_{0j}\) for gene \(j\), we find:
+
+  \[ \lambda_{0j}^* = \arg\max_{\lambda_{0j}} \sum_i \int f(x_i \mid \lambda_i) g_j(\lambda_i \mid \pi, \lambda_{0j})\ d\lambda_i \]
+
+  using
+  [[https://www.rdocumentation.org/packages/stats/versions/3.5.3/topics/optimize][golden
+  section search]]. Here, we investigate practical issues in this approach.
+
 * Setup
 
   #+BEGIN_SRC emacs-lisp :exports none
@@ -14,7 +33,7 @@
   #+CALL: ipython3(memory="16G",partition="mstephens",venv="scmodes") :dir /scratch/midway2/aksarkar/modes :exports none
 
   #+RESULTS:
-  : Submitted batch job 59349678
+  : Submitted batch job 62818487
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -25,6 +44,7 @@
     import scipy.stats as st
     import scipy.special as sp
     import scmodes
+    import scqtl
     import sklearn.model_selection as skms
 
     import rpy2.robjects.packages
@@ -37,6 +57,11 @@
     ashr = rpy2.robjects.packages.importr('ashr')
     descend = rpy2.robjects.packages.importr('descend')
   #+END_SRC
+
+  #+RESULTS: imports
+  :RESULTS:
+  # Out[1]:
+  :END:
 
   #+RESULTS:
   :RESULTS:
@@ -57,6 +82,7 @@
     import colorcet
     import matplotlib.pyplot as plt
     plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
   #+END_SRC
 
   #+RESULTS:
@@ -65,15 +91,7 @@
   :END:
 
 * Results
-
-  We want to deconvolve scRNA-seq data assuming \(g_j\) is some unimodal
-  distribution over non-negative reals. In practice, we represent this family
-  of distribution as
-
-  \[ g_j = \sum_{k=1}^K \pi_k \mathrm{Uniform}(\cdot; \lambda_0,  a_{jk}) \]
-
-  where \(K\) is sufficiently large and \(\lambda_0\) is the mode
-  ([[http://dx.doi.org/10.1093/biostatistics/kxw041][Stephens 2016]]).
+** Convexity
 
   As an example, use the highest expressed genes in 10K sorted CD8+ cytotoxic
   T cells [[https://www.nature.com/articles/ncomms14049][Zheng et al. 2017]].
@@ -91,16 +109,6 @@
   :END:
 
   [[file:figure/deconvolution.org/deconv-example.png]]
-
-  To estimate the mode \(\lambda_{0j}\) for gene \(j\), we find:
-
-  \[ \lambda_{0j}^* = \arg\max_{\lambda_{0j}} \sum_i \int f(x_i \mid \lambda_i) g_j(\lambda_i \mid \pi, \lambda_{0j})\ d\lambda_i \]
-
-  using
-  [[https://www.rdocumentation.org/packages/stats/versions/3.5.3/topics/optimize][golden
-  section search]].
-
-** Convexity
 
   Mengyin Liu claimed this problem is convex in \(\lambda_{0j}\), However, on
   the above example, the quality of the result depends on the bounds of the
@@ -250,3 +258,266 @@
 
   Downsampling is likely to result in a *much* worse model fit, so we should
   not pursue that strategy to speed up the model estimation.
+** Using a simpler model
+   :PROPERTIES:
+   :CUSTOM_ID: unimodal-gamma-mode
+   :END:
+
+   We [[file:poisson.org::*Poisson%20ash][previously]] found an example of
+   near-Poisson data where ash mode estimation fails.
+
+   #+BEGIN_SRC ipython
+     data, _ = scqtl.simulation.simulate(num_samples=1000, logodds=-5, seed=2)
+     x = pd.Series(data[:,0])
+     s = pd.Series(data[:,1])
+     lam = x / s
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   Plot the data.
+
+   file:figure/poisson.org/pois-point-unimodal-example.png
+
+   Fit \(g\) assuming a point mass \(\mu\).
+
+   #+BEGIN_SRC ipython
+     fit0 = scqtl.simple.fit_pois(x, s)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[5]:
+   :END:
+
+   Fit \(g\) assuming Gamma.
+
+   \[ \lambda_i \sim \operatorname{Gamma}(1/\phi, 1/(\mu\phi)) \]
+
+   #+BEGIN_SRC ipython
+     # Important: this returns mu, 1/phi
+     fit1 = scqtl.simple.fit_nb(x, s)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   :END:
+
+   Report the estimated modes and log likelihoods.
+
+   #+BEGIN_SRC ipython
+     # Important: Gamma(a, b) mode is max((a - 1) / b, 0)
+     pd.DataFrame({'mode': [fit0[0], fit1[0] * (fit1[1] - 1) / fit1[1]], 'llik': [fit0[-1], fit1[-1]]}, index=['pointmass', 'gamma'])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[11]:
+   #+BEGIN_EXAMPLE
+     mode         llik
+     pointmass  0.000034 -2008.663140
+     gamma      0.000033 -2008.503731
+   #+END_EXAMPLE
+   :END:
+
+   The unimodal distribution is parameterized:
+
+   \[ g = \sum_{k=1}^{K} w_k \operatorname{Uniform}(\lambda_0, \lambda_0 \pm a_k) \]
+
+   where we abuse notation for brevity, and the endpoints \(a_k\) follow a
+   geometric series. Fix the mode to the Gamma mode, and fit unimodal \(g\) for
+   different choices of ratio between successive endpoints.
+
+   #+BEGIN_SRC ipython :async t
+     ratio = np.linspace(1.1, 1.5, 50)
+     res = []
+     for r in ratio:
+       low = 1 / s.mean()
+       high = (x / s).max()
+       mixsd = pd.Series(np.exp(np.arange(np.log(low), np.log(high), step=np.log(r))))
+       fit = ashr.ash_workhorse(
+         pd.Series(np.zeros(x.shape)), 1,
+         lik=ashr.lik_pois(y=x, scale=s, link='identity'),
+         mixsd=mixsd,
+         mode=fit1[0] * (fit1[1] - 1) / fit1[1],
+         output=pd.Series(['loglik', 'fitted_g']))
+       res.append([r, np.array(fit.rx2('loglik'))[0], np.array(fit.rx2('fitted_g').rx2('pi'))[0]])
+     res = pd.DataFrame(res)
+     res.columns = ['ratio', 'llik', 'pi0']
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[13]:
+   :END:
+
+   Plot the log likelihood versus chosen ratio. Mark the location of ratio
+   \(\sqrt{2}\).
+
+   #+BEGIN_SRC ipython :ipyfile figure/ash-estmode.org/ratio-ex1.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.plot(res['ratio'], res['llik'], lw=1, c='k')
+     plt.axvline(x=np.sqrt(2), ls=':', c='r', lw=1)
+     plt.xlabel('Ratio')
+     plt.ylabel('Log liklihood')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[14]:
+   [[file:figure/ash-estmode.org/ratio-ex1.png]]
+   :END:
+
+   Report the ratio which achieves the best log likelihood.
+
+   #+BEGIN_SRC ipython
+     res.loc[res['pi0'].idxmax()]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[20]:
+   #+BEGIN_EXAMPLE
+     ratio       1.434694
+     llik    -2008.561414
+     pi0         0.966383
+     Name: 41, dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Try applying this approach to the highest expressed genes in 10K sorted CD8+
+   cytotoxic T cells [[https://www.nature.com/articles/ncomms14049][Zheng et
+   al. 2017]].
+
+   #+BEGIN_SRC ipython
+     x = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19', return_df=True)
+     xj = x[x.mean(axis=0).idxmax()]
+     s = x.sum(axis=1)
+     lam = xj / s
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[39]:
+   :END:
+
+   Fit Gamma, and test for goodness of fit.
+
+   #+BEGIN_SRC ipython :async t
+     init = scqtl.simple.fit_nb(xj, s)
+     scmodes.benchmark.gof._gof(
+       xj.values.ravel(),
+       cdf=scmodes.benchmark.gof._zig_cdf,
+       pmf=scmodes.benchmark.gof._zig_pmf,
+       size=s.values.ravel(),
+       log_mu=np.log(init[0]),
+       log_phi=-np.log(init[1]))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[31]:
+   : KstestResult(statistic=0.0186349904442156, pvalue=0.0016661060591321017)
+   :END:
+
+   Fit unimodal, and test for goodness of fit.
+   
+   #+BEGIN_SRC ipython :async t
+     fit = ashr.ash_workhorse(
+       pd.Series(np.zeros(xj.shape)), 1,
+       lik=ashr.lik_pois(y=xj, scale=s, link='identity'),
+       mixsd=pd.Series(np.exp(np.arange(np.log(1 / s.mean()), np.log((xj / s).max()), step=.5 * np.log(2)))),
+       mode=init[0] * (init[1] - 1) / init[1],
+       output=pd.Series(['loglik', 'fitted_g', 'data']))
+     scmodes.benchmark.gof._gof(xj, cdf=scmodes.benchmark.gof._ash_cdf, pmf=scmodes.benchmark.gof._ash_pmf, fit=fit, s=s)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[23]:
+   : KstestResult(statistic=0.059205028160045026, pvalue=1.6543190838957947e-31)
+   :END:
+
+   [[file:deconvolution.org::#examples][Previously]], we found full mode search
+   worked on this example.
+
+   #+BEGIN_SRC ipython :async t
+     fit_estmode = ashr.ash_workhorse(
+       pd.Series(np.zeros(xj.shape)), 1,
+       lik=ashr.lik_pois(y=xj, scale=s, link='identity'),
+       mixsd=pd.Series(np.exp(np.arange(np.log(1 / s.mean()), np.log((xj / s).max()), step=.5 * np.log(2)))),
+       mode=pd.Series([lam.min(), lam.max()]),
+       output=pd.Series(['loglik', 'fitted_g', 'data']))
+     scmodes.benchmark.gof._gof(xj, cdf=scmodes.benchmark.gof._ash_cdf, pmf=scmodes.benchmark.gof._ash_pmf, fit=fit, s=s)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[80]:
+   : KstestResult(statistic=0.06007936493401578, pvalue=1.966951261262836e-32)
+   :END:
+
+   Report the marginal log likelihood of the fits.
+
+   #+BEGIN_SRC ipython
+     pd.Series({
+       'gamma': init[-1],
+       'unimodal (gamma mode)': np.array(fit.rx2('loglik'))[0],
+       'unimodal': np.array(fit_estmode.rx2('loglik'))[0]})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[84]:
+   #+BEGIN_EXAMPLE
+     gamma                   -41349.739021
+     unimodal (gamma mode)   -41409.282482
+     unimodal                -41274.359548
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Plot the data, and the fitted distributions.
+
+   #+BEGIN_SRC ipython
+     grid = pd.Series(np.linspace(lam.min(), lam.max(), 1000))
+     gamma_cdf = st.gamma(a=init[1], scale=init[0] / init[1]).cdf(grid)
+     unimodal_cdf = np.array(ashr.cdf_ash(fit, grid).rx2('y')).ravel()
+     estmode_cdf = np.array(ashr.cdf_ash(fit_estmode, grid).rx2('y')).ravel()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[82]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/ash-estmode.org/malat1-gamma-mode.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(6, 4)
+     ax[0].hist(xj.values, bins=np.arange(xj.values.max() + 1), color='k')
+     ax[0].set_xlabel('Number of molecules')
+     ax[0].set_ylabel('Number of cells')
+
+     for i, (k, F) in enumerate(zip(['Gamma', 'Unimodal (Gamma mode)', 'Unimodal'], [gamma_cdf, unimodal_cdf, estmode_cdf])):
+       ax[1].plot(grid, F, c=cm(i), label=k, lw=1)
+     ax[1].set_xlim(0, 0.1)
+     ax[1].legend(frameon=False)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[83]:
+   [[file:figure/ash-estmode.org/malat1-gamma-mode.png]]
+   :END:

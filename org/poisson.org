@@ -30,7 +30,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",mem="16G") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 62769273
+  : Submitted batch job 62806040
 
   #+BEGIN_SRC ipython
     import numpy as np
@@ -51,7 +51,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -61,7 +61,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -72,7 +72,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[27]:
+  # Out[4]:
   :END:
 
 * Results
@@ -297,7 +297,19 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[17]:
+   # Out[5]:
+   :END:
+
+   Write out the data.
+
+   #+BEGIN_SRC ipython
+     rpy2.robjects.r['saveRDS'](pd.DataFrame({'x': x, 's': s}), 'pois-mode-est.Rds')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   : rpy2.rinterface.NULL
    :END:
 
    Fit Poisson convolved with point mass.

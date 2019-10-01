@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-28 Sat 20:40 -->
+<!-- 2019-09-30 Mon 19:14 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Deconvolution of near-Poisson data</title>
@@ -549,6 +549,20 @@ Draw some near-Poisson data.
 </div>
 
 <p>
+Write out the data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">rpy2.robjects.r[<span class="org-string">'saveRDS'</span>](pd.DataFrame({<span class="org-string">'x'</span>: x, <span class="org-string">'s'</span>: s}), <span class="org-string">'pois-mode-est.Rds'</span>)
+</pre>
+</div>
+
+<pre class="example">
+rpy2.rinterface.NULL
+
+</pre>
+
+<p>
 Fit Poisson convolved with point mass.
 </p>
 
@@ -741,7 +755,7 @@ dtype: float64
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-28 Sat 20:40</p>
+<p class="date">Created: 2019-09-30 Mon 19:14</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
