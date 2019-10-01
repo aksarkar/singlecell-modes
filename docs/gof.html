@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-10-01 Tue 00:11 -->
+<!-- 2019-10-01 Tue 00:29 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,8 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org5510c29">Test for goodness of fit</a></li>
-<li><a href="#ash-gof">ash goodness of fit</a></li>
+<li><a href="#orgee96b54">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -341,9 +340,9 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org5510c29" class="outline-3">
-<h3 id="org5510c29">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org5510c29">
+<div id="outline-container-orgee96b54" class="outline-3">
+<h3 id="orgee96b54">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-orgee96b54">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -382,9 +381,26 @@ distributed.
 </div>
 </div>
 
-<div id="outline-container-org529e15c" class="outline-3">
-<h3 id="ash-gof"><a id="org529e15c"></a>ash goodness of fit</h3>
-<div class="outline-text-3" id="text-ash-gof">
+<div id="outline-container-org1e959d4" class="outline-3">
+<h3 id="org1e959d4">Poisson-unimodal goodness of fit</h3>
+<div class="outline-text-3" id="text-org1e959d4">
+<p>
+We parameterized the Poisson-unimodal model as:
+</p>
+
+\begin{align*}
+  x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
+  \lambda_i &\sim \sum_k w_k \operatorname{Uniform}(\lambda_0, a_k)
+\end{align*}
+
+<p>
+where we abuse notation to allow \(a_k < \lambda_0\). To test for goodness
+of fit, we need the PMF and CDF of \(x_i\), marginalized over
+\(\lambda_i\). <a href="https://lsun.github.io/truncash/diagnostic_plot.html#ash:_(t)_likelihood,_uniform_mixture_prior">These
+are analytic for certain choices of likelihood and prior</a>, e.g. normal
+likelihood and mixture of uniforms prior.
+</p>
+
 <p>
 Simulate a continuous example.
 </p>
@@ -406,6 +422,35 @@ Simulate a continuous example.
 KstestResult(statistic=0.03101662170773789, pvalue=0.28605255994768175)
 
 </pre>
+
+<p>
+For the Poisson-unimodal model, we have (for one component):
+</p>
+
+\begin{align*}
+  x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
+  \lambda_i &\sim \operatorname{Uniform}(a, b)
+\end{align*}
+
+<p>
+and:
+</p>
+
+\begin{align*}
+  \Pr(x_i = x) &= \int_0^\infty \operatorname{Poisson}(x_i; s_i \lambda_i) \operatorname{Uniform}(a, b) d\lambda_i\\
+  &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x_i; s_i \lambda_i) d\lambda_i\\
+  &= \frac{1}{s_i (b - a)} \int_a^b \frac{s_i^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-s_i\lambda_i) d\lambda_i\\
+  &= \frac{1}{s_i (b - a)} \left( F_\Gamma(b; x_i + 1, s_i) - F_\Gamma(a, x_i + 1, s_i) \right)\\
+  \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{s_i (b - a)} \left( F_\Gamma(b; k + 1, s_i) - F_\Gamma(a, k + 1, s_i) \right)\\
+\end{align*}
+
+<p>
+where \(F_\Gamma(\cdot; \alpha, \beta)\) denotes the CDF of the Gamma
+distribution with shape \(\alpha\) and rate \(\beta\). The marginal PMF is
+analytic. Computing the CDF for each data point, for each component gives a
+matrix of values \(\mathbf{F} = [F_{ik}]\). Then, the marginal CDF of the
+data is given by \(\mathbf{F}\mathbf{w}\).
+</p>
 
 <p>
 Simulate a simple discrete example.
@@ -453,53 +498,6 @@ scmodes.benchmark.gof._gof(y,
 KstestResult(statistic=0.008062709224521236, pvalue=0.533974089244596)
 
 </pre>
-</div>
-</div>
-
-<div id="outline-container-org1e959d4" class="outline-3">
-<h3 id="org1e959d4">Poisson-unimodal goodness of fit</h3>
-<div class="outline-text-3" id="text-org1e959d4">
-<p>
-We parameterized the Poisson-unimodal model as:
-</p>
-
-\begin{align*}
-  x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
-  \lambda_i &\sim \sum_k w_k \operatorname{Uniform}(\lambda_0, a_k)
-\end{align*}
-
-<p>
-where we abuse notation to allow \(a_k < \lambda_0\). To test for goodness
-of fit, we need the PMF and CDF of \(x_i\), marginalized over
-\(\lambda_i\). <a href="https://lsun.github.io/truncash/diagnostic_plot.html#ash:_(t)_likelihood,_uniform_mixture_prior">These
-are analytic for certain choices of likelihood and prior.</a> In this case, we
-have (for one component):
-</p>
-
-\begin{align*}
-  x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
-  \lambda_i &\sim \operatorname{Uniform}(a, b)
-\end{align*}
-
-<p>
-and:
-</p>
-
-\begin{align*}
-  \Pr(x_i = x) &= \int_0^\infty \operatorname{Poisson}(x_i; s_i \lambda_i) \operatorname{Uniform}(a, b) d\lambda_i\\
-  &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x_i; s_i \lambda_i) d\lambda_i\\
-  &= \frac{1}{s_i (b - a)} \int_a^b \frac{s_i^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-s_i\lambda_i) d\lambda_i\\
-  &= \frac{1}{s_i (b - a)} \left( F_\Gamma(b; x_i + 1, s_i) - F_\Gamma(a, x_i + 1, s_i) \right)\\
-  \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{s_i (b - a)} \left( F_\Gamma(b; k + 1, s_i) - F_\Gamma(a, k + 1, s_i) \right)\\
-\end{align*}
-
-<p>
-where \(F_\Gamma(\cdot; \alpha, \beta)\) denotes the CDF of the Gamma
-distribution with shape \(\alpha\) and rate \(\beta\). The marginal PMF is
-analytic. Computing the CDF for each data point, for each component gives a
-matrix of values \(\mathbf{F} = [F_{ik}]\). Then, the marginal CDF of the
-data is given by \(\mathbf{F}\mathbf{w}\).
-</p>
 </div>
 </div>
 
@@ -683,8 +681,8 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-org6b332af" class="outline-3">
-<h3 id="gof"><a id="org6b332af"></a>Test for goodness of fit</h3>
+<div id="outline-container-org88c0e4b" class="outline-3">
+<h3 id="gof"><a id="org88c0e4b"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -962,7 +960,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-10-01 Tue 00:11</p>
+<p class="date">Created: 2019-10-01 Tue 00:29</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
