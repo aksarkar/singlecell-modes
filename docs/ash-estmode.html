@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-30 Mon 23:41 -->
+<!-- 2019-10-01 Tue 00:17 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Speed up ash mode estimation</title>
@@ -734,32 +734,34 @@ worked on this example.
   mixsd=pd.Series(np.exp(np.arange(np.log(1 / s.mean()), np.log((xj / s).<span class="org-builtin">max</span>()), step=.5 * np.log(2)))),
   mode=pd.Series([lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>()]),
   output=pd.Series([<span class="org-string">'loglik'</span>, <span class="org-string">'fitted_g'</span>, <span class="org-string">'data'</span>]))
-scmodes.benchmark.gof._gof(xj, cdf=scmodes.benchmark.gof._ash_cdf, pmf=scmodes.benchmark.gof._ash_pmf, fit=fit, s=s)
+scmodes.benchmark.gof._gof(xj, cdf=scmodes.benchmark.gof._ash_cdf, pmf=scmodes.benchmark.gof._ash_pmf, fit=fit_estmode, s=s)
 </pre>
 </div>
 
 <pre class="example">
-KstestResult(statistic=0.06007936493401578, pvalue=1.966951261262836e-32)
+KstestResult(statistic=0.02630989797207417, pvalue=1.4551355049273953e-06)
 
 </pre>
 
 <p>
-Report the marginal log likelihood of the fits.
+Report the estimated modes and marginal log likelihood of the fits.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">pd.Series({
-  <span class="org-string">'gamma'</span>: init[-1],
-  <span class="org-string">'unimodal (gamma mode)'</span>: np.array(fit.rx2(<span class="org-string">'loglik'</span>))[0],
-  <span class="org-string">'unimodal'</span>: np.array(fit_estmode.rx2(<span class="org-string">'loglik'</span>))[0]})
+<pre class="src src-ipython">pd.DataFrame(
+  {
+    <span class="org-string">'mode'</span>: [init[0] * (init[1] - 1) / init[1], init[0] * (init[1] - 1) / init[1], np.array(fit_estmode.rx2(<span class="org-string">'fitted_g'</span>).rx2(<span class="org-string">'a'</span>))[0]],
+    <span class="org-string">'llik'</span>: [init[-1], np.array(fit.rx2(<span class="org-string">'loglik'</span>))[0], np.array(fit_estmode.rx2(<span class="org-string">'loglik'</span>))[0]]
+  },
+  index=[<span class="org-string">'gamma'</span>, <span class="org-string">'unimodal_gamma'</span>, <span class="org-string">'unimodal'</span>])
 </pre>
 </div>
 
 <pre class="example">
-gamma                   -41349.739021
-unimodal (gamma mode)   -41409.282482
-unimodal                -41274.359548
-dtype: float64
+mode          llik
+gamma           0.035399 -41349.739021
+unimodal_gamma  0.035399 -41409.282482
+unimodal        0.037238 -41274.359548
 </pre>
 
 <p>
@@ -805,7 +807,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-30 Mon 23:41</p>
+<p class="date">Created: 2019-10-01 Tue 00:17</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

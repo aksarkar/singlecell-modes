@@ -404,7 +404,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[39]:
+   # Out[134]:
    :END:
 
    Fit Gamma, and test for goodness of fit.
@@ -454,32 +454,34 @@
        mixsd=pd.Series(np.exp(np.arange(np.log(1 / s.mean()), np.log((xj / s).max()), step=.5 * np.log(2)))),
        mode=pd.Series([lam.min(), lam.max()]),
        output=pd.Series(['loglik', 'fitted_g', 'data']))
-     scmodes.benchmark.gof._gof(xj, cdf=scmodes.benchmark.gof._ash_cdf, pmf=scmodes.benchmark.gof._ash_pmf, fit=fit, s=s)
+     scmodes.benchmark.gof._gof(xj, cdf=scmodes.benchmark.gof._ash_cdf, pmf=scmodes.benchmark.gof._ash_pmf, fit=fit_estmode, s=s)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[80]:
-   : KstestResult(statistic=0.06007936493401578, pvalue=1.966951261262836e-32)
+   # Out[135]:
+   : KstestResult(statistic=0.02630989797207417, pvalue=1.4551355049273953e-06)
    :END:
 
-   Report the marginal log likelihood of the fits.
+   Report the estimated modes and marginal log likelihood of the fits.
 
    #+BEGIN_SRC ipython
-     pd.Series({
-       'gamma': init[-1],
-       'unimodal (gamma mode)': np.array(fit.rx2('loglik'))[0],
-       'unimodal': np.array(fit_estmode.rx2('loglik'))[0]})
+     pd.DataFrame(
+       {
+         'mode': [init[0] * (init[1] - 1) / init[1], init[0] * (init[1] - 1) / init[1], np.array(fit_estmode.rx2('fitted_g').rx2('a'))[0]],
+         'llik': [init[-1], np.array(fit.rx2('loglik'))[0], np.array(fit_estmode.rx2('loglik'))[0]]
+       },
+       index=['gamma', 'unimodal_gamma', 'unimodal'])
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[84]:
+   # Out[138]:
    #+BEGIN_EXAMPLE
-     gamma                   -41349.739021
-     unimodal (gamma mode)   -41409.282482
-     unimodal                -41274.359548
-     dtype: float64
+     mode          llik
+     gamma           0.035399 -41349.739021
+     unimodal_gamma  0.035399 -41409.282482
+     unimodal        0.037238 -41274.359548
    #+END_EXAMPLE
    :END:
 
