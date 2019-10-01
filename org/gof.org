@@ -109,6 +109,78 @@
   apply the KS test to whether the randomized quantiles \(u_{i}\) are uniformly
   distributed.
 
+** ash goodness of fit
+   :PROPERTIES:
+   :CUSTOM_ID: ash-gof
+   :END:
+
+   Simulate a continuous example.
+
+   #+BEGIN_SRC ipython
+     bhat = pd.Series(np.random.normal(loc=0.1, size=1000))
+     fitn = ashr.ash_workhorse(bhat, 1, mixcompdist='uniform', output=pd.Series(['loglik', 'fitted_g', 'data']))
+     # Important: Normal-uniform convolution CDF is analytic
+     F = np.array(fitn.rx2('fitted_g').rx2('pi')).dot(np.array(ashr.comp_cdf_conv(fitn.rx2('fitted_g'), fitn.rx2('data'))))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[113]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     st.kstest(F, 'uniform')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[116]:
+   : KstestResult(statistic=0.03101662170773789, pvalue=0.28605255994768175)
+   :END:
+
+   Simulate a simple discrete example.
+
+   #+BEGIN_SRC ipython :async t
+     y = pd.Series(np.random.poisson(lam=10, size=1000))
+     s = pd.Series(np.ones(y.shape))
+     fitp = ashr.ash_workhorse(
+       np.zeros(y.shape), 1,
+       lik=ashr.lik_pois(y=y, scale=s, link='identity'),
+       mixcompdist='halfuniform',
+       output=pd.Series(['loglik', 'fitted_g', 'data']))
+     scmodes.benchmark.gof._gof(y,
+       cdf=scmodes.benchmark.gof._ash_cdf,
+       pmf=scmodes.benchmark.gof._ash_pmf, fit=fitp, s=s)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[125]:
+   : KstestResult(statistic=0.018791616085501672, pvalue=0.8718125394494075)
+   :END:
+
+   Simulate a Poisson example with varying size factors.
+
+   #+BEGIN_SRC ipython :async t
+     mu = 1e-3
+     s = pd.Series(np.random.poisson(lam=1000, size=10000))
+     y = pd.Series(np.random.poisson(lam=s * mu))
+     fitp = ashr.ash_workhorse(
+       np.zeros(y.shape), 1,
+       lik=ashr.lik_pois(y=y, scale=s, link='identity'),
+       mixcompdist='halfuniform',
+       output=pd.Series(['loglik', 'fitted_g', 'data']))
+     scmodes.benchmark.gof._gof(y,
+       cdf=scmodes.benchmark.gof._ash_cdf,
+       pmf=scmodes.benchmark.gof._ash_pmf, fit=fitp, s=s)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[133]:
+   : KstestResult(statistic=0.008062709224521236, pvalue=0.533974089244596)
+   :END:
+
 ** Poisson-unimodal goodness of fit
 
    We parameterized the Poisson-unimodal model as:
