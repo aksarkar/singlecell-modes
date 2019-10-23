@@ -20,14 +20,21 @@
 
   #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar/modes
 
+  #+RESULTS:
+  : Submitted batch job 62853498
+
   #+BEGIN_SRC ipython
+    import numpy as np
     import pandas as pd
+    import scipy.special as sp
+    import scipy.stats as st
     import scmodes
+    import sqlite3
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[7]:
+  # Out[16]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -37,7 +44,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[8]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -48,7 +55,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[9]:
+  # Out[3]:
   :END:
 
 * Results
@@ -72,7 +79,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[15]:
+   # Out[12]:
    :END:
 
    #+BEGIN_SRC ipython
@@ -85,7 +92,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[16]:
+   # Out[13]:
    :END:
 
    #+BEGIN_SRC ipython
@@ -97,7 +104,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[61]:
+   # Out[14]:
    :END:
 
    #+BEGIN_SRC ipython
@@ -119,7 +126,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[62]:
+   # Out[17]:
    :END:
 
    #+BEGIN_SRC ipython
@@ -134,7 +141,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[84]:
+   # Out[18]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/mlcb-rps4y1.png
@@ -173,18 +180,17 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[26]:
+   # Out[23]:
    :END:
 
    #+BEGIN_SRC ipython
-     import sqlite3
      with sqlite3.connect('/project2/mstephens/aksarkar/projects/singlecell-qtl/browser/browser.db') as conn:
        geno = pd.read_sql('select * from mean_qtl_geno where gene = ?', con=conn, params=('ENSG00000113558',)).set_index('ind')['value']
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[55]:
+   # Out[19]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/deconvolution.org/mlcb-skp1.png
@@ -219,14 +225,6 @@
 
 ** Plot the results
 
-   Move the results to permanent storage.
-
-   #+BEGIN_SRC sh
-     rsync -au /scratch/midway2/aksarkar/modes/lra-generalization/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/
-   #+END_SRC
-
-   #+RESULTS:
-
    Read the results.
 
    #+BEGIN_SRC ipython
@@ -242,7 +240,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[77]:
+   # Out[4]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/lra.org/mlcb-bench-lra.png
@@ -266,4 +264,134 @@
    :RESULTS:
    # Out[96]:
    [[file:figure/lra.org/mlcb-bench-lra.png]]
+   :END:
+
+** Vector format
+
+   #+BEGIN_SRC ipython
+     %config InlineBackend.figure_formats = set(['svg'])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/mlcb.org/mlcb-bench-lra.svg
+     plt.clf()
+     fig, ax = plt.subplots(1, len(results), sharey=True)
+     fig.set_size_inches(8, 2)
+     for a, k, t in zip(ax, results, titles):
+       llik = results[k]['validation']
+       for x, m in enumerate(llik):
+         a.scatter(x + np.random.normal(scale=0.1, size=llik.shape[0]), llik[m].values, s=1, c='k', zorder=3)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xlim(-0.5, 2.5)
+       a.set_xticks(np.arange(3))
+       a.set_xticklabels([m.upper() for m in methods], rotation=90)
+       a.set_title(t)
+     ax[0].set_ylabel('Validation log lik')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   [[file:figure/mlcb.org/mlcb-bench-lra.svg]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/mlcb.org/mlcb-rps4y1.svg
+     k = 'ENSG00000129824'
+     x = ipsc_counts.loc[:,k].values
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(4, 4)
+
+     ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+     ax[0].set_title(gene_info.loc[k, 'name'])
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
+
+     for f, k in zip(cdfs[2], ipsc_log_mu.columns):
+       ax[1].plot(grid, f, lw=1, alpha=0.2, c=colors.get(k, 'k'))
+     ax[1].set_xlim(0, 2e-4)
+     ax[1].set_xticks(np.linspace(0, 2e-4, 3))
+     dummy = [plt.Line2D([0], [0], c='r'), plt.Line2D([0], [0], c='b')]
+     ax[1].legend(dummy, ['Male', 'Female'], title='Sex', frameon=False)
+     ax[1].set_ylabel('CDF')
+     ax[1].set_xlabel('Latent gene expression')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[21]:
+   [[file:figure/mlcb.org/mlcb-rps4y1.svg]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/mlcb.org/mlcb-skp1.svg
+     cm = plt.get_cmap('Dark2')
+     k = 'ENSG00000113558'
+     x = ipsc_counts.loc[:,k].values
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(4, 4)
+
+     ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+     ax[0].set_title(gene_info.loc[k, 'name'])
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
+
+     for f, k in zip(cdfs[1], ipsc_log_mu.columns):
+       ax[1].plot(grid, f, lw=1, alpha=0.3, c=cm(int(geno[k])))
+     dummy = [plt.Line2D([0], [0], c=cm(i)) for i in range(3)]
+     # https://www.ncbi.nlm.nih.gov/snp/?term=rs13356194
+     ax[1].legend(dummy, ['CC', 'CT', 'TT'], title=mean_qtl_stats.loc['ENSG00000113558', 'id'].split('.')[0], frameon=False)
+     ax[1].set_ylabel('CDF')
+     ax[1].set_xlabel('Latent gene expression')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[24]:
+   [[file:figure/mlcb.org/mlcb-skp1.svg]]
+   :END:
+
+   #+BEGIN_SRC ipython
+     cytotoxic_t = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[25]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/mlcb.org/mlcb-rpl34.svg
+     k = 'ENSG00000109475'
+     x = cytotoxic_t.loc[:,k]
+     s = cytotoxic_t.sum(axis=1)
+
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(4, 4)
+     ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+     ax[0].set_title(gene_info.loc[k, 'name'])
+     ax[0].set_xlabel('Num mols')
+     ax[0].set_ylabel('Num cells')
+
+     for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{k.lower()}')(x, s), color=c, lw=1, label=k)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+     ax[1].legend(frameon=False)
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[30]:
+   [[file:figure/mlcb.org/mlcb-rpl34.svg]]
    :END:
