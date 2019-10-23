@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-10-01 Tue 00:29 -->
+<!-- 2019-10-23 Wed 17:39 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#orgee96b54">Test for goodness of fit</a></li>
+<li><a href="#org88c0e4b">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -340,9 +340,9 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-orgee96b54" class="outline-3">
-<h3 id="orgee96b54">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-orgee96b54">
+<div id="outline-container-org88c0e4b" class="outline-3">
+<h3 id="org88c0e4b">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-org88c0e4b">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -620,7 +620,7 @@ Read the results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">sim_results</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/simulation.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>, index_col=0)
+<pre class="src src-ipython"><span class="org-variable-name">sim_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/simulation.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>, index_col=0)
 </pre>
 </div>
 
@@ -681,8 +681,8 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-org88c0e4b" class="outline-3">
-<h3 id="gof"><a id="org88c0e4b"></a>Test for goodness of fit</h3>
+<div id="outline-container-org778f044" class="outline-3">
+<h3 id="gof"><a id="org778f044"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -960,7 +960,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-10-01 Tue 00:29</p>
+<p class="date">Created: 2019-10-23 Wed 17:39</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
