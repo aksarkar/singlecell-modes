@@ -20,7 +20,7 @@ Technical details:
 - [[file:browser.org][Interactive simulations]]
 - [[file:capture.org][Effect of capture rate on sampling variation]]
 - [[file:ash-estmode.org][Speed up ash mode estimation]]
-- [[file:nb-mix.org][Mixture of negative binomials]]
+- [[file:mix-nb.org][Mixture of negative binomials]]
 - [[file:gamma.org][Convergence of Gamma deconvolution]]
 - [[file:poisson.org][Deconvolution of near-Poisson data]]
 - [[file:validation.org][Validation set log likelihood comparison]]
@@ -31,3 +31,4 @@ Technical details:
 - [[file:link.org][Link functions in Poisson LRA]]
 - [[file:random-effect.org][Distributional assumptions in Poisson LRA]]
 - [[file:mlcb.org][MLCB plots]]
+- [[file:pois-truncnorm.org][Poisson-truncated normal data]]

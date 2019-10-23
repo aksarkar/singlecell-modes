@@ -1,0 +1,125 @@
+#+TITLE: Poisson-truncated normal data
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  Zihao Wang shared an example simulated data set where ~ash~ gives a
+  surprising result.
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar
+
+  #+RESULTS:
+  : Submitted batch job 63336197
+
+  #+BEGIN_SRC ipython
+    import numpy as np
+    import scipy.stats as st
+    import scmodes
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[4]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+* Example
+
+  #+BEGIN_SRC ipython
+    np.random.seed(1)
+    N = 5000
+    lam = np.clip(np.random.normal(loc=10, scale=5, size=N), 0, None)
+    x = np.random.poisson(lam=lam)
+    s = np.ones(x.shape)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[10]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    grid = np.linspace(x.min(), x.max(), 1000)
+    F = st.norm(loc=10, scale=5)
+    true_cdf = F.cdf(0) + F.sf(0) * F.cdf(grid)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[17]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/pois-truncnorm.org/example.png
+    cm = plt.get_cmap('Dark2')
+    plt.clf()
+    fig, ax = plt.subplots(2, 1)
+    fig.set_size_inches(5, 4)
+
+    ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+    ax[0].set_xlabel('$x$')
+    ax[0].set_ylabel('$n_x$')
+
+    for i, (method, t) in enumerate(zip(['zig', 'unimodal'], ['Point-Gamma', 'Unimodal'])):
+      ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{method}')(x, s), label=t, c=cm(i), lw=1)
+    ax[1].plot(grid, true_cdf, label='Ground truth', c=cm(2), lw=1)
+    ax[1].legend(frameon=False)
+    ax[1].set_xlabel('$\lambda$')
+    ax[1].set_ylabel('CDF')
+
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[20]:
+  [[file:figure/pois-truncnorm.org/example.png]]
+  :END:
+
+  The grid we used to parameterize the unimodal distribution is:
+
+  #+BEGIN_SRC ipython
+    np.exp(np.arange(np.log(1 / s.mean()), np.log((x / s).max()), step=.5 * np.log(2)))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[22]:
+  #+BEGIN_EXAMPLE
+    array([ 1.        ,  1.41421356,  2.        ,  2.82842712,  4.        ,
+    5.65685425,  8.        , 11.3137085 , 16.        , 22.627417  ,
+    32.        ])
+  #+END_EXAMPLE
+  :END:
