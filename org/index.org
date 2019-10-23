@@ -8,15 +8,16 @@ differentiation. However, a number of features of scRNA-seq data continue to
 cause confusion among practitioners applying published methods to analyze new
 datasets, as well as researchers developing and benchmarking new methods.
 
-- [[file:pitfalls.org][Technical zero-generating mechanism in scRNA-seq data]]
-- [[file:modes.org][Estimating the number of modes]]
 - [[file:deconvolution.org][Comparison of distribution deconvolution methods]]
+- [[file:deconv-examples.org][Distribution deconvolution examples]]
+- [[file:gof.org][Goodness of fit of deconvolved distributions]]
 - [[file:lra.org][Low rank approximation]]
 - [[file:transforms.org][Transformations of deconvolved gene expression distributions]]
-- [[file:gof.org][Goodness of fit of deconvolved distributions]]
 
 Technical details:
 
+- [[file:pitfalls.org][Technical zero-generating mechanism in scRNA-seq data]]
+- [[file:modes.org][Estimating the number of modes]]
 - [[file:browser.org][Interactive simulations]]
 - [[file:capture.org][Effect of capture rate on sampling variation]]
 - [[file:ash-estmode.org][Speed up ash mode estimation]]
@@ -25,7 +26,6 @@ Technical details:
 - [[file:poisson.org][Deconvolution of near-Poisson data]]
 - [[file:validation.org][Validation set log likelihood comparison]]
 - [[file:npmle.org][NPMLE on C1 spike-in data]]
-- [[file:deconv-examples.org][Distribution deconvolution examples]]
 - [[file:deconv-de.org][Differential expression from distribution deconvolution]]
 - [[file:ep.org][Posterior approximation for scRNA-seq data]]
 - [[file:link.org][Link functions in Poisson LRA]]
