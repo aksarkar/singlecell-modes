@@ -218,33 +218,72 @@
 
    #+NAME: data
    #+BEGIN_SRC ipython
-     def _cd8_cd19_mix(return_y=False):
+     def read_chromium(sample):
+       x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/svensson_chromium_control.h5ad')
+       scanpy.pp.filter_genes(x, min_counts=1)
+       x = x[x.obs['sample'] == sample][:,x.var.filter(like='ERCC', axis='index').index]
+       return pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
+
+     def read_dropseq():
+       x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/macosko_dropseq_control.h5ad')
+       scanpy.pp.filter_genes(x, min_counts=1)
+       x = x[:,x.var.filter(like='ERCC', axis='index').index]
+       return pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
+
+     def read_indrops():
+       x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/klein_indrops_control.h5ad')
+       scanpy.pp.filter_genes(x, min_counts=1)
+       x = x[:,x.var.filter(like='ERCC', axis='index').index]
+       return pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
+
+     def read_gemcode():
+       x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/zheng_gemcode_control.h5ad')
+       scanpy.pp.filter_genes(x, min_counts=1)
+       return pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
+
+     def read_c1(min_detect=1000):
+       x = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/ercc-counts.txt.gz', sep='\t', index_col=0)
+       keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', header=None, index_col=0, sep='\t')
+       # Throw out samples with too few spike-in molecules detected
+       return x.loc[:,np.logical_and((x.sum(axis=0) > min_detect).values, keep_samples.values.ravel())].T
+
+     def _cd8_cd19_mix(min_detect=0.05, return_y=False):
        t_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
        b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
-       x, y = scmodes.dataset.synthetic_mix(t_cells, b_cells, min_detect=0.25)
+       x, y = scmodes.dataset.synthetic_mix(t_cells, b_cells, min_detect=min_detect)
        if return_y:
          return x, y
        else:
          return x
 
-     def _cyto_naive_mix():
+     def _cyto_naive_mix(min_detect=0.05, return_y=False):
        cyto = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19', return_df=True, min_detect=0)
        naive = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_t/filtered_matrices_mex/hg19', return_df=True, min_detect=0)
-       return scmodes.dataset.synthetic_mix(cyto, naive, min_detect=0.25)[0]
+       x, y = scmodes.dataset.synthetic_mix(cyto, naive, min_detect=min_detect)
+       if return_y:
+         return x, y
+       else:
+         return x
 
      data = {
-       'cytotoxic_t': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True),
-       'b_cells': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True),
+       'dropseq': read_dropseq,
+       'indrops': read_indrops,
+       'chromium1': lambda: read_chromium('20311'),
+       'chromium2': lambda: read_chromium('20312'),
+       'gemcode': read_gemcode,
+       'c1': read_c1,
+       'cytotoxic_t': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True, min_detect=0.05),
+       'b_cells': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True, min_detect=0.05),
        'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', n=100, return_df=True),
        'cytotoxic_t-b_cells': _cd8_cd19_mix,
        'cytotoxic_t-naive_t': _cyto_naive_mix,
-       'pbmcs_68k': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19', return_df=True),
+       'pbmcs_68k': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19', return_df=True, min_detect=0.05),
      }
    #+END_SRC
 
    #+RESULTS: data
    :RESULTS:
-   # Out[12]:
+   # Out[5]:
    :END:
 
 * Results
