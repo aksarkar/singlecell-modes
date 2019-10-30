@@ -34,12 +34,13 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 63342131
+  : Submitted batch job 63465457
 
   #+NAME: imports
   #+BEGIN_SRC ipython
     import numpy as np
     import pandas as pd
+    import scanpy
     import scmodes
   #+END_SRC
 
@@ -220,8 +221,9 @@
    #+BEGIN_SRC ipython
      def read_chromium(sample):
        x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/svensson_chromium_control.h5ad')
+       x = x[x.obs['sample'] == sample]
        scanpy.pp.filter_genes(x, min_counts=1)
-       x = x[x.obs['sample'] == sample][:,x.var.filter(like='ERCC', axis='index').index]
+       x = x[:,x.var.filter(like='ERCC', axis='index').index]
        return pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
 
      def read_dropseq():
