@@ -253,6 +253,7 @@
        t_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
        b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
        x, y = scmodes.dataset.synthetic_mix(t_cells, b_cells, min_detect=min_detect)
+       x = x.reset_index(drop=True)
        if return_y:
          return x, y
        else:
@@ -262,6 +263,7 @@
        cyto = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19', return_df=True, min_detect=0)
        naive = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_t/filtered_matrices_mex/hg19', return_df=True, min_detect=0)
        x, y = scmodes.dataset.synthetic_mix(cyto, naive, min_detect=min_detect)
+       x = x.reset_index(drop=True)
        if return_y:
          return x, y
        else:
