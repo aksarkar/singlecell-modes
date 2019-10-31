@@ -249,25 +249,25 @@
        # Throw out samples with too few spike-in molecules detected
        return x.loc[:,np.logical_and((x.sum(axis=0) > min_detect).values, keep_samples.values.ravel())].T
 
-     def _cd8_cd19_mix(min_detect=0.05, return_y=False):
-       t_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
-       b_cells = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
-       x, y = scmodes.dataset.synthetic_mix(t_cells, b_cells, min_detect=min_detect)
-       x = x.reset_index(drop=True)
+     def _mix_10x(k1, k2, min_detect=0.05, return_y=False, p=500):
+       x1 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
+       x2 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
+       x, y = scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)
+       x = x.sample(n=p, axis=1, random_state=1).reset_index(drop=True)
        if return_y:
          return x, y
        else:
          return x
 
-     def _cyto_naive_mix(min_detect=0.05, return_y=False):
-       cyto = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19', return_df=True, min_detect=0)
-       naive = scmodes.dataset.read_10x(prefix='/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_t/filtered_matrices_mex/hg19', return_df=True, min_detect=0)
-       x, y = scmodes.dataset.synthetic_mix(cyto, naive, min_detect=min_detect)
-       x = x.reset_index(drop=True)
-       if return_y:
-         return x, y
-       else:
-         return x
+     def _cd8_cd19_mix(**kwargs):
+       return _mix_10x('cytotoxic_t', 'b_cells', **kwargs)
+
+     def _cyto_naive_mix(**kwargs):
+       return _mix_10x('cytotoxic_t', 'naive_t', **kwargs)
+
+     def _read_10x(k):
+       return scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/',
+                                       return_df=True, min_detect=0.05, p=500)
 
      data = {
        'dropseq': read_dropseq,
@@ -276,18 +276,47 @@
        'chromium2': lambda: read_chromium('20312'),
        'gemcode': read_gemcode,
        'c1': read_c1,
-       'cytotoxic_t': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True, min_detect=0.05),
-       'b_cells': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/', return_df=True, min_detect=0.05),
-       'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', n=100, return_df=True),
+       'cytotoxic_t': lambda: _read_10x('cytotoxic_t'),
+       'b_cells': lambda: _read_10x('b_cells'),
+       'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', p=500, return_df=True),
        'cytotoxic_t-b_cells': _cd8_cd19_mix,
        'cytotoxic_t-naive_t': _cyto_naive_mix,
-       'pbmcs_68k': lambda: scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19', return_df=True, min_detect=0.05),
+       'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a'),
      }
    #+END_SRC
 
    #+RESULTS: data
    :RESULTS:
    # Out[5]:
+   :END:
+
+   Report the dimensions of each data set. To reduce computational burden (for
+   ~ashr~), look at no more than 500 genes per data set (randomly chosen).
+
+   #+BEGIN_SRC ipython :async t
+     pd.DataFrame([data[k]().shape for k in data],
+                  columns=['num_cells', 'num_genes'],
+                  index=data.keys())
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   #+BEGIN_EXAMPLE
+     num_cells  num_genes
+     dropseq                     84         81
+     indrops                    953        103
+     chromium1                 2000         88
+     chromium2                 2000         88
+     gemcode                   1015         91
+     c1                        5002         92
+     cytotoxic_t              10209        500
+     b_cells                  10085        500
+     ipsc                      5597        500
+     cytotoxic_t-b_cells      20294        500
+     cytotoxic_t-naive_t      20688        500
+     pbmcs_68k                68579        500
+   #+END_EXAMPLE
    :END:
 
 * Results
