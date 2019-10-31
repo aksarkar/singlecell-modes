@@ -5,15 +5,13 @@
 
   We [[file:deconvolution.org][previously estimated]] the out-of-sample log likelihood as a measure of the
   generalization performance of distribution deconvolution methods for
-  scRNA-seq. However, this is not the simplest way to support some of our key
-  results:
+  scRNA-seq. However, this is not the simplest way to support our key results:
 
-  1. For most genes, in most data sets, a Gamma assumption appears sufficient
-     (meaning, more complicated distributional assumptions do not have better
-     generalization performance).
-  2. When Gamma is insufficient, it is generally not the case that assuming a
-     point mass on zero improves generalization (meaning, departures from Gamma
-     do not involve excess zeros).
+  1. For spike-ins (control experiments), the data do not depart from a
+     unimodal distribution for biological variation (meaning, neither technical
+     variation nor biological variation involve a point mass on zero).
+  2. For most genes, in most data sets, a Gamma assumption appears sufficient
+     (meaning, the data do not significantly depart from the fitted model).
 
   Here, we directly test for the goodness of fit of the estimated distribution
   (as in [[https://dx.doi.org/10.1371/journal.pgen.1008045][Sarkar et al. 2019]]).
@@ -34,7 +32,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 63465457
+  : Submitted batch job 63493098
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -287,7 +285,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[5]:
+   # Out[6]:
    :END:
 
    Report the dimensions of each data set. To reduce computational burden (for
@@ -377,7 +375,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[7]:
    :END:
 
    Run the simulation.
@@ -388,18 +386,18 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
+   # Out[8]:
    :END:
 
    Write out the results.
 
-   #+BEGIN_SRC ipython
+   #+BEGIN_SRC ipython :async t
      sim_res.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/simulation.txt.gz', sep='\t', compression='gzip')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[13]:
+   # Out[9]:
    :END:
 
    Read the results.
@@ -410,7 +408,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[44]:
+   # Out[5]:
    :END:
 
    Plot the results.
@@ -433,7 +431,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[14]:
+   # Out[6]:
    [[file:figure/gof.org/sim.png]]
    :END:
 
@@ -458,7 +456,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[15]:
+   # Out[7]:
    [[file:figure/gof.org/sim-inset.png]]
    :END:
 
@@ -466,194 +464,320 @@
    :PROPERTIES:
    :CUSTOM_ID: gof
    :END:
+*** Run the test
 
-   Run the GPU-based methods.
+    Run the GPU-based methods.
 
-   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=4:00:00 -a 1-5
-     #!/bin/bash
-     source activate scmodes
-     python <<EOF
-     <<imports>>
-     import os
-     <<data>>
-     tasks = list(data.keys())
-     task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-     x = data[task]()
-     res = scmodes.benchmark.evaluate_gof(x, methods=['gamma', 'zig'])
-     res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-gpu.txt.gz', compression='gzip', sep='\t')
-     EOF
-   #+END_SRC
+    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+      sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=gof --time=12:00:00 -a 6-11
+      #!/bin/bash
+      source activate scmodes
+      python <<EOF
+      <<imports>>
+      import os
+      <<data>>
+      tasks = list(data.keys())
+      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+      x = data[task]()
+      res = scmodes.benchmark.evaluate_gof(x, methods=['gamma', 'zig'])
+      res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-gpu.txt.gz', compression='gzip', sep='\t')
+      EOF
+    #+END_SRC
 
-   #+RESULTS:
-   : Submitted batch job 62661167
+    #+RESULTS:
+    : Submitted batch job 63484269
 
-   Run the CPU methods
+    Run the CPU methods.
 
-   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 -a 0
-     #!/bin/bash
-     source activate scmodes
-     python <<EOF
-     <<imports>>
-     import multiprocessing as mp
-     import os
-     <<data>>
-     tasks = list(data.keys())
-     task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-     with mp.Pool(maxtasksperchild=20) as pool:
-       # Important: this needs to be done after initializing the pool to avoid
-       # memory duplication
-       x = data[task]()
-       res = scmodes.benchmark.evaluate_gof(x, pool=pool, methods=['unimodal'])
-       res.index = x.columns
-       res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-unimodal.txt.gz', compression='gzip', sep='\t')
-     EOF
-   #+END_SRC
+    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=24:00:00 -a 1-11
+      #!/bin/bash
+      source activate scmodes
+      python <<EOF
+      <<imports>>
+      import multiprocessing as mp
+      import os
+      <<data>>
+      tasks = list(data.keys())
+      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+      with mp.Pool(maxtasksperchild=20) as pool:
+        # Important: this needs to be done after initializing the pool to avoid
+        # memory duplication
+        x = data[task]()
+        res = scmodes.benchmark.evaluate_gof(x, pool=pool, methods=['unimodal'])
+        res.index = x.columns
+        res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-unimodal.txt.gz', compression='gzip', sep='\t')
+      EOF
+    #+END_SRC
 
-   #+RESULTS:
-   : Submitted batch job 62671900
+    #+RESULTS:
+    : Submitted batch job 63484281
 
-   Move the results to permanent storage.
+    Move the results to permanent storage.
 
-   #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
-     rsync -au /scratch/midway2/aksarkar/modes/gof/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/
-   #+END_SRC
+    #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
+      rsync -au /scratch/midway2/aksarkar/modes/gof/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/
+    #+END_SRC
 
-   #+RESULTS:
+    #+RESULTS:
 
-   Read the results.
+    Read the results.
 
-   #+BEGIN_SRC ipython
-     gof_res = (pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-gpu.txt.gz',
-                                      sep='\t', index_col=0) for k in data],
-                          keys=data.keys())
-                .reset_index(level=0)
-                .rename({'level_0': 'dataset'}, axis='columns'))
-   #+END_SRC
+    #+BEGIN_SRC ipython
+      gpu_res = (pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-gpu.txt.gz',
+                                        sep='\t', index_col=0) for k in data],
+                           keys=data.keys())
+                 .reset_index(level=0)
+                 .rename({'level_0': 'dataset'}, axis='columns'))
+      control = list(data.keys())[:5]
+      unimodal_res = (pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-unimodal.txt.gz',
+                                             sep='\t', index_col=0) for k in control],
+                                keys=control)
+                      .reset_index(level=0)
+                      .rename({'level_0': 'dataset'}, axis='columns'))
+      gof_res = pd.concat([gpu_res, unimodal_res])
+    #+END_SRC
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[8]:
-   :END:
+    #+RESULTS:
+    :RESULTS:
+    # Out[12]:
+    :END:
 
-   Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
-   distribution.
+*** Control data sets
 
-   #+BEGIN_SRC ipython :ipyfile figure/gof.org/gamma-gof-hist.png
-     plt.clf()
-     fig, ax = plt.subplots(2, 3, sharex=True)
-     fig.set_size_inches(6, 4)
-     for a, t, (k, g) in zip(ax.ravel(),
-                             ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC'],
-                             gof_res.groupby('dataset')):
-       a.hist(g.loc[g['method'] == 'gamma', 'p'], bins=10, color='0.7', density=True)
-       a.axhline(y=1, c='k', ls=':', lw=1)
-       a.set_xlim([0, 1])
-       a.set_title(t)
-     for a in ax:
-       a[0].set_ylabel('Density')
-     for a in ax.T:
-       a[-1].set_xlabel('$p$-value')
-     fig.tight_layout()
-   #+END_SRC
+    Report the number of genes which depart from the null that the data for the
+    gene follows the fitted distribution (after Bonferroni correction at level
+    0.05).
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[8]:
-   [[file:figure/gof.org/gamma-gof-hist.png]]
-   :END:
+    #+BEGIN_SRC ipython
+      control = list(data.keys())[:5]
+    #+END_SRC
 
-   Plot the histogram of goodness of fit test \(p\)-values for the fitted
-   point-Gamma distribution.
+    #+BEGIN_SRC ipython
+      (gof_res[gof_res['dataset'].isin(control)]
+       .groupby(['dataset', 'method'])
+       .apply(lambda x: (x['p'] < 0.05 / x.shape[0]).sum())
+       .reset_index()
+       .pivot(index='dataset', columns='method'))
+    #+END_SRC
 
-   #+BEGIN_SRC ipython :ipyfile figure/gof.org/zig-gof-hist.png
-     plt.clf()
-     fig, ax = plt.subplots(2, 3, sharex=True)
-     fig.set_size_inches(6, 4)
-     for a, t, (k, g) in zip(ax.ravel(),
-                             ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC'],
-                             gof_res.groupby('dataset')):
-       a.hist(g.loc[g['method'] == 'zig', 'p'], bins=10, color='0.7', density=True)
-       a.axhline(y=1, c='k', ls=':', lw=1)
-       a.set_xlim([0, 1])
-       a.set_title(t)
-     for a in ax:
-       a[0].set_ylabel('Density')
-     for a in ax.T:
-       a[-1].set_xlabel('$p$-value')
-     fig.tight_layout()
-   #+END_SRC
+    #+RESULTS:
+    :RESULTS:
+    # Out[13]:
+    #+BEGIN_EXAMPLE
+      0
+      method    gamma unimodal zig
+      dataset
+      chromium1     3        0   3
+      chromium2     0        0   0
+      dropseq       0        0   0
+      gemcode      20        0  21
+      indrops       0        0   0
+    #+END_EXAMPLE
+    :END:
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[10]:
-   [[file:figure/gof.org/zig-gof-hist.png]]
-   :END:
+    Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
+    distributions for each control dataset.
 
-   Report the number of genes which depart from the null that the data for the
-   gene follows the fitted distribution (after Bonferroni correction at level
-   0.05).
+    #+BEGIN_SRC ipython :ipyfile figure/gof.org/control-gamma-gof-hist.png
+      plt.clf()
+      fig, ax = plt.subplots(1, 5, sharey=True)
+      fig.set_size_inches(7, 2)
+      for a, (k, g) in zip(ax.ravel(),
+                           gof_res.loc[gof_res['dataset'].isin(control)].groupby('dataset')):
+        a.hist(g.loc[g['method'] == 'gamma', 'p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+        a.axhline(y=1, c='k', ls=':', lw=1)
+        a.set_xlim([0, 1])
+        a.set_title(k)
+      ax[0].set_ylabel('Density')
+      for a in ax:
+        a.set_xlabel('$p$-value')
+      fig.tight_layout()
+    #+END_SRC
 
-   #+BEGIN_SRC ipython
-     gof_res.groupby(['dataset', 'method']).apply(lambda x: (x['p'] < 0.05 / x.shape[0]).sum()).reset_index().pivot(index='dataset', columns='method')
-   #+END_SRC
+    #+RESULTS:
+    :RESULTS:
+    # Out[21]:
+    [[file:figure/gof.org/control-gamma-gof-hist.png]]
+    :END:
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[11]:
-   #+BEGIN_EXAMPLE
-     0
-     method              gamma  zig
-     dataset
-     b_cells                12   10
-     cytotoxic_t             7    6
-     cytotoxic_t-b_cells    35   24
-     cytotoxic_t-naive_t    29   28
-     ipsc                    2    2
-     pbmcs_68k             108  109
-   #+END_EXAMPLE
-   :END:
+    Plot the histogram of goodness of fit test \(p\)-values for the fitted point-Gamma
+    distributions for each control dataset.
 
-   Report the fraction of genes which depart from the null that the data for
-   the gene follows the fitted distribution (after Bonferroni correction at
-   level 0.05).
+    #+BEGIN_SRC ipython :ipyfile figure/gof.org/control-zig-gof-hist.png
+      plt.clf()
+      fig, ax = plt.subplots(1, 5, sharey=True)
+      fig.set_size_inches(7, 2)
+      for a, (k, g) in zip(ax.ravel(),
+                           gof_res.loc[gof_res['dataset'].isin(control)].groupby('dataset')):
+        a.hist(g.loc[g['method'] == 'zig', 'p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+        a.axhline(y=1, c='k', ls=':', lw=1)
+        a.set_xlim([0, 1])
+        a.set_title(k)
+      ax[0].set_ylabel('Density')
+      for a in ax.T:
+        a.set_xlabel('$p$-value')
+      fig.tight_layout()
+    #+END_SRC
 
-   #+BEGIN_SRC ipython
-     gof_res.groupby(['dataset', 'method']).apply(lambda x: (x['p'] < 0.05 / x.shape[0]).mean()).reset_index().pivot(index='dataset', columns='method')
-   #+END_SRC
+    #+RESULTS:
+    :RESULTS:
+    # Out[24]:
+    [[file:figure/gof.org/control-zig-gof-hist.png]]
+    :END:
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[12]:
-   #+BEGIN_EXAMPLE
-     0
-     method                  gamma       zig
-     dataset
-     b_cells              0.032000  0.026667
-     cytotoxic_t          0.015184  0.013015
-     cytotoxic_t-b_cells  0.086634  0.059406
-     cytotoxic_t-naive_t  0.069212  0.066826
-     ipsc                 0.037736  0.037736
-     pbmcs_68k            0.267327  0.269802
-   #+END_EXAMPLE
-   :END:
+    Plot the histogram of goodness of fit test \(p\)-values for the fitted unimodal
+    distributions for each control dataset.
 
-   *Remark* We previously fit point-Gamma distributions to the iPSC data
-   (Sarkar et al. 2019), and [[https://jdblischak.github.io/singlecell-qtl/zinb.html#org17af587][reported]]:
+    #+BEGIN_SRC ipython :ipyfile figure/gof.org/control-unimodal-gof-hist.png
+      plt.clf()
+      fig, ax = plt.subplots(1, 5, sharey=True)
+      fig.set_size_inches(7, 2)
+      for a, (k, g) in zip(ax.ravel(),
+                           gof_res.loc[gof_res['dataset'].isin(control)].groupby('dataset')):
+        a.hist(g.loc[g['method'] == 'unimodal', 'p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+        a.axhline(y=1, c='k', ls=':', lw=1)
+        a.set_xlim([0, 1])
+        a.set_title(k)
+      ax[0].set_ylabel('Density')
+      for a in ax:
+        a.set_xlabel('$p$-value')
+      fig.tight_layout()
+    #+END_SRC
 
-   #+BEGIN_QUOTE
-   We tested the goodness of fit for each individual and each gene, and
-   rejected the null that the model fit the data for only 60 of 537,658
-   individual-gene combinations (0.01%) after Bonferroni correction ($p < 9
-   \times 10^{−8}$)
-   #+END_QUOTE
+    #+RESULTS:
+    :RESULTS:
+    # Out[25]:
+    [[file:figure/gof.org/control-unimodal-gof-hist.png]]
+    :END:
 
-   The key difference between the approach taken here and the previous result
-   is that here we do not account for the fact that the cells are derived from
-   multiple donors. The differing genetic backgrounds of the donor individuals
-   means both the mean and variance of gene expression vary, such that the
-   marginal distribution is not well-described by a single Gamma distribution.
+*** Biological data sets
+
+    Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
+    distribution.
+
+    #+BEGIN_SRC ipython :ipyfile figure/gof.org/gamma-gof-hist.png
+      plt.clf()
+      fig, ax = plt.subplots(2, 3, sharex=True)
+      fig.set_size_inches(6, 4)
+      for a, t, (k, g) in zip(ax.ravel(),
+                              ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC'],
+                              gof_res.groupby('dataset')):
+        a.hist(g.loc[g['method'] == 'gamma', 'p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+        a.axhline(y=1, c='k', ls=':', lw=1)
+        a.set_xlim([0, 1])
+        a.set_title(t)
+      for a in ax:
+        a[0].set_ylabel('Density')
+      for a in ax.T:
+        a[-1].set_xlabel('$p$-value')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[40]:
+    [[file:figure/gof.org/gamma-gof-hist.png]]
+    :END:
+
+    Plot the histogram of goodness of fit test \(p\)-values for the fitted
+    point-Gamma distribution.
+
+    #+BEGIN_SRC ipython :ipyfile figure/gof.org/zig-gof-hist.png
+      plt.clf()
+      fig, ax = plt.subplots(2, 3, sharex=True)
+      fig.set_size_inches(6, 4)
+      for a, t, (k, g) in zip(ax.ravel(),
+                              ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC'],
+                              gof_res.groupby('dataset')):
+        a.hist(g.loc[g['method'] == 'zig', 'p'], bins=10, color='0.7', density=True)
+        a.axhline(y=1, c='k', ls=':', lw=1)
+        a.set_xlim([0, 1])
+        a.set_title(t)
+      for a in ax:
+        a[0].set_ylabel('Density')
+      for a in ax.T:
+        a[-1].set_xlabel('$p$-value')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[41]:
+    [[file:figure/gof.org/zig-gof-hist.png]]
+    :END:
+
+    Report the number of genes which depart from the null that the data for the
+    gene follows the fitted distribution (after Bonferroni correction at level
+    0.05).
+
+    #+BEGIN_SRC ipython
+      (gof_res.loc[gof_res['dataset'].isin(list(data.keys())[6:])]
+       .groupby(['dataset', 'method'])
+       .apply(lambda x: (x['p'] < 0.05 / x.shape[0]).sum())
+       .reset_index()
+       .pivot(index='dataset', columns='method'))
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[42]:
+    #+BEGIN_EXAMPLE
+      0
+      method              gamma  zig
+      dataset
+      b_cells                13    2
+      cytotoxic_t             6    0
+      cytotoxic_t-b_cells    38    4
+      cytotoxic_t-naive_t    20    6
+      ipsc                   13   17
+      pbmcs_68k             111  107
+    #+END_EXAMPLE
+    :END:
+
+    Report the fraction of genes which depart from the null that the data for
+    the gene follows the fitted distribution (after Bonferroni correction at
+    level 0.05).
+
+    #+BEGIN_SRC ipython
+      (gof_res.loc[gof_res['dataset'].isin(list(data.keys())[6:])]
+       .groupby(['dataset', 'method'])
+       .apply(lambda x: (x['p'] < 0.05 / x.shape[0]).mean())
+       .reset_index()
+       .pivot(index='dataset', columns='method'))
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[43]:
+    #+BEGIN_EXAMPLE
+      0
+      method                  gamma       zig
+      dataset
+      b_cells              0.005906  0.009950
+      cytotoxic_t          0.002493  0.000000
+      cytotoxic_t-b_cells  0.016205  0.011594
+      cytotoxic_t-naive_t  0.008925  0.024896
+      ipsc                 0.026000  0.034000
+      pbmcs_68k            0.274752  0.264851
+    #+END_EXAMPLE
+    :END:
+
+    *Remark* We previously fit point-Gamma distributions to the iPSC data
+    (Sarkar et al. 2019), and [[https://jdblischak.github.io/singlecell-qtl/zinb.html#org17af587][reported]]:
+
+    #+BEGIN_QUOTE
+    We tested the goodness of fit for each individual and each gene, and
+    rejected the null that the model fit the data for only 60 of 537,658
+    individual-gene combinations (0.01%) after Bonferroni correction ($p < 9
+    \times 10^{−8}$)
+    #+END_QUOTE
+
+    The key difference between the approach taken here and the previous result
+    is that here we do not account for the fact that the cells are derived from
+    multiple donors. The differing genetic backgrounds of the donor individuals
+    means both the mean and variance of gene expression vary, such that the
+    marginal distribution is not well-described by a single Gamma distribution.
 
 ** Examples
    :PROPERTIES:
