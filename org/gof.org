@@ -32,7 +32,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 63577273
+  : Submitted batch job 63583672
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -52,11 +52,12 @@
     import scipy.special as sp
     import scipy.stats as st
     import scqtl
+    import sqlite3
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[30]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -289,7 +290,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[6]:
+   # Out[27]:
    :END:
 
    Report the dimensions of each data set. To reduce computational burden (for
@@ -570,6 +571,11 @@
       gof_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/gof.txt.gz', sep='\t', index_col=0)
     #+END_SRC
 
+    #+RESULTS:
+    :RESULTS:
+    # Out[6]:
+    :END:
+
 *** Control data sets
 
     Report the number of genes which depart from the null that the data for the
@@ -849,6 +855,59 @@
    :CUSTOM_ID: examples
    :END:
 
+   Read gene metadata.
+
+   #+BEGIN_SRC ipython
+     gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[30]:
+   :END:
+
+   Populate the database to visualize all of the results.
+
+   #+BEGIN_SRC ipython
+     sig = gof_res.groupby(['method', 'dataset']).apply(lambda x: x.loc[x['p'] < 0.05 / x.shape[0]]).reset_index(drop=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[24]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     keys = []
+     counts = []
+     for k, g in sig.groupby(['dataset']):
+       x = data[k]()
+       query = g['gene'].unique()
+       counts.append(x[query])
+       keys.append(k)
+
+     def _melt(y):
+       y.index.name = 'sample'
+       return (y
+               .reset_index()
+               .melt(id_vars='sample', var_name='gene', value_name='count'))
+
+     count_data = pd.concat([_melt(y) for y in counts], keys=keys).reset_index(level=0).rename({'level_0': 'dataset'}, axis=1)
+   #+END_SRC
+
+   #+BEGIN_SRC ipython :async t
+     with sqlite3.connect('/project2/mstephens/aksarkar/projects/singlecell-modes/browser/browser.db') as conn:
+       sig.to_sql('genes', conn, if_exists='replace', index=False)
+       conn.execute('create index genes_idx on genes(dataset, gene);')
+       count_data.to_sql('counts', conn, if_exists='replace', index=False)
+       conn.execute('create index counts_idx on counts(dataset, gene);')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[69]:
+   :END:
+
    Look at genes which significantly depart from Gamma, but not from
    point-Gamma.
 
@@ -858,68 +917,103 @@
      examples = sig0.merge(nsig1, on=['dataset', 'gene'], suffixes=['_gamma', '_zig'])
      del examples['method_gamma']
      del examples['method_zig']
-     examples.sort_values('p_gamma').head()
+     examples = examples.groupby('dataset').apply(pd.DataFrame.sort_values, 'p_gamma').reset_index(drop=True)
+     examples['name'] = gene_info.loc[examples['gene'], 'name'].reset_index(drop=True)
+     examples
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[25]:
+   # Out[36]:
    #+BEGIN_EXAMPLE
-     dataset             gene  stat_gamma        p_gamma  stat_zig  \
-     6   cytotoxic_t-b_cells  ENSG00000204287    0.181818   0.000000e+00  0.011718
-     11  cytotoxic_t-b_cells  ENSG00000231389    0.095940  1.125366e-162  0.010051
-     17  cytotoxic_t-b_cells  ENSG00000105369    0.093518  1.383684e-154  0.014097
-     16  cytotoxic_t-b_cells  ENSG00000007312    0.072012   7.766159e-92  0.006933
-     7   cytotoxic_t-b_cells  ENSG00000198502    0.066750   5.775193e-79  0.008084
+     dataset             gene       p_gamma  stat_gamma     p_zig  \
+     0               b_cells  ENSG00000145425  1.915091e-05    0.023936  0.000103
+     1           cytotoxic_t  ENSG00000077984  4.945356e-05    0.022793  0.420865
+     2           cytotoxic_t  ENSG00000145649  7.289148e-05    0.022372  0.608038
+     3   cytotoxic_t-b_cells  ENSG00000198502  1.442417e-85    0.069499  0.079374
+     4   cytotoxic_t-b_cells  ENSG00000128218  3.617516e-06    0.018049  0.001558
+     5                  ipsc  ENSG00000112530  7.841127e-20    0.063182  0.010855
+     6                  ipsc  ENSG00000109736  2.153803e-05    0.031967  0.000116
+     7             pbmcs_68k  ENSG00000008517  9.342086e-79    0.036263  0.000774
+     8             pbmcs_68k  ENSG00000011600  7.884402e-39    0.025391  0.089060
+     9             pbmcs_68k  ENSG00000100453  2.838638e-35    0.024187  0.485551
+     10            pbmcs_68k  ENSG00000100450  5.431306e-22    0.019028  0.632199
+     11            pbmcs_68k  ENSG00000198502  1.865120e-06    0.010062  0.687567
+     12            pbmcs_68k  ENSG00000126264  1.633343e-05    0.009242  0.000796
+     13            pbmcs_68k  ENSG00000197540  8.630388e-05    0.008560  0.000194
 
-     p_zig
-     6   0.007598
-     11  0.033140
-     17  0.000628
-     16  0.283539
-     7   0.140896
+     stat_zig      name
+     0   0.022120     RPS3A
+     1   0.008710      CST7
+     2   0.007536      GZMA
+     3   0.008916  HLA-DRB5
+     4   0.013280    VPREB3
+     5   0.021587     PACRG
+     6   0.029518    MFSD10
+     7   0.007569      IL32
+     8   0.004763    TYROBP
+     9   0.003195      GZMB
+     10  0.002853      GZMH
+     11  0.002727  HLA-DRB5
+     12  0.007555      HCST
+     13  0.008209      GZMM
    #+END_EXAMPLE
    :END:
 
-   The top examples come from the T cell/B cell mixture.
-
-   #+BEGIN_SRC ipython :async t
-     mix_x, mix_y = _cd8_cd19_mix(return_y=True)
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[13]:
-   :END:
+   Look at genes which depart from both point-Gamma and unimodal.
 
    #+BEGIN_SRC ipython
-     gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
+     sig0 = gof_res[gof_res['method'] == 'zig'].groupby('dataset').apply(lambda x: x.loc[x['p'] < 0.05 / x.shape[0]]).reset_index(drop=True)
+     sig1 = gof_res[gof_res['method'] == 'unimodal'].groupby('dataset').apply(lambda x: x.loc[x['p'] < 0.05 / x.shape[0]]).reset_index(drop=True)
+     examples = sig0.merge(sig1, on=['dataset', 'gene'], suffixes=['_zig', '_unimodal'])
+     del examples['method_zig']
+     del examples['method_unimodal']
+     examples
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[14]:
+   # Out[12]:
+   #+BEGIN_EXAMPLE
+     dataset             gene          p_zig  stat_zig  \
+     0               b_cells  ENSG00000177954   1.899033e-19  0.046600
+     1   cytotoxic_t-b_cells  ENSG00000156738   9.244853e-05  0.015682
+     2   cytotoxic_t-b_cells  ENSG00000166710   1.277500e-21  0.034675
+     3   cytotoxic_t-b_cells  ENSG00000139193   1.673955e-08  0.021406
+     4   cytotoxic_t-b_cells  ENSG00000109971   4.144996e-05  0.016300
+     5   cytotoxic_t-b_cells  ENSG00000233927   5.424448e-05  0.016096
+     6   cytotoxic_t-b_cells  ENSG00000177954   1.925536e-17  0.031070
+     7   cytotoxic_t-b_cells  ENSG00000196126   8.155849e-12  0.025419
+     8   cytotoxic_t-naive_t  ENSG00000241343   2.619446e-07  0.019571
+     9   cytotoxic_t-naive_t  ENSG00000149806   5.152087e-05  0.015981
+     10  cytotoxic_t-naive_t  ENSG00000100316   3.397394e-13  0.026658
+     11                 ipsc  ENSG00000057657   4.052158e-06  0.034221
+     12            pbmcs_68k  ENSG00000070756   7.642401e-08  0.011159
+     13            pbmcs_68k  ENSG00000140988  3.026495e-116  0.044095
+     14            pbmcs_68k  ENSG00000186468   7.692682e-05  0.008609
+     15            pbmcs_68k  ENSG00000234745   4.172440e-08  0.011355
+     16            pbmcs_68k  ENSG00000168028   8.749574e-06  0.009485
+     17            pbmcs_68k  ENSG00000145425   2.198793e-32  0.023163
+
+     p_unimodal  stat_unimodal
+     0   6.820167e-12       0.036181
+     1   1.115665e-08       0.021639
+     2   1.367186e-05       0.017118
+     3   1.479537e-08       0.021477
+     4   2.715650e-05       0.016617
+     5   2.660919e-05       0.016632
+     6   6.537640e-07       0.019182
+     7   1.073144e-32       0.042787
+     8   1.336271e-07       0.019982
+     9   6.047701e-05       0.015859
+     10  1.430774e-07       0.019941
+     11  2.566220e-09       0.042767
+     12  2.374435e-09       0.012241
+     13  6.159689e-05       0.008703
+     14  2.660201e-05       0.009048
+     15  2.328378e-08       0.011541
+     16  4.114968e-08       0.011360
+     17  9.735004e-06       0.009444
+   #+END_EXAMPLE
    :END:
 
-   #+BEGIN_SRC ipython :ipyfile figure/gof.org/examples.png
-     plt.clf()
-     fig, ax = plt.subplots(2, 2)
-     fig.set_size_inches(4, 4)
-     for a, k in zip(ax.ravel(), examples.sort_values('p_gamma')['gene'].head(n=4)):
-       for i, (l, c) in enumerate(zip(['B cell', 'T cell'], ['r', 'k'])):
-         x = mix_x.loc[mix_y == i,k]
-         a.hist(x, bins=np.arange(x.max() + 1), color=c, label=l, alpha=0.5)
-         a.set_title(gene_info.loc[k, 'name'])
-     for a in ax:
-       a[0].set_ylabel('Number of cells')
-     for a in ax.T:
-       a[-1].set_xlabel('Number of molecules')
-     ax[0,0].legend(frameon=False)
-     fig.tight_layout()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[38]:
-   [[file:figure/gof.org/examples.png]]
-   :END:

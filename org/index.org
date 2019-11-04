@@ -10,7 +10,7 @@ datasets, as well as researchers developing and benchmarking new methods.
 
 - [[file:deconvolution.org][Comparison of distribution deconvolution methods]]
 - [[file:deconv-examples.org][Distribution deconvolution examples]]
-- [[file:gof.org][Goodness of fit of deconvolved distributions]]
+- [[file:gof.org][Goodness of fit of deconvolved distributions]] ([[http://shiny.stephenslab.uchicago.edu:5009/gof][interactive browser]])
 - [[file:lra.org][Low rank approximation]]
 - [[file:transforms.org][Transformations of deconvolved gene expression distributions]]
 
