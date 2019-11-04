@@ -32,7 +32,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 63493098
+  : Submitted batch job 63577273
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -48,6 +48,7 @@
   :END:
 
   #+BEGIN_SRC ipython
+    import os
     import scipy.special as sp
     import scipy.stats as st
     import scqtl
@@ -280,6 +281,9 @@
        'cytotoxic_t-b_cells': _cd8_cd19_mix,
        'cytotoxic_t-naive_t': _cyto_naive_mix,
        'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a'),
+       # Needed for Poisson-unimodal GOF
+       'pbmcs_68k_1': lambda: _read_10x('fresh_68k_pbmc_donor_a').iloc[:,:250],
+       'pbmcs_68k_2': lambda: _read_10x('fresh_68k_pbmc_donor_a').iloc[:,250:],
      }
    #+END_SRC
 
@@ -490,7 +494,7 @@
     Run the CPU methods.
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=24:00:00 -a 1-11
+      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=24:00:00 -a 12-13
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -511,7 +515,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 63484281
+    : Submitted batch job 63507410
 
     Move the results to permanent storage.
 
@@ -524,24 +528,47 @@
     Read the results.
 
     #+BEGIN_SRC ipython
-      gpu_res = (pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-gpu.txt.gz',
-                                        sep='\t', index_col=0) for k in data],
-                           keys=data.keys())
-                 .reset_index(level=0)
-                 .rename({'level_0': 'dataset'}, axis='columns'))
-      control = list(data.keys())[:5]
-      unimodal_res = (pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-unimodal.txt.gz',
-                                             sep='\t', index_col=0) for k in control],
-                                keys=control)
-                      .reset_index(level=0)
-                      .rename({'level_0': 'dataset'}, axis='columns'))
-      gof_res = pd.concat([gpu_res, unimodal_res])
+      gof_res = []
+      for m in ['gpu', 'unimodal']:
+        res = dict()
+        for k in data:
+          f = f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-{m}.txt.gz'
+          if os.path.exists(f):
+            # Hacks
+            if k in ('pbmcs_68k_1', 'pbmcs_68k_2'):
+              k = 'pbmcs_68k'
+            res[k] = pd.read_csv(f, sep='\t', index_col=0)
+            if 'gene.1' in res[k].columns:
+              del res[k]['gene.1']
+            if m == 'unimodal':
+              res[k] = res[k].reset_index(drop=(res[k].index.name != 'gene'))
+        gof_res.append(pd.concat(res, sort=True)
+                       .reset_index(level=0)
+                       .rename({'level_0': 'dataset'}, axis=1))
+      gof_res = pd.concat(gof_res).reset_index(drop=True)
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[12]:
+    # Out[9]:
     :END:
+
+    Write out the post-processed results.
+
+    #+BEGIN_SRC ipython
+      gof_res.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/gof.txt.gz', sep='\t', compression='gzip')
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[10]:
+    :END:
+
+    Read the post-processed results.
+
+    #+BEGIN_SRC ipython
+      gof_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/gof.txt.gz', sep='\t', index_col=0)
+    #+END_SRC
 
 *** Control data sets
 
@@ -552,6 +579,11 @@
     #+BEGIN_SRC ipython
       control = list(data.keys())[:5]
     #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[67]:
+    :END:
 
     #+BEGIN_SRC ipython
       (gof_res[gof_res['dataset'].isin(control)]
@@ -653,13 +685,22 @@
 
 *** Biological data sets
 
+    #+BEGIN_SRC ipython
+      non_control = list(data.keys())[6:12]
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[12]:
+    :END:
+
     Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
     distribution.
 
     #+BEGIN_SRC ipython :ipyfile figure/gof.org/gamma-gof-hist.png
       plt.clf()
-      fig, ax = plt.subplots(2, 3, sharex=True)
-      fig.set_size_inches(6, 4)
+      fig, ax = plt.subplots(1, 6, sharey=True)
+      fig.set_size_inches(8, 2)
       for a, t, (k, g) in zip(ax.ravel(),
                               ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC'],
                               gof_res.groupby('dataset')):
@@ -667,16 +708,15 @@
         a.axhline(y=1, c='k', ls=':', lw=1)
         a.set_xlim([0, 1])
         a.set_title(t)
+      ax[0].set_ylabel('Density')
       for a in ax:
-        a[0].set_ylabel('Density')
-      for a in ax.T:
-        a[-1].set_xlabel('$p$-value')
+        a.set_xlabel('$p$-value')
       fig.tight_layout()
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[40]:
+    # Out[13]:
     [[file:figure/gof.org/gamma-gof-hist.png]]
     :END:
 
@@ -685,26 +725,51 @@
 
     #+BEGIN_SRC ipython :ipyfile figure/gof.org/zig-gof-hist.png
       plt.clf()
-      fig, ax = plt.subplots(2, 3, sharex=True)
-      fig.set_size_inches(6, 4)
+      fig, ax = plt.subplots(1, 6, sharey=True)
+      fig.set_size_inches(8, 2)
       for a, t, (k, g) in zip(ax.ravel(),
                               ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC'],
                               gof_res.groupby('dataset')):
-        a.hist(g.loc[g['method'] == 'zig', 'p'], bins=10, color='0.7', density=True)
+        a.hist(g.loc[g['method'] == 'zig', 'p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
         a.axhline(y=1, c='k', ls=':', lw=1)
         a.set_xlim([0, 1])
         a.set_title(t)
+      ax[0].set_ylabel('Density')
       for a in ax:
-        a[0].set_ylabel('Density')
-      for a in ax.T:
-        a[-1].set_xlabel('$p$-value')
+        a.set_xlabel('$p$-value')
       fig.tight_layout()
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[41]:
+    # Out[14]:
     [[file:figure/gof.org/zig-gof-hist.png]]
+    :END:
+
+    Plot the histogram of goodness of fit test \(p\)-values for the fitted
+    point-Gamma distribution.
+
+    #+BEGIN_SRC ipython :ipyfile figure/gof.org/unimodal-gof-hist.png
+      plt.clf()
+      fig, ax = plt.subplots(1, 6, sharey=True)
+      fig.set_size_inches(8, 2)
+      for a, t, (k, g) in zip(ax.ravel(),
+                              ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC'],
+                              gof_res.groupby('dataset')):
+        a.hist(g.loc[g['method'] == 'unimodal', 'p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+        a.axhline(y=1, c='k', ls=':', lw=1)
+        a.set_xlim([0, 1])
+        a.set_title(t)
+      ax[0].set_ylabel('Density')
+      for a in ax:
+        a.set_xlabel('$p$-value')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[15]:
+    [[file:figure/gof.org/unimodal-gof-hist.png]]
     :END:
 
     Report the number of genes which depart from the null that the data for the
@@ -721,17 +786,17 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[42]:
+    # Out[16]:
     #+BEGIN_EXAMPLE
       0
-      method              gamma  zig
+      method              gamma unimodal zig
       dataset
-      b_cells                13    2
-      cytotoxic_t             6    0
-      cytotoxic_t-b_cells    38    4
-      cytotoxic_t-naive_t    20    6
-      ipsc                   13   17
-      pbmcs_68k             111  107
+      b_cells                 4        1   3
+      cytotoxic_t             3        0   1
+      cytotoxic_t-b_cells    11        9  11
+      cytotoxic_t-naive_t     3        4   4
+      ipsc                   22        2  23
+      pbmcs_68k              25        7  19
     #+END_EXAMPLE
     :END:
 
@@ -749,17 +814,17 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[43]:
+    # Out[17]:
     #+BEGIN_EXAMPLE
       0
-      method                  gamma       zig
+      method               gamma unimodal    zig
       dataset
-      b_cells              0.005906  0.009950
-      cytotoxic_t          0.002493  0.000000
-      cytotoxic_t-b_cells  0.016205  0.011594
-      cytotoxic_t-naive_t  0.008925  0.024896
-      ipsc                 0.026000  0.034000
-      pbmcs_68k            0.274752  0.264851
+      b_cells              0.008    0.002  0.006
+      cytotoxic_t          0.006    0.000  0.002
+      cytotoxic_t-b_cells  0.022    0.018  0.022
+      cytotoxic_t-naive_t  0.006    0.008  0.008
+      ipsc                 0.044    0.004  0.046
+      pbmcs_68k            0.050    0.028  0.038
     #+END_EXAMPLE
     :END:
 

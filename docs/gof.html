@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-10-23 Wed 17:39 -->
+<!-- 2019-11-03 Sun 23:16 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org88c0e4b">Test for goodness of fit</a></li>
+<li><a href="#orgfbb6acb">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -284,17 +284,15 @@ for the JavaScript code in this tag.
 <p>
 We <a href="deconvolution.html">previously estimated</a> the out-of-sample log likelihood as a measure of the
 generalization performance of distribution deconvolution methods for
-scRNA-seq. However, this is not the simplest way to support some of our key
-results:
+scRNA-seq. However, this is not the simplest way to support our key results:
 </p>
 
 <ol class="org-ol">
+<li>For spike-ins (control experiments), the data do not depart from a
+unimodal distribution for biological variation (meaning, neither technical
+variation nor biological variation involve a point mass on zero).</li>
 <li>For most genes, in most data sets, a Gamma assumption appears sufficient
-(meaning, more complicated distributional assumptions do not have better
-generalization performance).</li>
-<li>When Gamma is insufficient, it is generally not the case that assuming a
-point mass on zero improves generalization (meaning, departures from Gamma
-do not involve excess zeros).</li>
+(meaning, the data do not significantly depart from the fitted model).</li>
 </ol>
 
 <p>
@@ -310,12 +308,14 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <div class="org-src-container">
 <pre class="src src-ipython" id="orgde1bf22"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scanpy
 <span class="org-keyword">import</span> scmodes
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
+<pre class="src src-ipython"><span class="org-keyword">import</span> os
+<span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 <span class="org-keyword">import</span> scqtl
 </pre>
@@ -340,9 +340,9 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org88c0e4b" class="outline-3">
-<h3 id="org88c0e4b">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org88c0e4b">
+<div id="outline-container-orgfbb6acb" class="outline-3">
+<h3 id="orgfbb6acb">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-orgfbb6acb">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -505,30 +505,103 @@ KstestResult(statistic=0.008062709224521236, pvalue=0.533974089244596)
 <h3 id="orgfd5c235">Data</h3>
 <div class="outline-text-3" id="text-orgfd5c235">
 <div class="org-src-container">
-<pre class="src src-ipython" id="org5c09812"><span class="org-keyword">def</span> <span class="org-function-name">_cd8_cd19_mix</span>(return_y=<span class="org-constant">False</span>):
-  <span class="org-variable-name">t_cells</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
-  <span class="org-variable-name">b_cells</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
-  <span class="org-variable-name">x</span>, <span class="org-variable-name">y</span> = scmodes.dataset.synthetic_mix(t_cells, b_cells, min_detect=0.25)
+<pre class="src src-ipython" id="org5c09812"><span class="org-keyword">def</span> <span class="org-function-name">read_chromium</span>(sample):
+  <span class="org-variable-name">x</span> = scanpy.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/svensson_chromium_control.h5ad'</span>)
+  <span class="org-variable-name">x</span> = x[x.obs[<span class="org-string">'sample'</span>] == sample]
+  scanpy.pp.filter_genes(x, min_counts=1)
+  <span class="org-variable-name">x</span> = x[:,x.var.<span class="org-builtin">filter</span>(like=<span class="org-string">'ERCC'</span>, axis=<span class="org-string">'index'</span>).index]
+  <span class="org-keyword">return</span> pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_dropseq</span>():
+  <span class="org-variable-name">x</span> = scanpy.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/macosko_dropseq_control.h5ad'</span>)
+  scanpy.pp.filter_genes(x, min_counts=1)
+  <span class="org-variable-name">x</span> = x[:,x.var.<span class="org-builtin">filter</span>(like=<span class="org-string">'ERCC'</span>, axis=<span class="org-string">'index'</span>).index]
+  <span class="org-keyword">return</span> pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_indrops</span>():
+  <span class="org-variable-name">x</span> = scanpy.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/klein_indrops_control.h5ad'</span>)
+  scanpy.pp.filter_genes(x, min_counts=1)
+  <span class="org-variable-name">x</span> = x[:,x.var.<span class="org-builtin">filter</span>(like=<span class="org-string">'ERCC'</span>, axis=<span class="org-string">'index'</span>).index]
+  <span class="org-keyword">return</span> pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_gemcode</span>():
+  <span class="org-variable-name">x</span> = scanpy.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/zheng_gemcode_control.h5ad'</span>)
+  scanpy.pp.filter_genes(x, min_counts=1)
+  <span class="org-keyword">return</span> pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_c1</span>(min_detect=1000):
+  <span class="org-variable-name">x</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/ercc-counts.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+  <span class="org-variable-name">keep_samples</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt'</span>, header=<span class="org-constant">None</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Throw out samples with too few spike-in molecules detected</span>
+  <span class="org-keyword">return</span> x.loc[:,np.logical_and((x.<span class="org-builtin">sum</span>(axis=0) &gt; min_detect).values, keep_samples.values.ravel())].T
+
+<span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.05, return_y=<span class="org-constant">False</span>, p=500):
+  <span class="org-variable-name">x1</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
+  <span class="org-variable-name">x2</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
+  <span class="org-variable-name">x</span>, <span class="org-variable-name">y</span> = scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)
+  <span class="org-variable-name">x</span> = x.sample(n=p, axis=1, random_state=1).reset_index(drop=<span class="org-constant">True</span>)
   <span class="org-keyword">if</span> return_y:
     <span class="org-keyword">return</span> x, y
   <span class="org-keyword">else</span>:
     <span class="org-keyword">return</span> x
 
-<span class="org-keyword">def</span> <span class="org-function-name">_cyto_naive_mix</span>():
-  <span class="org-variable-name">cyto</span> = scmodes.dataset.read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
-  <span class="org-variable-name">naive</span> = scmodes.dataset.read_10x(prefix=<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/naive_t/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
-  <span class="org-keyword">return</span> scmodes.dataset.synthetic_mix(cyto, naive, min_detect=0.25)[0]
+<span class="org-keyword">def</span> <span class="org-function-name">_cd8_cd19_mix</span>(**kwargs):
+  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'b_cells'</span>, **kwargs)
+
+<span class="org-keyword">def</span> <span class="org-function-name">_cyto_naive_mix</span>(**kwargs):
+  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>, **kwargs)
+
+<span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k):
+  <span class="org-keyword">return</span> scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/'</span>,
+                                  return_df=<span class="org-constant">True</span>, min_detect=0.05, p=500)
 
 <span class="org-variable-name">data</span> = {
-  <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>),
-  <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/b_cells/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>),
-  <span class="org-string">'ipsc'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>, n=100, return_df=<span class="org-constant">True</span>),
+  <span class="org-string">'dropseq'</span>: read_dropseq,
+  <span class="org-string">'indrops'</span>: read_indrops,
+  <span class="org-string">'chromium1'</span>: <span class="org-keyword">lambda</span>: read_chromium(<span class="org-string">'20311'</span>),
+  <span class="org-string">'chromium2'</span>: <span class="org-keyword">lambda</span>: read_chromium(<span class="org-string">'20312'</span>),
+  <span class="org-string">'gemcode'</span>: read_gemcode,
+  <span class="org-string">'c1'</span>: read_c1,
+  <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'cytotoxic_t'</span>),
+  <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'b_cells'</span>),
+  <span class="org-string">'ipsc'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>, p=500, return_df=<span class="org-constant">True</span>),
   <span class="org-string">'cytotoxic_t-b_cells'</span>: _cd8_cd19_mix,
   <span class="org-string">'cytotoxic_t-naive_t'</span>: _cyto_naive_mix,
-  <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19'</span>, return_df=<span class="org-constant">True</span>),
+  <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>),
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Needed for Poisson-unimodal GOF</span>
+  <span class="org-string">'pbmcs_68k_1'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>).iloc[:,:250],
+  <span class="org-string">'pbmcs_68k_2'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>).iloc[:,250:],
 }
 </pre>
 </div>
+
+<p>
+Report the dimensions of each data set. To reduce computational burden (for
+<code>ashr</code>), look at no more than 500 genes per data set (randomly chosen).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pd.DataFrame([data[k]().shape <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data],
+             columns=[<span class="org-string">'num_cells'</span>, <span class="org-string">'num_genes'</span>],
+             index=data.keys())
+</pre>
+</div>
+
+<pre class="example">
+num_cells  num_genes
+dropseq                     84         81
+indrops                    953        103
+chromium1                 2000         88
+chromium2                 2000         88
+gemcode                   1015         91
+c1                        5002         92
+cytotoxic_t              10209        500
+b_cells                  10085        500
+ipsc                      5597        500
+cytotoxic_t-b_cells      20294        500
+cytotoxic_t-naive_t      20688        500
+pbmcs_68k                68579        500
+</pre>
 </div>
 </div>
 </div>
@@ -681,15 +754,19 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-org778f044" class="outline-3">
-<h3 id="gof"><a id="org778f044"></a>Test for goodness of fit</h3>
+<div id="outline-container-org9d1e8de" class="outline-3">
+<h3 id="gof"><a id="org9d1e8de"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
+</div>
+<div id="outline-container-org88f2899" class="outline-4">
+<h4 id="org88f2899">Run the test</h4>
+<div class="outline-text-4" id="text-org88f2899">
 <p>
 Run the GPU-based methods.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=4:00:00 -a 1-5
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=gof --time=12:00:00 -a 6-11
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -706,11 +783,11 @@ import os
 </div>
 
 <p>
-Run the CPU methods
+Run the CPU methods.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 -a 0
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=24:00:00 -a 12-13
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -745,11 +822,172 @@ Read the results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">gof_res</span> = (pd.concat([pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-gpu.txt.gz'</span>,
-                                 sep=<span class="org-string">'\t'</span>, index_col=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data],
-                     keys=data.keys())
-           .reset_index(level=0)
-           .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=<span class="org-string">'columns'</span>))
+<pre class="src src-ipython"><span class="org-variable-name">gof_res</span> = []
+<span class="org-keyword">for</span> m <span class="org-keyword">in</span> [<span class="org-string">'gpu'</span>, <span class="org-string">'unimodal'</span>]:
+  <span class="org-variable-name">res</span> = <span class="org-builtin">dict</span>()
+  <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data:
+    <span class="org-variable-name">f</span> = f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-{m}.txt.gz'</span>
+    <span class="org-keyword">if</span> os.path.exists(f):
+      <span class="org-comment-delimiter"># </span><span class="org-comment">Hacks</span>
+      <span class="org-keyword">if</span> k <span class="org-keyword">in</span> (<span class="org-string">'pbmcs_68k_1'</span>, <span class="org-string">'pbmcs_68k_2'</span>):
+        <span class="org-variable-name">k</span> = <span class="org-string">'pbmcs_68k'</span>
+      <span class="org-variable-name">res</span>[k] = pd.read_csv(f, sep=<span class="org-string">'\t'</span>, index_col=0)
+      <span class="org-keyword">if</span> <span class="org-string">'gene.1'</span> <span class="org-keyword">in</span> res[k].columns:
+        <span class="org-keyword">del</span> res[k][<span class="org-string">'gene.1'</span>]
+      <span class="org-keyword">if</span> m == <span class="org-string">'unimodal'</span>:
+        <span class="org-variable-name">res</span>[k] = res[k].reset_index(drop=(res[k].index.name != <span class="org-string">'gene'</span>))
+  gof_res.append(pd.concat(res, sort=<span class="org-constant">True</span>)
+                 .reset_index(level=0)
+                 .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1))
+<span class="org-variable-name">gof_res</span> = pd.concat(gof_res).reset_index(drop=<span class="org-constant">True</span>)
+</pre>
+</div>
+
+<p>
+Write out the post-processed results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">gof_res.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/gof.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>)
+</pre>
+</div>
+
+<p>
+Read the post-processed results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gof_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/gof.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orga840f27" class="outline-4">
+<h4 id="orga840f27">Control data sets</h4>
+<div class="outline-text-4" id="text-orga840f27">
+<p>
+Report the number of genes which depart from the null that the data for the
+gene follows the fitted distribution (after Bonferroni correction at level
+0.05).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">control</span> = <span class="org-builtin">list</span>(data.keys())[:5]
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">(gof_res[gof_res[<span class="org-string">'dataset'</span>].isin(control)]
+ .groupby([<span class="org-string">'dataset'</span>, <span class="org-string">'method'</span>])
+ .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]).<span class="org-builtin">sum</span>())
+ .reset_index()
+ .pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>))
+</pre>
+</div>
+
+<pre class="example">
+0
+method    gamma unimodal zig
+dataset
+chromium1     3        0   3
+chromium2     0        0   0
+dropseq       0        0   0
+gemcode      20        0  21
+indrops       0        0   0
+</pre>
+
+<p>
+Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
+distributions for each control dataset.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 5, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(7, 2)
+<span class="org-keyword">for</span> a, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(),
+                     gof_res.loc[gof_res[<span class="org-string">'dataset'</span>].isin(control)].groupby(<span class="org-string">'dataset'</span>)):
+  a.hist(g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'gamma'</span>, <span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+  a.axhline(y=1, c=<span class="org-string">'k'</span>, ls=<span class="org-string">':'</span>, lw=1)
+  a.set_xlim([0, 1])
+  a.set_title(k)
+ax[0].set_ylabel(<span class="org-string">'Density'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a.set_xlabel(<span class="org-string">'$p$-value'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/control-gamma-gof-hist.png" alt="control-gamma-gof-hist.png">
+</p>
+</div>
+
+<p>
+Plot the histogram of goodness of fit test \(p\)-values for the fitted point-Gamma
+distributions for each control dataset.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 5, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(7, 2)
+<span class="org-keyword">for</span> a, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(),
+                     gof_res.loc[gof_res[<span class="org-string">'dataset'</span>].isin(control)].groupby(<span class="org-string">'dataset'</span>)):
+  a.hist(g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'zig'</span>, <span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+  a.axhline(y=1, c=<span class="org-string">'k'</span>, ls=<span class="org-string">':'</span>, lw=1)
+  a.set_xlim([0, 1])
+  a.set_title(k)
+ax[0].set_ylabel(<span class="org-string">'Density'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
+  a.set_xlabel(<span class="org-string">'$p$-value'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/control-zig-gof-hist.png" alt="control-zig-gof-hist.png">
+</p>
+</div>
+
+<p>
+Plot the histogram of goodness of fit test \(p\)-values for the fitted unimodal
+distributions for each control dataset.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 5, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(7, 2)
+<span class="org-keyword">for</span> a, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(),
+                     gof_res.loc[gof_res[<span class="org-string">'dataset'</span>].isin(control)].groupby(<span class="org-string">'dataset'</span>)):
+  a.hist(g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'unimodal'</span>, <span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+  a.axhline(y=1, c=<span class="org-string">'k'</span>, ls=<span class="org-string">':'</span>, lw=1)
+  a.set_xlim([0, 1])
+  a.set_title(k)
+ax[0].set_ylabel(<span class="org-string">'Density'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a.set_xlabel(<span class="org-string">'$p$-value'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/control-unimodal-gof-hist.png" alt="control-unimodal-gof-hist.png">
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orge4150fe" class="outline-4">
+<h4 id="orge4150fe">Biological data sets</h4>
+<div class="outline-text-4" id="text-orge4150fe">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">non_control</span> = <span class="org-builtin">list</span>(data.keys())[6:12]
 </pre>
 </div>
 
@@ -760,19 +998,18 @@ distribution.
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>)
-fig.set_size_inches(6, 4)
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2)
 <span class="org-keyword">for</span> a, t, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(),
                         [<span class="org-string">'T cell'</span>, <span class="org-string">'B cell'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cytotoxic/naive T'</span>, <span class="org-string">'PBMC'</span>],
                         gof_res.groupby(<span class="org-string">'dataset'</span>)):
-  a.hist(g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'gamma'</span>, <span class="org-string">'p'</span>], bins=10, color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+  a.hist(g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'gamma'</span>, <span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
   a.axhline(y=1, c=<span class="org-string">'k'</span>, ls=<span class="org-string">':'</span>, lw=1)
   a.set_xlim([0, 1])
   a.set_title(t)
+ax[0].set_ylabel(<span class="org-string">'Density'</span>)
 <span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
-  a[0].set_ylabel(<span class="org-string">'Density'</span>)
-<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
-  a[-1].set_xlabel(<span class="org-string">'$p$-value'</span>)
+  a.set_xlabel(<span class="org-string">'$p$-value'</span>)
 fig.tight_layout()
 </pre>
 </div>
@@ -790,19 +1027,18 @@ point-Gamma distribution.
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>)
-fig.set_size_inches(6, 4)
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2)
 <span class="org-keyword">for</span> a, t, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(),
                         [<span class="org-string">'T cell'</span>, <span class="org-string">'B cell'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cytotoxic/naive T'</span>, <span class="org-string">'PBMC'</span>],
                         gof_res.groupby(<span class="org-string">'dataset'</span>)):
-  a.hist(g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'zig'</span>, <span class="org-string">'p'</span>], bins=10, color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+  a.hist(g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'zig'</span>, <span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
   a.axhline(y=1, c=<span class="org-string">'k'</span>, ls=<span class="org-string">':'</span>, lw=1)
   a.set_xlim([0, 1])
   a.set_title(t)
+ax[0].set_ylabel(<span class="org-string">'Density'</span>)
 <span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
-  a[0].set_ylabel(<span class="org-string">'Density'</span>)
-<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
-  a[-1].set_xlabel(<span class="org-string">'$p$-value'</span>)
+  a.set_xlabel(<span class="org-string">'$p$-value'</span>)
 fig.tight_layout()
 </pre>
 </div>
@@ -814,26 +1050,59 @@ fig.tight_layout()
 </div>
 
 <p>
+Plot the histogram of goodness of fit test \(p\)-values for the fitted
+point-Gamma distribution.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2)
+<span class="org-keyword">for</span> a, t, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(),
+                        [<span class="org-string">'T cell'</span>, <span class="org-string">'B cell'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cytotoxic/naive T'</span>, <span class="org-string">'PBMC'</span>],
+                        gof_res.groupby(<span class="org-string">'dataset'</span>)):
+  a.hist(g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'unimodal'</span>, <span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+  a.axhline(y=1, c=<span class="org-string">'k'</span>, ls=<span class="org-string">':'</span>, lw=1)
+  a.set_xlim([0, 1])
+  a.set_title(t)
+ax[0].set_ylabel(<span class="org-string">'Density'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a.set_xlabel(<span class="org-string">'$p$-value'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/unimodal-gof-hist.png" alt="unimodal-gof-hist.png">
+</p>
+</div>
+
+<p>
 Report the number of genes which depart from the null that the data for the
 gene follows the fitted distribution (after Bonferroni correction at level
 0.05).
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">gof_res.groupby([<span class="org-string">'dataset'</span>, <span class="org-string">'method'</span>]).<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]).<span class="org-builtin">sum</span>()).reset_index().pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
+<pre class="src src-ipython">(gof_res.loc[gof_res[<span class="org-string">'dataset'</span>].isin(<span class="org-builtin">list</span>(data.keys())[6:])]
+ .groupby([<span class="org-string">'dataset'</span>, <span class="org-string">'method'</span>])
+ .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]).<span class="org-builtin">sum</span>())
+ .reset_index()
+ .pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>))
 </pre>
 </div>
 
 <pre class="example">
 0
-method              gamma  zig
+method              gamma unimodal zig
 dataset
-b_cells                12   10
-cytotoxic_t             7    6
-cytotoxic_t-b_cells    35   24
-cytotoxic_t-naive_t    29   28
-ipsc                    2    2
-pbmcs_68k             108  109
+b_cells                 4        1   3
+cytotoxic_t             3        0   1
+cytotoxic_t-b_cells    11        9  11
+cytotoxic_t-naive_t     3        4   4
+ipsc                   22        2  23
+pbmcs_68k              25        7  19
 </pre>
 
 <p>
@@ -843,20 +1112,24 @@ level 0.05).
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">gof_res.groupby([<span class="org-string">'dataset'</span>, <span class="org-string">'method'</span>]).<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]).mean()).reset_index().pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
+<pre class="src src-ipython">(gof_res.loc[gof_res[<span class="org-string">'dataset'</span>].isin(<span class="org-builtin">list</span>(data.keys())[6:])]
+ .groupby([<span class="org-string">'dataset'</span>, <span class="org-string">'method'</span>])
+ .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]).mean())
+ .reset_index()
+ .pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>))
 </pre>
 </div>
 
 <pre class="example">
 0
-method                  gamma       zig
+method               gamma unimodal    zig
 dataset
-b_cells              0.032000  0.026667
-cytotoxic_t          0.015184  0.013015
-cytotoxic_t-b_cells  0.086634  0.059406
-cytotoxic_t-naive_t  0.069212  0.066826
-ipsc                 0.037736  0.037736
-pbmcs_68k            0.267327  0.269802
+b_cells              0.008    0.002  0.006
+cytotoxic_t          0.006    0.000  0.002
+cytotoxic_t-b_cells  0.022    0.018  0.022
+cytotoxic_t-naive_t  0.006    0.008  0.008
+ipsc                 0.044    0.004  0.046
+pbmcs_68k            0.050    0.028  0.038
 </pre>
 
 <p>
@@ -869,7 +1142,7 @@ pbmcs_68k            0.267327  0.269802
 We tested the goodness of fit for each individual and each gene, and
 rejected the null that the model fit the data for only 60 of 537,658
 individual-gene combinations (0.01%) after Bonferroni correction (\(p < 9
-   \times 10^{−8}\))
+    \times 10^{−8}\))
 </p>
 </blockquote>
 
@@ -880,6 +1153,7 @@ multiple donors. The differing genetic backgrounds of the donor individuals
 means both the mean and variance of gene expression vary, such that the
 marginal distribution is not well-described by a single Gamma distribution.
 </p>
+</div>
 </div>
 </div>
 
@@ -960,7 +1234,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-10-23 Wed 17:39</p>
+<p class="date">Created: 2019-11-03 Sun 23:16</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
