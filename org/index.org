@@ -32,3 +32,4 @@ Technical details:
 - [[file:random-effect.org][Distributional assumptions in Poisson LRA]]
 - [[file:mlcb.org][MLCB plots]]
 - [[file:pois-truncnorm.org][Poisson-truncated normal data]]
+- [[file:gamma-mix.org][Poisson-unimodal Gamma mixture model]]

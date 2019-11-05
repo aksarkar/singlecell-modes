@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2019-11-06 Wed 14:36 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poisson-unimodal Gamma mixture model</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Poisson-unimodal Gamma mixture model</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#orgea644c8">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#orgb97d994">Methods</a>
+<ul>
+<li><a href="#org542541d">Unimodal mixture of Gammas</a></li>
+<li><a href="#org60d7908">Expectation-maximization algorithm</a></li>
+</ul>
+</li>
+<li><a href="#org402287e">Results</a>
+<ul>
+<li><a href="#org00125f9">Tracing mode estimation of Poisson-unimodal Uniform mixture</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-orgea644c8" class="outline-2">
+<h2 id="orgea644c8">Introduction</h2>
+<div class="outline-text-2" id="text-orgea644c8">
+<p>
+We have previously investigated the use of the following model for scRNA-seq
+counts coming from a single gene:
+</p>
+
+\begin{align*}
+  x_{ij} &\sim \operatorname{Poisson}(x_i^+ \lambda_{ij})\\
+  \lambda_{ij} &\sim g_j(\cdot) = \sum_k \pi_{jk} \operatorname{Uniform}(\cdot; \lambda_{0j}, a_{jk})
+\end{align*}
+
+<p>
+where \(x_i^+ = \sum_j x_{ij}\) and we abuse notation to allow \(a_{jk} <
+  \lambda_{0j}\). In this model, expression variation is assumed to follow a
+unimodal non-parametric distribution \(g_j(\cdot)\), approximated as a large,
+but finite mixture of uniforms. The main challenge in fitting this model is
+estimating \(\lambda_{0j}\) (with \(\lambda_{0j}\) known, estimating \(g_j\)
+is a convex optimization problem solved by <code>mixsqp</code>). The strategy taken in
+<code>ashr</code> is to treat the <code>mixsqp</code> problem as a subroutine in line search over
+\(\lambda_{0j}\).
+</p>
+
+<p>
+Here, we investigate using a unimodal mixture of Gammas (previously
+considered in <a href="https://dx.doi.org/10.1093%2Fbioinformatics%2Fbtw483">Lu &amp; Stephens 2016</a>), which is a slightly less flexible
+assumption on expression variation, but could allow faster mode estimation.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org30e44ff" class="outline-2">
+<h2 id="setup"><a id="org30e44ff"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> rpy2.robjects.packages
+<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
+<span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+
+<span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
+<span class="org-variable-name">mixsqp</span> = rpy2.robjects.packages.importr(<span class="org-string">'mixsqp'</span>)
+rpy2.robjects.pandas2ri.activate()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orgb97d994" class="outline-2">
+<h2 id="orgb97d994">Methods</h2>
+<div class="outline-text-2" id="text-orgb97d994">
+</div>
+<div id="outline-container-org542541d" class="outline-3">
+<h3 id="org542541d">Unimodal mixture of Gammas</h3>
+<div class="outline-text-3" id="text-org542541d">
+<p>
+Consider \(\lambda \sim \operatorname{Gamma}(\alpha, \beta)\). Let 
+\(\lambda_0 = (\alpha - 1) / \beta\) (the mode), and \(v = \alpha /
+   \beta^2\) (the variance). Then,
+</p>
+
+\begin{align*}
+  \beta &= \frac{\lambda_0 + \sqrt{\lambda_0^2 + 4 v}}{2 v}\\
+  \alpha &= \lambda_0 \frac{\lambda_0 + \sqrt{\lambda_0^2 + 4 v}}{2 v} + 1
+\end{align*}
+
+<p>
+and for choice of mode \(\lambda_{0j}\) and grid of variances \(v_{j1}, \ldots,
+   v_{jK}\) we have
+</p>
+
+<p>
+\[ \lambda_{ij} \sim g_j(\cdot) = \sum_{k=1}^K \pi_{jk} \operatorname{Gamma}(\cdot; \alpha_{jk}, \beta_{jk}) \]
+</p>
+
+<p>
+As an illustrative example,
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">lam0</span> = 1e-3
+<span class="org-comment-delimiter"># </span><span class="org-comment">1/s -&gt; max(x/s)</span>
+<span class="org-variable-name">mixvar</span> = np.exp(np.arange(np.log(1 / 1e5), np.log(5e-3), step=.5 * np.log(2)))
+<span class="org-variable-name">grid</span> = np.linspace(0, 1e-2, 1000)
+
+<span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Paired'</span>)
+plt.clf()
+plt.gcf().set_size_inches(3, 3)
+<span class="org-keyword">for</span> i, v <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(mixvar[:5]):
+  <span class="org-variable-name">b</span> = (lam0 + np.sqrt(lam0 * lam0 + 4 * v)) / (2 * v)
+  <span class="org-variable-name">a</span> = lam0 * b + 1
+  plt.plot(grid, st.gamma(a=a, scale=1 / b).pdf(grid), lw=1, c=cm(i))
+plt.axvline(x=lam0, c=<span class="org-string">'r'</span>, ls=<span class="org-string">':'</span>, lw=1)
+plt.xlabel(<span class="org-string">'$\lambda$'</span>)
+plt.ylabel(<span class="org-string">'$f(\lambda)$'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gamma-mix.org/gamma-mix-ex.png" alt="gamma-mix-ex.png">
+</p>
+</div>
+
+<p>
+The main advantage of assuming a mixture of Gammas is that the marginal
+likelihood of \(x_{ij}\) is then a mixture of Negative Binomial
+distributions
+</p>
+
+<p>
+\[ p(x_{1j}, \ldots, x_{nj} \mid x_1^+, \ldots, x_n^+, g) = \prod_i \sum_k
+   \pi_{jk} \operatorname{NB}(x_{ij}; \alpha_{jk}, \frac{x_i^+}{x_i^+ +
+   \beta_{jk}}). \]
+</p>
+</div>
+</div>
+
+<div id="outline-container-org60d7908" class="outline-3">
+<h3 id="org60d7908">Expectation-maximization algorithm</h3>
+<div class="outline-text-3" id="text-org60d7908">
+<p>
+Introduce indicator variable \(z_i \in \{1, \ldots, K\}\) denoting which
+component \(\lambda_i\) was drawn from (dropping index \(j\)), and let
+\(\zeta_{ik} = p(z_i = k \mid x_i, x_i^+, g)\). Then
+</p>
+
+\begin{multline*}
+  l(\cdot) = \sum_i E_{z_i \mid x_i, x_i^+, g}[\ln p(x_i, z_i \mid x_i^+, g)] = \\
+  \sum_{i, k} \zeta_{ik} \left( \ln \pi_k + x_i \ln\left(\frac{x_i^+}{x_i^+ + \beta_k}\right) + \alpha_k \ln\left(\frac{\beta_k}{x_i^+ + \beta_k}\right) + \ln\Gamma(x_i + \alpha_k) - \ln\Gamma(x_i + 1) - \ln\Gamma(\alpha_k) \right)  
+\end{multline*}
+
+<p>
+suggesting an EM algorithm:
+</p>
+
+<p>
+<b>E step:</b> 
+</p>
+
+<p>
+\[ \zeta_{ik} \propto \pi_k \operatorname{NB}(x_{ij}; \alpha_{k}, \frac{x_i^+}{x_i^+ + \beta_{k}}) \]
+</p>
+
+<p>
+<b>M step:</b> 
+</p>
+
+<ol class="org-ol">
+<li>Update \(\boldsymbol\pi\) (solution to <code>mixsqp</code>)</li>
+<li><p>
+Update \(\lambda_0\) (e.g. backtracking line search in direction of the
+gradient):
+</p>
+
+\begin{align*}
+  \frac{\partial l}{\partial \alpha_k} &= \sum_i \zeta_{ik}\left( \ln\left(\frac{\beta_k}{x_i^+ + \beta_k}\right) + \psi(x_i + \alpha_k) - \psi(\alpha_k) \right)\\
+  \frac{\partial l}{\partial \beta_k} &= \sum_i \zeta_{ik} \left(\frac{\alpha_k - x_i}{x_i^+ + \beta_k} + \frac{\alpha_k}{\beta_k}\right)\\
+  \frac{\partial \alpha_k}{\partial \beta_k} &= \lambda_0\\
+  \frac{\partial \beta_k}{\partial \lambda_0} &= \frac{1}{2 v} + \frac{\lambda_0}{v \sqrt{\lambda_0^2 + 4 v}}
+\end{align*}
+
+<p>
+where \(\psi\) denotes the <a href="https://en.wikipedia.org/wiki/Digamma_function">digamma function</a>.
+</p></li>
+</ol>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org402287e" class="outline-2">
+<h2 id="org402287e">Results</h2>
+<div class="outline-text-2" id="text-org402287e">
+</div>
+<div id="outline-container-org00125f9" class="outline-3">
+<h3 id="org00125f9">Tracing mode estimation of Poisson-unimodal Uniform mixture</h3>
+<div class="outline-text-3" id="text-org00125f9">
+<p>
+As an illustrative example, simulate a problem where the true \(g_j\) is a
+point mass, with large \(n\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(0)
+<span class="org-variable-name">n</span> = 50000
+<span class="org-variable-name">s</span> = np.random.poisson(lam=1e4, size=n)
+<span class="org-variable-name">mu</span> = 1e-4
+<span class="org-variable-name">x</span> = np.random.poisson(lam=s * mu)
+</pre>
+</div>
+
+<p>
+Trace how many function evaluations are used in estimating the mode.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_ash</span>(mode, x, s):
+  <span class="org-keyword">return</span> np.array(ashr.ash(
+    pd.Series(np.zeros(n)),
+    1,
+    lik=ashr.lik_pois(y=pd.Series(x), scale=pd.Series(s), link=<span class="org-string">'identity'</span>),
+    mixcompdist=<span class="org-string">'halfuniform'</span>,
+    outputlevel=<span class="org-string">'loglik'</span>,
+    mode=mode).rx2(<span class="org-string">'loglik'</span>))
+
+<span class="org-variable-name">res</span> = so.minimize_scalar(_ash, bracket=[(x / s).<span class="org-builtin">min</span>(), (x / s).<span class="org-builtin">max</span>()], args=(x, s), method=<span class="org-string">'golden'</span>)
+res
+</pre>
+</div>
+
+<p>
+0 - 61452f35-cdae-4963-b444-78319e5f5feb
+</p>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2019-11-06 Wed 14:36</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

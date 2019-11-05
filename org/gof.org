@@ -32,7 +32,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 63583672
+  : Submitted batch job 63597514
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -290,7 +290,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[27]:
+   # Out[30]:
    :END:
 
    Report the dimensions of each data set. To reduce computational burden (for
