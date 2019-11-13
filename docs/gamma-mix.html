@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-11-13 Wed 11:54 -->
+<!-- 2019-11-13 Wed 12:57 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Poisson-unimodal Gamma mixture model</title>
@@ -268,7 +268,7 @@ for the JavaScript code in this tag.
 </li>
 <li><a href="#org402287e">Results</a>
 <ul>
-<li><a href="#org84515f4">Tracing line search</a></li>
+<li><a href="#tracing-line-search">Tracing line search</a></li>
 <li><a href="#org2f7c575">Test derivative implementation</a></li>
 </ul>
 </li>
@@ -521,29 +521,20 @@ where \(\psi\) denotes the <a href="https://en.wikipedia.org/wiki/Digamma_functi
 <div class="outline-text-2" id="text-org402287e">
 </div>
 <div id="outline-container-org84515f4" class="outline-3">
-<h3 id="org84515f4">Tracing line search</h3>
-<div class="outline-text-3" id="text-org84515f4">
+<h3 id="tracing-line-search"><a id="org84515f4"></a>Tracing line search</h3>
+<div class="outline-text-3" id="text-tracing-line-search">
 <p>
-As an illustrative example, simulate a problem where the true \(g_j\) is a
-point mass, with large \(n\).
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">np.random.seed(0)
-<span class="org-variable-name">n</span> = 50000
-<span class="org-variable-name">s</span> = np.random.poisson(lam=1e4, size=n)
-<span class="org-variable-name">mu</span> = 1e-4
-<span class="org-variable-name">x</span> = np.random.poisson(lam=s * mu)
-</pre>
-</div>
-
-<p>
-Trace how many function evaluations are used in estimating the mode.
+Trace how many function evaluations are used in estimating the mode, by
+writing a Python wrapper which can be called from <code>scipy.optimize</code>. (R
+<code>stats::optimize</code> does not return the number of function evaluations.)
 </p>
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_ash</span>(mode, x, s):
-  <span class="org-keyword">return</span> np.array(ashr.ash(
+  <span class="org-doc">"""Return negative log likelihood of x, s given mode"""</span>
+  <span class="org-keyword">if</span> mode &lt; 0:
+    <span class="org-keyword">return</span> np.inf
+  <span class="org-keyword">return</span> -np.array(ashr.ash(
     pd.Series(np.zeros(n)),
     1,
     lik=ashr.lik_pois(y=pd.Series(x), scale=pd.Series(s), link=<span class="org-string">'identity'</span>),
@@ -551,16 +542,109 @@ Trace how many function evaluations are used in estimating the mode.
     outputlevel=<span class="org-string">'loglik'</span>,
     mode=mode).rx2(<span class="org-string">'loglik'</span>))
 
-<span class="org-variable-name">res</span> = so.minimize_scalar(_ash, bracket=[(x / s).<span class="org-builtin">min</span>(), (x / s).<span class="org-builtin">max</span>()], args=(x, s), method=<span class="org-string">'golden'</span>)
-res
+<span class="org-keyword">def</span> <span class="org-function-name">trial</span>(n, disp=<span class="org-constant">None</span>, seed=0):
+  np.random.seed(seed)
+  <span class="org-variable-name">n</span> = n
+  <span class="org-variable-name">s</span> = np.random.poisson(lam=1e4, size=n)
+  <span class="org-variable-name">mu</span> = np.random.lognormal(mean=np.log(1e-4))
+  <span class="org-keyword">if</span> disp <span class="org-keyword">is</span> <span class="org-constant">None</span>:
+    <span class="org-variable-name">x</span> = np.random.poisson(lam=s * mu)
+  <span class="org-keyword">elif</span> disp &lt;= 0:
+    <span class="org-keyword">raise</span> <span class="org-type">ValueError</span>(<span class="org-string">'disp must be &gt; 0'</span>)
+  <span class="org-keyword">else</span>:
+    <span class="org-variable-name">x</span> = np.random.negative_binomial(n=1 / disp, p=s * mu / (s * mu + 1 / disp))
+  <span class="org-variable-name">res</span> = so.minimize_scalar(_ash, bracket=[(x / s).<span class="org-builtin">min</span>(), (x / s).<span class="org-builtin">max</span>()], args=(x, s), method=<span class="org-string">'brent'</span>)
+  <span class="org-keyword">if</span> <span class="org-keyword">not</span> res.success:
+    <span class="org-keyword">raise</span> <span class="org-type">RuntimeError</span>(f<span class="org-string">'failed to converge: '</span>)
+  <span class="org-keyword">return</span> res.nfev
 </pre>
 </div>
 
 <p>
-0 - 89ef98a1-3650-4150-ab15-50a827b2aa6f
+Look at the number of function evaluations for one problem.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">trial(n=100, seed=0)
+</pre>
+</div>
+
+<pre class="example">
+38
+
+</pre>
+
+<p>
+Look at the mean and standard deviation of the number of function
+evaluations over multiple simulated problems, as a function of sample size
+\(n\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">nfev</span> = []
+<span class="org-variable-name">n_trials</span> = 5
+<span class="org-keyword">for</span> n <span class="org-keyword">in</span> (100, 500, 1000):
+  <span class="org-keyword">for</span> i <span class="org-keyword">in</span> <span class="org-builtin">range</span>(n_trials):
+    nfev.append((n, i, trial(n=n, seed=i)))
+<span class="org-variable-name">nfev</span> = pd.DataFrame(nfev, columns=[<span class="org-string">'n'</span>, <span class="org-string">'trial'</span>, <span class="org-string">'nfev'</span>])
+nfev.groupby([<span class="org-string">'n'</span>])[<span class="org-string">'nfev'</span>].agg([np.mean, np.std])
+</pre>
+</div>
+
+<pre class="example">
+mean       std
+n
+100   29.2  3.834058
+500   28.2  3.271085
+1000  25.4  6.730527
+</pre>
+
+<p>
+Repeat the benchmark for Poisson-Gamma distributed data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">nfev_nb</span> = []
+<span class="org-variable-name">n_trials</span> = 5
+<span class="org-keyword">for</span> n <span class="org-keyword">in</span> (100, 500, 1000):
+  <span class="org-keyword">for</span> phi <span class="org-keyword">in</span> (0.1, 0.3, 0.5):
+    <span class="org-keyword">for</span> i <span class="org-keyword">in</span> <span class="org-builtin">range</span>(n_trials):
+      nfev_nb.append((n, phi, i, trial(n=n, disp=phi, seed=i)))
+<span class="org-variable-name">nfev_nb</span> = pd.DataFrame(nfev_nb, columns=[<span class="org-string">'n'</span>, <span class="org-string">'phi'</span>, <span class="org-string">'trial'</span>, <span class="org-string">'nfev'</span>])
+</pre>
+</div>
+
+<p>
+Plot the mean and standard deviation of the number of function evaluations
+for Poisson-Gamma problems as a function of sample size \(n\) and
+overdispersion \(\phi\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(4, 3)
+<span class="org-keyword">for</span> n <span class="org-keyword">in</span> (100, 500, 1000):
+  plt.axvline(x=n, c=<span class="org-string">'0.8'</span>, lw=1, ls=<span class="org-string">':'</span>, zorder=0)
+<span class="org-keyword">for</span> i, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(nfev_nb.groupby([<span class="org-string">'phi'</span>])):
+  <span class="org-variable-name">h</span> = g.groupby(<span class="org-string">'n'</span>)[<span class="org-string">'nfev'</span>].agg([np.mean, np.std]).reset_index()
+  plt.plot(h[<span class="org-string">'n'</span>], h[<span class="org-string">'mean'</span>], ls=<span class="org-string">'-'</span>, lw=1, c=cm(i), label=k)
+  plt.scatter(x=g[<span class="org-string">'n'</span>] + np.random.normal(scale=10, size=g.shape[0]), y=g[<span class="org-string">'nfev'</span>], s=1, c=np.atleast_2d(cm(i)), label=<span class="org-constant">None</span>)
+plt.xlabel(<span class="org-string">'Sample size $n$'</span>)
+plt.ylabel(<span class="org-string">'Num function evaluations'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>, title=<span class="org-string">'Overdispersion'</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gamma-mix.org/nfev-nb.png" alt="nfev-nb.png">
 </p>
 </div>
 </div>
+</div>
+
 <div id="outline-container-org2f7c575" class="outline-3">
 <h3 id="org2f7c575">Test derivative implementation</h3>
 <div class="outline-text-3" id="text-org2f7c575">
@@ -621,7 +705,7 @@ df_dlam0, h
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-11-13 Wed 11:54</p>
+<p class="date">Created: 2019-11-13 Wed 12:57</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

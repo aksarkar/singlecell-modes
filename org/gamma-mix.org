@@ -230,28 +230,20 @@
 
 * Results
 ** Tracing line search
-
-   As an illustrative example, simulate a problem where the true \(g_j\) is a
-   point mass, with large \(n\).
-
-   #+BEGIN_SRC ipython
-     np.random.seed(0)
-     n = 50000
-     s = np.random.poisson(lam=1e4, size=n)
-     mu = 1e-4
-     x = np.random.poisson(lam=s * mu)
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[4]:
+   :PROPERTIES:
+   :CUSTOM_ID: tracing-line-search
    :END:
 
-   Trace how many function evaluations are used in estimating the mode.
+   Trace how many function evaluations are used in estimating the mode, by
+   writing a Python wrapper which can be called from ~scipy.optimize~. (R
+   ~stats::optimize~ does not return the number of function evaluations.)
 
-   #+BEGIN_SRC ipython :async t
+   #+BEGIN_SRC ipython
      def _ash(mode, x, s):
-       return np.array(ashr.ash(
+       """Return negative log likelihood of x, s given mode"""
+       if mode < 0:
+         return np.inf
+       return -np.array(ashr.ash(
          pd.Series(np.zeros(n)),
          1,
          lik=ashr.lik_pois(y=pd.Series(x), scale=pd.Series(s), link='identity'),
@@ -259,14 +251,109 @@
          outputlevel='loglik',
          mode=mode).rx2('loglik'))
 
-     res = so.minimize_scalar(_ash, bracket=[(x / s).min(), (x / s).max()], args=(x, s), method='golden')
-     res
+     def trial(n, disp=None, seed=0):
+       np.random.seed(seed)
+       n = n
+       s = np.random.poisson(lam=1e4, size=n)
+       mu = np.random.lognormal(mean=np.log(1e-4))
+       if disp is None:
+         x = np.random.poisson(lam=s * mu)
+       elif disp <= 0:
+         raise ValueError('disp must be > 0')
+       else:
+         x = np.random.negative_binomial(n=1 / disp, p=s * mu / (s * mu + 1 / disp))
+       res = so.minimize_scalar(_ash, bracket=[(x / s).min(), (x / s).max()], args=(x, s), method='brent')
+       if not res.success:
+         raise RuntimeError(f'failed to converge: ')
+       return res.nfev
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   0 - 89ef98a1-3650-4150-ab15-50a827b2aa6f
+   # Out[174]:
    :END:
+
+   Look at the number of function evaluations for one problem.
+
+   #+BEGIN_SRC ipython
+     trial(n=100, seed=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[175]:
+   : 38
+   :END:
+
+   Look at the mean and standard deviation of the number of function
+   evaluations over multiple simulated problems, as a function of sample size
+   \(n\).
+
+   #+BEGIN_SRC ipython :async t
+     nfev = []
+     n_trials = 5
+     for n in (100, 500, 1000):
+       for i in range(n_trials):
+         nfev.append((n, i, trial(n=n, seed=i)))
+     nfev = pd.DataFrame(nfev, columns=['n', 'trial', 'nfev'])
+     nfev.groupby(['n'])['nfev'].agg([np.mean, np.std])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[176]:
+   #+BEGIN_EXAMPLE
+     mean       std
+     n
+     100   29.2  3.834058
+     500   28.2  3.271085
+     1000  25.4  6.730527
+   #+END_EXAMPLE
+   :END:
+
+   Repeat the benchmark for Poisson-Gamma distributed data.
+
+   #+BEGIN_SRC ipython :async t
+     nfev_nb = []
+     n_trials = 5
+     for n in (100, 500, 1000):
+       for phi in (0.1, 0.3, 0.5):
+         for i in range(n_trials):
+           nfev_nb.append((n, phi, i, trial(n=n, disp=phi, seed=i)))
+     nfev_nb = pd.DataFrame(nfev_nb, columns=['n', 'phi', 'trial', 'nfev'])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[177]:
+   :END:
+
+   Plot the mean and standard deviation of the number of function evaluations
+   for Poisson-Gamma problems as a function of sample size \(n\) and
+   overdispersion \(\phi\).
+
+   #+BEGIN_SRC ipython :ipyfile figure/gamma-mix.org/nfev-nb.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 3)
+     for n in (100, 500, 1000):
+       plt.axvline(x=n, c='0.8', lw=1, ls=':', zorder=0)
+     for i, (k, g) in enumerate(nfev_nb.groupby(['phi'])):
+       h = g.groupby('n')['nfev'].agg([np.mean, np.std]).reset_index()
+       plt.plot(h['n'], h['mean'], ls='-', lw=1, c=cm(i), label=k)
+       plt.scatter(x=g['n'] + np.random.normal(scale=10, size=g.shape[0]), y=g['nfev'], s=1, c=np.atleast_2d(cm(i)), label=None)
+     plt.xlabel('Sample size $n$')
+     plt.ylabel('Num function evaluations')
+     plt.legend(frameon=False, title='Overdispersion', loc='center left', bbox_to_anchor=(1, .5))
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[197]:
+   [[file:figure/gamma-mix.org/nfev-nb.png]]
+   :END:
+
 ** Test derivative implementation
 
    Simulate some data.
