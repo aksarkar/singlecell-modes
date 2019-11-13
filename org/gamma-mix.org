@@ -37,10 +37,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="4G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 63622207
+  : Submitted batch job 63714566
 
   #+BEGIN_SRC ipython
     import numpy as np
@@ -48,6 +48,7 @@
     import rpy2.robjects.packages
     import rpy2.robjects.pandas2ri
     import scipy.optimize as so
+    import scipy.special as sp
     import scipy.stats as st
 
     ashr = rpy2.robjects.packages.importr('ashr')
@@ -57,7 +58,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[10]:
+  # Out[4]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -158,15 +159,77 @@
 
       \begin{align*}
         \frac{\partial l}{\partial \alpha_k} &= \sum_i \zeta_{ik}\left( \ln\left(\frac{\beta_k}{x_i^+ + \beta_k}\right) + \psi(x_i + \alpha_k) - \psi(\alpha_k) \right)\\
-        \frac{\partial l}{\partial \beta_k} &= \sum_i \zeta_{ik} \left(\frac{\alpha_k - x_i}{x_i^+ + \beta_k} + \frac{\alpha_k}{\beta_k}\right)\\
+        \frac{\partial l}{\partial \beta_k} &= \sum_i \zeta_{ik} \left(\frac{\alpha_k}{\beta_k} - \frac{x_i + \alpha_k}{x_i^+ + \beta_k}\right)\\
         \frac{\partial \alpha_k}{\partial \beta_k} &= \lambda_0\\
+        \frac{\partial \alpha_k}{\partial \lambda_0} &= b_k\\
         \frac{\partial \beta_k}{\partial \lambda_0} &= \frac{1}{2 v} + \frac{\lambda_0}{v \sqrt{\lambda_0^2 + 4 v}}
       \end{align*}
 
       where \(\psi\) denotes the [[https://en.wikipedia.org/wiki/Digamma_function][digamma function]].
 
+   #+NAME: pois-gammamix-impl
+   #+BEGIN_SRC ipython
+     def pois_gammamix_dlam0(x, s, a, b, zeta, lam0):
+       """Return derivative of expected log joint wrt lam0, evaluated at current
+     values"""
+       # Important: x, s are (n, 1); a, b, pi are (1, m); zeta is (n, m)
+       a = a.reshape(1, -1)
+       b = b.reshape(1, -1)
+       # (1, m)
+       dl_da = (zeta * (np.log(b) - np.log(s + b) + sp.digamma(x + a) - sp.digamma(a))).sum(axis=0, keepdims=True)
+       dl_db = (zeta * (a / b - (x + a) / (s + b))).sum(axis=0, keepdims=True)
+       v = a / (b * b)
+       db_dlam = 1 / (2 * v) + lam0 / (v * np.sqrt(lam0 ** 2 + 4 * v))
+       da_dlam = lam0 * db_dlam + b
+       # (1, 1)
+       res = dl_da.dot(da_dlam.T) + dl_db.dot(db_dlam.T)
+       return res[0, 0]
+
+     def pois_gammamix_obj(x, s, a, b, pi, zeta):
+       """Return expected log joint"""
+       # Important: x, s are (n, 1); a, b, pi are (1, m); zeta is (n, m)
+       a = a.reshape(1, -1)
+       b = b.reshape(1, -1)
+       pi = pi.reshape(1, -1)
+       return (zeta * (np.log(pi)
+                       + x * np.log(s)
+                       + a * np.log(b)
+                       - (x + a) * np.log(s + b)
+                       + sp.gammaln(x + a)
+                       - sp.gammaln(x + 1)
+                       - sp.gammaln(a))).sum()
+
+     def pois_gammamix_em(x, s, max_iter=100):
+       lam_hat = x / s
+       # Initialization
+       lam0 = np.median(lam_hat)
+       for i in range(max_iter):
+         # Update pi
+         mixvar = np.exp(np.arange(np.log(1 / s.median()), np.log(lam_hat.max()), step=.5 * np.log(2)))
+         b = (lam0 + np.sqrt(lam0 * lam0 + 4 * mixvar)) / (2 * mixvar)
+         a = lam0 * b + 1
+         llik = st.nbinom(n=a, p=s / (s + b)).logpmf(x.reshape(-1, 1))
+         mixsqp_res = mixsqp.mixsqp(pd.DataFrame(llik), log=True)
+         pi = np.array(mixsqp_res.rx2('x'))
+         # Update zeta
+         zeta = pi.dot(np.exp(llik - llik.max()))
+         zeta /= zeta.sum()
+         # Update lam0
+
+   #+END_SRC
+
+   #+RESULTS: pois-gammamix-impl
+   :RESULTS:
+   # Out[89]:
+   :END:
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[5]:
+   :END:
+
 * Results
-** Tracing mode estimation of Poisson-unimodal Uniform mixture
+** Tracing line search
 
    As an illustrative example, simulate a problem where the true \(g_j\) is a
    point mass, with large \(n\).
@@ -181,7 +244,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[4]:
    :END:
 
    Trace how many function evaluations are used in estimating the mode.
@@ -202,5 +265,60 @@
 
    #+RESULTS:
    :RESULTS:
-   0 - 61452f35-cdae-4963-b444-78319e5f5feb
+   0 - 89ef98a1-3650-4150-ab15-50a827b2aa6f
+   :END:
+** Test derivative implementation
+
+   Simulate some data.
+
+   #+BEGIN_SRC ipython
+     np.random.seed(1)
+     n = 100
+     s = np.random.poisson(lam=1e4, size=n).reshape(-1, 1)
+     mu = 1e-4
+     x = np.random.poisson(lam=s * mu)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[22]:
+   :END:
+
+   Pick some parameters.
+
+   #+BEGIN_SRC ipython
+     lam_hat = x / s
+     lam0 = np.median(lam_hat)
+     mixvar = np.exp(np.arange(np.log(1 / np.median(s)), np.log(lam_hat.max()), step=.5 * np.log(2)))
+     b = (lam0 + np.sqrt(lam0 * lam0 + 4 * mixvar)) / (2 * mixvar)
+     a = lam0 * b + 1
+     pi = np.ones(mixvar.shape[0]) / mixvar.shape[0]
+     llik = st.nbinom(n=a.reshape(1, -1), p=s / (s + b.reshape(1, -1))).logpmf(x.reshape(-1, 1))
+     zeta = np.exp(llik - llik.max(axis=1, keepdims=True)) * pi
+     zeta /= zeta.sum(axis=1, keepdims=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[37]:
+   :END:
+
+   Test the implementation of the derivative by fuzzing.
+
+   #+BEGIN_SRC ipython
+     f0 = pois_gammamix_obj(x, s, a, b, pi, zeta)
+     df_dlam0 = pois_gammamix_dlam0(x, s, a, b, zeta, lam0)
+     eps = np.random.normal(scale=1e-5)
+     new_lam0 = lam0 + eps
+     new_b = (new_lam0 + np.sqrt(new_lam0 * new_lam0 + 4 * mixvar)) / (2 * mixvar)
+     new_a = new_lam0 * b + 1
+     new_f = pois_gammamix_obj(x, s, new_a, new_b, pi, zeta)
+     h = (new_f - f0) / eps
+     df_dlam0, h
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[90]:
+   : (-26936.279115316203, -26828.95742300165)
    :END:

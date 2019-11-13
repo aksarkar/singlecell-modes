@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-11-06 Wed 14:36 -->
+<!-- 2019-11-13 Wed 11:54 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Poisson-unimodal Gamma mixture model</title>
@@ -268,7 +268,8 @@ for the JavaScript code in this tag.
 </li>
 <li><a href="#org402287e">Results</a>
 <ul>
-<li><a href="#org00125f9">Tracing mode estimation of Poisson-unimodal Uniform mixture</a></li>
+<li><a href="#org84515f4">Tracing line search</a></li>
+<li><a href="#org2f7c575">Test derivative implementation</a></li>
 </ul>
 </li>
 </ul>
@@ -316,6 +317,7 @@ assumption on expression variation, but could allow faster mode estimation.
 <span class="org-keyword">import</span> rpy2.robjects.packages
 <span class="org-keyword">import</span> rpy2.robjects.pandas2ri
 <span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
+<span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 
 <span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
@@ -449,8 +451,9 @@ gradient):
 
 \begin{align*}
   \frac{\partial l}{\partial \alpha_k} &= \sum_i \zeta_{ik}\left( \ln\left(\frac{\beta_k}{x_i^+ + \beta_k}\right) + \psi(x_i + \alpha_k) - \psi(\alpha_k) \right)\\
-  \frac{\partial l}{\partial \beta_k} &= \sum_i \zeta_{ik} \left(\frac{\alpha_k - x_i}{x_i^+ + \beta_k} + \frac{\alpha_k}{\beta_k}\right)\\
+  \frac{\partial l}{\partial \beta_k} &= \sum_i \zeta_{ik} \left(\frac{\alpha_k}{\beta_k} - \frac{x_i + \alpha_k}{x_i^+ + \beta_k}\right)\\
   \frac{\partial \alpha_k}{\partial \beta_k} &= \lambda_0\\
+  \frac{\partial \alpha_k}{\partial \lambda_0} &= b_k\\
   \frac{\partial \beta_k}{\partial \lambda_0} &= \frac{1}{2 v} + \frac{\lambda_0}{v \sqrt{\lambda_0^2 + 4 v}}
 \end{align*}
 
@@ -458,6 +461,57 @@ gradient):
 where \(\psi\) denotes the <a href="https://en.wikipedia.org/wiki/Digamma_function">digamma function</a>.
 </p></li>
 </ol>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="org947db66"><span class="org-keyword">def</span> <span class="org-function-name">pois_gammamix_dlam0</span>(x, s, a, b, zeta, lam0):
+  <span class="org-doc">"""Return derivative of expected log joint wrt lam0, evaluated at current</span>
+<span class="org-doc">values"""</span>
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: x, s are (n, 1); a, b, pi are (1, m); zeta is (n, m)</span>
+  <span class="org-variable-name">a</span> = a.reshape(1, -1)
+  <span class="org-variable-name">b</span> = b.reshape(1, -1)
+  <span class="org-comment-delimiter"># </span><span class="org-comment">(1, m)</span>
+  <span class="org-variable-name">dl_da</span> = (zeta * (np.log(b) - np.log(s + b) + sp.digamma(x + a) - sp.digamma(a))).<span class="org-builtin">sum</span>(axis=0, keepdims=<span class="org-constant">True</span>)
+  <span class="org-variable-name">dl_db</span> = (zeta * (a / b - (x + a) / (s + b))).<span class="org-builtin">sum</span>(axis=0, keepdims=<span class="org-constant">True</span>)
+  <span class="org-variable-name">v</span> = a / (b * b)
+  <span class="org-variable-name">db_dlam</span> = 1 / (2 * v) + lam0 / (v * np.sqrt(lam0 ** 2 + 4 * v))
+  <span class="org-variable-name">da_dlam</span> = lam0 * db_dlam + b
+  <span class="org-comment-delimiter"># </span><span class="org-comment">(1, 1)</span>
+  <span class="org-variable-name">res</span> = dl_da.dot(da_dlam.T) + dl_db.dot(db_dlam.T)
+  <span class="org-keyword">return</span> res[0, 0]
+
+<span class="org-keyword">def</span> <span class="org-function-name">pois_gammamix_obj</span>(x, s, a, b, pi, zeta):
+  <span class="org-doc">"""Return expected log joint"""</span>
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: x, s are (n, 1); a, b, pi are (1, m); zeta is (n, m)</span>
+  <span class="org-variable-name">a</span> = a.reshape(1, -1)
+  <span class="org-variable-name">b</span> = b.reshape(1, -1)
+  <span class="org-variable-name">pi</span> = pi.reshape(1, -1)
+  <span class="org-keyword">return</span> (zeta * (np.log(pi)
+                  + x * np.log(s)
+                  + a * np.log(b)
+                  - (x + a) * np.log(s + b)
+                  + sp.gammaln(x + a)
+                  - sp.gammaln(x + 1)
+                  - sp.gammaln(a))).<span class="org-builtin">sum</span>()
+
+<span class="org-keyword">def</span> <span class="org-function-name">pois_gammamix_em</span>(x, s, max_iter=100):
+  <span class="org-variable-name">lam_hat</span> = x / s
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Initialization</span>
+  <span class="org-variable-name">lam0</span> = np.median(lam_hat)
+  <span class="org-keyword">for</span> i <span class="org-keyword">in</span> <span class="org-builtin">range</span>(max_iter):
+    <span class="org-comment-delimiter"># </span><span class="org-comment">Update pi</span>
+    <span class="org-variable-name">mixvar</span> = np.exp(np.arange(np.log(1 / s.median()), np.log(lam_hat.<span class="org-builtin">max</span>()), step=.5 * np.log(2)))
+    <span class="org-variable-name">b</span> = (lam0 + np.sqrt(lam0 * lam0 + 4 * mixvar)) / (2 * mixvar)
+    <span class="org-variable-name">a</span> = lam0 * b + 1
+    <span class="org-variable-name">llik</span> = st.nbinom(n=a, p=s / (s + b)).logpmf(x.reshape(-1, 1))
+    <span class="org-variable-name">mixsqp_res</span> = mixsqp.mixsqp(pd.DataFrame(llik), log=<span class="org-constant">True</span>)
+    <span class="org-variable-name">pi</span> = np.array(mixsqp_res.rx2(<span class="org-string">'x'</span>))
+    <span class="org-comment-delimiter"># </span><span class="org-comment">Update zeta</span>
+    <span class="org-variable-name">zeta</span> = pi.dot(np.exp(llik - llik.<span class="org-builtin">max</span>()))
+    <span class="org-variable-name">zeta</span> /= zeta.<span class="org-builtin">sum</span>()
+    <span class="org-comment-delimiter"># </span><span class="org-comment">Update lam0</span>
+
+</pre>
+</div>
 </div>
 </div>
 </div>
@@ -466,9 +520,9 @@ where \(\psi\) denotes the <a href="https://en.wikipedia.org/wiki/Digamma_functi
 <h2 id="org402287e">Results</h2>
 <div class="outline-text-2" id="text-org402287e">
 </div>
-<div id="outline-container-org00125f9" class="outline-3">
-<h3 id="org00125f9">Tracing mode estimation of Poisson-unimodal Uniform mixture</h3>
-<div class="outline-text-3" id="text-org00125f9">
+<div id="outline-container-org84515f4" class="outline-3">
+<h3 id="org84515f4">Tracing line search</h3>
+<div class="outline-text-3" id="text-org84515f4">
 <p>
 As an illustrative example, simulate a problem where the true \(g_j\) is a
 point mass, with large \(n\).
@@ -503,15 +557,71 @@ res
 </div>
 
 <p>
-0 - 61452f35-cdae-4963-b444-78319e5f5feb
+0 - 89ef98a1-3650-4150-ab15-50a827b2aa6f
 </p>
+</div>
+</div>
+<div id="outline-container-org2f7c575" class="outline-3">
+<h3 id="org2f7c575">Test derivative implementation</h3>
+<div class="outline-text-3" id="text-org2f7c575">
+<p>
+Simulate some data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(1)
+<span class="org-variable-name">n</span> = 100
+<span class="org-variable-name">s</span> = np.random.poisson(lam=1e4, size=n).reshape(-1, 1)
+<span class="org-variable-name">mu</span> = 1e-4
+<span class="org-variable-name">x</span> = np.random.poisson(lam=s * mu)
+</pre>
+</div>
+
+<p>
+Pick some parameters.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">lam_hat</span> = x / s
+<span class="org-variable-name">lam0</span> = np.median(lam_hat)
+<span class="org-variable-name">mixvar</span> = np.exp(np.arange(np.log(1 / np.median(s)), np.log(lam_hat.<span class="org-builtin">max</span>()), step=.5 * np.log(2)))
+<span class="org-variable-name">b</span> = (lam0 + np.sqrt(lam0 * lam0 + 4 * mixvar)) / (2 * mixvar)
+<span class="org-variable-name">a</span> = lam0 * b + 1
+<span class="org-variable-name">pi</span> = np.ones(mixvar.shape[0]) / mixvar.shape[0]
+<span class="org-variable-name">llik</span> = st.nbinom(n=a.reshape(1, -1), p=s / (s + b.reshape(1, -1))).logpmf(x.reshape(-1, 1))
+<span class="org-variable-name">zeta</span> = np.exp(llik - llik.<span class="org-builtin">max</span>(axis=1, keepdims=<span class="org-constant">True</span>)) * pi
+<span class="org-variable-name">zeta</span> /= zeta.<span class="org-builtin">sum</span>(axis=1, keepdims=<span class="org-constant">True</span>)
+</pre>
+</div>
+
+<p>
+Test the implementation of the derivative by fuzzing.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">f0</span> = pois_gammamix_obj(x, s, a, b, pi, zeta)
+<span class="org-variable-name">df_dlam0</span> = pois_gammamix_dlam0(x, s, a, b, zeta, lam0)
+<span class="org-variable-name">eps</span> = np.random.normal(scale=1e-5)
+<span class="org-variable-name">new_lam0</span> = lam0 + eps
+<span class="org-variable-name">new_b</span> = (new_lam0 + np.sqrt(new_lam0 * new_lam0 + 4 * mixvar)) / (2 * mixvar)
+<span class="org-variable-name">new_a</span> = new_lam0 * b + 1
+<span class="org-variable-name">new_f</span> = pois_gammamix_obj(x, s, new_a, new_b, pi, zeta)
+<span class="org-variable-name">h</span> = (new_f - f0) / eps
+df_dlam0, h
+</pre>
+</div>
+
+<pre class="example">
+(-26936.279115316203, -26828.95742300165)
+
+</pre>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-11-06 Wed 14:36</p>
+<p class="date">Created: 2019-11-13 Wed 11:54</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
