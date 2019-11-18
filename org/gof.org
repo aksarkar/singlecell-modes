@@ -8,8 +8,9 @@
   scRNA-seq. However, this is not the simplest way to support our key results:
 
   1. For spike-ins (control experiments), the data do not depart from a
-     unimodal distribution for biological variation (meaning, neither technical
-     variation nor biological variation involve a point mass on zero).
+     unimodal distribution for expression variation (meaning, neither
+     sequencing variation nor expression variation involve a point mass on
+     zero).
   2. For most genes, in most data sets, a Gamma assumption appears sufficient
      (meaning, the data do not significantly depart from the fitted model).
 
@@ -32,7 +33,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 63597514
+  : Submitted batch job 63794398
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -49,6 +50,7 @@
 
   #+BEGIN_SRC ipython
     import os
+    import scipy.io as si
     import scipy.special as sp
     import scipy.stats as st
     import scqtl
@@ -57,7 +59,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[30]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -249,11 +251,10 @@
        # Throw out samples with too few spike-in molecules detected
        return x.loc[:,np.logical_and((x.sum(axis=0) > min_detect).values, keep_samples.values.ravel())].T
 
-     def _mix_10x(k1, k2, min_detect=0.05, return_y=False, p=500):
+     def _mix_10x(k1, k2, min_detect=0.01, return_y=False):
        x1 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
        x2 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
        x, y = scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)
-       x = x.sample(n=p, axis=1, random_state=1).reset_index(drop=True)
        if return_y:
          return x, y
        else:
@@ -267,7 +268,7 @@
 
      def _read_10x(k):
        return scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/',
-                                       return_df=True, min_detect=0.05, p=500)
+                                       return_df=True, min_detect=0.01)
 
      data = {
        'dropseq': read_dropseq,
@@ -278,23 +279,20 @@
        'c1': read_c1,
        'cytotoxic_t': lambda: _read_10x('cytotoxic_t'),
        'b_cells': lambda: _read_10x('b_cells'),
-       'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', p=500, return_df=True),
+       'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', return_df=True),
        'cytotoxic_t-b_cells': _cd8_cd19_mix,
        'cytotoxic_t-naive_t': _cyto_naive_mix,
-       'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a'),
-       # Needed for Poisson-unimodal GOF
-       'pbmcs_68k_1': lambda: _read_10x('fresh_68k_pbmc_donor_a').iloc[:,:250],
-       'pbmcs_68k_2': lambda: _read_10x('fresh_68k_pbmc_donor_a').iloc[:,250:],
+       # Important: subsample the cells
+       'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a').sample(n=20000, random_state=1),
      }
    #+END_SRC
 
    #+RESULTS: data
    :RESULTS:
-   # Out[30]:
+   # Out[5]:
    :END:
 
-   Report the dimensions of each data set. To reduce computational burden (for
-   ~ashr~), look at no more than 500 genes per data set (randomly chosen).
+   Report the dimensions of each data set.
 
    #+BEGIN_SRC ipython :async t
      pd.DataFrame([data[k]().shape for k in data],
@@ -313,12 +311,12 @@
      chromium2                 2000         88
      gemcode                   1015         91
      c1                        5002         92
-     cytotoxic_t              10209        500
-     b_cells                  10085        500
-     ipsc                      5597        500
-     cytotoxic_t-b_cells      20294        500
-     cytotoxic_t-naive_t      20688        500
-     pbmcs_68k                68579        500
+     cytotoxic_t              10209       6530
+     b_cells                  10085       6417
+     ipsc                      5597       9957
+     cytotoxic_t-b_cells      20294       6647
+     cytotoxic_t-naive_t      20688       6246
+     pbmcs_68k                20000       6502
    #+END_EXAMPLE
    :END:
 
@@ -474,7 +472,7 @@
     Run the GPU-based methods.
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=gof --time=12:00:00 -a 6-11
+      sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=gof --time=24:00:00 -a 11
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -490,7 +488,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 63484269
+    : Submitted batch job 63768684
 
     Run the CPU methods.
 
@@ -530,7 +528,7 @@
 
     #+BEGIN_SRC ipython
       gof_res = []
-      for m in ['gpu', 'unimodal']:
+      for m in ['gpu']:
         res = dict()
         for k in data:
           f = f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-{m}.txt.gz'
