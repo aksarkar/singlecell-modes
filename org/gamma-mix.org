@@ -161,8 +161,8 @@
         \frac{\partial l}{\partial \alpha_k} &= \sum_i \zeta_{ik}\left( \ln\left(\frac{\beta_k}{x_i^+ + \beta_k}\right) + \psi(x_i + \alpha_k) - \psi(\alpha_k) \right)\\
         \frac{\partial l}{\partial \beta_k} &= \sum_i \zeta_{ik} \left(\frac{\alpha_k}{\beta_k} - \frac{x_i + \alpha_k}{x_i^+ + \beta_k}\right)\\
         \frac{\partial \alpha_k}{\partial \beta_k} &= \lambda_0\\
-        \frac{\partial \alpha_k}{\partial \lambda_0} &= b_k\\
-        \frac{\partial \beta_k}{\partial \lambda_0} &= \frac{1}{2 v} + \frac{\lambda_0}{v \sqrt{\lambda_0^2 + 4 v}}
+        \frac{\partial \alpha_k}{\partial \lambda_0} &= \beta_k\\
+        \frac{\partial \beta_k}{\partial \lambda_0} &= \frac{1}{2 v} + \frac{\lambda_0}{2 v \sqrt{\lambda_0^2 + 4 v}}
       \end{align*}
 
       where \(\psi\) denotes the [[https://en.wikipedia.org/wiki/Digamma_function][digamma function]].
@@ -179,7 +179,7 @@
        dl_da = (zeta * (np.log(b) - np.log(s + b) + sp.digamma(x + a) - sp.digamma(a))).sum(axis=0, keepdims=True)
        dl_db = (zeta * (a / b - (x + a) / (s + b))).sum(axis=0, keepdims=True)
        v = a / (b * b)
-       db_dlam = 1 / (2 * v) + lam0 / (v * np.sqrt(lam0 ** 2 + 4 * v))
+       db_dlam = 1 / (2 * v) + lam0 / (2 * v * np.sqrt(lam0 ** 2 + 4 * v))
        da_dlam = lam0 * db_dlam + b
        # (1, 1)
        res = dl_da.dot(da_dlam.T) + dl_db.dot(db_dlam.T)
@@ -220,7 +220,7 @@
 
    #+RESULTS: pois-gammamix-impl
    :RESULTS:
-   # Out[89]:
+   # Out[198]:
    :END:
 
    #+RESULTS:
@@ -368,7 +368,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[22]:
+   # Out[200]:
    :END:
 
    Pick some parameters.
@@ -387,7 +387,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[37]:
+   # Out[201]:
    :END:
 
    Test the implementation of the derivative by fuzzing.
@@ -406,6 +406,6 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[90]:
-   : (-26936.279115316203, -26828.95742300165)
+   # Out[202]:
+   : (-26951.309882979232, -26828.742108484763)
    :END:
