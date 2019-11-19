@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-11-13 Wed 11:46 -->
+<!-- 2019-11-18 Mon 20:51 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org4cedb4f">Test for goodness of fit</a></li>
+<li><a href="#org7209c7a">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -289,8 +289,9 @@ scRNA-seq. However, this is not the simplest way to support our key results:
 
 <ol class="org-ol">
 <li>For spike-ins (control experiments), the data do not depart from a
-unimodal distribution for biological variation (meaning, neither technical
-variation nor biological variation involve a point mass on zero).</li>
+unimodal distribution for expression variation (meaning, neither
+sequencing variation nor expression variation involve a point mass on
+zero).</li>
 <li>For most genes, in most data sets, a Gamma assumption appears sufficient
 (meaning, the data do not significantly depart from the fitted model).</li>
 </ol>
@@ -315,6 +316,7 @@ Here, we directly test for the goodness of fit of the estimated distribution
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-keyword">import</span> os
+<span class="org-keyword">import</span> scipy.io <span class="org-keyword">as</span> si
 <span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 <span class="org-keyword">import</span> scqtl
@@ -341,9 +343,9 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org4cedb4f" class="outline-3">
-<h3 id="org4cedb4f">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org4cedb4f">
+<div id="outline-container-org7209c7a" class="outline-3">
+<h3 id="org7209c7a">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-org7209c7a">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -536,11 +538,10 @@ KstestResult(statistic=0.008062709224521236, pvalue=0.533974089244596)
   <span class="org-comment-delimiter"># </span><span class="org-comment">Throw out samples with too few spike-in molecules detected</span>
   <span class="org-keyword">return</span> x.loc[:,np.logical_and((x.<span class="org-builtin">sum</span>(axis=0) &gt; min_detect).values, keep_samples.values.ravel())].T
 
-<span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.05, return_y=<span class="org-constant">False</span>, p=500):
+<span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.01, return_y=<span class="org-constant">False</span>):
   <span class="org-variable-name">x1</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
   <span class="org-variable-name">x2</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
   <span class="org-variable-name">x</span>, <span class="org-variable-name">y</span> = scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)
-  <span class="org-variable-name">x</span> = x.sample(n=p, axis=1, random_state=1).reset_index(drop=<span class="org-constant">True</span>)
   <span class="org-keyword">if</span> return_y:
     <span class="org-keyword">return</span> x, y
   <span class="org-keyword">else</span>:
@@ -554,7 +555,7 @@ KstestResult(statistic=0.008062709224521236, pvalue=0.533974089244596)
 
 <span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k):
   <span class="org-keyword">return</span> scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/'</span>,
-                                  return_df=<span class="org-constant">True</span>, min_detect=0.05, p=500)
+                                  return_df=<span class="org-constant">True</span>, min_detect=0.01)
 
 <span class="org-variable-name">data</span> = {
   <span class="org-string">'dropseq'</span>: read_dropseq,
@@ -565,20 +566,17 @@ KstestResult(statistic=0.008062709224521236, pvalue=0.533974089244596)
   <span class="org-string">'c1'</span>: read_c1,
   <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'cytotoxic_t'</span>),
   <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'b_cells'</span>),
-  <span class="org-string">'ipsc'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>, p=500, return_df=<span class="org-constant">True</span>),
+  <span class="org-string">'ipsc'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>, return_df=<span class="org-constant">True</span>),
   <span class="org-string">'cytotoxic_t-b_cells'</span>: _cd8_cd19_mix,
   <span class="org-string">'cytotoxic_t-naive_t'</span>: _cyto_naive_mix,
-  <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>),
-  <span class="org-comment-delimiter"># </span><span class="org-comment">Needed for Poisson-unimodal GOF</span>
-  <span class="org-string">'pbmcs_68k_1'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>).iloc[:,:250],
-  <span class="org-string">'pbmcs_68k_2'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>).iloc[:,250:],
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: subsample the cells</span>
+  <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>).sample(n=20000, random_state=1),
 }
 </pre>
 </div>
 
 <p>
-Report the dimensions of each data set. To reduce computational burden (for
-<code>ashr</code>), look at no more than 500 genes per data set (randomly chosen).
+Report the dimensions of each data set.
 </p>
 
 <div class="org-src-container">
@@ -596,12 +594,12 @@ chromium1                 2000         88
 chromium2                 2000         88
 gemcode                   1015         91
 c1                        5002         92
-cytotoxic_t              10209        500
-b_cells                  10085        500
-ipsc                      5597        500
-cytotoxic_t-b_cells      20294        500
-cytotoxic_t-naive_t      20688        500
-pbmcs_68k                68579        500
+cytotoxic_t              10209       6530
+b_cells                  10085       6417
+ipsc                      5597       9957
+cytotoxic_t-b_cells      20294       6647
+cytotoxic_t-naive_t      20688       6246
+pbmcs_68k                20000       6502
 </pre>
 </div>
 </div>
@@ -755,8 +753,8 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-org51cfd8b" class="outline-3">
-<h3 id="gof"><a id="org51cfd8b"></a>Test for goodness of fit</h3>
+<div id="outline-container-org21488e1" class="outline-3">
+<h3 id="gof"><a id="org21488e1"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 </div>
 <div id="outline-container-org88f2899" class="outline-4">
@@ -767,7 +765,7 @@ Run the GPU-based methods.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=gof --time=12:00:00 -a 6-11
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=gof --time=24:00:00 -a 11
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -1051,44 +1049,15 @@ fig.tight_layout()
 </div>
 
 <p>
-Plot the histogram of goodness of fit test \(p\)-values for the fitted
-point-Gamma distribution.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(8, 2)
-<span class="org-keyword">for</span> a, t, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(),
-                        [<span class="org-string">'T cell'</span>, <span class="org-string">'B cell'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cytotoxic/naive T'</span>, <span class="org-string">'PBMC'</span>],
-                        gof_res.groupby(<span class="org-string">'dataset'</span>)):
-  a.hist(g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'unimodal'</span>, <span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
-  a.axhline(y=1, c=<span class="org-string">'k'</span>, ls=<span class="org-string">':'</span>, lw=1)
-  a.set_xlim([0, 1])
-  a.set_title(t)
-ax[0].set_ylabel(<span class="org-string">'Density'</span>)
-<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
-  a.set_xlabel(<span class="org-string">'$p$-value'</span>)
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/gof.org/unimodal-gof-hist.png" alt="unimodal-gof-hist.png">
-</p>
-</div>
-
-<p>
-Report the number of genes which depart from the null that the data for the
-gene follows the fitted distribution (after Bonferroni correction at level
-0.05).
+Report the number of genes which do not depart from the null that the data
+for the gene follows the fitted distribution (after Bonferroni correction
+at level 0.05).
 </p>
 
 <div class="org-src-container">
 <pre class="src src-ipython">(gof_res.loc[gof_res[<span class="org-string">'dataset'</span>].isin(<span class="org-builtin">list</span>(data.keys())[6:])]
  .groupby([<span class="org-string">'dataset'</span>, <span class="org-string">'method'</span>])
- .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]).<span class="org-builtin">sum</span>())
+ .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &gt;= 0.05 / x.shape[0]).<span class="org-builtin">sum</span>())
  .reset_index()
  .pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>))
 </pre>
@@ -1096,26 +1065,26 @@ gene follows the fitted distribution (after Bonferroni correction at level
 
 <pre class="example">
 0
-method              gamma unimodal zig
+method                gamma unimodal     zig
 dataset
-b_cells                 4        1   3
-cytotoxic_t             3        0   1
-cytotoxic_t-b_cells    11        9  11
-cytotoxic_t-naive_t     3        4   4
-ipsc                   22        2  23
-pbmcs_68k              25        7  19
+b_cells              6408.0    499.0  6409.0
+cytotoxic_t          6524.0    500.0  6524.0
+cytotoxic_t-b_cells  6613.0    491.0  6629.0
+cytotoxic_t-naive_t  6226.0    496.0  6227.0
+ipsc                 9799.0    498.0  9802.0
+pbmcs_68k            6458.0      NaN  6468.0
 </pre>
 
 <p>
-Report the fraction of genes which depart from the null that the data for
-the gene follows the fitted distribution (after Bonferroni correction at
-level 0.05).
+Report the fraction of genes which do not depart from the null that the
+data for the gene follows the fitted distribution (after Bonferroni
+correction at level 0.05).
 </p>
 
 <div class="org-src-container">
 <pre class="src src-ipython">(gof_res.loc[gof_res[<span class="org-string">'dataset'</span>].isin(<span class="org-builtin">list</span>(data.keys())[6:])]
  .groupby([<span class="org-string">'dataset'</span>, <span class="org-string">'method'</span>])
- .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]).mean())
+ .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &gt; 0.05 / x.shape[0]).mean())
  .reset_index()
  .pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>))
 </pre>
@@ -1123,14 +1092,14 @@ level 0.05).
 
 <pre class="example">
 0
-method               gamma unimodal    zig
+method                  gamma unimodal       zig
 dataset
-b_cells              0.008    0.002  0.006
-cytotoxic_t          0.006    0.000  0.002
-cytotoxic_t-b_cells  0.022    0.018  0.022
-cytotoxic_t-naive_t  0.006    0.008  0.008
-ipsc                 0.044    0.004  0.046
-pbmcs_68k            0.050    0.028  0.038
+b_cells              0.998597    0.998  0.998753
+cytotoxic_t          0.999081    1.000  0.999081
+cytotoxic_t-b_cells  0.994885    0.982  0.997292
+cytotoxic_t-naive_t  0.996798    0.992  0.996958
+ipsc                 0.984132    0.996  0.984433
+pbmcs_68k            0.993233      NaN  0.994771
 </pre>
 
 <p>
@@ -1319,7 +1288,7 @@ p_unimodal  stat_unimodal
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-11-13 Wed 11:46</p>
+<p class="date">Created: 2019-11-18 Mon 20:51</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

@@ -528,7 +528,7 @@
 
     #+BEGIN_SRC ipython
       gof_res = []
-      for m in ['gpu']:
+      for m in ['gpu', 'unimodal']:
         res = dict()
         for k in data:
           f = f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-{m}.txt.gz'
@@ -549,7 +549,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[9]:
+    # Out[19]:
     :END:
 
     Write out the post-processed results.
@@ -560,7 +560,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[10]:
+    # Out[20]:
     :END:
 
     Read the post-processed results.
@@ -586,7 +586,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[67]:
+    # Out[21]:
     :END:
 
     #+BEGIN_SRC ipython
@@ -599,7 +599,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[13]:
+    # Out[22]:
     #+BEGIN_EXAMPLE
       0
       method    gamma unimodal zig
@@ -695,7 +695,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[12]:
+    # Out[23]:
     :END:
 
     Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
@@ -720,7 +720,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[13]:
+    # Out[24]:
     [[file:figure/gof.org/gamma-gof-hist.png]]
     :END:
 
@@ -746,89 +746,63 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[14]:
+    # Out[26]:
     [[file:figure/gof.org/zig-gof-hist.png]]
     :END:
 
-    Plot the histogram of goodness of fit test \(p\)-values for the fitted
-    point-Gamma distribution.
-
-    #+BEGIN_SRC ipython :ipyfile figure/gof.org/unimodal-gof-hist.png
-      plt.clf()
-      fig, ax = plt.subplots(1, 6, sharey=True)
-      fig.set_size_inches(8, 2)
-      for a, t, (k, g) in zip(ax.ravel(),
-                              ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC'],
-                              gof_res.groupby('dataset')):
-        a.hist(g.loc[g['method'] == 'unimodal', 'p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
-        a.axhline(y=1, c='k', ls=':', lw=1)
-        a.set_xlim([0, 1])
-        a.set_title(t)
-      ax[0].set_ylabel('Density')
-      for a in ax:
-        a.set_xlabel('$p$-value')
-      fig.tight_layout()
-    #+END_SRC
-
-    #+RESULTS:
-    :RESULTS:
-    # Out[15]:
-    [[file:figure/gof.org/unimodal-gof-hist.png]]
-    :END:
-
-    Report the number of genes which depart from the null that the data for the
-    gene follows the fitted distribution (after Bonferroni correction at level
-    0.05).
+    Report the number of genes which do not depart from the null that the data
+    for the gene follows the fitted distribution (after Bonferroni correction
+    at level 0.05).
 
     #+BEGIN_SRC ipython
       (gof_res.loc[gof_res['dataset'].isin(list(data.keys())[6:])]
        .groupby(['dataset', 'method'])
-       .apply(lambda x: (x['p'] < 0.05 / x.shape[0]).sum())
+       .apply(lambda x: (x['p'] >= 0.05 / x.shape[0]).sum())
        .reset_index()
        .pivot(index='dataset', columns='method'))
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[16]:
+    # Out[30]:
     #+BEGIN_EXAMPLE
       0
-      method              gamma unimodal zig
+      method                gamma unimodal     zig
       dataset
-      b_cells                 4        1   3
-      cytotoxic_t             3        0   1
-      cytotoxic_t-b_cells    11        9  11
-      cytotoxic_t-naive_t     3        4   4
-      ipsc                   22        2  23
-      pbmcs_68k              25        7  19
+      b_cells              6408.0    499.0  6409.0
+      cytotoxic_t          6524.0    500.0  6524.0
+      cytotoxic_t-b_cells  6613.0    491.0  6629.0
+      cytotoxic_t-naive_t  6226.0    496.0  6227.0
+      ipsc                 9799.0    498.0  9802.0
+      pbmcs_68k            6458.0      NaN  6468.0
     #+END_EXAMPLE
     :END:
 
-    Report the fraction of genes which depart from the null that the data for
-    the gene follows the fitted distribution (after Bonferroni correction at
-    level 0.05).
+    Report the fraction of genes which do not depart from the null that the
+    data for the gene follows the fitted distribution (after Bonferroni
+    correction at level 0.05).
 
     #+BEGIN_SRC ipython
       (gof_res.loc[gof_res['dataset'].isin(list(data.keys())[6:])]
        .groupby(['dataset', 'method'])
-       .apply(lambda x: (x['p'] < 0.05 / x.shape[0]).mean())
+       .apply(lambda x: (x['p'] > 0.05 / x.shape[0]).mean())
        .reset_index()
        .pivot(index='dataset', columns='method'))
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[17]:
+    # Out[31]:
     #+BEGIN_EXAMPLE
       0
-      method               gamma unimodal    zig
+      method                  gamma unimodal       zig
       dataset
-      b_cells              0.008    0.002  0.006
-      cytotoxic_t          0.006    0.000  0.002
-      cytotoxic_t-b_cells  0.022    0.018  0.022
-      cytotoxic_t-naive_t  0.006    0.008  0.008
-      ipsc                 0.044    0.004  0.046
-      pbmcs_68k            0.050    0.028  0.038
+      b_cells              0.998597    0.998  0.998753
+      cytotoxic_t          0.999081    1.000  0.999081
+      cytotoxic_t-b_cells  0.994885    0.982  0.997292
+      cytotoxic_t-naive_t  0.996798    0.992  0.996958
+      ipsc                 0.984132    0.996  0.984433
+      pbmcs_68k            0.993233      NaN  0.994771
     #+END_EXAMPLE
     :END:
 
