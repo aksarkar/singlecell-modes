@@ -7,20 +7,15 @@
   Get a local compute node.
 
   #+BEGIN_SRC sh :session midway2
-    srun -n1 --partition=broadwl --pty bash
+    srun -n1 --partition=mstephens --pty bash
     cd /project2/mstephens/aksarkar/projects/singlecell-modes/browser/
     source activate scmodes
   #+END_SRC
 
   #+RESULTS:
-  : 
-  : srun: job 63584459 queued and waiting for resources
-  : srun: job 63584459 has been allocated resources
-  : cd /project2/mstephens/aksarkar/projects/singlecell-modes/browser/
-  : cd /project2/mstephens/aksarkar/projects/singlecell-modes/browser/
+  : srun -n1 --partition=mstephens --pty bash
+  : cd /project2/mstephens/aksarkar/projects/singlecell-modes/browser/ [A[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[K/
   : source activate scmodes
-  : source activate scmodes
-  : echo 'org_babel_sh_eoe'
 
   (Re)start the browser
 
@@ -30,11 +25,10 @@
   #+END_SRC
 
   #+RESULTS:
-  : pkill -u aksarkar bokeh
+  : pkill -u aksarkar bokeh
   : Received signal 15, shutting down
-  : (hostname -i) --allow-websocket-origin=$(hostname -i):5006
-  : bokeh serve capture gof --address $(hostname -i) --allow -websocket-origin=$(hostname -i):5006 &
-  : [7] 22484
+  : bokeh serve capture gof --address $(hostname -i) --allow -websocket-origin=$(hostname -i):5006 &
+  : [1] 6316
 
 * Production environment
 

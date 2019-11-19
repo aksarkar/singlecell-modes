@@ -29,7 +29,7 @@ def init():
     gene_data.data = bokeh.models.ColumnDataSource.from_df(gene_df)
   
 gene_df = pd.DataFrame(
-  columns=['dataset', 'gene', 'method', 'stat', 'p'])
+  columns=['dataset', 'gene', 'name', 'method', 'stat', 'p'])
 
 gene_data = bokeh.models.ColumnDataSource(gene_df)
 gene_data.selected.on_change('indices', update_gene)
@@ -43,7 +43,7 @@ genes = bokeh.models.widgets.DataTable(
     width=800,
     height=400)
 
-counts = bokeh.plotting.figure(title='Molecule counts', width=400, height=400, tools=[])
+counts = bokeh.plotting.figure(title='Molecule counts', width=400, height=400, tools=['wheel_zoom', 'reset'])
 counts.quad(source=count_data, left='left', right='right', bottom=0, top='n', fill_color='black', line_color='black')
 counts.xaxis.axis_label = "Number of molecules"
 counts.yaxis.axis_label = "Number of cells"
