@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-11-18 Mon 20:51 -->
+<!-- 2019-11-21 Thu 21:03 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org7209c7a">Test for goodness of fit</a></li>
+<li><a href="#org21488e1">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -271,7 +271,9 @@ for the JavaScript code in this tag.
 <ul>
 <li><a href="#simulation">Simulation</a></li>
 <li><a href="#gof">Test for goodness of fit</a></li>
-<li><a href="#examples">Examples</a></li>
+<li><a href="#org77d2646">Application to control data sets</a></li>
+<li><a href="#orgf807e8b">Application to biological data sets</a></li>
+<li><a href="#examples">Browser</a></li>
 </ul>
 </li>
 </ul>
@@ -343,9 +345,9 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org7209c7a" class="outline-3">
-<h3 id="org7209c7a">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org7209c7a">
+<div id="outline-container-org21488e1" class="outline-3">
+<h3 id="org21488e1">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-org21488e1">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -576,7 +578,8 @@ KstestResult(statistic=0.008062709224521236, pvalue=0.533974089244596)
 </div>
 
 <p>
-Report the dimensions of each data set.
+Report the dimensions of each data set. To reduce computational burden,
+analyze a random subsample of 20K cells in the 68K PBMC data.
 </p>
 
 <div class="org-src-container">
@@ -753,13 +756,9 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-org21488e1" class="outline-3">
-<h3 id="gof"><a id="org21488e1"></a>Test for goodness of fit</h3>
+<div id="outline-container-org5452db7" class="outline-3">
+<h3 id="gof"><a id="org5452db7"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
-</div>
-<div id="outline-container-org88f2899" class="outline-4">
-<h4 id="org88f2899">Run the test</h4>
-<div class="outline-text-4" id="text-org88f2899">
 <p>
 Run the GPU-based methods.
 </p>
@@ -777,32 +776,6 @@ import os
 <span class="org-sh-heredoc">x = data[task]()</span>
 <span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_gof(x, methods=['gamma', 'zig'])</span>
 <span class="org-sh-heredoc">res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-gpu.txt.gz', compression='gzip', sep='\t')</span>
-<span class="org-sh-heredoc">EOF</span>
-</pre>
-</div>
-
-<p>
-Run the CPU methods.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=24:00:00 -a 12-13
-<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
-<span class="org-builtin">source</span> activate scmodes
-python &lt;&lt;EOF
-<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-import multiprocessing as mp
-import os
-&lt;&lt;data&gt;&gt;
-<span class="org-sh-heredoc">tasks = list(data.keys())</span>
-<span class="org-sh-heredoc">task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
-<span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=20) as pool:</span>
-<span class="org-sh-heredoc">  # Important: this needs to be done after initializing the pool to avoid</span>
-<span class="org-sh-heredoc">  # memory duplication</span>
-<span class="org-sh-heredoc">  x = data[task]()</span>
-<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_gof(x, pool=pool, methods=['unimodal'])</span>
-<span class="org-sh-heredoc">  res.index = x.columns</span>
-<span class="org-sh-heredoc">  res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-unimodal.txt.gz', compression='gzip', sep='\t')</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
 </div>
@@ -828,8 +801,6 @@ Read the results.
     <span class="org-variable-name">f</span> = f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-{m}.txt.gz'</span>
     <span class="org-keyword">if</span> os.path.exists(f):
       <span class="org-comment-delimiter"># </span><span class="org-comment">Hacks</span>
-      <span class="org-keyword">if</span> k <span class="org-keyword">in</span> (<span class="org-string">'pbmcs_68k_1'</span>, <span class="org-string">'pbmcs_68k_2'</span>):
-        <span class="org-variable-name">k</span> = <span class="org-string">'pbmcs_68k'</span>
       <span class="org-variable-name">res</span>[k] = pd.read_csv(f, sep=<span class="org-string">'\t'</span>, index_col=0)
       <span class="org-keyword">if</span> <span class="org-string">'gene.1'</span> <span class="org-keyword">in</span> res[k].columns:
         <span class="org-keyword">del</span> res[k][<span class="org-string">'gene.1'</span>]
@@ -859,12 +830,57 @@ Read the post-processed results.
 <pre class="src src-ipython"><span class="org-variable-name">gof_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/gof.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
 </pre>
 </div>
+
+<p>
+To reduce computational burden, run <code>ashr</code> only on genes which
+significantly departed from a Gamma assumption on expression variation in
+each dataset. (This is implicitly assuming that <code>ashr</code> will fit data which
+did not depart from a Gamma assumption, because the Gamma distribution is
+unimodal; however, in practice this can sometimes fail due to a yet to be
+tracked down bug.)
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">sig</span> = (gof_res[gof_res[<span class="org-string">'method'</span>] == <span class="org-string">'gamma'</span>]
+       .groupby(<span class="org-string">'dataset'</span>)
+       .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: x.loc[x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]]))
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">for</span> k <span class="org-keyword">in</span> <span class="org-builtin">list</span>(data.keys())[6:12]:
+  <span class="org-variable-name">x</span> = data[k]()
+  x.loc[:,sig.loc[k, <span class="org-string">'gene'</span>]].to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/unimodal-data/{k}.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=24:00:00 -a 7-11
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+import multiprocessing as mp
+import os
+&lt;&lt;data&gt;&gt;
+<span class="org-sh-heredoc">tasks = list(data.keys())</span>
+<span class="org-sh-heredoc">task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
+<span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=20) as pool:</span>
+<span class="org-sh-heredoc">  # Important: this needs to be done after initializing the pool to avoid</span>
+<span class="org-sh-heredoc">  # memory duplication</span>
+<span class="org-sh-heredoc">  x = pd.read_csv(f'/scratch/midway2/aksarkar/modes/unimodal-data/{task}.txt.gz', sep='\t', index_col=0)</span>
+<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_gof(x, pool=pool, methods=['unimodal'])</span>
+<span class="org-sh-heredoc">  res.index = x.columns</span>
+<span class="org-sh-heredoc">  res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-unimodal.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
 </div>
 </div>
 
-<div id="outline-container-orga840f27" class="outline-4">
-<h4 id="orga840f27">Control data sets</h4>
-<div class="outline-text-4" id="text-orga840f27">
+<div id="outline-container-org77d2646" class="outline-3">
+<h3 id="org77d2646">Application to control data sets</h3>
+<div class="outline-text-3" id="text-org77d2646">
 <p>
 Report the number of genes which depart from the null that the data for the
 gene follows the fitted distribution (after Bonferroni correction at level
@@ -982,9 +998,9 @@ fig.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-orge4150fe" class="outline-4">
-<h4 id="orge4150fe">Biological data sets</h4>
-<div class="outline-text-4" id="text-orge4150fe">
+<div id="outline-container-orgf807e8b" class="outline-3">
+<h3 id="orgf807e8b">Application to biological data sets</h3>
+<div class="outline-text-3" id="text-orgf807e8b">
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">non_control</span> = <span class="org-builtin">list</span>(data.keys())[6:12]
 </pre>
@@ -1049,57 +1065,56 @@ fig.tight_layout()
 </div>
 
 <p>
-Report the number of genes which do not depart from the null that the data
-for the gene follows the fitted distribution (after Bonferroni correction
-at level 0.05).
+Report the number of genes which depart from the fitted distribution (after
+Bonferroni correction at level 0.05). Note the unimodal assumption was
+tested only for genes which significantly depart from Gamma.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">(gof_res.loc[gof_res[<span class="org-string">'dataset'</span>].isin(<span class="org-builtin">list</span>(data.keys())[6:])]
+<pre class="src src-ipython">(gof_res.loc[gof_res[<span class="org-string">'dataset'</span>].isin(non_control)]
  .groupby([<span class="org-string">'dataset'</span>, <span class="org-string">'method'</span>])
- .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &gt;= 0.05 / x.shape[0]).<span class="org-builtin">sum</span>())
+ .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &lt;= 0.05 / x.shape[0]).<span class="org-builtin">sum</span>())
  .reset_index()
- .pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>))
+ .pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>))[0]
 </pre>
 </div>
 
 <pre class="example">
-0
-method                gamma unimodal     zig
+method               gamma  unimodal  zig
 dataset
-b_cells              6408.0    499.0  6409.0
-cytotoxic_t          6524.0    500.0  6524.0
-cytotoxic_t-b_cells  6613.0    491.0  6629.0
-cytotoxic_t-naive_t  6226.0    496.0  6227.0
-ipsc                 9799.0    498.0  9802.0
-pbmcs_68k            6458.0      NaN  6468.0
+b_cells                  9         1    8
+cytotoxic_t              6         2    6
+cytotoxic_t-b_cells     34        10   18
+cytotoxic_t-naive_t     20        11   19
+ipsc                   158         2  155
+pbmcs_68k               44        11   34
 </pre>
 
 <p>
-Report the fraction of genes which do not depart from the null that the
+Report the fraction of genes which <i>do not</i> depart from the null that the
 data for the gene follows the fitted distribution (after Bonferroni
 correction at level 0.05).
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">(gof_res.loc[gof_res[<span class="org-string">'dataset'</span>].isin(<span class="org-builtin">list</span>(data.keys())[6:])]
- .groupby([<span class="org-string">'dataset'</span>, <span class="org-string">'method'</span>])
- .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &gt; 0.05 / x.shape[0]).mean())
- .reset_index()
- .pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>))
+<pre class="src src-ipython"><span class="org-variable-name">frac</span> = (gof_res.loc[gof_res[<span class="org-string">'dataset'</span>].isin(<span class="org-builtin">list</span>(data.keys())[6:])]
+        .groupby([<span class="org-string">'dataset'</span>, <span class="org-string">'method'</span>])
+        .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &gt;= 0.05 / x.shape[0]).mean())
+        .reset_index()
+        .pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>))[0]
+frac
 </pre>
 </div>
 
 <pre class="example">
-0
-method                  gamma unimodal       zig
+method                  gamma  unimodal       zig
 dataset
-b_cells              0.998597    0.998  0.998753
-cytotoxic_t          0.999081    1.000  0.999081
-cytotoxic_t-b_cells  0.994885    0.982  0.997292
-cytotoxic_t-naive_t  0.996798    0.992  0.996958
-ipsc                 0.984132    0.996  0.984433
-pbmcs_68k            0.993233      NaN  0.994771
+b_cells              0.998597  0.888889  0.998753
+cytotoxic_t          0.999081  0.666667  0.999081
+cytotoxic_t-b_cells  0.994885  0.705882  0.997292
+cytotoxic_t-naive_t  0.996798  0.450000  0.996958
+ipsc                 0.984132  0.996000  0.984433
+pbmcs_68k            0.993233  0.750000  0.994771
 </pre>
 
 <p>
@@ -1125,10 +1140,9 @@ marginal distribution is not well-described by a single Gamma distribution.
 </p>
 </div>
 </div>
-</div>
 
-<div id="outline-container-org8d99ad6" class="outline-3">
-<h3 id="examples"><a id="org8d99ad6"></a>Examples</h3>
+<div id="outline-container-org276689d" class="outline-3">
+<h3 id="examples"><a id="org276689d"></a>Browser</h3>
 <div class="outline-text-3" id="text-examples">
 <p>
 Read gene metadata.
@@ -1144,7 +1158,12 @@ Populate the database to visualize all of the results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">sig</span> = gof_res.groupby([<span class="org-string">'method'</span>, <span class="org-string">'dataset'</span>]).<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: x.loc[x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]]).reset_index(drop=<span class="org-constant">True</span>)
+<pre class="src src-ipython"><span class="org-variable-name">sig</span> = (gof_res
+       .groupby([<span class="org-string">'method'</span>, <span class="org-string">'dataset'</span>])
+       .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: x.loc[x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]])
+       .reset_index(drop=<span class="org-constant">True</span>)
+       .merge(gene_info, on=<span class="org-string">'gene'</span>, how=<span class="org-string">'left'</span>)
+       [[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>, <span class="org-string">'name'</span>, <span class="org-string">'method'</span>, <span class="org-string">'stat'</span>, <span class="org-string">'p'</span>]])
 </pre>
 </div>
 
@@ -1175,120 +1194,13 @@ Populate the database to visualize all of the results.
   conn.execute(<span class="org-string">'create index counts_idx on counts(dataset, gene);'</span>)
 </pre>
 </div>
-
-<p>
-Look at genes which significantly depart from Gamma, but not from
-point-Gamma.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">sig0</span> = gof_res[gof_res[<span class="org-string">'method'</span>] == <span class="org-string">'gamma'</span>].groupby(<span class="org-string">'dataset'</span>).<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: x.loc[x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]]).reset_index(drop=<span class="org-constant">True</span>)
-<span class="org-variable-name">nsig1</span> = gof_res[gof_res[<span class="org-string">'method'</span>] == <span class="org-string">'zig'</span>].groupby(<span class="org-string">'dataset'</span>).<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: x.loc[x[<span class="org-string">'p'</span>] &gt;= 0.05 / x.shape[0]]).reset_index(drop=<span class="org-constant">True</span>)
-<span class="org-variable-name">examples</span> = sig0.merge(nsig1, on=[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>], suffixes=[<span class="org-string">'_gamma'</span>, <span class="org-string">'_zig'</span>])
-<span class="org-keyword">del</span> examples[<span class="org-string">'method_gamma'</span>]
-<span class="org-keyword">del</span> examples[<span class="org-string">'method_zig'</span>]
-<span class="org-variable-name">examples</span> = examples.groupby(<span class="org-string">'dataset'</span>).<span class="org-builtin">apply</span>(pd.DataFrame.sort_values, <span class="org-string">'p_gamma'</span>).reset_index(drop=<span class="org-constant">True</span>)
-<span class="org-variable-name">examples</span>[<span class="org-string">'name'</span>] = gene_info.loc[examples[<span class="org-string">'gene'</span>], <span class="org-string">'name'</span>].reset_index(drop=<span class="org-constant">True</span>)
-examples
-</pre>
-</div>
-
-<pre class="example">
-dataset             gene       p_gamma  stat_gamma     p_zig  \
-0               b_cells  ENSG00000145425  1.915091e-05    0.023936  0.000103
-1           cytotoxic_t  ENSG00000077984  4.945356e-05    0.022793  0.420865
-2           cytotoxic_t  ENSG00000145649  7.289148e-05    0.022372  0.608038
-3   cytotoxic_t-b_cells  ENSG00000198502  1.442417e-85    0.069499  0.079374
-4   cytotoxic_t-b_cells  ENSG00000128218  3.617516e-06    0.018049  0.001558
-5                  ipsc  ENSG00000112530  7.841127e-20    0.063182  0.010855
-6                  ipsc  ENSG00000109736  2.153803e-05    0.031967  0.000116
-7             pbmcs_68k  ENSG00000008517  9.342086e-79    0.036263  0.000774
-8             pbmcs_68k  ENSG00000011600  7.884402e-39    0.025391  0.089060
-9             pbmcs_68k  ENSG00000100453  2.838638e-35    0.024187  0.485551
-10            pbmcs_68k  ENSG00000100450  5.431306e-22    0.019028  0.632199
-11            pbmcs_68k  ENSG00000198502  1.865120e-06    0.010062  0.687567
-12            pbmcs_68k  ENSG00000126264  1.633343e-05    0.009242  0.000796
-13            pbmcs_68k  ENSG00000197540  8.630388e-05    0.008560  0.000194
-
-stat_zig      name
-0   0.022120     RPS3A
-1   0.008710      CST7
-2   0.007536      GZMA
-3   0.008916  HLA-DRB5
-4   0.013280    VPREB3
-5   0.021587     PACRG
-6   0.029518    MFSD10
-7   0.007569      IL32
-8   0.004763    TYROBP
-9   0.003195      GZMB
-10  0.002853      GZMH
-11  0.002727  HLA-DRB5
-12  0.007555      HCST
-13  0.008209      GZMM
-</pre>
-
-<p>
-Look at genes which depart from both point-Gamma and unimodal.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">sig0</span> = gof_res[gof_res[<span class="org-string">'method'</span>] == <span class="org-string">'zig'</span>].groupby(<span class="org-string">'dataset'</span>).<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: x.loc[x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]]).reset_index(drop=<span class="org-constant">True</span>)
-<span class="org-variable-name">sig1</span> = gof_res[gof_res[<span class="org-string">'method'</span>] == <span class="org-string">'unimodal'</span>].groupby(<span class="org-string">'dataset'</span>).<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: x.loc[x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]]).reset_index(drop=<span class="org-constant">True</span>)
-<span class="org-variable-name">examples</span> = sig0.merge(sig1, on=[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>], suffixes=[<span class="org-string">'_zig'</span>, <span class="org-string">'_unimodal'</span>])
-<span class="org-keyword">del</span> examples[<span class="org-string">'method_zig'</span>]
-<span class="org-keyword">del</span> examples[<span class="org-string">'method_unimodal'</span>]
-examples
-</pre>
-</div>
-
-<pre class="example">
-dataset             gene          p_zig  stat_zig  \
-0               b_cells  ENSG00000177954   1.899033e-19  0.046600
-1   cytotoxic_t-b_cells  ENSG00000156738   9.244853e-05  0.015682
-2   cytotoxic_t-b_cells  ENSG00000166710   1.277500e-21  0.034675
-3   cytotoxic_t-b_cells  ENSG00000139193   1.673955e-08  0.021406
-4   cytotoxic_t-b_cells  ENSG00000109971   4.144996e-05  0.016300
-5   cytotoxic_t-b_cells  ENSG00000233927   5.424448e-05  0.016096
-6   cytotoxic_t-b_cells  ENSG00000177954   1.925536e-17  0.031070
-7   cytotoxic_t-b_cells  ENSG00000196126   8.155849e-12  0.025419
-8   cytotoxic_t-naive_t  ENSG00000241343   2.619446e-07  0.019571
-9   cytotoxic_t-naive_t  ENSG00000149806   5.152087e-05  0.015981
-10  cytotoxic_t-naive_t  ENSG00000100316   3.397394e-13  0.026658
-11                 ipsc  ENSG00000057657   4.052158e-06  0.034221
-12            pbmcs_68k  ENSG00000070756   7.642401e-08  0.011159
-13            pbmcs_68k  ENSG00000140988  3.026495e-116  0.044095
-14            pbmcs_68k  ENSG00000186468   7.692682e-05  0.008609
-15            pbmcs_68k  ENSG00000234745   4.172440e-08  0.011355
-16            pbmcs_68k  ENSG00000168028   8.749574e-06  0.009485
-17            pbmcs_68k  ENSG00000145425   2.198793e-32  0.023163
-
-p_unimodal  stat_unimodal
-0   6.820167e-12       0.036181
-1   1.115665e-08       0.021639
-2   1.367186e-05       0.017118
-3   1.479537e-08       0.021477
-4   2.715650e-05       0.016617
-5   2.660919e-05       0.016632
-6   6.537640e-07       0.019182
-7   1.073144e-32       0.042787
-8   1.336271e-07       0.019982
-9   6.047701e-05       0.015859
-10  1.430774e-07       0.019941
-11  2.566220e-09       0.042767
-12  2.374435e-09       0.012241
-13  6.159689e-05       0.008703
-14  2.660201e-05       0.009048
-15  2.328378e-08       0.011541
-16  4.114968e-08       0.011360
-17  9.735004e-06       0.009444
-</pre>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-11-18 Mon 20:51</p>
+<p class="date">Created: 2019-11-21 Thu 21:03</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

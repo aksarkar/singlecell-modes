@@ -33,7 +33,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 63794398
+  : Submitted batch job 63915159
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -468,7 +468,6 @@
    :PROPERTIES:
    :CUSTOM_ID: gof
    :END:
-*** Run the test
 
     Run the GPU-based methods.
 
@@ -491,32 +490,6 @@
     #+RESULTS:
     : Submitted batch job 63768684
 
-    Run the CPU methods.
-
-    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=24:00:00 -a 12-13
-      #!/bin/bash
-      source activate scmodes
-      python <<EOF
-      <<imports>>
-      import multiprocessing as mp
-      import os
-      <<data>>
-      tasks = list(data.keys())
-      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-      with mp.Pool(maxtasksperchild=20) as pool:
-        # Important: this needs to be done after initializing the pool to avoid
-        # memory duplication
-        x = data[task]()
-        res = scmodes.benchmark.evaluate_gof(x, pool=pool, methods=['unimodal'])
-        res.index = x.columns
-        res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-unimodal.txt.gz', compression='gzip', sep='\t')
-      EOF
-    #+END_SRC
-
-    #+RESULTS:
-    : Submitted batch job 63507410
-
     Move the results to permanent storage.
 
     #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
@@ -535,8 +508,6 @@
           f = f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-{m}.txt.gz'
           if os.path.exists(f):
             # Hacks
-            if k in ('pbmcs_68k_1', 'pbmcs_68k_2'):
-              k = 'pbmcs_68k'
             res[k] = pd.read_csv(f, sep='\t', index_col=0)
             if 'gene.1' in res[k].columns:
               del res[k]['gene.1']
@@ -550,7 +521,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[19]:
+    # Out[6]:
     :END:
 
     Write out the post-processed results.
@@ -561,7 +532,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[20]:
+    # Out[7]:
     :END:
 
     Read the post-processed results.
@@ -572,10 +543,63 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[6]:
+    # Out[5]:
     :END:
 
-*** Control data sets
+    To reduce computational burden, run ~ashr~ only on genes which
+    significantly departed from a Gamma assumption on expression variation in
+    each dataset. (This is implicitly assuming that ~ashr~ will fit data which
+    did not depart from a Gamma assumption, because the Gamma distribution is
+    unimodal; however, in practice this can sometimes fail due to a yet to be
+    tracked down bug.)
+
+    #+BEGIN_SRC ipython
+      sig = (gof_res[gof_res['method'] == 'gamma']
+             .groupby('dataset')
+             .apply(lambda x: x.loc[x['p'] < 0.05 / x.shape[0]]))
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[10]:
+    :END:
+
+    #+BEGIN_SRC ipython :async t
+      for k in list(data.keys())[6:12]:
+        x = data[k]()
+        x.loc[:,sig.loc[k, 'gene']].to_csv(f'/scratch/midway2/aksarkar/modes/unimodal-data/{k}.txt.gz', sep='\t', compression='gzip')
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[20]:
+    :END:
+
+    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=24:00:00 -a 7-11
+      #!/bin/bash
+      source activate scmodes
+      python <<EOF
+      <<imports>>
+      import multiprocessing as mp
+      import os
+      <<data>>
+      tasks = list(data.keys())
+      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+      with mp.Pool(maxtasksperchild=20) as pool:
+        # Important: this needs to be done after initializing the pool to avoid
+        # memory duplication
+        x = pd.read_csv(f'/scratch/midway2/aksarkar/modes/unimodal-data/{task}.txt.gz', sep='\t', index_col=0)
+        res = scmodes.benchmark.evaluate_gof(x, pool=pool, methods=['unimodal'])
+        res.index = x.columns
+        res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-unimodal.txt.gz', compression='gzip', sep='\t')
+      EOF
+    #+END_SRC
+
+    #+RESULTS:
+    : Submitted batch job 63889660
+
+** Application to control data sets
 
     Report the number of genes which depart from the null that the data for the
     gene follows the fitted distribution (after Bonferroni correction at level
@@ -688,7 +712,7 @@
     [[file:figure/gof.org/control-unimodal-gof-hist.png]]
     :END:
 
-*** Biological data sets
+** Application to biological data sets
 
     #+BEGIN_SRC ipython
       non_control = list(data.keys())[6:12]
@@ -696,7 +720,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[23]:
+    # Out[8]:
     :END:
 
     Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
@@ -751,59 +775,58 @@
     [[file:figure/gof.org/zig-gof-hist.png]]
     :END:
 
-    Report the number of genes which do not depart from the null that the data
-    for the gene follows the fitted distribution (after Bonferroni correction
-    at level 0.05).
+    Report the number of genes which depart from the fitted distribution (after
+    Bonferroni correction at level 0.05). Note the unimodal assumption was
+    tested only for genes which significantly depart from Gamma.
 
     #+BEGIN_SRC ipython
-      (gof_res.loc[gof_res['dataset'].isin(list(data.keys())[6:])]
+      (gof_res.loc[gof_res['dataset'].isin(non_control)]
        .groupby(['dataset', 'method'])
-       .apply(lambda x: (x['p'] >= 0.05 / x.shape[0]).sum())
+       .apply(lambda x: (x['p'] <= 0.05 / x.shape[0]).sum())
        .reset_index()
-       .pivot(index='dataset', columns='method'))
+       .pivot(index='dataset', columns='method'))[0]
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[30]:
+    # Out[13]:
     #+BEGIN_EXAMPLE
-      0
-      method                gamma unimodal     zig
+      method               gamma  unimodal  zig
       dataset
-      b_cells              6408.0    499.0  6409.0
-      cytotoxic_t          6524.0    500.0  6524.0
-      cytotoxic_t-b_cells  6613.0    491.0  6629.0
-      cytotoxic_t-naive_t  6226.0    496.0  6227.0
-      ipsc                 9799.0    498.0  9802.0
-      pbmcs_68k            6458.0      NaN  6468.0
+      b_cells                  9         1    8
+      cytotoxic_t              6         2    6
+      cytotoxic_t-b_cells     34        10   18
+      cytotoxic_t-naive_t     20        11   19
+      ipsc                   158         2  155
+      pbmcs_68k               44        11   34
     #+END_EXAMPLE
     :END:
 
-    Report the fraction of genes which do not depart from the null that the
+    Report the fraction of genes which /do not/ depart from the null that the
     data for the gene follows the fitted distribution (after Bonferroni
     correction at level 0.05).
 
     #+BEGIN_SRC ipython
-      (gof_res.loc[gof_res['dataset'].isin(list(data.keys())[6:])]
-       .groupby(['dataset', 'method'])
-       .apply(lambda x: (x['p'] > 0.05 / x.shape[0]).mean())
-       .reset_index()
-       .pivot(index='dataset', columns='method'))
+      frac = (gof_res.loc[gof_res['dataset'].isin(list(data.keys())[6:])]
+              .groupby(['dataset', 'method'])
+              .apply(lambda x: (x['p'] >= 0.05 / x.shape[0]).mean())
+              .reset_index()
+              .pivot(index='dataset', columns='method'))[0]
+      frac
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[31]:
+    # Out[14]:
     #+BEGIN_EXAMPLE
-      0
-      method                  gamma unimodal       zig
+      method                  gamma  unimodal       zig
       dataset
-      b_cells              0.998597    0.998  0.998753
-      cytotoxic_t          0.999081    1.000  0.999081
-      cytotoxic_t-b_cells  0.994885    0.982  0.997292
-      cytotoxic_t-naive_t  0.996798    0.992  0.996958
-      ipsc                 0.984132    0.996  0.984433
-      pbmcs_68k            0.993233      NaN  0.994771
+      b_cells              0.998597  0.888889  0.998753
+      cytotoxic_t          0.999081  0.666667  0.999081
+      cytotoxic_t-b_cells  0.994885  0.705882  0.997292
+      cytotoxic_t-naive_t  0.996798  0.450000  0.996958
+      ipsc                 0.984132  0.996000  0.984433
+      pbmcs_68k            0.993233  0.750000  0.994771
     #+END_EXAMPLE
     :END:
 
@@ -823,7 +846,7 @@
     means both the mean and variance of gene expression vary, such that the
     marginal distribution is not well-described by a single Gamma distribution.
 
-** Examples
+** Browser
    :PROPERTIES:
    :CUSTOM_ID: examples
    :END:
@@ -836,7 +859,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[32]:
+   # Out[15]:
    :END:
 
    Populate the database to visualize all of the results.
@@ -852,7 +875,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[43]:
+   # Out[16]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -875,7 +898,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[44]:
+   # Out[17]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -888,5 +911,5 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[45]:
+   # Out[18]:
    :END:
