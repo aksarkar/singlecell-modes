@@ -1,0 +1,255 @@
+#+TITLE: Poisson-Gamma log likelihood surface
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  We [[https://www.github.com/aksarkar/scqtl][previously implemented]] maximum
+  likelihood estimation of the ZINB model
+
+  \begin{align*}
+    x_{ij} \mid x_i^+, \lambda_{ij} &\sim \operatorname{Poisson}(x_i^+ \lambda_{ij})\\
+    \lambda_{ij} &\sim g_j(\cdot) = \pi_j \delta_0(\cdot) + (1 - \pi_j) \operatorname{Gamma}(1/\phi_j, 1/(\mu_j\phi_j))
+  \end{align*}
+
+  via batch gradient descent. We chose this algorithm because in the motivating
+  application (variance QTL mapping; Sarkar et al. 2019):
+  
+  1. The parameters \(\mu_j, \phi_j, \pi_j\) had a structure (one set of
+     parameters per donor, per gene), resulting in >1.5 million parameters in
+     total to be estimated from the data
+  2. Observed techncial covariates had effects which were shared across donors
+     (due to randomization in the study design; this makes them estimable from
+     the data, but complicates the model)
+  3. The algorithm is amenable to automatic differentiation and GPU computation
+
+  However, in our benchmarking for this study, this implementation has a major
+  drawback: it requires memory on the order of the dimensions of the data. This
+  is especially problematic for large, sparse data (e.g. 10X Genomics data). To
+  address this problem, we have re-implemented this approach using stochastic
+  gradient descent (in package
+  [[https://www.github.com/aksarkar/scmodes][scmodes]]). Here, we investigate
+  convergence problems in this implementation.
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar/modes/
+
+  #+RESULTS:
+  : Submitted batch job 63952849
+
+  #+BEGIN_SRC ipython
+    import numpy as np
+    import scipy.stats as st
+    import scmodes.sgd
+    import scqtl.simple
+    import torch
+    import torch.utils.data
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[1]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import colorcet
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+* Results
+** Likelihood surface for a simulated problem
+
+   Simulate data for a single gene, fixing \(\pi_j = 0\) for simplicity.
+
+   #+BEGIN_SRC ipython
+     np.random.seed(1)
+     # Typical values (Sarkar et al. 2019)
+     log_mu = np.random.uniform(-12, -6)
+     log_phi = np.random.uniform(-4, 0)
+     s = 1e5
+
+     n = 5000
+     lam = np.random.gamma(shape=np.exp(-log_phi), scale=np.exp(log_mu + log_phi), size=n)
+     x = np.random.poisson(lam=s * lam)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   Plot the simulated data.
+
+   #+BEGIN_SRC ipython :ipyfile figure/pois-gam-lik.org/example.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.hist(x, bins=np.arange(x.max() + 1), color='k')
+     plt.xlim(0, x.max())
+     plt.xlabel('Number of molecules')
+     plt.ylabel('Number of cells')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[28]:
+   [[file:figure/pois-gam-lik.org/example.png]]
+   :END:
+
+   Compute the MLE using the Nelder-Mead algorithm.
+
+   #+BEGIN_SRC ipython
+     mu_hat, inv_phi_hat, llik = scqtl.simple.fit_nb(x, s)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   :END:
+
+   Trace the parameter values through batch gradient descent, starting from
+   \(\ln\mu = 0, \ln\phi = 0\).
+
+   #+BEGIN_SRC ipython
+     def tracing_gradient_descent(x, s, batch_size=1, max_epochs=10, **kwargs):
+       D = torch.utils.data
+       loader = D.DataLoader(
+         D.TensorDataset(torch.tensor(x.reshape(-1, 1), dtype=torch.float),
+                         torch.tensor(s * np.ones((n, 1)), dtype=torch.float)),
+         batch_size=batch_size, pin_memory=True)
+       m = scmodes.sgd.PoissonGamma(1)
+       m.fit(loader, max_epochs=max_epochs, trace=True, **kwargs)
+       return m
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[10]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     batch_gd = tracing_gradient_descent(x, s, batch_size=n, max_epochs=1000)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     batch_trace_x = np.array(batch_gd.trace)[:,0]
+     batch_trace_y = -np.array(batch_gd.trace)[:,1]
+     batch_trace_keep = np.logical_and.reduce(
+       (log_mu - .5 < batch_trace_x,
+        batch_trace_x < log_mu + .5,
+        log_phi - .5 < batch_trace_y,
+        batch_trace_y < log_phi + .5))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   :END:
+
+   Trace the parameter values through SGD, starting from \(\ln\mu = 0, \ln\phi
+   = 0\).
+
+   #+BEGIN_SRC ipython :async t
+     # Important: learning rate needs to be reduced compared to batch gradient
+     # descent. (The default is 1e-2.)
+     sgd = tracing_gradient_descent(x, s, batch_size=1, max_epochs=5, lr=1e-3)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[40]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     sgd_trace_x = np.array(sgd.trace)[:,0]
+     sgd_trace_y = -np.array(sgd.trace)[:,1]
+     sgd_trace_keep = np.logical_and.reduce(
+       (log_mu - .5 < sgd_trace_x,
+        sgd_trace_x < log_mu + .5,
+        log_phi - .5 < sgd_trace_y,
+        sgd_trace_y < log_phi + .5))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[41]:
+   :END:
+
+   Compute the log likelihood surface in a close window about the true value.
+
+   #+BEGIN_SRC ipython :async t
+     n_points = 100
+     log_mu_grid = np.linspace(log_mu - .5, log_mu + .5, n_points)
+     log_phi_grid = np.linspace(log_phi - .5, log_phi + .5, n_points)
+     z = np.zeros((n_points, n_points))
+     for x_ in range(n_points):
+       for y_ in range(n_points):
+         z[y_, x_] = st.nbinom(n=np.exp(-log_phi_grid[y_]), p=1 / (1 + s * np.exp(log_mu_grid[x_] + log_phi_grid[y_]))).logpmf(x).sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[24]:
+   :END:
+
+   Plot the log likelihood surface and optimization traces.
+
+   #+BEGIN_SRC ipython :ipyfile figure/pois-gam-lik.org/example-llik.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(5, 4)
+     cf = plt.contour(log_mu_grid, log_phi_grid, z, levels=20, cmap=colorcet.cm['fire'], linewidths=1)
+     plt.scatter(log_mu, log_phi, marker='x', c=cm(0), s=16, zorder=10, label='Ground truth')
+     plt.scatter(np.log(mu_hat), -np.log(inv_phi_hat), marker='x', c='k', s=16, zorder=10, label='Nelder-Mead')
+     plt.scatter(*batch_gd.opt(), marker='x', c=cm(2), s=16, zorder=10, label='Batch GD')
+     plt.scatter(*sgd.opt(), marker='x', c=cm(3), s=16, zorder=10, label='SGD')
+
+     plt.plot(batch_trace_x[batch_trace_keep], batch_trace_y[batch_trace_keep], c=cm(2), marker=None, ls=':', lw=1, alpha=0.5, zorder=4, label=None)
+     plt.plot(sgd_trace_x[sgd_trace_keep][::100], sgd_trace_y[sgd_trace_keep][::100], c=cm(3), marker=None, lw=1, ls=':', alpha=0.5, zorder=5, label=None)
+
+     cb = plt.colorbar(cf)
+     cb.set_label('Log lik')
+     plt.legend(frameon=True, loc='best', handletextpad=0)
+     plt.xlabel('$\ln(\mu)$')
+     plt.ylabel('$\ln(\phi)$')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[51]:
+   [[file:figure/pois-gam-lik.org/example-llik.png]]
+   :END:

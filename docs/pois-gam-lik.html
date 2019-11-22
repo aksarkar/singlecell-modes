@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2019-11-23 Sat 11:04 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poisson-Gamma log likelihood surface</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Poisson-Gamma log likelihood surface</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#orgf52c0de">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#org7349c2e">Results</a>
+<ul>
+<li><a href="#org248aefa">Likelihood surface for a simulated problem</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-orgf52c0de" class="outline-2">
+<h2 id="orgf52c0de">Introduction</h2>
+<div class="outline-text-2" id="text-orgf52c0de">
+<p>
+We <a href="https://www.github.com/aksarkar/scqtl">previously implemented</a> maximum
+likelihood estimation of the ZINB model
+</p>
+
+\begin{align*}
+  x_{ij} \mid x_i^+, \lambda_{ij} &\sim \operatorname{Poisson}(x_i^+ \lambda_{ij})\\
+  \lambda_{ij} &\sim g_j(\cdot) = \pi_j \delta_0(\cdot) + (1 - \pi_j) \operatorname{Gamma}(1/\phi_j, 1/(\mu_j\phi_j))
+\end{align*}
+
+<p>
+via batch gradient descent. We chose this algorithm because in the motivating
+application (variance QTL mapping; Sarkar et al. 2019):
+</p>
+
+<ol class="org-ol">
+<li>The parameters \(\mu_j, \phi_j, \pi_j\) had a structure (one set of
+parameters per donor, per gene), resulting in &gt;1.5 million parameters in
+total to be estimated from the data</li>
+<li>Observed techncial covariates had effects which were shared across donors
+(due to randomization in the study design; this makes them estimable from
+the data, but complicates the model)</li>
+<li>The algorithm is amenable to automatic differentiation and GPU computation</li>
+</ol>
+
+<p>
+However, in our benchmarking for this study, this implementation has a major
+drawback: it requires memory on the order of the dimensions of the data. This
+is especially problematic for large, sparse data (e.g. 10X Genomics data). To
+address this problem, we have re-implemented this approach using stochastic
+gradient descent (in package
+<a href="https://www.github.com/aksarkar/scmodes">scmodes</a>). Here, we investigate
+convergence problems in this implementation.
+</p>
+</div>
+</div>
+
+<div id="outline-container-orgb6c67b6" class="outline-2">
+<h2 id="setup"><a id="orgb6c67b6"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+<span class="org-keyword">import</span> scmodes.sgd
+<span class="org-keyword">import</span> scqtl.simple
+<span class="org-keyword">import</span> torch
+<span class="org-keyword">import</span> torch.utils.data
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> colorcet
+<span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org7349c2e" class="outline-2">
+<h2 id="org7349c2e">Results</h2>
+<div class="outline-text-2" id="text-org7349c2e">
+</div>
+<div id="outline-container-org248aefa" class="outline-3">
+<h3 id="org248aefa">Likelihood surface for a simulated problem</h3>
+<div class="outline-text-3" id="text-org248aefa">
+<p>
+Simulate data for a single gene, fixing \(\pi_j = 0\) for simplicity.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(1)
+<span class="org-comment-delimiter"># </span><span class="org-comment">Typical values (Sarkar et al. 2019)</span>
+<span class="org-variable-name">log_mu</span> = np.random.uniform(-12, -6)
+<span class="org-variable-name">log_phi</span> = np.random.uniform(-4, 0)
+<span class="org-variable-name">s</span> = 1e5
+
+<span class="org-variable-name">n</span> = 5000
+<span class="org-variable-name">lam</span> = np.random.gamma(shape=np.exp(-log_phi), scale=np.exp(log_mu + log_phi), size=n)
+<span class="org-variable-name">x</span> = np.random.poisson(lam=s * lam)
+</pre>
+</div>
+
+<p>
+Plot the simulated data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.hist(x, bins=np.arange(x.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+plt.xlim(0, x.<span class="org-builtin">max</span>())
+plt.xlabel(<span class="org-string">'Number of molecules'</span>)
+plt.ylabel(<span class="org-string">'Number of cells'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pois-gam-lik.org/example.png" alt="example.png">
+</p>
+</div>
+
+<p>
+Compute the MLE using the Nelder-Mead algorithm.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">mu_hat</span>, <span class="org-variable-name">inv_phi_hat</span>, <span class="org-variable-name">llik</span> = scqtl.simple.fit_nb(x, s)
+</pre>
+</div>
+
+<p>
+Trace the parameter values through batch gradient descent, starting from
+\(\ln\mu = 0, \ln\phi = 0\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">tracing_gradient_descent</span>(x, s, batch_size=1, max_epochs=10, **kwargs):
+  <span class="org-variable-name">D</span> = torch.utils.data
+  <span class="org-variable-name">loader</span> = D.DataLoader(
+    D.TensorDataset(torch.tensor(x.reshape(-1, 1), dtype=torch.<span class="org-builtin">float</span>),
+                    torch.tensor(s * np.ones((n, 1)), dtype=torch.<span class="org-builtin">float</span>)),
+    batch_size=batch_size, pin_memory=<span class="org-constant">True</span>)
+  <span class="org-variable-name">m</span> = scmodes.sgd.PoissonGamma(1)
+  m.fit(loader, max_epochs=max_epochs, trace=<span class="org-constant">True</span>, **kwargs)
+  <span class="org-keyword">return</span> m
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">batch_gd</span> = tracing_gradient_descent(x, s, batch_size=n, max_epochs=1000)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">batch_trace_x</span> = np.array(batch_gd.trace)[:,0]
+<span class="org-variable-name">batch_trace_y</span> = -np.array(batch_gd.trace)[:,1]
+<span class="org-variable-name">batch_trace_keep</span> = np.logical_and.<span class="org-builtin">reduce</span>(
+  (log_mu - .5 &lt; batch_trace_x,
+   batch_trace_x &lt; log_mu + .5,
+   log_phi - .5 &lt; batch_trace_y,
+   batch_trace_y &lt; log_phi + .5))
+</pre>
+</div>
+
+<p>
+Trace the parameter values through SGD, starting from \(\ln\mu = 0, \ln\phi
+   = 0\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Important: learning rate needs to be reduced compared to batch gradient</span>
+<span class="org-comment-delimiter"># </span><span class="org-comment">descent. (The default is 1e-2.)</span>
+<span class="org-variable-name">sgd</span> = tracing_gradient_descent(x, s, batch_size=1, max_epochs=5, lr=1e-3)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">sgd_trace_x</span> = np.array(sgd.trace)[:,0]
+<span class="org-variable-name">sgd_trace_y</span> = -np.array(sgd.trace)[:,1]
+<span class="org-variable-name">sgd_trace_keep</span> = np.logical_and.<span class="org-builtin">reduce</span>(
+  (log_mu - .5 &lt; sgd_trace_x,
+   sgd_trace_x &lt; log_mu + .5,
+   log_phi - .5 &lt; sgd_trace_y,
+   sgd_trace_y &lt; log_phi + .5))
+</pre>
+</div>
+
+<p>
+Compute the log likelihood surface in a close window about the true value.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">n_points</span> = 100
+<span class="org-variable-name">log_mu_grid</span> = np.linspace(log_mu - .5, log_mu + .5, n_points)
+<span class="org-variable-name">log_phi_grid</span> = np.linspace(log_phi - .5, log_phi + .5, n_points)
+<span class="org-variable-name">z</span> = np.zeros((n_points, n_points))
+<span class="org-keyword">for</span> x_ <span class="org-keyword">in</span> <span class="org-builtin">range</span>(n_points):
+  <span class="org-keyword">for</span> y_ <span class="org-keyword">in</span> <span class="org-builtin">range</span>(n_points):
+    <span class="org-variable-name">z</span>[y_, x_] = st.nbinom(n=np.exp(-log_phi_grid[y_]), p=1 / (1 + s * np.exp(log_mu_grid[x_] + log_phi_grid[y_]))).logpmf(x).<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<p>
+Plot the log likelihood surface and optimization traces.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(5, 4)
+<span class="org-variable-name">cf</span> = plt.contour(log_mu_grid, log_phi_grid, z, levels=20, cmap=colorcet.cm[<span class="org-string">'fire'</span>], linewidths=1)
+plt.scatter(log_mu, log_phi, marker=<span class="org-string">'x'</span>, c=cm(0), s=16, zorder=10, label=<span class="org-string">'Ground truth'</span>)
+plt.scatter(np.log(mu_hat), -np.log(inv_phi_hat), marker=<span class="org-string">'x'</span>, c=<span class="org-string">'k'</span>, s=16, zorder=10, label=<span class="org-string">'Nelder-Mead'</span>)
+plt.scatter(*batch_gd.opt(), marker=<span class="org-string">'x'</span>, c=cm(2), s=16, zorder=10, label=<span class="org-string">'Batch GD'</span>)
+plt.scatter(*sgd.opt(), marker=<span class="org-string">'x'</span>, c=cm(3), s=16, zorder=10, label=<span class="org-string">'SGD'</span>)
+
+plt.plot(batch_trace_x[batch_trace_keep], batch_trace_y[batch_trace_keep], c=cm(2), marker=<span class="org-constant">None</span>, ls=<span class="org-string">':'</span>, lw=1, alpha=0.5, zorder=4, label=<span class="org-constant">None</span>)
+plt.plot(sgd_trace_x[sgd_trace_keep][::100], sgd_trace_y[sgd_trace_keep][::100], c=cm(3), marker=<span class="org-constant">None</span>, lw=1, ls=<span class="org-string">':'</span>, alpha=0.5, zorder=5, label=<span class="org-constant">None</span>)
+
+<span class="org-variable-name">cb</span> = plt.colorbar(cf)
+cb.set_label(<span class="org-string">'Log lik'</span>)
+plt.legend(frameon=<span class="org-constant">True</span>, loc=<span class="org-string">'best'</span>, handletextpad=0)
+plt.xlabel(<span class="org-string">'$\ln(\mu)$'</span>)
+plt.ylabel(<span class="org-string">'$\ln(\phi)$'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/pois-gam-lik.org/example-llik.png" alt="example-llik.png">
+</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2019-11-23 Sat 11:04</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

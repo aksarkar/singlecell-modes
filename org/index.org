@@ -33,3 +33,4 @@ Technical details:
 - [[file:mlcb.org][MLCB plots]]
 - [[file:pois-truncnorm.org][Poisson-truncated normal data]]
 - [[file:gamma-mix.org][Poisson-unimodal Gamma mixture model]]
+- [[file:pois-gam-lik.org][Poisson-Gamma log likelihood surface]]
