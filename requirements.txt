@@ -5,7 +5,8 @@ atomicwrites==1.3.0
 attrs==19.1.0
 backcall==0.1.0
 bleach==3.1.0
-certifi==2019.3.9
+bokeh==1.2.0
+certifi==2019.9.11
 cffi==1.12.2
 colorcet==1.0.0
 cycler==0.10.0
@@ -48,6 +49,8 @@ notebook==5.7.6
 numba==0.43.1
 numexpr==2.6.9
 numpy==1.16.2
+olefile==0.46
+packaging==19.0
 pandas==0.24.2
 pandocfilters==1.4.2
 parso==0.3.4
@@ -55,6 +58,7 @@ patsy==0.5.1
 pbr==5.2.0
 pexpect==4.6.0
 pickleshare==0.7.5
+Pillow==6.1.0
 pluggy==0.9.0
 prometheus-client==0.6.0
 prompt-toolkit==2.0.9
@@ -68,6 +72,7 @@ pyrsistent==0.14.11
 pytest==4.4.1
 python-dateutil==2.8.0
 pytz==2018.9
+PyYAML==5.1.1
 pyzmq==18.0.0
 qtconsole==4.4.3
 rpy2==2.9.1
@@ -75,7 +80,7 @@ scanpy==1.4.1
 scHPF==0.2.4
 scikit-learn==0.20.3
 scipy==1.2.1
--e git+git@github.com:aksarkar/scmodes.git@c8df67d57505cc5ad3e8820f5a3b3b3cc6bcd8fd#egg=scmodes
+-e git+git@github.com:aksarkar/scmodes.git@110ccbd3c14e13a2393f4f10cd858cf56988109d#egg=scmodes
 -e git+git@github.com:aksarkar/scqtl.git@51ff4a4c747be236a82d70d9934919a85cef1699#egg=scqtl
 scvi==0.2.2
 seaborn==0.9.0
@@ -98,4 +103,5 @@ wcwidth==0.1.7
 webencodings==0.5.1
 Werkzeug==0.14.1
 widgetsnbextension==3.4.2
+-e git+git@github.com:aksarkar/wlra.git@15b1f2d100bdff396de3446d8a04dab692486ead#egg=wlra
 xlrd==1.2.0
