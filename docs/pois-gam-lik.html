@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-11-23 Sat 11:04 -->
+<!-- 2019-11-23 Sat 11:41 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Poisson-Gamma log likelihood surface</title>
@@ -384,6 +384,22 @@ plt.tight_layout()
 </div>
 
 <p>
+Compute the log likelihood surface in a close window about the true value.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">n_points</span> = 100
+<span class="org-variable-name">window</span> = 0.25
+<span class="org-variable-name">log_mu_grid</span> = np.linspace(log_mu - window, log_mu + window, n_points)
+<span class="org-variable-name">log_phi_grid</span> = np.linspace(log_phi - window, log_phi + window, n_points)
+<span class="org-variable-name">z</span> = np.zeros((n_points, n_points))
+<span class="org-keyword">for</span> x_ <span class="org-keyword">in</span> <span class="org-builtin">range</span>(n_points):
+  <span class="org-keyword">for</span> y_ <span class="org-keyword">in</span> <span class="org-builtin">range</span>(n_points):
+    <span class="org-variable-name">z</span>[y_, x_] = st.nbinom(n=np.exp(-log_phi_grid[y_]), p=1 / (1 + s * np.exp(log_mu_grid[x_] + log_phi_grid[y_]))).logpmf(x).<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<p>
 Compute the MLE using the Nelder-Mead algorithm.
 </p>
 
@@ -419,10 +435,10 @@ Trace the parameter values through batch gradient descent, starting from
 <pre class="src src-ipython"><span class="org-variable-name">batch_trace_x</span> = np.array(batch_gd.trace)[:,0]
 <span class="org-variable-name">batch_trace_y</span> = -np.array(batch_gd.trace)[:,1]
 <span class="org-variable-name">batch_trace_keep</span> = np.logical_and.<span class="org-builtin">reduce</span>(
-  (log_mu - .5 &lt; batch_trace_x,
-   batch_trace_x &lt; log_mu + .5,
-   log_phi - .5 &lt; batch_trace_y,
-   batch_trace_y &lt; log_phi + .5))
+  (log_mu - window &lt; batch_trace_x,
+   batch_trace_x &lt; log_mu + window,
+   log_phi - window &lt; batch_trace_y,
+   batch_trace_y &lt; log_phi + window))
 </pre>
 </div>
 
@@ -442,25 +458,31 @@ Trace the parameter values through SGD, starting from \(\ln\mu = 0, \ln\phi
 <pre class="src src-ipython"><span class="org-variable-name">sgd_trace_x</span> = np.array(sgd.trace)[:,0]
 <span class="org-variable-name">sgd_trace_y</span> = -np.array(sgd.trace)[:,1]
 <span class="org-variable-name">sgd_trace_keep</span> = np.logical_and.<span class="org-builtin">reduce</span>(
-  (log_mu - .5 &lt; sgd_trace_x,
-   sgd_trace_x &lt; log_mu + .5,
-   log_phi - .5 &lt; sgd_trace_y,
-   sgd_trace_y &lt; log_phi + .5))
+  (log_mu - window &lt; sgd_trace_x,
+   sgd_trace_x &lt; log_mu + window,
+   log_phi - window &lt; sgd_trace_y,
+   sgd_trace_y &lt; log_phi + window))
 </pre>
 </div>
 
 <p>
-Compute the log likelihood surface in a close window about the true value.
+Trace the parameter values through minibatch SGD, starting from \(\ln\mu =
+   0, \ln\phi = 0\).
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">n_points</span> = 100
-<span class="org-variable-name">log_mu_grid</span> = np.linspace(log_mu - .5, log_mu + .5, n_points)
-<span class="org-variable-name">log_phi_grid</span> = np.linspace(log_phi - .5, log_phi + .5, n_points)
-<span class="org-variable-name">z</span> = np.zeros((n_points, n_points))
-<span class="org-keyword">for</span> x_ <span class="org-keyword">in</span> <span class="org-builtin">range</span>(n_points):
-  <span class="org-keyword">for</span> y_ <span class="org-keyword">in</span> <span class="org-builtin">range</span>(n_points):
-    <span class="org-variable-name">z</span>[y_, x_] = st.nbinom(n=np.exp(-log_phi_grid[y_]), p=1 / (1 + s * np.exp(log_mu_grid[x_] + log_phi_grid[y_]))).logpmf(x).<span class="org-builtin">sum</span>()
+<pre class="src src-ipython"><span class="org-variable-name">mb_sgd</span> = tracing_gradient_descent(x, s, batch_size=100, max_epochs=100)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">mb_sgd_trace_x</span> = np.array(mb_sgd.trace)[:,0]
+<span class="org-variable-name">mb_sgd_trace_y</span> = -np.array(mb_sgd.trace)[:,1]
+<span class="org-variable-name">mb_sgd_trace_keep</span> = np.logical_and.<span class="org-builtin">reduce</span>(
+  (log_mu - window &lt; mb_sgd_trace_x,
+   mb_sgd_trace_x &lt; log_mu + window,
+   log_phi - window &lt; mb_sgd_trace_y,
+   mb_sgd_trace_y &lt; log_phi + window))
 </pre>
 </div>
 
@@ -471,15 +493,17 @@ Plot the log likelihood surface and optimization traces.
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
 plt.clf()
-plt.gcf().set_size_inches(5, 4)
+plt.gcf().set_size_inches(6, 4)
 <span class="org-variable-name">cf</span> = plt.contour(log_mu_grid, log_phi_grid, z, levels=20, cmap=colorcet.cm[<span class="org-string">'fire'</span>], linewidths=1)
 plt.scatter(log_mu, log_phi, marker=<span class="org-string">'x'</span>, c=cm(0), s=16, zorder=10, label=<span class="org-string">'Ground truth'</span>)
 plt.scatter(np.log(mu_hat), -np.log(inv_phi_hat), marker=<span class="org-string">'x'</span>, c=<span class="org-string">'k'</span>, s=16, zorder=10, label=<span class="org-string">'Nelder-Mead'</span>)
 plt.scatter(*batch_gd.opt(), marker=<span class="org-string">'x'</span>, c=cm(2), s=16, zorder=10, label=<span class="org-string">'Batch GD'</span>)
 plt.scatter(*sgd.opt(), marker=<span class="org-string">'x'</span>, c=cm(3), s=16, zorder=10, label=<span class="org-string">'SGD'</span>)
+plt.scatter(*mb_sgd.opt(), marker=<span class="org-string">'x'</span>, c=cm(4), s=16, zorder=10, label=<span class="org-string">'Minibatch SGD'</span>)
 
 plt.plot(batch_trace_x[batch_trace_keep], batch_trace_y[batch_trace_keep], c=cm(2), marker=<span class="org-constant">None</span>, ls=<span class="org-string">':'</span>, lw=1, alpha=0.5, zorder=4, label=<span class="org-constant">None</span>)
 plt.plot(sgd_trace_x[sgd_trace_keep][::100], sgd_trace_y[sgd_trace_keep][::100], c=cm(3), marker=<span class="org-constant">None</span>, lw=1, ls=<span class="org-string">':'</span>, alpha=0.5, zorder=5, label=<span class="org-constant">None</span>)
+plt.plot(mb_sgd_trace_x[mb_sgd_trace_keep][::100], mb_sgd_trace_y[mb_sgd_trace_keep][::100], c=cm(4), marker=<span class="org-constant">None</span>, lw=1, ls=<span class="org-string">':'</span>, alpha=0.5, zorder=5, label=<span class="org-constant">None</span>)
 
 <span class="org-variable-name">cb</span> = plt.colorbar(cf)
 cb.set_label(<span class="org-string">'Log lik'</span>)
@@ -501,7 +525,7 @@ plt.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-11-23 Sat 11:04</p>
+<p class="date">Created: 2019-11-23 Sat 11:41</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

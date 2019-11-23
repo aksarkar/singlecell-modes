@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-11-21 Thu 21:03 -->
+<!-- 2019-11-23 Sat 11:41 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org21488e1">Test for goodness of fit</a></li>
+<li><a href="#orgfa3c26f">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -290,16 +290,19 @@ scRNA-seq. However, this is not the simplest way to support our key results:
 </p>
 
 <ol class="org-ol">
-<li>For spike-ins (control experiments), the data do not depart from a
+<li>For control experiments, the data do not significantly depart from a
 unimodal distribution for expression variation (meaning, neither
 sequencing variation nor expression variation involve a point mass on
 zero).</li>
-<li>For most genes, in most data sets, a Gamma assumption appears sufficient
-(meaning, the data do not significantly depart from the fitted model).</li>
+<li>For most genes, in most data sets, the data do not significantly depart
+from a Gamma assumption.</li>
+<li>When the data do significantly depart from a Gamma assumption, they often
+do not depart from a unimodal assumption (meaning, departures from Gamma
+are often not due to excess zeros).</li>
 </ol>
 
 <p>
-Here, we directly test for the goodness of fit of the estimated distribution
+Here, we directly test for the goodness of fit of the estimated distributions
 (as in <a href="https://dx.doi.org/10.1371/journal.pgen.1008045">Sarkar et al. 2019</a>).
 </p>
 </div>
@@ -317,7 +320,8 @@ Here, we directly test for the goodness of fit of the estimated distribution
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> os
+<pre class="src src-ipython"><span class="org-keyword">import</span> anndata
+<span class="org-keyword">import</span> os
 <span class="org-keyword">import</span> scipy.io <span class="org-keyword">as</span> si
 <span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
@@ -345,9 +349,9 @@ Here, we directly test for the goodness of fit of the estimated distribution
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org21488e1" class="outline-3">
-<h3 id="org21488e1">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org21488e1">
+<div id="outline-container-orgfa3c26f" class="outline-3">
+<h3 id="orgfa3c26f">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-orgfa3c26f">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -373,7 +377,7 @@ distribution \(F_{i}\):
 </p>
 
 <p>
-\[ F_i(x_i) = \sum_{k=0}^{x_i} \int_0^\infty \operatorname{Poisson}(k; s_i
+\[ F_i(x_i) = \sum_{k=0}^{x_i} \int_0^\infty \operatorname{Poisson}(k; x_i^+
   \lambda_i) g(d\lambda_i) \]
 </p>
 
@@ -394,7 +398,7 @@ We parameterized the Poisson-unimodal model as:
 </p>
 
 \begin{align*}
-  x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
+  x_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
   \lambda_i &\sim \sum_k w_k \operatorname{Uniform}(\lambda_0, a_k)
 \end{align*}
 
@@ -433,7 +437,7 @@ For the Poisson-unimodal model, we have (for one component):
 </p>
 
 \begin{align*}
-  x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
+  x_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
   \lambda_i &\sim \operatorname{Uniform}(a, b)
 \end{align*}
 
@@ -442,11 +446,11 @@ and:
 </p>
 
 \begin{align*}
-  \Pr(x_i = x) &= \int_0^\infty \operatorname{Poisson}(x_i; s_i \lambda_i) \operatorname{Uniform}(a, b) d\lambda_i\\
-  &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x_i; s_i \lambda_i) d\lambda_i\\
-  &= \frac{1}{s_i (b - a)} \int_a^b \frac{s_i^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-s_i\lambda_i) d\lambda_i\\
-  &= \frac{1}{s_i (b - a)} \left( F_\Gamma(b; x_i + 1, s_i) - F_\Gamma(a, x_i + 1, s_i) \right)\\
-  \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{s_i (b - a)} \left( F_\Gamma(b; k + 1, s_i) - F_\Gamma(a, k + 1, s_i) \right)\\
+  \Pr(x_i = x) &= \int_0^\infty \operatorname{Poisson}(x_i; x_i^+ \lambda_i) \operatorname{Uniform}(a, b) d\lambda_i\\
+  &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x_i; x_i^+ \lambda_i) d\lambda_i\\
+  &= \frac{1}{x_i^+ (b - a)} \int_a^b \frac{x_i^+^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-x_i^+\lambda_i) d\lambda_i\\
+  &= \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; x_i + 1, x_i^+) - F_\Gamma(a, x_i + 1, x_i^+) \right)\\
+  \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; k + 1, x_i^+) - F_\Gamma(a, k + 1, x_i^+) \right)\\
 \end{align*}
 
 <p>
@@ -620,12 +624,12 @@ Draw data following the Poisson-point Gamma distribution:
 </p>
 
 \begin{align*}
-  x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
+  x_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
   \lambda_i &\sim \pi \delta_0(\cdot) + (1 - \pi) \operatorname{Gamma}(1/\phi, 1/(\mu\phi))
 \end{align*}
 
 <p>
-Draw simulation parameters \(s_i=10^5, \ln\mu, \ln\phi\) from typical values
+Draw simulation parameters \(x_i^+=10^5, \ln\mu, \ln\phi\) from typical values
 (Sarkar et al. 2019).
 </p>
 
@@ -756,8 +760,8 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-org5452db7" class="outline-3">
-<h3 id="gof"><a id="org5452db7"></a>Test for goodness of fit</h3>
+<div id="outline-container-orgced99d4" class="outline-3">
+<h3 id="gof"><a id="orgced99d4"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -850,16 +854,22 @@ tracked down bug.)
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-keyword">for</span> k <span class="org-keyword">in</span> <span class="org-builtin">list</span>(data.keys())[6:12]:
   <span class="org-variable-name">x</span> = data[k]()
-  x.loc[:,sig.loc[k, <span class="org-string">'gene'</span>]].to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/unimodal-data/{k}.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>)
+  <span class="org-variable-name">s</span> = x.<span class="org-builtin">sum</span>(axis=1)
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: we need to keep around the size factors computed using all the</span>
+  <span class="org-comment-delimiter"># </span><span class="org-comment">genes</span>
+  <span class="org-variable-name">t</span> = anndata.AnnData(x.loc[:,sig.loc[k, <span class="org-string">'gene'</span>]], var=x.columns)
+  <span class="org-variable-name">t.obs</span> = s.to_frame().rename({0: <span class="org-string">'size'</span>}, axis=1)
+  t.write(f<span class="org-string">'/scratch/midway2/aksarkar/modes/unimodal-data/{k}.h5ad'</span>)
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=24:00:00 -a 7-11
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 8
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+import anndata
 import multiprocessing as mp
 import os
 &lt;&lt;data&gt;&gt;
@@ -868,9 +878,12 @@ import os
 <span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=20) as pool:</span>
 <span class="org-sh-heredoc">  # Important: this needs to be done after initializing the pool to avoid</span>
 <span class="org-sh-heredoc">  # memory duplication</span>
-<span class="org-sh-heredoc">  x = pd.read_csv(f'/scratch/midway2/aksarkar/modes/unimodal-data/{task}.txt.gz', sep='\t', index_col=0)</span>
-<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_gof(x, pool=pool, methods=['unimodal'])</span>
-<span class="org-sh-heredoc">  res.index = x.columns</span>
+<span class="org-sh-heredoc">  x = anndata.read_h5ad(f'/scratch/midway2/aksarkar/modes/unimodal-data/{task}.h5ad')</span>
+<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_gof(pd.DataFrame(x.X, index=x.obs.index, columns=x.var.index), </span>
+<span class="org-sh-heredoc">                                       s=x.obs['size'], </span>
+<span class="org-sh-heredoc">                                       pool=pool, </span>
+<span class="org-sh-heredoc">                                       methods=['unimodal'])</span>
+<span class="org-sh-heredoc">  res.index = x.var.index</span>
 <span class="org-sh-heredoc">  res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-unimodal.txt.gz', compression='gzip', sep='\t')</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
@@ -1200,7 +1213,7 @@ Populate the database to visualize all of the results.
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-11-21 Thu 21:03</p>
+<p class="date">Created: 2019-11-23 Sat 11:41</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

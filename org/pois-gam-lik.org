@@ -124,6 +124,24 @@
    [[file:figure/pois-gam-lik.org/example.png]]
    :END:
 
+   Compute the log likelihood surface in a close window about the true value.
+
+   #+BEGIN_SRC ipython :async t
+     n_points = 100
+     window = 0.25
+     log_mu_grid = np.linspace(log_mu - window, log_mu + window, n_points)
+     log_phi_grid = np.linspace(log_phi - window, log_phi + window, n_points)
+     z = np.zeros((n_points, n_points))
+     for x_ in range(n_points):
+       for y_ in range(n_points):
+         z[y_, x_] = st.nbinom(n=np.exp(-log_phi_grid[y_]), p=1 / (1 + s * np.exp(log_mu_grid[x_] + log_phi_grid[y_]))).logpmf(x).sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[75]:
+   :END:
+
    Compute the MLE using the Nelder-Mead algorithm.
 
    #+BEGIN_SRC ipython
@@ -161,22 +179,22 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[76]:
    :END:
 
    #+BEGIN_SRC ipython
      batch_trace_x = np.array(batch_gd.trace)[:,0]
      batch_trace_y = -np.array(batch_gd.trace)[:,1]
      batch_trace_keep = np.logical_and.reduce(
-       (log_mu - .5 < batch_trace_x,
-        batch_trace_x < log_mu + .5,
-        log_phi - .5 < batch_trace_y,
-        batch_trace_y < log_phi + .5))
+       (log_mu - window < batch_trace_x,
+        batch_trace_x < log_mu + window,
+        log_phi - window < batch_trace_y,
+        batch_trace_y < log_phi + window))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[77]:
    :END:
 
    Trace the parameter values through SGD, starting from \(\ln\mu = 0, \ln\phi
@@ -190,39 +208,49 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[40]:
+   # Out[78]:
    :END:
 
    #+BEGIN_SRC ipython
      sgd_trace_x = np.array(sgd.trace)[:,0]
      sgd_trace_y = -np.array(sgd.trace)[:,1]
      sgd_trace_keep = np.logical_and.reduce(
-       (log_mu - .5 < sgd_trace_x,
-        sgd_trace_x < log_mu + .5,
-        log_phi - .5 < sgd_trace_y,
-        sgd_trace_y < log_phi + .5))
+       (log_mu - window < sgd_trace_x,
+        sgd_trace_x < log_mu + window,
+        log_phi - window < sgd_trace_y,
+        sgd_trace_y < log_phi + window))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[41]:
+   # Out[79]:
    :END:
 
-   Compute the log likelihood surface in a close window about the true value.
+   Trace the parameter values through minibatch SGD, starting from \(\ln\mu =
+   0, \ln\phi = 0\).
 
    #+BEGIN_SRC ipython :async t
-     n_points = 100
-     log_mu_grid = np.linspace(log_mu - .5, log_mu + .5, n_points)
-     log_phi_grid = np.linspace(log_phi - .5, log_phi + .5, n_points)
-     z = np.zeros((n_points, n_points))
-     for x_ in range(n_points):
-       for y_ in range(n_points):
-         z[y_, x_] = st.nbinom(n=np.exp(-log_phi_grid[y_]), p=1 / (1 + s * np.exp(log_mu_grid[x_] + log_phi_grid[y_]))).logpmf(x).sum()
+     mb_sgd = tracing_gradient_descent(x, s, batch_size=100, max_epochs=100)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[24]:
+   # Out[80]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     mb_sgd_trace_x = np.array(mb_sgd.trace)[:,0]
+     mb_sgd_trace_y = -np.array(mb_sgd.trace)[:,1]
+     mb_sgd_trace_keep = np.logical_and.reduce(
+       (log_mu - window < mb_sgd_trace_x,
+        mb_sgd_trace_x < log_mu + window,
+        log_phi - window < mb_sgd_trace_y,
+        mb_sgd_trace_y < log_phi + window))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[81]:
    :END:
 
    Plot the log likelihood surface and optimization traces.
@@ -230,15 +258,17 @@
    #+BEGIN_SRC ipython :ipyfile figure/pois-gam-lik.org/example-llik.png
      cm = plt.get_cmap('Dark2')
      plt.clf()
-     plt.gcf().set_size_inches(5, 4)
+     plt.gcf().set_size_inches(6, 4)
      cf = plt.contour(log_mu_grid, log_phi_grid, z, levels=20, cmap=colorcet.cm['fire'], linewidths=1)
      plt.scatter(log_mu, log_phi, marker='x', c=cm(0), s=16, zorder=10, label='Ground truth')
      plt.scatter(np.log(mu_hat), -np.log(inv_phi_hat), marker='x', c='k', s=16, zorder=10, label='Nelder-Mead')
      plt.scatter(*batch_gd.opt(), marker='x', c=cm(2), s=16, zorder=10, label='Batch GD')
      plt.scatter(*sgd.opt(), marker='x', c=cm(3), s=16, zorder=10, label='SGD')
+     plt.scatter(*mb_sgd.opt(), marker='x', c=cm(4), s=16, zorder=10, label='Minibatch SGD')
 
      plt.plot(batch_trace_x[batch_trace_keep], batch_trace_y[batch_trace_keep], c=cm(2), marker=None, ls=':', lw=1, alpha=0.5, zorder=4, label=None)
      plt.plot(sgd_trace_x[sgd_trace_keep][::100], sgd_trace_y[sgd_trace_keep][::100], c=cm(3), marker=None, lw=1, ls=':', alpha=0.5, zorder=5, label=None)
+     plt.plot(mb_sgd_trace_x[mb_sgd_trace_keep][::100], mb_sgd_trace_y[mb_sgd_trace_keep][::100], c=cm(4), marker=None, lw=1, ls=':', alpha=0.5, zorder=5, label=None)
 
      cb = plt.colorbar(cf)
      cb.set_label('Log lik')
@@ -250,6 +280,6 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[51]:
+   # Out[85]:
    [[file:figure/pois-gam-lik.org/example-llik.png]]
    :END:
