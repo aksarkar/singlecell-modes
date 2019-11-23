@@ -17,7 +17,6 @@
   : cd /project2/mstephens/aksarkar/projects/singlecell-modes/browser/
   : cd /project2/mstephens/aksarkar/projects/singlecell-modes/browser/
   : source activate scmodes
-  : echo 'org_babel_sh_eoe'
 
   (Re)start the browser
 
@@ -29,7 +28,7 @@
   #+RESULTS:
   : pkill -u aksarkar bokeh
   : bokeh serve capture gof --address $(hostname -i) --allow- websocket-origin=$(hostname -i):5006 &
-  : [1] 2680
+  : [1] 29287
 
 * Production environment
 

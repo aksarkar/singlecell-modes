@@ -7,14 +7,17 @@
   generalization performance of distribution deconvolution methods for
   scRNA-seq. However, this is not the simplest way to support our key results:
 
-  1. For spike-ins (control experiments), the data do not depart from a
+  1. For control experiments, the data do not significantly depart from a
      unimodal distribution for expression variation (meaning, neither
      sequencing variation nor expression variation involve a point mass on
      zero).
-  2. For most genes, in most data sets, a Gamma assumption appears sufficient
-     (meaning, the data do not significantly depart from the fitted model).
+  2. For most genes, in most data sets, the data do not significantly depart
+     from a Gamma assumption.
+  3. When the data do significantly depart from a Gamma assumption, they often
+     do not depart from a unimodal assumption (meaning, departures from Gamma
+     are often not due to excess zeros).
 
-  Here, we directly test for the goodness of fit of the estimated distribution
+  Here, we directly test for the goodness of fit of the estimated distributions
   (as in [[https://dx.doi.org/10.1371/journal.pgen.1008045][Sarkar et al. 2019]]).
 
 * Setup
@@ -33,7 +36,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 63915159
+  : Submitted batch job 63985091
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -49,6 +52,7 @@
   :END:
 
   #+BEGIN_SRC ipython
+    import anndata
     import os
     import scipy.io as si
     import scipy.special as sp
@@ -104,7 +108,7 @@
   In our model, each observed UMI count \(x_{i}\) comes from a different
   distribution \(F_{i}\):
 
-  \[ F_i(x_i) = \sum_{k=0}^{x_i} \int_0^\infty \operatorname{Poisson}(k; s_i
+  \[ F_i(x_i) = \sum_{k=0}^{x_i} \int_0^\infty \operatorname{Poisson}(k; x_i^+
   \lambda_i) g(d\lambda_i) \]
 
   We therefore draw \(u_{i} \mid x_{i} \sim
@@ -117,7 +121,7 @@
    We parameterized the Poisson-unimodal model as:
 
    \begin{align*}
-     x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
+     x_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
      \lambda_i &\sim \sum_k w_k \operatorname{Uniform}(\lambda_0, a_k)
    \end{align*}
 
@@ -154,18 +158,18 @@
    For the Poisson-unimodal model, we have (for one component):
 
    \begin{align*}
-     x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
+     x_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
      \lambda_i &\sim \operatorname{Uniform}(a, b)
    \end{align*}
 
    and:
 
    \begin{align*}
-     \Pr(x_i = x) &= \int_0^\infty \operatorname{Poisson}(x_i; s_i \lambda_i) \operatorname{Uniform}(a, b) d\lambda_i\\
-     &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x_i; s_i \lambda_i) d\lambda_i\\
-     &= \frac{1}{s_i (b - a)} \int_a^b \frac{s_i^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-s_i\lambda_i) d\lambda_i\\
-     &= \frac{1}{s_i (b - a)} \left( F_\Gamma(b; x_i + 1, s_i) - F_\Gamma(a, x_i + 1, s_i) \right)\\
-     \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{s_i (b - a)} \left( F_\Gamma(b; k + 1, s_i) - F_\Gamma(a, k + 1, s_i) \right)\\
+     \Pr(x_i = x) &= \int_0^\infty \operatorname{Poisson}(x_i; x_i^+ \lambda_i) \operatorname{Uniform}(a, b) d\lambda_i\\
+     &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x_i; x_i^+ \lambda_i) d\lambda_i\\
+     &= \frac{1}{x_i^+ (b - a)} \int_a^b \frac{x_i^+^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-x_i^+\lambda_i) d\lambda_i\\
+     &= \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; x_i + 1, x_i^+) - F_\Gamma(a, x_i + 1, x_i^+) \right)\\
+     \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; k + 1, x_i^+) - F_\Gamma(a, k + 1, x_i^+) \right)\\
    \end{align*}
 
    where \(F_\Gamma(\cdot; \alpha, \beta)\) denotes the CDF of the Gamma
@@ -289,7 +293,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[5]:
+   # Out[6]:
    :END:
 
    Report the dimensions of each data set. To reduce computational burden,
@@ -330,11 +334,11 @@
    Draw data following the Poisson-point Gamma distribution:
 
    \begin{align*}
-     x_i &\sim \operatorname{Poisson}(s_i \lambda_i)\\
+     x_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
      \lambda_i &\sim \pi \delta_0(\cdot) + (1 - \pi) \operatorname{Gamma}(1/\phi, 1/(\mu\phi))
    \end{align*}
 
-   Draw simulation parameters \(s_i=10^5, \ln\mu, \ln\phi\) from typical values
+   Draw simulation parameters \(x_i^+=10^5, \ln\mu, \ln\phi\) from typical values
    (Sarkar et al. 2019).
 
    \begin{align*}
@@ -521,7 +525,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[6]:
+    # Out[7]:
     :END:
 
     Write out the post-processed results.
@@ -532,7 +536,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[7]:
+    # Out[8]:
     :END:
 
     Read the post-processed results.
@@ -561,26 +565,32 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[10]:
+    # Out[6]:
     :END:
 
     #+BEGIN_SRC ipython :async t
       for k in list(data.keys())[6:12]:
         x = data[k]()
-        x.loc[:,sig.loc[k, 'gene']].to_csv(f'/scratch/midway2/aksarkar/modes/unimodal-data/{k}.txt.gz', sep='\t', compression='gzip')
+        s = x.sum(axis=1)
+        # Important: we need to keep around the size factors computed using all the
+        # genes
+        t = anndata.AnnData(x.loc[:,sig.loc[k, 'gene']], var=x.columns)
+        t.obs = s.to_frame().rename({0: 'size'}, axis=1)
+        t.write(f'/scratch/midway2/aksarkar/modes/unimodal-data/{k}.h5ad')
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[20]:
+    # Out[39]:
     :END:
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=24:00:00 -a 7-11
+      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 8
       #!/bin/bash
       source activate scmodes
       python <<EOF
       <<imports>>
+      import anndata
       import multiprocessing as mp
       import os
       <<data>>
@@ -589,15 +599,18 @@
       with mp.Pool(maxtasksperchild=20) as pool:
         # Important: this needs to be done after initializing the pool to avoid
         # memory duplication
-        x = pd.read_csv(f'/scratch/midway2/aksarkar/modes/unimodal-data/{task}.txt.gz', sep='\t', index_col=0)
-        res = scmodes.benchmark.evaluate_gof(x, pool=pool, methods=['unimodal'])
-        res.index = x.columns
+        x = anndata.read_h5ad(f'/scratch/midway2/aksarkar/modes/unimodal-data/{task}.h5ad')
+        res = scmodes.benchmark.evaluate_gof(pd.DataFrame(x.X, index=x.obs.index, columns=x.var.index), 
+                                             s=x.obs['size'], 
+                                             pool=pool, 
+                                             methods=['unimodal'])
+        res.index = x.var.index
         res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-unimodal.txt.gz', compression='gzip', sep='\t')
       EOF
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 63889660
+    : Submitted batch job 63952963
 
 ** Application to control data sets
 
@@ -720,7 +733,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[8]:
+    # Out[9]:
     :END:
 
     Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
@@ -789,16 +802,16 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[13]:
+    # Out[10]:
     #+BEGIN_EXAMPLE
       method               gamma  unimodal  zig
       dataset
-      b_cells                  9         1    8
-      cytotoxic_t              6         2    6
-      cytotoxic_t-b_cells     34        10   18
-      cytotoxic_t-naive_t     20        11   19
-      ipsc                   158         2  155
-      pbmcs_68k               44        11   34
+      b_cells                  9         7    8
+      cytotoxic_t              6         0    6
+      cytotoxic_t-b_cells     34        23   18
+      cytotoxic_t-naive_t     20        10   19
+      ipsc                   158         7  155
+      pbmcs_68k               44         0   34
     #+END_EXAMPLE
     :END:
 
@@ -817,16 +830,16 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[14]:
+    # Out[11]:
     #+BEGIN_EXAMPLE
       method                  gamma  unimodal       zig
       dataset
-      b_cells              0.998597  0.888889  0.998753
-      cytotoxic_t          0.999081  0.666667  0.999081
-      cytotoxic_t-b_cells  0.994885  0.705882  0.997292
-      cytotoxic_t-naive_t  0.996798  0.450000  0.996958
-      ipsc                 0.984132  0.996000  0.984433
-      pbmcs_68k            0.993233  0.750000  0.994771
+      b_cells              0.998597  0.222222  0.998753
+      cytotoxic_t          0.999081  1.000000  0.999081
+      cytotoxic_t-b_cells  0.994885  0.323529  0.997292
+      cytotoxic_t-naive_t  0.996798  0.500000  0.996958
+      ipsc                 0.984132  0.955696  0.984433
+      pbmcs_68k            0.993233  1.000000  0.994771
     #+END_EXAMPLE
     :END:
 
@@ -859,7 +872,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[15]:
+   # Out[12]:
    :END:
 
    Populate the database to visualize all of the results.
@@ -875,7 +888,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[16]:
+   # Out[13]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -898,7 +911,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[17]:
+   # Out[14]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -911,5 +924,73 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[18]:
+   # Out[15]:
+   :END:
+
+** Real data examples
+
+   Get examples of genes which significantly depart from the estimated
+   distribution, but are clearly unimodal upon inspection.
+
+   #+BEGIN_SRC ipython
+     dat = anndata.read_h5ad('/scratch/midway2/aksarkar/modes/unimodal-data/b_cells.h5ad')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[53]:
+   :END:
+
+   /RPS27/ departs from Gamma and point-Gamma.
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(6, 4)
+
+     ax[0].hist(dat.X[:,0], bins=np.arange(dat.X[:,0].max() + 1), color='k')
+     ax[0].set_xlabel('Number of molecules')
+     ax[0].set_ylabel('Number of cells')
+     ax[0].set_title(gene_info.loc[dat.var.index[0], 'name'])
+
+     for i, m in enumerate(('gamma', 'unimodal')):
+       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{m}')(dat.X[:,0], dat.obs['size']), c=cm(i), label=m.capitalize())
+     ax[1].legend(frameon=False)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[54]:
+   [[file:figure/gof.org/ENSG00000177954.png]]
+   :END:
+
+   /CXCR4/ departs from Gamma, but not from point-Gamma.
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000121966.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(6, 4)
+
+     ax[0].hist(dat.X[:,1], bins=np.arange(dat.X[:,1].max() + 1), color='k')
+     ax[0].set_xlabel('Number of molecules')
+     ax[0].set_ylabel('Number of cells')
+     ax[0].set_title(gene_info.loc[dat.var.index[1], 'name'])
+
+     for i, m in enumerate(('gamma', 'unimodal')):
+       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{m}')(dat.X[:,1], dat.obs['size']), c=cm(i), label=m.capitalize())
+     ax[1].legend(frameon=False)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[55]:
+   [[file:figure/gof.org/ENSG00000121966.png]]
    :END:
