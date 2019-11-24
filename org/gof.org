@@ -54,6 +54,7 @@
   #+BEGIN_SRC ipython
     import anndata
     import os
+    import rpy2.robjects
     import scipy.io as si
     import scipy.special as sp
     import scipy.stats as st
@@ -63,7 +64,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[57]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -939,6 +940,26 @@
    #+RESULTS:
    :RESULTS:
    # Out[53]:
+   :END:
+
+   Write out the data to RDS.
+
+   #+BEGIN_SRC ipython :async t
+     rpy2.robjects.r['saveRDS'](
+       pd.DataFrame(dat.X, columns=dat.var.index, index=dat.obs.index)
+       .reset_index()
+       .rename({'index': 'sample'}, axis=1)
+       .melt(id_vars='sample', var_name='gene', value_name='count')
+       .merge(dat.obs, left_on='sample', right_index=True)
+       .sort_values(['gene', 'sample'])
+       .reset_index(drop=True),
+       'b-cell-data.Rds')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[73]:
+   : rpy2.rinterface.NULL
    :END:
 
    /RPS27/ departs from Gamma and point-Gamma.
