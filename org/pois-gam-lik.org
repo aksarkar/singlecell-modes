@@ -46,7 +46,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 63952849
+  : Submitted batch job 64000786
 
   #+BEGIN_SRC ipython
     import numpy as np
@@ -94,16 +94,16 @@
      # Typical values (Sarkar et al. 2019)
      log_mu = np.random.uniform(-12, -6)
      log_phi = np.random.uniform(-4, 0)
-     s = 1e5
 
      n = 5000
-     lam = np.random.gamma(shape=np.exp(-log_phi), scale=np.exp(log_mu + log_phi), size=n)
+     s = 1e5 * np.ones((n, 1))
+     lam = np.random.gamma(shape=np.exp(-log_phi), scale=np.exp(log_mu + log_phi), size=(n, 1))
      x = np.random.poisson(lam=s * lam)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[13]:
    :END:
 
    Plot the simulated data.
@@ -139,52 +139,35 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[75]:
+   # Out[39]:
    :END:
 
    Compute the MLE using the Nelder-Mead algorithm.
 
    #+BEGIN_SRC ipython
-     mu_hat, inv_phi_hat, llik = scqtl.simple.fit_nb(x, s)
+     mu_hat, inv_phi_hat, _ = scqtl.simple.fit_nb(x.ravel(), s.ravel())
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[16]:
    :END:
 
    Trace the parameter values through batch gradient descent, starting from
    \(\ln\mu = 0, \ln\phi = 0\).
 
-   #+BEGIN_SRC ipython
-     def tracing_gradient_descent(x, s, batch_size=1, max_epochs=10, **kwargs):
-       D = torch.utils.data
-       loader = D.DataLoader(
-         D.TensorDataset(torch.tensor(x.reshape(-1, 1), dtype=torch.float),
-                         torch.tensor(s * np.ones((n, 1)), dtype=torch.float)),
-         batch_size=batch_size, pin_memory=True)
-       m = scmodes.sgd.PoissonGamma(1)
-       m.fit(loader, max_epochs=max_epochs, trace=True, **kwargs)
-       return m
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[10]:
-   :END:
-
    #+BEGIN_SRC ipython :async t
-     batch_gd = tracing_gradient_descent(x, s, batch_size=n, max_epochs=1000)
+     batch_gd_result = scmodes.sgd.ebpm_gamma(x, s, batch_size=n, max_epochs=2000, trace=True)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[76]:
+   # Out[25]:
    :END:
 
    #+BEGIN_SRC ipython
-     batch_trace_x = np.array(batch_gd.trace)[:,0]
-     batch_trace_y = -np.array(batch_gd.trace)[:,1]
+     batch_trace_x = np.array(batch_gd_result[-1])[:,0]
+     batch_trace_y = -np.array(batch_gd_result[-1])[:,1]
      batch_trace_keep = np.logical_and.reduce(
        (log_mu - window < batch_trace_x,
         batch_trace_x < log_mu + window,
@@ -194,7 +177,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[77]:
+   # Out[28]:
    :END:
 
    Trace the parameter values through SGD, starting from \(\ln\mu = 0, \ln\phi
@@ -203,17 +186,17 @@
    #+BEGIN_SRC ipython :async t
      # Important: learning rate needs to be reduced compared to batch gradient
      # descent. (The default is 1e-2.)
-     sgd = tracing_gradient_descent(x, s, batch_size=1, max_epochs=5, lr=1e-3)
+     sgd_result = scmodes.sgd.ebpm_gamma(x, s, batch_size=1, max_epochs=5, lr=1e-3, trace=True)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[78]:
+   # Out[30]:
    :END:
 
    #+BEGIN_SRC ipython
-     sgd_trace_x = np.array(sgd.trace)[:,0]
-     sgd_trace_y = -np.array(sgd.trace)[:,1]
+     sgd_trace_x = np.array(sgd_result[-1])[:,0]
+     sgd_trace_y = -np.array(sgd_result[-1])[:,1]
      sgd_trace_keep = np.logical_and.reduce(
        (log_mu - window < sgd_trace_x,
         sgd_trace_x < log_mu + window,
@@ -223,24 +206,24 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[79]:
+   # Out[31]:
    :END:
 
    Trace the parameter values through minibatch SGD, starting from \(\ln\mu =
    0, \ln\phi = 0\).
 
    #+BEGIN_SRC ipython :async t
-     mb_sgd = tracing_gradient_descent(x, s, batch_size=100, max_epochs=100)
+     mb_sgd_result = scmodes.sgd.ebpm_gamma(x, s, batch_size=100, max_epochs=100, trace=True)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[80]:
+   # Out[32]:
    :END:
 
    #+BEGIN_SRC ipython
-     mb_sgd_trace_x = np.array(mb_sgd.trace)[:,0]
-     mb_sgd_trace_y = -np.array(mb_sgd.trace)[:,1]
+     mb_sgd_trace_x = np.array(mb_sgd_result[-1])[:,0]
+     mb_sgd_trace_y = -np.array(mb_sgd_result[-1])[:,1]
      mb_sgd_trace_keep = np.logical_and.reduce(
        (log_mu - window < mb_sgd_trace_x,
         mb_sgd_trace_x < log_mu + window,
@@ -250,7 +233,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[81]:
+   # Out[33]:
    :END:
 
    Plot the log likelihood surface and optimization traces.
@@ -261,10 +244,10 @@
      plt.gcf().set_size_inches(6, 4)
      cf = plt.contour(log_mu_grid, log_phi_grid, z, levels=20, cmap=colorcet.cm['fire'], linewidths=1)
      plt.scatter(log_mu, log_phi, marker='x', c=cm(0), s=16, zorder=10, label='Ground truth')
-     plt.scatter(np.log(mu_hat), -np.log(inv_phi_hat), marker='x', c='k', s=16, zorder=10, label='Nelder-Mead')
-     plt.scatter(*batch_gd.opt(), marker='x', c=cm(2), s=16, zorder=10, label='Batch GD')
-     plt.scatter(*sgd.opt(), marker='x', c=cm(3), s=16, zorder=10, label='SGD')
-     plt.scatter(*mb_sgd.opt(), marker='x', c=cm(4), s=16, zorder=10, label='Minibatch SGD')
+     plt.scatter(np.log(mu_hat), -np.log(inv_phi_hat), marker='x', c=cm(1), s=16, zorder=10, label='Nelder-Mead')
+     plt.scatter(batch_gd_result[0], -batch_gd_result[1], marker='x', c=cm(2), s=16, zorder=10, label='Batch GD')
+     plt.scatter(sgd_result[0], -sgd_result[1], marker='x', c=cm(3), s=16, zorder=10, label='SGD')
+     plt.scatter(mb_sgd_result[0], -mb_sgd_result[1], marker='x', c=cm(4), s=16, zorder=10, label='Minibatch SGD')
 
      plt.plot(batch_trace_x[batch_trace_keep], batch_trace_y[batch_trace_keep], c=cm(2), marker=None, ls=':', lw=1, alpha=0.5, zorder=4, label=None)
      plt.plot(sgd_trace_x[sgd_trace_keep][::100], sgd_trace_y[sgd_trace_keep][::100], c=cm(3), marker=None, lw=1, ls=':', alpha=0.5, zorder=5, label=None)
@@ -280,6 +263,6 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[85]:
+   # Out[38]:
    [[file:figure/pois-gam-lik.org/example-llik.png]]
    :END:

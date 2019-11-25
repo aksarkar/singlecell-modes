@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-11-24 Sun 17:24 -->
+<!-- 2019-11-25 Mon 13:47 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Poisson-Gamma log likelihood surface</title>
@@ -354,10 +354,10 @@ Simulate data for a single gene, fixing \(\pi_j = 0\) for simplicity.
 <span class="org-comment-delimiter"># </span><span class="org-comment">Typical values (Sarkar et al. 2019)</span>
 <span class="org-variable-name">log_mu</span> = np.random.uniform(-12, -6)
 <span class="org-variable-name">log_phi</span> = np.random.uniform(-4, 0)
-<span class="org-variable-name">s</span> = 1e5
 
 <span class="org-variable-name">n</span> = 5000
-<span class="org-variable-name">lam</span> = np.random.gamma(shape=np.exp(-log_phi), scale=np.exp(log_mu + log_phi), size=n)
+<span class="org-variable-name">s</span> = 1e5 * np.ones((n, 1))
+<span class="org-variable-name">lam</span> = np.random.gamma(shape=np.exp(-log_phi), scale=np.exp(log_mu + log_phi), size=(n, 1))
 <span class="org-variable-name">x</span> = np.random.poisson(lam=s * lam)
 </pre>
 </div>
@@ -404,7 +404,7 @@ Compute the MLE using the Nelder-Mead algorithm.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">mu_hat</span>, <span class="org-variable-name">inv_phi_hat</span>, <span class="org-variable-name">llik</span> = scqtl.simple.fit_nb(x, s)
+<pre class="src src-ipython"><span class="org-variable-name">mu_hat</span>, <span class="org-variable-name">inv_phi_hat</span>, <span class="org-variable-name">_</span> = scqtl.simple.fit_nb(x.ravel(), s.ravel())
 </pre>
 </div>
 
@@ -414,26 +414,13 @@ Trace the parameter values through batch gradient descent, starting from
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">tracing_gradient_descent</span>(x, s, batch_size=1, max_epochs=10, **kwargs):
-  <span class="org-variable-name">D</span> = torch.utils.data
-  <span class="org-variable-name">loader</span> = D.DataLoader(
-    D.TensorDataset(torch.tensor(x.reshape(-1, 1), dtype=torch.<span class="org-builtin">float</span>),
-                    torch.tensor(s * np.ones((n, 1)), dtype=torch.<span class="org-builtin">float</span>)),
-    batch_size=batch_size, pin_memory=<span class="org-constant">True</span>)
-  <span class="org-variable-name">m</span> = scmodes.sgd.PoissonGamma(1)
-  m.fit(loader, max_epochs=max_epochs, trace=<span class="org-constant">True</span>, **kwargs)
-  <span class="org-keyword">return</span> m
+<pre class="src src-ipython"><span class="org-variable-name">batch_gd_result</span> = scmodes.sgd.ebpm_gamma(x, s, batch_size=n, max_epochs=2000, trace=<span class="org-constant">True</span>)
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">batch_gd</span> = tracing_gradient_descent(x, s, batch_size=n, max_epochs=1000)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">batch_trace_x</span> = np.array(batch_gd.trace)[:,0]
-<span class="org-variable-name">batch_trace_y</span> = -np.array(batch_gd.trace)[:,1]
+<pre class="src src-ipython"><span class="org-variable-name">batch_trace_x</span> = np.array(batch_gd_result[-1])[:,0]
+<span class="org-variable-name">batch_trace_y</span> = -np.array(batch_gd_result[-1])[:,1]
 <span class="org-variable-name">batch_trace_keep</span> = np.logical_and.<span class="org-builtin">reduce</span>(
   (log_mu - window &lt; batch_trace_x,
    batch_trace_x &lt; log_mu + window,
@@ -450,13 +437,13 @@ Trace the parameter values through SGD, starting from \(\ln\mu = 0, \ln\phi
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Important: learning rate needs to be reduced compared to batch gradient</span>
 <span class="org-comment-delimiter"># </span><span class="org-comment">descent. (The default is 1e-2.)</span>
-<span class="org-variable-name">sgd</span> = tracing_gradient_descent(x, s, batch_size=1, max_epochs=5, lr=1e-3)
+<span class="org-variable-name">sgd_result</span> = scmodes.sgd.ebpm_gamma(x, s, batch_size=1, max_epochs=5, lr=1e-3, trace=<span class="org-constant">True</span>)
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">sgd_trace_x</span> = np.array(sgd.trace)[:,0]
-<span class="org-variable-name">sgd_trace_y</span> = -np.array(sgd.trace)[:,1]
+<pre class="src src-ipython"><span class="org-variable-name">sgd_trace_x</span> = np.array(sgd_result[-1])[:,0]
+<span class="org-variable-name">sgd_trace_y</span> = -np.array(sgd_result[-1])[:,1]
 <span class="org-variable-name">sgd_trace_keep</span> = np.logical_and.<span class="org-builtin">reduce</span>(
   (log_mu - window &lt; sgd_trace_x,
    sgd_trace_x &lt; log_mu + window,
@@ -471,13 +458,13 @@ Trace the parameter values through minibatch SGD, starting from \(\ln\mu =
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">mb_sgd</span> = tracing_gradient_descent(x, s, batch_size=100, max_epochs=100)
+<pre class="src src-ipython"><span class="org-variable-name">mb_sgd_result</span> = scmodes.sgd.ebpm_gamma(x, s, batch_size=100, max_epochs=100, trace=<span class="org-constant">True</span>)
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">mb_sgd_trace_x</span> = np.array(mb_sgd.trace)[:,0]
-<span class="org-variable-name">mb_sgd_trace_y</span> = -np.array(mb_sgd.trace)[:,1]
+<pre class="src src-ipython"><span class="org-variable-name">mb_sgd_trace_x</span> = np.array(mb_sgd_result[-1])[:,0]
+<span class="org-variable-name">mb_sgd_trace_y</span> = -np.array(mb_sgd_result[-1])[:,1]
 <span class="org-variable-name">mb_sgd_trace_keep</span> = np.logical_and.<span class="org-builtin">reduce</span>(
   (log_mu - window &lt; mb_sgd_trace_x,
    mb_sgd_trace_x &lt; log_mu + window,
@@ -496,10 +483,10 @@ plt.clf()
 plt.gcf().set_size_inches(6, 4)
 <span class="org-variable-name">cf</span> = plt.contour(log_mu_grid, log_phi_grid, z, levels=20, cmap=colorcet.cm[<span class="org-string">'fire'</span>], linewidths=1)
 plt.scatter(log_mu, log_phi, marker=<span class="org-string">'x'</span>, c=cm(0), s=16, zorder=10, label=<span class="org-string">'Ground truth'</span>)
-plt.scatter(np.log(mu_hat), -np.log(inv_phi_hat), marker=<span class="org-string">'x'</span>, c=<span class="org-string">'k'</span>, s=16, zorder=10, label=<span class="org-string">'Nelder-Mead'</span>)
-plt.scatter(*batch_gd.opt(), marker=<span class="org-string">'x'</span>, c=cm(2), s=16, zorder=10, label=<span class="org-string">'Batch GD'</span>)
-plt.scatter(*sgd.opt(), marker=<span class="org-string">'x'</span>, c=cm(3), s=16, zorder=10, label=<span class="org-string">'SGD'</span>)
-plt.scatter(*mb_sgd.opt(), marker=<span class="org-string">'x'</span>, c=cm(4), s=16, zorder=10, label=<span class="org-string">'Minibatch SGD'</span>)
+plt.scatter(np.log(mu_hat), -np.log(inv_phi_hat), marker=<span class="org-string">'x'</span>, c=cm(1), s=16, zorder=10, label=<span class="org-string">'Nelder-Mead'</span>)
+plt.scatter(batch_gd_result[0], -batch_gd_result[1], marker=<span class="org-string">'x'</span>, c=cm(2), s=16, zorder=10, label=<span class="org-string">'Batch GD'</span>)
+plt.scatter(sgd_result[0], -sgd_result[1], marker=<span class="org-string">'x'</span>, c=cm(3), s=16, zorder=10, label=<span class="org-string">'SGD'</span>)
+plt.scatter(mb_sgd_result[0], -mb_sgd_result[1], marker=<span class="org-string">'x'</span>, c=cm(4), s=16, zorder=10, label=<span class="org-string">'Minibatch SGD'</span>)
 
 plt.plot(batch_trace_x[batch_trace_keep], batch_trace_y[batch_trace_keep], c=cm(2), marker=<span class="org-constant">None</span>, ls=<span class="org-string">':'</span>, lw=1, alpha=0.5, zorder=4, label=<span class="org-constant">None</span>)
 plt.plot(sgd_trace_x[sgd_trace_keep][::100], sgd_trace_y[sgd_trace_keep][::100], c=cm(3), marker=<span class="org-constant">None</span>, lw=1, ls=<span class="org-string">':'</span>, alpha=0.5, zorder=5, label=<span class="org-constant">None</span>)
@@ -525,7 +512,7 @@ plt.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-11-24 Sun 17:24</p>
+<p class="date">Created: 2019-11-25 Mon 13:47</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
