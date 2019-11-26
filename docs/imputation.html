@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2019-11-27 Wed 21:50 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Imputation of count matrices</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Imputation of count matrices</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org8c31cb5">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#org90b9783">Methods</a>
+<ul>
+<li><a href="#org13ce773">Weighted non-negative matrix factorization</a></li>
+<li><a href="#org291ea5e">Weighted GLM-PCA</a></li>
+<li><a href="#org8a16410">Incomplete data VAE</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org8c31cb5" class="outline-2">
+<h2 id="org8c31cb5">Introduction</h2>
+<div class="outline-text-2" id="text-org8c31cb5">
+<p>
+The key idea of our approach to modeling scRNA-seq is to separate sampling
+variation and expression variation. This approach leads to the following
+multi-gene model for scRNA-seq data: \(
+  \newcommand\const{\mathrm{const}}
+  \newcommand\E[1]{\left\langle #1 \right\rangle}
+  \newcommand\vx{\mathbf{x}}
+  \newcommand\vw{\mathbf{w}}
+  \newcommand\vz{\mathbf{z}}
+  \newcommand\mx{\mathbf{X}}
+  \newcommand\mw{\mathbf{W}}
+  \newcommand\mz{\mathbf{Z}}
+  \newcommand\ml{\mathbf{L}}
+  \newcommand\mf{\mathbf{F}}
+  \)
+</p>
+
+\begin{align*}
+  x_{ij} &\sim \operatorname{Poisson}(x_i^+ \lambda_{ij})\\
+  \lambda_{ij} &= h^{-1}((\ml\mf')_{ij})
+\end{align*}
+
+<p>
+where \(i = 1, \ldots, n\), \(j = 1, \ldots, p\), \(\ml\) is an \(n \times
+  K\) matrix, and \(\mf\) is a \(p \times K\) matrix. We
+<a href="lra.html">previously used Poisson thinning of real data sets to
+benchmark methods</a> which fit this model. The key idea of this approach is
+that binomial sampling results in two data matrices which have the same
+\(\lambda_{ij}\), and this works even without knowing the ground truth
+\(\lambda_{ij}\). However, it is natural to further assume that expression
+variation itself can be partitioned into <i>structured</i> and <i>unstructured</i>
+variation, e.g.
+</p>
+
+\begin{align*}
+  x_{ij} &\sim \operatorname{Poisson}(x_i^+ \lambda_{ij})\\
+  \lambda_{ij} &= \mu_{ij} u_{ij}\\
+  \mu_{ij} &= h^{-1}((\ml\mf')_{ij})\\
+  u_{ij} &\sim \operatorname{Gamma}(1/\phi, 1/\phi)
+\end{align*}
+
+<p>
+We cannot use Poisson thinning to evaluate methods on fitting this model,
+because the evaluation requires the ground truth \(\mu_{ij}\). Here, we study
+the problem of masking data entries in an scRNA-seq count matrix and imputing
+them by estimating \(\mu_{ij}\). Critically, this masking <i>cannot</i> be
+achieved simply by setting some entries to zero, because zero is a valid
+non-missing observation in scRNA-seq data. Instead, we require methods which
+can handle missing data, e.g., having associated weights. The key idea which
+enables fast methods for our Poisson model of interest is that the likelihood
+factorizes, so we can maximize the incomplete data log likelihood (or a lower
+bound) <i>without</i> marginalizing over unobserved data.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org7fa2da2" class="outline-2">
+<h2 id="setup"><a id="org7fa2da2"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org90b9783" class="outline-2">
+<h2 id="org90b9783">Methods</h2>
+<div class="outline-text-2" id="text-org90b9783">
+</div>
+<div id="outline-container-org13ce773" class="outline-3">
+<h3 id="org13ce773">Weighted non-negative matrix factorization</h3>
+<div class="outline-text-3" id="text-org13ce773">
+<p>
+Weighted non-negative matrix factorization (WNMF;
+<a href="https://epubs.siam.org/doi/abs/10.1137/1.9781611972764.58">Zhang et
+al. 2006</a>, <a href="https://www.cs.umd.edu/~bhargav/nips2010.pdf">Khanagal et
+al. 2010</a>) is an extension of NMF (Lee &amp; Seung 2001) to handle incomplete
+data associated with weights \(w_{ij} \in \{0, 1\}\). In our model of
+interest, the classical multiplicative updates are in fact EM updates of an
+augmented model (Cemgil 2009)
+</p>
+
+\begin{align*}
+  x_{ij} &= \sum_k z_{ijk}\\
+  z_{ijk} &\sim \operatorname{Poisson}(l_{ik} f_{jk})
+\end{align*}
+
+<p>
+and we can derive how the updates should change for incomplete data. The log
+posterior
+</p>
+
+\begin{align*}
+  \ln p(\mz \mid \mx, \mw, \ml, \mf) &= \ln p(\mx, \mz \mid \ml, \mf, \mw) - \ln p(\mx \mid \ml, \mf, \mw)\\
+  &= \sum_{i,j,k} w_{ij} \left[z_{ijk} \ln (l_{ik}f_{jk}) - l_{ik} f_{jk} + \ln\Gamma(z_{ijk} + 1)\right] - \sum_{i,j,k} w_{ij} \left[x_{ij} \ln\left(\sum_k l_{ik}f_{jk}\right) - \sum_k l_{ik} f_{jk} + \ln\Gamma(x_{ij} + 1)\right]\\
+  &= \sum_{i, j, k} \left[w_{ij} z_{ijk} \ln\left(\frac{l_{ik}{f_{jk}}}{\sum_t l_{it} f_{jt}}\right)\right] + \const\\
+  &= \sum_{i, j} w_{ij} \operatorname{Multinomial}(\cdot; x_{ij}, \frac{l_{i1} f_{j1}}{\sum_t l_{it} f_{jt}}, \ldots, \frac{l_{iK} f_{jK}}{\sum_t l_{it} f_{jt}})
+\end{align*}
+
+<p>
+Therefore
+</p>
+
+<p>
+\[ \E{z_{ijk}} = x_{ij} \frac{l_{ik} f_{jk}}{\sum_t l_{it} f_{jt}} \]
+</p>
+
+<p>
+when \(w_{ij} = 1\), and is missing otherwise. The expected log joint
+</p>
+
+<p>
+\[ \E{\ln p(\mx, \mz \mid \ml, \mf, \mw)} = \sum_{i, j, k} w_{ij} [\E{z_{ijk}} \ln(l_{ij} f_{jk}) - l_{ik} f_{jk}] + \const \]
+</p>
+
+<p>
+yielding M step updates
+</p>
+
+\begin{align*}
+  l_{ik} &:= \frac{\sum_j w_{ij} \E{z_{ijk}}}{\sum_j w_{ij} f_{jk}}\\
+  f_{jk} &:= \frac{\sum_i w_{ij} \E{z_{ijk}}}{\sum_i w_{ij} l_{ik}}
+\end{align*}
+
+<p>
+Plugging in \(\E{z_{ijk}}\) yields the classical multiplicative updates,
+modified by introducing the weights in the numerator and denominator.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org291ea5e" class="outline-3">
+<h3 id="org291ea5e">Weighted GLM-PCA</h3>
+<div class="outline-text-3" id="text-org291ea5e">
+<p>
+GLM-PCA (<a href="https://arxiv.org/abs/1907.02647">Townes 2019</a>) uses Fisher
+scoring to fit the model assuming \(h = \log\). The weighted version of the
+problem is
+</p>
+
+\begin{align*}
+  \ell \triangleq \ln p(\mx \mid \ml, \mf, \mw) &= \sum_{i, j} w_{ij} \left[x_{ij} \sum_k l_{ik} f_{jk} - \exp\left(\sum_k l_{ik} f_{jk}\right) \right] + \const\\
+  \frac{\partial \ell}{\partial l_{ik}} &= \sum_j w_{ij} \left[x_{ij} f_{jk} - \exp\left(\sum_k l_{ik} f_{jk}\right) f_{jk}\right]\\
+  \frac{\partial \ell}{\partial f_{jk}} &= \sum_j w_{ij} \left[x_{ij} l_{ik} - \exp\left(\sum_k l_{ik} f_{jk}\right) l_{ik}\right]\\
+  \mathcal{I}(l_{ik}) &= \sum_j w_{ij} \exp\left(\sum_k l_{ik} f_{jk}\right) f_{jk}^2\\
+  \mathcal{I}(f_{jk}) &= \sum_i w_{ij} \exp\left(\sum_k l_{ik} f_{jk}\right) l_{ik}^2
+\end{align*}
+</div>
+</div>
+
+<div id="outline-container-org8a16410" class="outline-3">
+<h3 id="org8a16410">Incomplete data VAE</h3>
+<div class="outline-text-3" id="text-org8a16410">
+<p>
+Variational autoencoders fit a generative model parameterized by a neural
+network (Kingma and Welling 2014, Rezende and Mohammed 2014). Our model of
+interest is
+</p>
+
+\begin{align*}
+  x_{ij} \mid x_i^+, \lambda_{ij} &\sim \operatorname{Poisson}(x_i^+ \lambda_{ij})\\
+  \lambda_{ij} \mid \vz_i, u_{ij} &= \mu(\vz_i)_j\, u_{ij}\\
+  u_{ij} &\sim \operatorname{Gamma}(\cdot)\\
+  \vz_i &\sim \mathcal{N}(\boldsymbol{0}, \mathbf{I}_K)
+\end{align*}
+
+<p>
+where \(\mu(\cdot)\) is a \(p\)-dimensional output of a fully connected
+feed-forward neural network. To approximate the intractable posterior
+\(p(\vz_i \mid \vx_i)\), we use a variational approximation
+</p>
+
+<p>
+\[ q(\vz_i \mid \vx_i) = \mathcal{N}(m(\vz_i), \operatorname{diag}(S(\vz_i))) \]
+</p>
+
+<p>
+where \(m(\cdot), S(\cdot)\) are \(K\)-dimensional outputs of a FF
+network. Fitting VAEs with incomplete data has only recently been studied
+(<a href="https://arxiv.org/abs/1807.03653">Nazabal et al. 2018</a>,
+<a href="https://arxiv.org/abs/1812.02633">Mattei and Frellsen 2018</a>). The key
+idea is that if the coordinates of \(\vx_i\) are separable (meaning the
+likelihood factorizes) and coordinates are missing at random, then
+maximizing the log likelihood (or a lower bound to the log likelihood) of
+only the observed coordinates is a statistically sound procedure. In this
+case, the lower bound is
+</p>
+
+<p>
+\[ \ell \triangleq \E{\sum_{i, j} w_{ij} \ln\left(\int_0^\infty \operatorname{Poisson}(x_{ij}; x_i^+ \mu(\vz_i)_j\, u_{ij})\: dp(u_{ij})\right)} - \E{\sum_{i, j, k} w_{ij} \ln q(z_{ik} \mid x_{ij})}\]
+</p>
+
+<p>
+where expectations are taken with respect to \(q\). For easy choices of
+\(p(u_{ij})\), the integrals inside the expectation are analytic. This
+formulation also suggests against making a point-Gamma assumption on
+\(\lambda_{ij}\), because the implicit assumption on multiplicative random
+effect \(u_{ij}\) is that it does not have mean 1.
+</p>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2019-11-27 Wed 21:50</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

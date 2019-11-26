@@ -1,0 +1,173 @@
+#+TITLE: Imputation of count matrices
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  The key idea of our approach to modeling scRNA-seq is to separate sampling
+  variation and expression variation. This approach leads to the following
+  multi-gene model for scRNA-seq data: \(
+  \newcommand\const{\mathrm{const}}
+  \newcommand\E[1]{\left\langle #1 \right\rangle}
+  \newcommand\vx{\mathbf{x}}
+  \newcommand\vw{\mathbf{w}}
+  \newcommand\vz{\mathbf{z}}
+  \newcommand\mx{\mathbf{X}}
+  \newcommand\mw{\mathbf{W}}
+  \newcommand\mz{\mathbf{Z}}
+  \newcommand\ml{\mathbf{L}}
+  \newcommand\mf{\mathbf{F}}
+  \)
+
+  \begin{align*}
+    x_{ij} &\sim \operatorname{Poisson}(x_i^+ \lambda_{ij})\\
+    \lambda_{ij} &= h^{-1}((\ml\mf')_{ij})
+  \end{align*}
+
+  where \(i = 1, \ldots, n\), \(j = 1, \ldots, p\), \(\ml\) is an \(n \times
+  K\) matrix, and \(\mf\) is a \(p \times K\) matrix. We
+  [[file:lra.org][previously used Poisson thinning of real data sets to
+  benchmark methods]] which fit this model. The key idea of this approach is
+  that binomial sampling results in two data matrices which have the same
+  \(\lambda_{ij}\), and this works even without knowing the ground truth
+  \(\lambda_{ij}\). However, it is natural to further assume that expression
+  variation itself can be partitioned into /structured/ and /unstructured/
+  variation, e.g.
+
+  \begin{align*}
+    x_{ij} &\sim \operatorname{Poisson}(x_i^+ \lambda_{ij})\\
+    \lambda_{ij} &= \mu_{ij} u_{ij}\\
+    \mu_{ij} &= h^{-1}((\ml\mf')_{ij})\\
+    u_{ij} &\sim \operatorname{Gamma}(1/\phi, 1/\phi)
+  \end{align*}
+
+  We cannot use Poisson thinning to evaluate methods on fitting this model,
+  because the evaluation requires the ground truth \(\mu_{ij}\). Here, we study
+  the problem of masking data entries in an scRNA-seq count matrix and imputing
+  them by estimating \(\mu_{ij}\). Critically, this masking /cannot/ be
+  achieved simply by setting some entries to zero, because zero is a valid
+  non-missing observation in scRNA-seq data. Instead, we require methods which
+  can handle missing data, e.g., having associated weights. The key idea which
+  enables fast methods for our Poisson model of interest is that the likelihood
+  factorizes, so we can maximize the incomplete data log likelihood (or a lower
+  bound) /without/ marginalizing over unobserved data.
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+* Methods
+** Weighted non-negative matrix factorization
+
+   Weighted non-negative matrix factorization (WNMF;
+   [[https://epubs.siam.org/doi/abs/10.1137/1.9781611972764.58][Zhang et
+   al. 2006]], [[https://www.cs.umd.edu/~bhargav/nips2010.pdf][Khanagal et
+   al. 2010]]) is an extension of NMF (Lee & Seung 2001) to handle incomplete
+   data associated with weights \(w_{ij} \in \{0, 1\}\). In our model of
+   interest, the classical multiplicative updates are in fact EM updates of an
+   augmented model (Cemgil 2009)
+
+   \begin{align*}
+     x_{ij} &= \sum_k z_{ijk}\\
+     z_{ijk} &\sim \operatorname{Poisson}(l_{ik} f_{jk})
+   \end{align*}
+
+   and we can derive how the updates should change for incomplete data. The log
+   posterior
+
+   \begin{align*}
+     \ln p(\mz \mid \mx, \mw, \ml, \mf) &= \ln p(\mx, \mz \mid \ml, \mf, \mw) - \ln p(\mx \mid \ml, \mf, \mw)\\
+     &= \sum_{i,j,k} w_{ij} \left[z_{ijk} \ln (l_{ik}f_{jk}) - l_{ik} f_{jk} + \ln\Gamma(z_{ijk} + 1)\right] - \sum_{i,j,k} w_{ij} \left[x_{ij} \ln\left(\sum_k l_{ik}f_{jk}\right) - \sum_k l_{ik} f_{jk} + \ln\Gamma(x_{ij} + 1)\right]\\
+     &= \sum_{i, j, k} \left[w_{ij} z_{ijk} \ln\left(\frac{l_{ik}{f_{jk}}}{\sum_t l_{it} f_{jt}}\right)\right] + \const\\
+     &= \sum_{i, j} w_{ij} \operatorname{Multinomial}(\cdot; x_{ij}, \frac{l_{i1} f_{j1}}{\sum_t l_{it} f_{jt}}, \ldots, \frac{l_{iK} f_{jK}}{\sum_t l_{it} f_{jt}})
+   \end{align*}
+
+   Therefore
+
+   \[ \E{z_{ijk}} = x_{ij} \frac{l_{ik} f_{jk}}{\sum_t l_{it} f_{jt}} \]
+
+   when \(w_{ij} = 1\), and is missing otherwise. The expected log joint
+
+   \[ \E{\ln p(\mx, \mz \mid \ml, \mf, \mw)} = \sum_{i, j, k} w_{ij} [\E{z_{ijk}} \ln(l_{ij} f_{jk}) - l_{ik} f_{jk}] + \const \]
+
+   yielding M step updates
+
+   \begin{align*}
+     l_{ik} &:= \frac{\sum_j w_{ij} \E{z_{ijk}}}{\sum_j w_{ij} f_{jk}}\\
+     f_{jk} &:= \frac{\sum_i w_{ij} \E{z_{ijk}}}{\sum_i w_{ij} l_{ik}}
+   \end{align*}
+
+   Plugging in \(\E{z_{ijk}}\) yields the classical multiplicative updates,
+   modified by introducing the weights in the numerator and denominator.
+
+** Weighted GLM-PCA
+
+   GLM-PCA ([[https://arxiv.org/abs/1907.02647][Townes 2019]]) uses Fisher
+   scoring to fit the model assuming \(h = \log\). The weighted version of the
+   problem is
+
+   \begin{align*}
+     \ell \triangleq \ln p(\mx \mid \ml, \mf, \mw) &= \sum_{i, j} w_{ij} \left[x_{ij} \sum_k l_{ik} f_{jk} - \exp\left(\sum_k l_{ik} f_{jk}\right) \right] + \const\\
+     \frac{\partial \ell}{\partial l_{ik}} &= \sum_j w_{ij} \left[x_{ij} f_{jk} - \exp\left(\sum_k l_{ik} f_{jk}\right) f_{jk}\right]\\
+     \frac{\partial \ell}{\partial f_{jk}} &= \sum_j w_{ij} \left[x_{ij} l_{ik} - \exp\left(\sum_k l_{ik} f_{jk}\right) l_{ik}\right]\\
+     \mathcal{I}(l_{ik}) &= \sum_j w_{ij} \exp\left(\sum_k l_{ik} f_{jk}\right) f_{jk}^2\\
+     \mathcal{I}(f_{jk}) &= \sum_i w_{ij} \exp\left(\sum_k l_{ik} f_{jk}\right) l_{ik}^2
+   \end{align*}
+
+** Incomplete data VAE
+
+   Variational autoencoders fit a generative model parameterized by a neural
+   network (Kingma and Welling 2014, Rezende and Mohammed 2014). Our model of
+   interest is
+
+   \begin{align*}
+     x_{ij} \mid x_i^+, \lambda_{ij} &\sim \operatorname{Poisson}(x_i^+ \lambda_{ij})\\
+     \lambda_{ij} \mid \vz_i, u_{ij} &= \mu(\vz_i)_j\, u_{ij}\\
+     u_{ij} &\sim \operatorname{Gamma}(\cdot)\\
+     \vz_i &\sim \mathcal{N}(\boldsymbol{0}, \mathbf{I}_K)
+   \end{align*}
+
+   where \(\mu(\cdot)\) is a \(p\)-dimensional output of a fully connected
+   feed-forward neural network. To approximate the intractable posterior
+   \(p(\vz_i \mid \vx_i)\), we use a variational approximation
+
+   \[ q(\vz_i \mid \vx_i) = \mathcal{N}(m(\vz_i), \operatorname{diag}(S(\vz_i))) \]
+
+   where \(m(\cdot), S(\cdot)\) are \(K\)-dimensional outputs of a FF
+   network. Fitting VAEs with incomplete data has only recently been studied
+   ([[https://arxiv.org/abs/1807.03653][Nazabal et al. 2018]],
+   [[https://arxiv.org/abs/1812.02633][Mattei and Frellsen 2018]]). The key
+   idea is that if the coordinates of \(\vx_i\) are separable (meaning the
+   likelihood factorizes) and coordinates are missing at random, then
+   maximizing the log likelihood (or a lower bound to the log likelihood) of
+   only the observed coordinates is a statistically sound procedure. In this
+   case, the lower bound is
+
+   \[ \ell \triangleq \E{\sum_{i, j} w_{ij} \ln\left(\int_0^\infty \operatorname{Poisson}(x_{ij}; x_i^+ \mu(\vz_i)_j\, u_{ij})\: dp(u_{ij})\right)} - \E{\sum_{i, j, k} w_{ij} \ln q(z_{ik} \mid x_{ij})}\]
+
+   where expectations are taken with respect to \(q\). For easy choices of
+   \(p(u_{ij})\), the integrals inside the expectation are analytic. This
+   formulation also suggests against making a point-Gamma assumption on
+   \(\lambda_{ij}\), because the implicit assumption on multiplicative random
+   effect \(u_{ij}\) is that it does not have mean 1.
