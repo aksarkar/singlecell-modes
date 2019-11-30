@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-11-27 Wed 21:50 -->
+<!-- 2019-11-29 Fri 18:52 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Imputation of count matrices</title>
@@ -265,6 +265,12 @@ for the JavaScript code in this tag.
 <li><a href="#org13ce773">Weighted non-negative matrix factorization</a></li>
 <li><a href="#org291ea5e">Weighted GLM-PCA</a></li>
 <li><a href="#org8a16410">Incomplete data VAE</a></li>
+<li><a href="#orgfc33539">Data</a></li>
+</ul>
+</li>
+<li><a href="#org3d287ca">Results</a>
+<ul>
+<li><a href="#org770d868">Run the benchmark</a></li>
 </ul>
 </li>
 </ul>
@@ -314,6 +320,12 @@ variation, e.g.
   \mu_{ij} &= h^{-1}((\ml\mf')_{ij})\\
   u_{ij} &\sim \operatorname{Gamma}(1/\phi, 1/\phi)
 \end{align*}
+
+<p>
+<b>Remark</b> This formulation suggests against making a point-Gamma assumption on
+\(\lambda_{ij}\), because the implicit assumption on multiplicative random
+effect \(u_{ij}\) is that it does not have mean 1.
+</p>
 
 <p>
 We cannot use Poisson thinning to evaluate methods on fitting this model,
@@ -418,9 +430,9 @@ modified by introducing the weights in the numerator and denominator.
 <h3 id="org291ea5e">Weighted GLM-PCA</h3>
 <div class="outline-text-3" id="text-org291ea5e">
 <p>
-GLM-PCA (<a href="https://arxiv.org/abs/1907.02647">Townes 2019</a>) uses Fisher
-scoring to fit the model assuming \(h = \log\). The weighted version of the
-problem is
+GLM-PCA (<a href="https://arxiv.org/abs/1907.02647">Townes 2019</a>) uses
+<a href="https://en.wikipedia.org/wiki/Scoring_algorithm">Fisher scoring</a> to fit
+the model assuming \(h = \log\). The weighted version of the problem is
 </p>
 
 \begin{align*}
@@ -472,23 +484,43 @@ case, the lower bound is
 </p>
 
 <p>
-\[ \ell \triangleq \E{\sum_{i, j} w_{ij} \ln\left(\int_0^\infty \operatorname{Poisson}(x_{ij}; x_i^+ \mu(\vz_i)_j\, u_{ij})\: dp(u_{ij})\right)} - \E{\sum_{i, j, k} w_{ij} \ln q(z_{ik} \mid x_{ij})}\]
+\[ \ell \triangleq \E{\sum_{i, j} w_{ij} \ln\left(\int_0^\infty \operatorname{Poisson}(x_{ij}; x_i^+ \mu(\vz_i)_j\, u_{ij})\: dp(u_{ij})\right)} - \E{\sum_{i} \ln q(\vz_i \mid h(\vx_i))}\]
 </p>
 
 <p>
-where expectations are taken with respect to \(q\). For easy choices of
-\(p(u_{ij})\), the integrals inside the expectation are analytic. This
-formulation also suggests against making a point-Gamma assumption on
-\(\lambda_{ij}\), because the implicit assumption on multiplicative random
-effect \(u_{ij}\) is that it does not have mean 1.
+where \(h\) is some imputation function (e.g., fill in missing values with
+zero) and expectations are taken with respect to \(q\). For easy choices of
+\(p(u_{ij})\), the integrals inside the expectation are analytic. Mattei and
+Frellsen 2018 suggest filling missing data with 0 in the encoder network
+works, and that a tighter bound can be achieved using importance sampling
+(<a href="https://arxiv.org/abs/1509.00519">Burda et al. 2016</a>)
+</p>
+
+<p>
+\[ \ell_{\text{IWAE}} \triangleq \sum_i \E{\ln \frac{1}{s} \sum_{s=1}^S \frac{p(\vx_i, \vz_i^{(s)})}{q(\vz_i^{(s)} \mid \vx_i)}} \]
 </p>
 </div>
+</div>
+
+<div id="outline-container-orgfc33539" class="outline-3">
+<h3 id="orgfc33539">Data</h3>
+</div>
+</div>
+
+
+
+<div id="outline-container-org3d287ca" class="outline-2">
+<h2 id="org3d287ca">Results</h2>
+<div class="outline-text-2" id="text-org3d287ca">
+</div>
+<div id="outline-container-org770d868" class="outline-3">
+<h3 id="org770d868">Run the benchmark</h3>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-11-27 Wed 21:50</p>
+<p class="date">Created: 2019-11-29 Fri 18:52</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

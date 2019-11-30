@@ -40,6 +40,10 @@
     u_{ij} &\sim \operatorname{Gamma}(1/\phi, 1/\phi)
   \end{align*}
 
+  *Remark* This formulation suggests against making a point-Gamma assumption on
+  \(\lambda_{ij}\), because the implicit assumption on multiplicative random
+  effect \(u_{ij}\) is that it does not have mean 1.
+
   We cannot use Poisson thinning to evaluate methods on fitting this model,
   because the evaluation requires the ground truth \(\mu_{ij}\). Here, we study
   the problem of masking data entries in an scRNA-seq count matrix and imputing
@@ -123,9 +127,9 @@
 
 ** Weighted GLM-PCA
 
-   GLM-PCA ([[https://arxiv.org/abs/1907.02647][Townes 2019]]) uses Fisher
-   scoring to fit the model assuming \(h = \log\). The weighted version of the
-   problem is
+   GLM-PCA ([[https://arxiv.org/abs/1907.02647][Townes 2019]]) uses
+   [[https://en.wikipedia.org/wiki/Scoring_algorithm][Fisher scoring]] to fit
+   the model assuming \(h = \log\). The weighted version of the problem is
 
    \begin{align*}
      \ell \triangleq \ln p(\mx \mid \ml, \mf, \mw) &= \sum_{i, j} w_{ij} \left[x_{ij} \sum_k l_{ik} f_{jk} - \exp\left(\sum_k l_{ik} f_{jk}\right) \right] + \const\\
@@ -164,10 +168,20 @@
    only the observed coordinates is a statistically sound procedure. In this
    case, the lower bound is
 
-   \[ \ell \triangleq \E{\sum_{i, j} w_{ij} \ln\left(\int_0^\infty \operatorname{Poisson}(x_{ij}; x_i^+ \mu(\vz_i)_j\, u_{ij})\: dp(u_{ij})\right)} - \E{\sum_{i, j, k} w_{ij} \ln q(z_{ik} \mid x_{ij})}\]
+   \[ \ell \triangleq \E{\sum_{i, j} w_{ij} \ln\left(\int_0^\infty \operatorname{Poisson}(x_{ij}; x_i^+ \mu(\vz_i)_j\, u_{ij})\: dp(u_{ij})\right)} - \E{\sum_{i} \ln q(\vz_i \mid h(\vx_i))}\]
 
-   where expectations are taken with respect to \(q\). For easy choices of
-   \(p(u_{ij})\), the integrals inside the expectation are analytic. This
-   formulation also suggests against making a point-Gamma assumption on
-   \(\lambda_{ij}\), because the implicit assumption on multiplicative random
-   effect \(u_{ij}\) is that it does not have mean 1.
+   where \(h\) is some imputation function (e.g., fill in missing values with
+   zero) and expectations are taken with respect to \(q\). For easy choices of
+   \(p(u_{ij})\), the integrals inside the expectation are analytic. Mattei and
+   Frellsen 2018 suggest filling missing data with 0 in the encoder network
+   works, and that a tighter bound can be achieved using importance sampling
+   ([[https://arxiv.org/abs/1509.00519][Burda et al. 2016]])
+
+   \[ \ell_{\text{IWAE}} \triangleq \sum_i \E{\ln \frac{1}{s} \sum_{s=1}^S \frac{p(\vx_i, \vz_i^{(s)})}{q(\vz_i^{(s)} \mid \vx_i)}} \]
+
+** Data
+
+
+
+* Results
+** Run the benchmark

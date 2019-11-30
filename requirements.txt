@@ -80,7 +80,7 @@ scanpy==1.4.1
 scHPF==0.2.4
 scikit-learn==0.20.3
 scipy==1.2.1
--e git+git@github.com:aksarkar/scmodes.git@110ccbd3c14e13a2393f4f10cd858cf56988109d#egg=scmodes
+-e git+git@github.com:aksarkar/scmodes.git@3c185059aad71b2187dc1d345b9bc382aed1c1eb#egg=scmodes
 -e git+git@github.com:aksarkar/scqtl.git@51ff4a4c747be236a82d70d9934919a85cef1699#egg=scqtl
 scvi==0.2.2
 seaborn==0.9.0
