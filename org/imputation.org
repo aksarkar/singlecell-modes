@@ -2,6 +2,9 @@
 #+SETUPFILE: setup.org
 
 * Introduction
+  :PROPERTIES:
+  :CUSTOM_ID: introduction
+  :END:
 
   The key idea of our approach to modeling scRNA-seq is to separate sampling
   variation and expression variation. This approach leads to the following
@@ -19,22 +22,22 @@
   \)
 
   \begin{align*}
-    x_{ij} &\sim \operatorname{Poisson}(x_i^+ \lambda_{ij})\\
+    x_{ij} &\sim \operatorname{Poisson}(\lambda_{ij})\\
     \lambda_{ij} &= h^{-1}((\ml\mf')_{ij})
   \end{align*}
 
   where \(i = 1, \ldots, n\), \(j = 1, \ldots, p\), \(\ml\) is an \(n \times
-  K\) matrix, and \(\mf\) is a \(p \times K\) matrix. We
-  [[file:lra.org][previously used Poisson thinning of real data sets to
-  benchmark methods]] which fit this model. The key idea of this approach is
-  that binomial sampling results in two data matrices which have the same
-  \(\lambda_{ij}\), and this works even without knowing the ground truth
-  \(\lambda_{ij}\). However, it is natural to further assume that expression
-  variation itself can be partitioned into /structured/ and /unstructured/
-  variation, e.g.
+  K\) matrix, and \(\mf\) is a \(p \times K\) matrix. (Here, we absorb the size
+  factor into \(\ml\).) We [[file:lra.org][previously used Poisson thinning of
+  real data sets to benchmark methods]] which fit this model. The key idea of
+  this approach is that binomial sampling results in two data matrices which
+  have the same \(\lambda_{ij}\), and this works even without knowing the
+  ground truth \(\lambda_{ij}\). However, it is natural to further assume that
+  expression variation itself can be partitioned into /structured/ and
+  /unstructured/ variation, e.g.
 
   \begin{align*}
-    x_{ij} &\sim \operatorname{Poisson}(x_i^+ \lambda_{ij})\\
+    x_{ij} &\sim \operatorname{Poisson}(\lambda_{ij})\\
     \lambda_{ij} &= \mu_{ij} u_{ij}\\
     \mu_{ij} &= h^{-1}((\ml\mf')_{ij})\\
     u_{ij} &\sim \operatorname{Gamma}(1/\phi, 1/\phi)
@@ -68,12 +71,32 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar
+
+  #+RESULTS:
+  : Submitted batch job 64102108
+
+  #+NAME: imports
+  #+BEGIN_SRC ipython
+    import numpy as np
+    import pandas as pd
+    import scmodes
+  #+END_SRC
+
+  #+RESULTS: imports
+  :RESULTS:
+  # Out[1]:
+  :END:
 
   #+BEGIN_SRC ipython
     %matplotlib inline
     %config InlineBackend.figure_formats = set(['retina'])
   #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
 
   #+BEGIN_SRC ipython
     import matplotlib.pyplot as plt
@@ -81,8 +104,19 @@
     plt.rcParams['font.family'] = 'Nimbus Sans'
   #+END_SRC
 
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
 * Methods
+  :PROPERTIES:
+  :CUSTOM_ID: methods
+  :END:
 ** Weighted non-negative matrix factorization
+   :PROPERTIES:
+   :CUSTOM_ID: wnmf
+   :END:
 
    Weighted non-negative matrix factorization (WNMF;
    [[https://epubs.siam.org/doi/abs/10.1137/1.9781611972764.58][Zhang et
@@ -126,6 +160,9 @@
    modified by introducing the weights in the numerator and denominator.
 
 ** Weighted GLM-PCA
+   :PROPERTIES:
+   :CUSTOM_ID: wglmpca
+   :END:
 
    GLM-PCA ([[https://arxiv.org/abs/1907.02647][Townes 2019]]) uses
    [[https://en.wikipedia.org/wiki/Scoring_algorithm][Fisher scoring]] to fit
@@ -140,15 +177,18 @@
    \end{align*}
 
 ** Incomplete data VAE
+   :PROPERTIES:
+   :CUSTOM_ID: vae
+   :END:
 
    Variational autoencoders fit a generative model parameterized by a neural
    network (Kingma and Welling 2014, Rezende and Mohammed 2014). Our model of
    interest is
 
    \begin{align*}
-     x_{ij} \mid x_i^+, \lambda_{ij} &\sim \operatorname{Poisson}(x_i^+ \lambda_{ij})\\
+     x_{ij} \mid \lambda_{ij} &\sim \operatorname{Poisson}(\lambda_{ij})\\
      \lambda_{ij} \mid \vz_i, u_{ij} &= \mu(\vz_i)_j\, u_{ij}\\
-     u_{ij} &\sim \operatorname{Gamma}(\cdot)\\
+     u_{ij} &\sim p(u_{ij})\\
      \vz_i &\sim \mathcal{N}(\boldsymbol{0}, \mathbf{I}_K)
    \end{align*}
 
@@ -168,20 +208,147 @@
    only the observed coordinates is a statistically sound procedure. In this
    case, the lower bound is
 
-   \[ \ell \triangleq \E{\sum_{i, j} w_{ij} \ln\left(\int_0^\infty \operatorname{Poisson}(x_{ij}; x_i^+ \mu(\vz_i)_j\, u_{ij})\: dp(u_{ij})\right)} - \E{\sum_{i} \ln q(\vz_i \mid h(\vx_i))}\]
+   \[ \ell \triangleq \sum_{i, j} \E{w_{ij} \ln\left(\int_0^\infty \operatorname{Poisson}(x_{ij}; \mu(\vz_i)_j\, u_{ij})\; dp(u_{ij})\right)} - \sum_{i} \E{\ln\left(\frac{q(\vz_i \mid f(\vx_i))}{p(\vz_i)}\right)}\]
 
-   where \(h\) is some imputation function (e.g., fill in missing values with
+   where \(f\) is some imputation function (e.g., fill in missing values with
    zero) and expectations are taken with respect to \(q\). For easy choices of
    \(p(u_{ij})\), the integrals inside the expectation are analytic. Mattei and
    Frellsen 2018 suggest filling missing data with 0 in the encoder network
    works, and that a tighter bound can be achieved using importance sampling
    ([[https://arxiv.org/abs/1509.00519][Burda et al. 2016]])
 
-   \[ \ell_{\text{IWAE}} \triangleq \sum_i \E{\ln \frac{1}{s} \sum_{s=1}^S \frac{p(\vx_i, \vz_i^{(s)})}{q(\vz_i^{(s)} \mid \vx_i)}} \]
+   \[ \ell_{\text{IWAE}} \triangleq \sum_i \E{\ln\left(\frac{1}{S} \sum_{s=1}^S \frac{p(\vx_i, \vz_i^{(s)})}{q(\vz_i^{(s)} \mid \vx_i)}\right)} \]
 
-** Data
+** Datasets
+   :PROPERTIES:
+   :CUSTOM_ID: datasets
+   :END:
 
+   #+NAME: data
+   #+BEGIN_SRC ipython
+     def _read_10x(k, min_detect=0.01, n_cells=1000, seed=1):
+       return scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/', min_detect=0.01, return_df=True).sample(n=n_cells, axis=0, random_state=seed)
 
+     def _mix_10x(k1, k2, min_detect=0.01, n_cells=1000, seed=1):
+       x1 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
+       x2 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
+       return scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)[0].sample(n=n_cells, axis=0, random_state=seed)
+
+     def _cd8_cd19_mix(**kwargs):
+       return _mix_10x('cytotoxic_t', 'b_cells', **kwargs)
+
+     def _cyto_naive_mix(**kwargs):
+       return _mix_10x('cytotoxic_t', 'naive_t', **kwargs)
+
+     data = {
+       'cytotoxic_t': lambda: _read_10x('cytotoxic_t'),
+       'b_cells': lambda: _read_10x('b_cells'),
+       'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', return_df=True).sample(n=1000, axis=0, random_state=1),
+       'cytotoxic_t-b_cells': _cd8_cd19_mix,
+       'cytotoxic_t-naive_t': _cyto_naive_mix,
+       'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a'),
+     }
+   #+END_SRC
+
+   #+RESULTS: data
+   :RESULTS:
+   # Out[5]:
+   :END:
+
+   Report the data dimensions.
+
+   #+BEGIN_SRC ipython :async t
+     pd.DataFrame([data[k]().shape for k in data],
+                  columns=['num_cells', 'num_genes'],
+                  index=data.keys())
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[11]:
+   #+BEGIN_EXAMPLE
+     num_cells  num_genes
+     cytotoxic_t               1000       6530
+     b_cells                   1000       6417
+     ipsc                      1000       9957
+     cytotoxic_t-b_cells       1000       6647
+     cytotoxic_t-naive_t       1000       6246
+     pbmcs_68k                 1000       6502
+   #+END_EXAMPLE
+   :END:
 
 * Results
-** Run the benchmark
+  :PROPERTIES:
+  :CUSTOM_ID: results
+  :END:
+** Imputation benchmark
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 --job-name=imputation-benchmark -a 10
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     import os
+     import sys
+     <<data>>
+     tasks = [(k, m) for k in data for m in ('oracle', 'wnmf', 'wglmpca')]
+     d, m = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     x = data[d]()
+     res = scmodes.benchmark.evaluate_imputation(x.values, methods=[m], n_trials=10, max_retries=3)
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/imputation/{d}-{m}.txt.gz', compression='gzip', sep='\t')
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 64102601
+
+   Move the results to permanent storage.
+
+   #+BEGIN_SRC sh
+     rsync -au /scratch/midway2/aksarkar/modes/imputation/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/
+   #+END_SRC
+
+   #+RESULTS:
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     methods = ['oracle', 'wnmf', 'wglmpca']
+     imputation_res = (pd.concat({(d, m): pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/{d}-{m}.txt.gz', sep='\t', index_col=0)
+                                 for d in data for m in methods})
+                       .reset_index(level=0)
+                       .reset_index(drop=True)
+                       .rename({'level_0': 'dataset'}, axis=1))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[52]:
+   :END:
+
+   Plot the results.
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/pois-loss.png
+     plt.clf()
+     fig, ax = plt.subplots(1, len(data), sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, d, t in zip(ax, data, ['T cells', 'B cells', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC']):
+       g = imputation_res[imputation_res['dataset'] == d]
+       a.set_yscale('log')
+       for x, (_, y) in enumerate(g.groupby('method')):
+         a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1), y['loss'], s=2, c='k', zorder=4)
+       a.set_title(t)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xticks(np.arange(3))
+       a.set_xticklabels(['Oracle', 'WNMF', 'WGLMPCA'], rotation=90)
+       a.set_xlabel('Method')
+     ax[0].set_ylabel('Poisson loss')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[81]:
+   [[file:figure/imputation.org/pois-loss.png]]
+   :END:
