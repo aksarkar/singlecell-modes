@@ -168,9 +168,9 @@
    \begin{align*}
      \Pr(x_i = x) &= \int_0^\infty \operatorname{Poisson}(x_i; x_i^+ \lambda_i) \operatorname{Uniform}(a, b) d\lambda_i\\
      &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x_i; x_i^+ \lambda_i) d\lambda_i\\
-     &= \frac{1}{x_i^+ (b - a)} \int_a^b \frac{x_i^+^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-x_i^+\lambda_i) d\lambda_i\\
+     &= \frac{1}{x_i^+ (b - a)} \int_a^b \frac{(x_i^+)^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-x_i^+ \lambda_i) d\lambda_i\\
      &= \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; x_i + 1, x_i^+) - F_\Gamma(a, x_i + 1, x_i^+) \right)\\
-     \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; k + 1, x_i^+) - F_\Gamma(a, k + 1, x_i^+) \right)\\
+     \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; k + 1, x_i^+) - F_\Gamma(a, k + 1, x_i^+) \right)
    \end{align*}
 
    where \(F_\Gamma(\cdot; \alpha, \beta)\) denotes the CDF of the Gamma

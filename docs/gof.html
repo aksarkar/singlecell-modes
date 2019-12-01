@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-11-24 Sun 17:37 -->
+<!-- 2019-11-30 Sat 19:05 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org62d8c1f">Test for goodness of fit</a></li>
+<li><a href="#org47bb282">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -351,9 +351,9 @@ Here, we directly test for the goodness of fit of the estimated distributions
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org62d8c1f" class="outline-3">
-<h3 id="org62d8c1f">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org62d8c1f">
+<div id="outline-container-org47bb282" class="outline-3">
+<h3 id="org47bb282">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-org47bb282">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -450,9 +450,9 @@ and:
 \begin{align*}
   \Pr(x_i = x) &= \int_0^\infty \operatorname{Poisson}(x_i; x_i^+ \lambda_i) \operatorname{Uniform}(a, b) d\lambda_i\\
   &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x_i; x_i^+ \lambda_i) d\lambda_i\\
-  &= \frac{1}{x_i^+ (b - a)} \int_a^b \frac{x_i^+^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-x_i^+\lambda_i) d\lambda_i\\
+  &= \frac{1}{x_i^+ (b - a)} \int_a^b \frac{(x_i^+)^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-x_i^+ \lambda_i) d\lambda_i\\
   &= \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; x_i + 1, x_i^+) - F_\Gamma(a, x_i + 1, x_i^+) \right)\\
-  \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; k + 1, x_i^+) - F_\Gamma(a, k + 1, x_i^+) \right)\\
+  \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; k + 1, x_i^+) - F_\Gamma(a, k + 1, x_i^+) \right)
 \end{align*}
 
 <p>
@@ -762,8 +762,8 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-orga0b1df0" class="outline-3">
-<h3 id="gof"><a id="orga0b1df0"></a>Test for goodness of fit</h3>
+<div id="outline-container-org4da33be" class="outline-3">
+<h3 id="gof"><a id="org4da33be"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -1312,7 +1312,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-11-24 Sun 17:37</p>
+<p class="date">Created: 2019-11-30 Sat 19:05</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
