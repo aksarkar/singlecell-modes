@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-02 Mon 12:41 -->
+<!-- 2019-12-02 Mon 13:55 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Imputation of count matrices</title>
@@ -263,6 +263,7 @@ for the JavaScript code in this tag.
 <li><a href="#methods">Methods</a>
 <ul>
 <li><a href="#wnmf">Weighted non-negative matrix factorization</a></li>
+<li><a href="#wnbmf">Weighted Negative Binomial Matrix Factorization</a></li>
 <li><a href="#wglmpca">Weighted GLM-PCA</a></li>
 <li><a href="#vae">Incomplete data VAE</a></li>
 <li><a href="#datasets">Datasets</a></li>
@@ -270,15 +271,15 @@ for the JavaScript code in this tag.
 </li>
 <li><a href="#results">Results</a>
 <ul>
-<li><a href="#org2b7e36f">Imputation benchmark</a></li>
+<li><a href="#org92221a4">Imputation benchmark</a></li>
 </ul>
 </li>
 </ul>
 </div>
 </div>
 
-<div id="outline-container-org8c31cb5" class="outline-2">
-<h2 id="introduction"><a id="org8c31cb5"></a>Introduction</h2>
+<div id="outline-container-orga86d1f7" class="outline-2">
+<h2 id="introduction"><a id="orga86d1f7"></a>Introduction</h2>
 <div class="outline-text-2" id="text-introduction">
 <p>
 The key idea of our approach to modeling scRNA-seq is to separate sampling
@@ -290,6 +291,7 @@ multi-gene model for scRNA-seq data: \(
   \newcommand\vw{\mathbf{w}}
   \newcommand\vz{\mathbf{z}}
   \newcommand\mx{\mathbf{X}}
+  \newcommand\mu{\mathbf{U}}
   \newcommand\mw{\mathbf{W}}
   \newcommand\mz{\mathbf{Z}}
   \newcommand\ml{\mathbf{L}}
@@ -342,11 +344,11 @@ bound) <i>without</i> marginalizing over unobserved data.
 </div>
 </div>
 
-<div id="outline-container-org7fa2da2" class="outline-2">
-<h2 id="setup"><a id="org7fa2da2"></a>Setup</h2>
+<div id="outline-container-orgcdabdd9" class="outline-2">
+<h2 id="setup"><a id="orgcdabdd9"></a>Setup</h2>
 <div class="outline-text-2" id="text-setup">
 <div class="org-src-container">
-<pre class="src src-ipython" id="org5f5d72e"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<pre class="src src-ipython" id="org8c7ca25"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
 <span class="org-keyword">import</span> scmodes
 </pre>
@@ -367,12 +369,12 @@ bound) <i>without</i> marginalizing over unobserved data.
 </div>
 </div>
 
-<div id="outline-container-org90b9783" class="outline-2">
-<h2 id="methods"><a id="org90b9783"></a>Methods</h2>
+<div id="outline-container-org0a82632" class="outline-2">
+<h2 id="methods"><a id="org0a82632"></a>Methods</h2>
 <div class="outline-text-2" id="text-methods">
 </div>
-<div id="outline-container-org13ce773" class="outline-3">
-<h3 id="wnmf"><a id="org13ce773"></a>Weighted non-negative matrix factorization</h3>
+<div id="outline-container-org8aca765" class="outline-3">
+<h3 id="wnmf"><a id="org8aca765"></a>Weighted non-negative matrix factorization</h3>
 <div class="outline-text-3" id="text-wnmf">
 <p>
 Weighted non-negative matrix factorization (WNMF;
@@ -433,8 +435,79 @@ modified by introducing the weights in the numerator and denominator.
 </div>
 </div>
 
-<div id="outline-container-org291ea5e" class="outline-3">
-<h3 id="wglmpca"><a id="org291ea5e"></a>Weighted GLM-PCA</h3>
+<div id="outline-container-orgd53f08d" class="outline-3">
+<h3 id="wnbmf"><a id="orgd53f08d"></a>Weighted Negative Binomial Matrix Factorization</h3>
+<div class="outline-text-3" id="text-wnbmf">
+<p>
+Negative Binomial Matrix Factorization (NBMF; Gouvert et al 2018) is the
+(augmented) model
+</p>
+
+\begin{align*}
+  x_{ij} &= \sum_k z_{ijk}\\
+  z_{ijk} &\sim \operatorname{Poisson}(l_{ik} f_{jk} u_{ij})\\
+  u_{ij} &\sim \operatorname{Gamma}(1/\phi_{ij}, 1/\phi_{ij})
+\end{align*}
+
+<p>
+Gouvert et al. 2018 only consider the case \(\phi_{ij} = \phi\); however,
+other natural choices are \(\phi_{ij} = \phi_j\) and \(\phi_{ij} = \phi_i +
+   \phi_j\). To derive an EM algorithm, first note that \(p(\mz \mid \mx, \mu,
+   \ml, \mf) = p(\mz \mid \mx, \ml, \mf)\). Further,
+</p>
+
+\begin{align*}
+  p(u_{ij} \mid \mx, \mz, \ml, \mf) &\propto p(\mx, \mz, u_{ij} \mid \ml, \mf)\\
+  &\propto \prod_k u_{ij}^{z_{ijk}} \exp(-l_{ik} f_{jk} u_{ij}) u_{ij}^{1/\phi_{ij} - 1} \exp(-u_{ij} / \phi_{ij})\\
+  &\propto u_{ij}^{x_{ij} + 1/\phi_{ij} - 1} \exp\left(-u_{ij}\left(\sum_k [l_{ik} f_{jk}] + 1/\phi_{ij}\right)\right)\\
+  &= \operatorname{Gamma}(x_{ij} + 1/\phi_{ij}, \sum_k [l_{ik} f_{jk}] + 1/\phi_{ij})
+\end{align*}
+
+<p>
+The expected log joint
+</p>
+
+\begin{multline*}
+  \E{\ln p(\mx, \mz, \mu \mid \ml, \mf)} = \sum_{i, j, k} [\E{z_{ijk}}(\E{\ln u_{ij}} + \ln (l_{ik} f_{jk})) - l_{ik} f_{jk} \E{u_{ij}} - \ln\Gamma(x_{ij} + 1)]\\
+  + \sum_{i, j} [(1 / \phi_{ij}) \ln(1 / \phi_{ij}) + (\E{u_{ij}} - 1) \ln(1 / \phi_{ij}) - \E{u_{ij}}  /  \phi_{ij} - \ln\Gamma(1 / \phi_{ij})]
+\end{multline*}
+
+<p>
+leading to M step updates
+</p>
+
+\begin{align*}
+  l_{ik} &= \frac{\sum_j \E{z_{ijk}}}{\sum_j f_{jk} \E{u_{ij}}}\\
+  f_{jk} &= \frac{\sum_i \E{z_{ijk}}}{\sum_i l_{ik} \E{u_{ij}}}
+\end{align*}
+
+<p>
+Using properties of the Gamma distribution,
+</p>
+
+\begin{align*}
+  \E{u_{ij}} &= \frac{x_{ij} + 1/\phi_{ij}}{\sum_k [l_{ik} f_{jk}] + 1/\phi_{ij}}\\
+  \E{\ln u_{ij}} &= \psi(1/\phi_{ij}) + \ln \phi_{ij}
+\end{align*}
+
+<p>
+where \(\psi(\cdot)\) denotes the digamma function. Plugging in
+\(\E{z_{ijk}}, \E{u_{ij}}\) yields the multiplicative updates proposed by
+Gouvert et al. 2018. Following the arguments for WNMF, if we introduce
+weights \(w_{ij} \in \{0, 1\}\), they will enter the M step updates in the
+numerator and denominator.
+</p>
+
+<p>
+Gouvert et al. 2018 treat \(\phi_{ij}\) as fixed, rather than estimating it
+from data. For the easy case \(\phi_{ij} = \phi\), numerical optimization of
+the expected log joint with respect to \(\phi\) is possible.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org7735dc1" class="outline-3">
+<h3 id="wglmpca"><a id="org7735dc1"></a>Weighted GLM-PCA</h3>
 <div class="outline-text-3" id="text-wglmpca">
 <p>
 GLM-PCA (<a href="https://arxiv.org/abs/1907.02647">Townes 2019</a>) uses
@@ -452,8 +525,8 @@ the model assuming \(h = \log\). The weighted version of the problem is
 </div>
 </div>
 
-<div id="outline-container-org8a16410" class="outline-3">
-<h3 id="vae"><a id="org8a16410"></a>Incomplete data VAE</h3>
+<div id="outline-container-org0786c11" class="outline-3">
+<h3 id="vae"><a id="org0786c11"></a>Incomplete data VAE</h3>
 <div class="outline-text-3" id="text-vae">
 <p>
 Variational autoencoders fit a generative model parameterized by a neural
@@ -509,11 +582,11 @@ works, and that a tighter bound can be achieved using importance sampling
 </div>
 </div>
 
-<div id="outline-container-orgd649733" class="outline-3">
-<h3 id="datasets"><a id="orgd649733"></a>Datasets</h3>
+<div id="outline-container-org4846c95" class="outline-3">
+<h3 id="datasets"><a id="org4846c95"></a>Datasets</h3>
 <div class="outline-text-3" id="text-datasets">
 <div class="org-src-container">
-<pre class="src src-ipython" id="org31dc7d2"><span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k, min_detect=0.01, n_cells=1000, seed=1):
+<pre class="src src-ipython" id="orgb049ac8"><span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k, min_detect=0.01, n_cells=1000, seed=1):
   <span class="org-keyword">return</span> scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/'</span>, min_detect=0.01, return_df=<span class="org-constant">True</span>).sample(n=n_cells, axis=0, random_state=seed)
 
 <span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.01, n_cells=1000, seed=1):
@@ -562,13 +635,13 @@ pbmcs_68k                 1000       6502
 </div>
 </div>
 
-<div id="outline-container-org3d287ca" class="outline-2">
-<h2 id="results"><a id="org3d287ca"></a>Results</h2>
+<div id="outline-container-orgaa1a22b" class="outline-2">
+<h2 id="results"><a id="orgaa1a22b"></a>Results</h2>
 <div class="outline-text-2" id="text-results">
 </div>
-<div id="outline-container-org2b7e36f" class="outline-3">
-<h3 id="org2b7e36f">Imputation benchmark</h3>
-<div class="outline-text-3" id="text-org2b7e36f">
+<div id="outline-container-org92221a4" class="outline-3">
+<h3 id="org92221a4">Imputation benchmark</h3>
+<div class="outline-text-3" id="text-org92221a4">
 <div class="org-src-container">
 <pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 --job-name=imputation-benchmark -a 10
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
@@ -644,7 +717,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-02 Mon 12:41</p>
+<p class="date">Created: 2019-12-02 Mon 13:55</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

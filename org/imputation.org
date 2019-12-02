@@ -15,6 +15,7 @@
   \newcommand\vw{\mathbf{w}}
   \newcommand\vz{\mathbf{z}}
   \newcommand\mx{\mathbf{X}}
+  \newcommand\mu{\mathbf{U}}
   \newcommand\mw{\mathbf{W}}
   \newcommand\mz{\mathbf{Z}}
   \newcommand\ml{\mathbf{L}}
@@ -158,6 +159,63 @@
 
    Plugging in \(\E{z_{ijk}}\) yields the classical multiplicative updates,
    modified by introducing the weights in the numerator and denominator.
+
+** Weighted Negative Binomial Matrix Factorization
+   :PROPERTIES:
+   :CUSTOM_ID: wnbmf
+   :END:
+
+   Negative Binomial Matrix Factorization (NBMF; Gouvert et al 2018) is the
+   (augmented) model
+
+   \begin{align*}
+     x_{ij} &= \sum_k z_{ijk}\\
+     z_{ijk} &\sim \operatorname{Poisson}(l_{ik} f_{jk} u_{ij})\\
+     u_{ij} &\sim \operatorname{Gamma}(1/\phi_{ij}, 1/\phi_{ij})
+   \end{align*}
+
+   Gouvert et al. 2018 only consider the case \(\phi_{ij} = \phi\); however,
+   other natural choices are \(\phi_{ij} = \phi_j\) and \(\phi_{ij} = \phi_i +
+   \phi_j\). To derive an EM algorithm, first note that \(p(\mz \mid \mx, \mu,
+   \ml, \mf) = p(\mz \mid \mx, \ml, \mf)\). Further,
+
+   \begin{align*}
+     p(u_{ij} \mid \mx, \mz, \ml, \mf) &\propto p(\mx, \mz, u_{ij} \mid \ml, \mf)\\
+     &\propto \prod_k u_{ij}^{z_{ijk}} \exp(-l_{ik} f_{jk} u_{ij}) u_{ij}^{1/\phi_{ij} - 1} \exp(-u_{ij} / \phi_{ij})\\
+     &\propto u_{ij}^{x_{ij} + 1/\phi_{ij} - 1} \exp\left(-u_{ij}\left(\sum_k [l_{ik} f_{jk}] + 1/\phi_{ij}\right)\right)\\
+     &= \operatorname{Gamma}(x_{ij} + 1/\phi_{ij}, \sum_k [l_{ik} f_{jk}] + 1/\phi_{ij})
+   \end{align*}
+
+   The expected log joint
+
+   \begin{multline*}
+     \E{\ln p(\mx, \mz, \mu \mid \ml, \mf)} = \sum_{i, j, k} [\E{z_{ijk}}(\E{\ln u_{ij}} + \ln (l_{ik} f_{jk})) - l_{ik} f_{jk} \E{u_{ij}} - \ln\Gamma(x_{ij} + 1)]\\
+     + \sum_{i, j} [(1 / \phi_{ij}) \ln(1 / \phi_{ij}) + (\E{u_{ij}} - 1) \ln(1 / \phi_{ij}) - \E{u_{ij}}  /  \phi_{ij} - \ln\Gamma(1 / \phi_{ij})]
+   \end{multline*}
+
+   leading to M step updates
+
+   \begin{align*}
+     l_{ik} &= \frac{\sum_j \E{z_{ijk}}}{\sum_j f_{jk} \E{u_{ij}}}\\
+     f_{jk} &= \frac{\sum_i \E{z_{ijk}}}{\sum_i l_{ik} \E{u_{ij}}}
+   \end{align*}
+
+   Using properties of the Gamma distribution,
+
+   \begin{align*}
+     \E{u_{ij}} &= \frac{x_{ij} + 1/\phi_{ij}}{\sum_k [l_{ik} f_{jk}] + 1/\phi_{ij}}\\
+     \E{\ln u_{ij}} &= \psi(1/\phi_{ij}) + \ln \phi_{ij}
+   \end{align*}
+
+   where \(\psi(\cdot)\) denotes the digamma function. Plugging in
+   \(\E{z_{ijk}}, \E{u_{ij}}\) yields the multiplicative updates proposed by
+   Gouvert et al. 2018. Following the arguments for WNMF, if we introduce
+   weights \(w_{ij} \in \{0, 1\}\), they will enter the M step updates in the
+   numerator and denominator.
+
+   Gouvert et al. 2018 treat \(\phi_{ij}\) as fixed, rather than estimating it
+   from data. For the easy case \(\phi_{ij} = \phi\), numerical optimization of
+   the expected log joint with respect to \(\phi\) is possible.
 
 ** Weighted GLM-PCA
    :PROPERTIES:
