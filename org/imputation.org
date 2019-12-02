@@ -134,7 +134,7 @@
    \begin{align*}
      \ell \triangleq \ln p(\mx \mid \ml, \mf, \mw) &= \sum_{i, j} w_{ij} \left[x_{ij} \sum_k l_{ik} f_{jk} - \exp\left(\sum_k l_{ik} f_{jk}\right) \right] + \const\\
      \frac{\partial \ell}{\partial l_{ik}} &= \sum_j w_{ij} \left[x_{ij} f_{jk} - \exp\left(\sum_k l_{ik} f_{jk}\right) f_{jk}\right]\\
-     \frac{\partial \ell}{\partial f_{jk}} &= \sum_j w_{ij} \left[x_{ij} l_{ik} - \exp\left(\sum_k l_{ik} f_{jk}\right) l_{ik}\right]\\
+     \frac{\partial \ell}{\partial f_{jk}} &= \sum_i w_{ij} \left[x_{ij} l_{ik} - \exp\left(\sum_k l_{ik} f_{jk}\right) l_{ik}\right]\\
      \mathcal{I}(l_{ik}) &= \sum_j w_{ij} \exp\left(\sum_k l_{ik} f_{jk}\right) f_{jk}^2\\
      \mathcal{I}(f_{jk}) &= \sum_i w_{ij} \exp\left(\sum_k l_{ik} f_{jk}\right) l_{ik}^2
    \end{align*}
