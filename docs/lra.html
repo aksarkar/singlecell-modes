@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-09-08 Sun 21:44 -->
+<!-- 2019-12-02 Mon 16:12 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Low rank approximation</title>
@@ -263,12 +263,12 @@ for the JavaScript code in this tag.
 <li><a href="#org9a4fac9">Methods</a>
 <ul>
 <li><a href="#org42bd0a9">Datasets</a></li>
-<li><a href="#org1dfce43">Implementation</a></li>
 </ul>
 </li>
 <li><a href="#org77d27ef">Results</a>
 <ul>
 <li><a href="#ipsc">PCA on (log) counts</a></li>
+<li><a href="#orgfa9be3b">Poisson thinning benchmark</a></li>
 <li><a href="#orge68d487">Sorted cells benchmark</a></li>
 <li><a href="#org924d356">Synthetic mixtures benchmark</a></li>
 <li><a href="#pbmc">PBMCs benchmark</a></li>
@@ -283,18 +283,25 @@ for the JavaScript code in this tag.
 <h2 id="orga9ab311">Introduction</h2>
 <div class="outline-text-2" id="text-orga9ab311">
 <p>
-Suppose we have observations \(x_{ij} \sim
-  \operatorname{Pois}(\lambda_{ij})\). Rather than making a distributional
-assumption \(\lambda_j \sim g_j(\cdot)\) (as in
-<a href="deconvolution.html">expression deconvolution</a>), we might make a <i>low
-rank assumption</i> \(h(\lambda_{ij}) = [\mathbf{L F}]_{ij}\).  This assumption
-can be interpreted as regularizing cells/genes towards each other, or as
-discovering clusters in the data.
+The key idea of our approach to modeling scRNA-seq is to separate sampling
+variation and expression variation. This approach leads to the following
+multi-gene model for scRNA-seq data: \(
+  \newcommand\ml{\mathbf{L}}
+  \newcommand\mf{\mathbf{F}}
+  \newcommand\my{\mathbf{Y}}
+  \)
 </p>
 
+\begin{align*}
+  x_{ij} &\sim \operatorname{Poisson}(\lambda_{ij})\\
+  \lambda_{ij} &= h^{-1}((\ml\mf')_{ij})
+\end{align*}
+
 <p>
-A number of methods have been proposed to estimate low rank structure from
-count data, several specialized for scRNA-seq data. 
+where \(i = 1, \ldots, n\), \(j = 1, \ldots, p\), \(\ml\) is an \(n \times
+  K\) matrix, and \(\mf\) is a \(p \times K\) matrix. (Here, we absorb the size
+factor into \(\ml\).) A number of methods have been proposed to fit this
+model (or extensions to it), several specialized for scRNA-seq data.
 </p>
 
 <ul class="org-ul">
@@ -302,6 +309,8 @@ count data, several specialized for scRNA-seq data.
 (<a href="https://papers.nips.cc/paper/1861-algorithms-for-non-negative-matrix-factorization.pdf">Lee
 and Seung 2001</a>, <a href="https://arxiv.org/abs/1010.1763">Févotte and Idier
 2011</a>)</li>
+<li>Negative Binomial Matrix Factorization
+(<a href="https://arxiv.org/abs/1801.01708">Gouvert et al. 2018</a>)</li>
 <li>Latent dirichlet allocation
 (<a href="http://www.jmlr.org/papers/volume3/blei03a/blei03a.pdf">Blei et al
 2003</a>,
@@ -309,7 +318,8 @@ and Seung 2001</a>, <a href="https://arxiv.org/abs/1010.1763">Févotte and Idier
 et al. 2010</a>, <a href="http://proceedings.mlr.press/v22/taddy12.html">Taddy
 2012</a>)</li>
 <li>Hierarchical Bayesian Poisson Factorization
-(<a href="http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf">Gopalan
+(<a href="https://www.hindawi.com/journals/cin/2009/785152/">Cemgil 2009</a>,
+<a href="http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf">Gopalan
 et al. 2015</a>,
 <a href="https://onlinelibrary.wiley.com/doi/full/10.15252/msb.20188557">Levitin
 et al. 2019</a>)</li>
@@ -324,40 +334,22 @@ al. 2019</a>)</li>
 </ul>
 
 <p>
-There is one fundamental modelling decision which is not obvious from first
-principles: what precisely is low rank? In other words, what is the
-functional form of \(h(\cdot)\)? The methods above use either: \(h(x) = x\),
-\(h(x) = \ln(x)\), or learn \(h\) from the data.
-</p>
-
-<p>
-Here, we evaluate methods on their ability to generalize to new data. We use
-real data, assuming:
+Here, we evaluate methods on their ability to estimate \(\lambda\). We use
+Poisson thinning (<a href="https://arxiv.org/abs/1705.08393">Gerard and Stephens
+2017</a>, <a href="https://www.biorxiv.org/content/10.1101/758524v1">Gerard 2019</a>) of
+real data
 </p>
 
 \begin{align*}
-  x_{ij} &\sim \mathrm{Poisson}(s_i \lambda_{ij})\\
-  h(\lambda_{ij}) &= [\mathbf{L F}]_{ij}
-\end{align*}
-
-<p>
-and hold out molecules by randomly thinning the observed counts:
-</p>
-
-\begin{align*}
+  x_{ij} &\sim \mathrm{Poisson}(\lambda_{ij})\\
   y_{ij} &\sim \mathrm{Binomial}(x_{ij}, 0.5)\\
-  \tilde{y}_{ij} &= x_{ij} - y_{ij}\\
+  \tilde{y}_{ij} &= x_{ij} - y_{ij}
 \end{align*}
 
 <p>
-This approach leaves the relative abundance of the transcripts unchanged in
-expectation, implying that the low rank structure learned in \(\mathbf{Y}\)
-should explain the data in \(\tilde{\mathbf{Y}}\).
-</p>
-
-<p>
-Our metric is then the likelihood of the held-out data. We simply need to
-re-scale to account for different size factors \(s_i\).
+resulting in two matrices \(\my\) and \(\tilde{\my}\) with identical
+\(\lambda\). Our benchmark estimates \(\ml, \mf\) from \(\my\) and evaluates
+the estimate using the log likelihood of \(\tilde{\my}\).
 </p>
 </div>
 </div>
@@ -407,48 +399,52 @@ rpy2.robjects.pandas2ri.activate()
 <div id="outline-container-org42bd0a9" class="outline-3">
 <h3 id="org42bd0a9">Datasets</h3>
 <div class="outline-text-3" id="text-org42bd0a9">
-<p>
-We use real scRNA-seq datasets in heterogeneous tissues to benchmark
-methods:
-</p>
+<div class="org-src-container">
+<pre class="src src-ipython" id="orgbf99fa6"><span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k, min_detect=0.25, seed=1):
+  <span class="org-keyword">return</span> scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/'</span>, min_detect=min_detect, return_df=<span class="org-constant">True</span>)
 
-<ol class="org-ol">
-<li>Mouse neuron cells sequenced on the Fluidigm C1 platform
-(<a href="https://science.sciencemag.org/content/347/6226/1138.full">Zeisel et
-al. 2015</a>)</li>
+<span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.25, seed=1):
+  <span class="org-variable-name">x1</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
+  <span class="org-variable-name">x2</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
+  <span class="org-keyword">return</span> scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)[0]
 
-<li>Fresh PBMCs sequenced on the 10X platform
-(<a href="https://www.nature.com/articles/ncomms14049">Zheng et al. 2017</a>)</li>
-</ol>
+<span class="org-keyword">def</span> <span class="org-function-name">_cd8_cd19_mix</span>(**kwargs):
+  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'b_cells'</span>, **kwargs)
+
+<span class="org-keyword">def</span> <span class="org-function-name">_cyto_naive_mix</span>(**kwargs):
+  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>, **kwargs)
+
+<span class="org-variable-name">data</span> = {
+  <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'b_cells'</span>),
+  <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'cytotoxic_t'</span>),
+  <span class="org-string">'naive_t'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'naive_t'</span>),
+  <span class="org-string">'cytotoxic_t-b_cells'</span>: _cd8_cd19_mix,
+  <span class="org-string">'cytotoxic_t-naive_t'</span>: _cyto_naive_mix,
+  <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>),
+}
+</pre>
 </div>
-</div>
 
-<div id="outline-container-org1dfce43" class="outline-3">
-<h3 id="org1dfce43">Implementation</h3>
-<div class="outline-text-3" id="text-org1dfce43">
 <p>
-Wrap around GLM-PCA.
+Report the data dimensions.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_glmpca</span>(x, n_components, max_iters=<span class="org-constant">None</span>, eps=<span class="org-constant">None</span>):
-  <span class="org-variable-name">ctl</span> = {<span class="org-string">'maxIter'</span>: 100, <span class="org-string">'eps'</span>: 1e-4}
-  <span class="org-keyword">if</span> max_iters <span class="org-keyword">is</span> <span class="org-keyword">not</span> <span class="org-constant">None</span>:
-    <span class="org-variable-name">ctl</span>[<span class="org-string">'maxIter'</span>] = max_iters
-  <span class="org-keyword">if</span> eps <span class="org-keyword">is</span> <span class="org-keyword">not</span> <span class="org-constant">None</span>:
-    <span class="org-variable-name">ctl</span>[<span class="org-string">'eps'</span>] = eps
-  <span class="org-variable-name">ctl</span> = rpy2.robjects.ListVector(ctl)
-  <span class="org-comment-delimiter"># </span><span class="org-comment">GLM-PCA expects [genes, samples]</span>
-  <span class="org-variable-name">res</span> = glmpca.glmpca(x.T, L=n_components, ctl=ctl)
-  <span class="org-comment-delimiter"># </span><span class="org-comment">Follow GLM-PCA code for size factors, not the paper</span>
-  <span class="org-variable-name">s</span> = np.log(x.mean(axis=1))
-  <span class="org-variable-name">L</span> = np.array(res.rx2(<span class="org-string">'loadings'</span>))
-  <span class="org-variable-name">F</span> = np.array(res.rx2(<span class="org-string">'factors'</span>))
-  <span class="org-variable-name">etahat</span> = s.reshape(-1, 1) + F.T.dot(L)
-  <span class="org-variable-name">trace</span> = np.array(res.rx2(<span class="org-string">'dev'</span>))
-  <span class="org-keyword">return</span> etahat, trace
+<pre class="src src-ipython">pd.DataFrame([data[k]().shape <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data],
+             columns=[<span class="org-string">'num_cells'</span>, <span class="org-string">'num_genes'</span>],
+             index=data.keys())
 </pre>
 </div>
+
+<pre class="example">
+num_cells  num_genes
+b_cells                  10085        375
+cytotoxic_t              10209        461
+naive_t                  10479        386
+cytotoxic_t-b_cells      20294        404
+cytotoxic_t-naive_t      20688        419
+pbmcs_68k                68579        404
+</pre>
 </div>
 </div>
 </div>
@@ -520,6 +516,42 @@ EOF
 PCA of untransformed counts: -4.712e+08
 PCA of log1p counts: -3.57e+09
 </pre>
+</div>
+</div>
+
+<div id="outline-container-orgfa9be3b" class="outline-3">
+<h3 id="orgfa9be3b">Poisson thinning benchmark</h3>
+<div class="outline-text-3" id="text-orgfa9be3b">
+<p>
+Run the benchmark.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --time=24:00:00 --job-name=lra-generalization -a 0
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+import os
+&lt;&lt;data&gt;&gt;
+<span class="org-sh-heredoc">methods = ['nmf', 'glmpca', 'wglmpca', 'pvae']</span>
+<span class="org-sh-heredoc">tasks = [(d, m) for d in data for m in methods]</span>
+<span class="org-sh-heredoc">d, m = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
+<span class="org-sh-heredoc">x = data[d]()</span>
+<span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_lra_generalization(x.values, methods=[m], n_trials=10)</span>
+<span class="org-sh-heredoc">res.to_csv('/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<p>
+Move the results to permanent storage.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">rsync -au /scratch/midway2/aksarkar/modes/lra-generalization/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/
+</pre>
+</div>
 </div>
 </div>
 
@@ -616,15 +648,6 @@ python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lr
 <h3 id="org443406e">Plot the results</h3>
 <div class="outline-text-3" id="text-org443406e">
 <p>
-Move the results to permanent storage.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-sh">rsync -au /scratch/midway2/aksarkar/modes/lra-generalization/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/
-</pre>
-</div>
-
-<p>
 Read the results.
 </p>
 
@@ -669,7 +692,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-09-08 Sun 21:44</p>
+<p class="date">Created: 2019-12-02 Mon 16:12</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

@@ -3,21 +3,30 @@
 
 * Introduction
 
-  Suppose we have observations \(x_{ij} \sim
-  \operatorname{Pois}(\lambda_{ij})\). Rather than making a distributional
-  assumption \(\lambda_j \sim g_j(\cdot)\) (as in
-  [[file:deconvolution.org][expression deconvolution]]), we might make a /low
-  rank assumption/ \(h(\lambda_{ij}) = [\mathbf{L F}]_{ij}\).  This assumption
-  can be interpreted as regularizing cells/genes towards each other, or as
-  discovering clusters in the data.
+  The key idea of our approach to modeling scRNA-seq is to separate sampling
+  variation and expression variation. This approach leads to the following
+  multi-gene model for scRNA-seq data: \(
+  \newcommand\ml{\mathbf{L}}
+  \newcommand\mf{\mathbf{F}}
+  \newcommand\my{\mathbf{Y}}
+  \)
 
-  A number of methods have been proposed to estimate low rank structure from
-  count data, several specialized for scRNA-seq data. 
+  \begin{align*}
+    x_{ij} &\sim \operatorname{Poisson}(\lambda_{ij})\\
+    \lambda_{ij} &= h^{-1}((\ml\mf')_{ij})
+  \end{align*}
+
+  where \(i = 1, \ldots, n\), \(j = 1, \ldots, p\), \(\ml\) is an \(n \times
+  K\) matrix, and \(\mf\) is a \(p \times K\) matrix. (Here, we absorb the size
+  factor into \(\ml\).) A number of methods have been proposed to fit this
+  model (or extensions to it), several specialized for scRNA-seq data.
 
   - Non-negative matrix factorization
     ([[https://papers.nips.cc/paper/1861-algorithms-for-non-negative-matrix-factorization.pdf][Lee
     and Seung 2001]], [[https://arxiv.org/abs/1010.1763][Févotte and Idier
     2011]])
+  - Negative Binomial Matrix Factorization
+    ([[https://arxiv.org/abs/1801.01708][Gouvert et al. 2018]])
   - Latent dirichlet allocation
     ([[http://www.jmlr.org/papers/volume3/blei03a/blei03a.pdf][Blei et al
     2003]],
@@ -25,7 +34,8 @@
     et al. 2010]], [[http://proceedings.mlr.press/v22/taddy12.html][Taddy
     2012]])
   - Hierarchical Bayesian Poisson Factorization
-    ([[http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf][Gopalan
+    ([[https://www.hindawi.com/journals/cin/2009/785152/][Cemgil 2009]],
+    [[http://www.cs.columbia.edu/~blei/papers/GopalanHofmanBlei2015.pdf][Gopalan
     et al. 2015]],
     [[https://onlinelibrary.wiley.com/doi/full/10.15252/msb.20188557][Levitin
     et al. 2019]])
@@ -38,32 +48,20 @@
   - GLM-PCA ([[https://www.biorxiv.org/content/10.1101/574574v1][Townes et
     al. 2019]])
 
-  There is one fundamental modelling decision which is not obvious from first
-  principles: what precisely is low rank? In other words, what is the
-  functional form of \(h(\cdot)\)? The methods above use either: \(h(x) = x\),
-  \(h(x) = \ln(x)\), or learn \(h\) from the data.
-
-  Here, we evaluate methods on their ability to generalize to new data. We use
-  real data, assuming:
+  Here, we evaluate methods on their ability to estimate \(\lambda\). We use
+  Poisson thinning ([[https://arxiv.org/abs/1705.08393][Gerard and Stephens
+  2017]], [[https://www.biorxiv.org/content/10.1101/758524v1][Gerard 2019]]) of
+  real data
 
   \begin{align*}
-    x_{ij} &\sim \mathrm{Poisson}(s_i \lambda_{ij})\\
-    h(\lambda_{ij}) &= [\mathbf{L F}]_{ij}
-  \end{align*}
-
-  and hold out molecules by randomly thinning the observed counts:
-
-  \begin{align*}
+    x_{ij} &\sim \mathrm{Poisson}(\lambda_{ij})\\
     y_{ij} &\sim \mathrm{Binomial}(x_{ij}, 0.5)\\
-    \tilde{y}_{ij} &= x_{ij} - y_{ij}\\
+    \tilde{y}_{ij} &= x_{ij} - y_{ij}
   \end{align*}
 
-  This approach leaves the relative abundance of the transcripts unchanged in
-  expectation, implying that the low rank structure learned in \(\mathbf{Y}\)
-  should explain the data in \(\tilde{\mathbf{Y}}\).
-
-  Our metric is then the likelihood of the held-out data. We simply need to
-  re-scale to account for different size factors \(s_i\).
+  resulting in two matrices \(\my\) and \(\tilde{\my}\) with identical
+  \(\lambda\). Our benchmark estimates \(\ml, \mf\) from \(\my\) and evaluates
+  the estimate using the log likelihood of \(\tilde{\my}\).
 
 * Setup
 
@@ -134,42 +132,57 @@
 * Methods
 ** Datasets
 
-   We use real scRNA-seq datasets in heterogeneous tissues to benchmark
-   methods:
-
-   1. Mouse neuron cells sequenced on the Fluidigm C1 platform
-      ([[https://science.sciencemag.org/content/347/6226/1138.full][Zeisel et
-      al. 2015]])
-
-   2. Fresh PBMCs sequenced on the 10X platform
-      ([[https://www.nature.com/articles/ncomms14049][Zheng et al. 2017]])
-
-** Implementation
-
-   Wrap around GLM-PCA.
-
+   #+NAME: data
    #+BEGIN_SRC ipython
-     def _glmpca(x, n_components, max_iters=None, eps=None):
-       ctl = {'maxIter': 100, 'eps': 1e-4}
-       if max_iters is not None:
-         ctl['maxIter'] = max_iters
-       if eps is not None:
-         ctl['eps'] = eps
-       ctl = rpy2.robjects.ListVector(ctl)
-       # GLM-PCA expects [genes, samples]
-       res = glmpca.glmpca(x.T, L=n_components, ctl=ctl)
-       # Follow GLM-PCA code for size factors, not the paper
-       s = np.log(x.mean(axis=1))
-       L = np.array(res.rx2('loadings'))
-       F = np.array(res.rx2('factors'))
-       etahat = s.reshape(-1, 1) + F.T.dot(L)
-       trace = np.array(res.rx2('dev'))
-       return etahat, trace
+     def _read_10x(k, min_detect=0.25, seed=1):
+       return scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/', min_detect=min_detect, return_df=True)
+
+     def _mix_10x(k1, k2, min_detect=0.25, seed=1):
+       x1 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
+       x2 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
+       return scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)[0]
+
+     def _cd8_cd19_mix(**kwargs):
+       return _mix_10x('cytotoxic_t', 'b_cells', **kwargs)
+
+     def _cyto_naive_mix(**kwargs):
+       return _mix_10x('cytotoxic_t', 'naive_t', **kwargs)
+
+     data = {
+       'b_cells': lambda: _read_10x('b_cells'),
+       'cytotoxic_t': lambda: _read_10x('cytotoxic_t'),
+       'naive_t': lambda: _read_10x('naive_t'),
+       'cytotoxic_t-b_cells': _cd8_cd19_mix,
+       'cytotoxic_t-naive_t': _cyto_naive_mix,
+       'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a'),
+     }
+   #+END_SRC
+
+   #+RESULTS: data
+   :RESULTS:
+   # Out[86]:
+   :END:
+
+   Report the data dimensions.
+
+   #+BEGIN_SRC ipython :async t
+     pd.DataFrame([data[k]().shape for k in data],
+                  columns=['num_cells', 'num_genes'],
+                  index=data.keys())
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[30]:
+   # Out[87]:
+   #+BEGIN_EXAMPLE
+     num_cells  num_genes
+     b_cells                  10085        375
+     cytotoxic_t              10209        461
+     naive_t                  10479        386
+     cytotoxic_t-b_cells      20294        404
+     cytotoxic_t-naive_t      20688        419
+     pbmcs_68k                68579        404
+   #+END_EXAMPLE
    :END:
 
 * Results
@@ -230,6 +243,38 @@
      PCA of untransformed counts: -4.712e+08
      PCA of log1p counts: -3.57e+09
    #+END_EXAMPLE
+
+** Poisson thinning benchmark
+
+   Run the benchmark.
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -n1 -c28 --exclusive --time=24:00:00 --job-name=lra-generalization -a 0
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     import os
+     <<data>>
+     methods = ['nmf', 'glmpca', 'wglmpca', 'pvae']
+     tasks = [(d, m) for d in data for m in methods]
+     d, m = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     x = data[d]()
+     res = scmodes.benchmark.evaluate_lra_generalization(x.values, methods=[m], n_trials=10)
+     res.to_csv('/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz', compression='gzip', sep='\t')
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 64108875
+
+   Move the results to permanent storage.
+
+   #+BEGIN_SRC sh
+     rsync -au /scratch/midway2/aksarkar/modes/lra-generalization/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/
+   #+END_SRC
+
+   #+RESULTS:
 
 ** Sorted cells benchmark
 
@@ -320,14 +365,6 @@
    : Submitted batch job 62374803
 
 ** Plot the results
-
-   Move the results to permanent storage.
-
-   #+BEGIN_SRC sh
-     rsync -au /scratch/midway2/aksarkar/modes/lra-generalization/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/
-   #+END_SRC
-
-   #+RESULTS:
 
    Read the results.
 
