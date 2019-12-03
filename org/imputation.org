@@ -15,7 +15,7 @@
   \newcommand\vw{\mathbf{w}}
   \newcommand\vz{\mathbf{z}}
   \newcommand\mx{\mathbf{X}}
-  \newcommand\mu{\mathbf{U}}
+  \newcommand\mU{\mathbf{U}}
   \newcommand\mw{\mathbf{W}}
   \newcommand\mz{\mathbf{Z}}
   \newcommand\ml{\mathbf{L}}
@@ -75,7 +75,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar
 
   #+RESULTS:
-  : Submitted batch job 64102108
+  : Submitted batch job 64112269
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -176,7 +176,7 @@
 
    Gouvert et al. 2018 only consider the case \(\phi_{ij} = \phi\); however,
    other natural choices are \(\phi_{ij} = \phi_j\) and \(\phi_{ij} = \phi_i +
-   \phi_j\). To derive an EM algorithm, first note that \(p(\mz \mid \mx, \mu,
+   \phi_j\). To derive an EM algorithm, first note that \(p(\mz \mid \mx, \mU,
    \ml, \mf) = p(\mz \mid \mx, \ml, \mf)\). Further,
 
    \begin{align*}
@@ -189,7 +189,7 @@
    The expected log joint
 
    \begin{multline*}
-     \E{\ln p(\mx, \mz, \mu \mid \ml, \mf)} = \sum_{i, j, k} [\E{z_{ijk}}(\E{\ln u_{ij}} + \ln (l_{ik} f_{jk})) - l_{ik} f_{jk} \E{u_{ij}} - \ln\Gamma(x_{ij} + 1)]\\
+     \E{\ln p(\mx, \mz, \mU \mid \ml, \mf)} = \sum_{i, j, k} [\E{z_{ijk}}(\E{\ln u_{ij}} + \ln (l_{ik} f_{jk})) - l_{ik} f_{jk} \E{u_{ij}} - \ln\Gamma(x_{ij} + 1)]\\
      + \sum_{i, j} [(1 / \phi_{ij}) \ln(1 / \phi_{ij}) + (\E{u_{ij}} - 1) \ln(1 / \phi_{ij}) - \E{u_{ij}}  /  \phi_{ij} - \ln\Gamma(1 / \phi_{ij})]
    \end{multline*}
 
@@ -335,6 +335,26 @@
    #+END_EXAMPLE
    :END:
 
+   Report the proportion of zeros.
+
+   #+BEGIN_SRC ipython :async t
+     pd.Series({k: (data[k]() == 0).values.mean() for k in data})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   #+BEGIN_EXAMPLE
+     cytotoxic_t            0.914572
+     b_cells                0.921772
+     ipsc                   0.291596
+     cytotoxic_t-b_cells    0.920908
+     cytotoxic_t-naive_t    0.917528
+     pbmcs_68k              0.920052
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
 * Results
   :PROPERTIES:
   :CUSTOM_ID: results
@@ -342,7 +362,7 @@
 ** Imputation benchmark
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 --job-name=imputation-benchmark -a 10
+     sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 --job-name=imputation-benchmark -a 0-5
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -350,7 +370,7 @@
      import os
      import sys
      <<data>>
-     tasks = [(k, m) for k in data for m in ('oracle', 'wnmf', 'wglmpca')]
+     tasks = [(k, m) for k in data for m in ('ebpm_point',)]
      d, m = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      x = data[d]()
      res = scmodes.benchmark.evaluate_imputation(x.values, methods=[m], n_trials=10, max_retries=3)
@@ -359,7 +379,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 64102601
+   : Submitted batch job 64111638
 
    Move the results to permanent storage.
 
@@ -372,7 +392,7 @@
    Read the results.
 
    #+BEGIN_SRC ipython
-     methods = ['oracle', 'wnmf', 'wglmpca']
+     methods = ['oracle', 'ebpm_point', 'wnmf', 'wglmpca']
      imputation_res = (pd.concat({(d, m): pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/{d}-{m}.txt.gz', sep='\t', index_col=0)
                                  for d in data for m in methods})
                        .reset_index(level=0)
@@ -382,24 +402,26 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[52]:
+   # Out[15]:
    :END:
 
    Plot the results.
 
    #+BEGIN_SRC ipython :ipyfile figure/imputation.org/pois-loss.png
+     labels = ['Oracle', 'EBPM-Point', 'WNMF', 'WGLMPCA']
      plt.clf()
      fig, ax = plt.subplots(1, len(data), sharey=True)
      fig.set_size_inches(8, 2.5)
      for a, d, t in zip(ax, data, ['T cells', 'B cells', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC']):
        g = imputation_res[imputation_res['dataset'] == d]
        a.set_yscale('log')
-       for x, (_, y) in enumerate(g.groupby('method')):
+       for x, (m, k) in enumerate(zip(methods, labels)):
+         y = g.loc[g['method'] == m]
          a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1), y['loss'], s=2, c='k', zorder=4)
        a.set_title(t)
        a.grid(c='0.8', lw=1, axis='x')
-       a.set_xticks(np.arange(3))
-       a.set_xticklabels(['Oracle', 'WNMF', 'WGLMPCA'], rotation=90)
+       a.set_xticks(np.arange(4))
+       a.set_xticklabels(labels, rotation=90)
        a.set_xlabel('Method')
      ax[0].set_ylabel('Poisson loss')
      fig.tight_layout()
@@ -407,6 +429,6 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[81]:
+   # Out[16]:
    [[file:figure/imputation.org/pois-loss.png]]
    :END:
