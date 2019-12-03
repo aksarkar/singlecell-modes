@@ -75,7 +75,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar
 
   #+RESULTS:
-  : Submitted batch job 64112269
+  : Submitted batch job 64121390
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -359,6 +359,131 @@
   :PROPERTIES:
   :CUSTOM_ID: results
   :END:
+** Simulated example
+   :PROPERTIES:
+   :CUSTOM_ID: simulation
+   :END:
+
+   Simulate some data where \([\lambda_{ij}]\) is rank 3.
+
+   #+BEGIN_SRC ipython
+     np.random.seed(0)
+     n = 500
+     p = 1000
+     k = 3
+     l = np.random.lognormal(sigma=.5, size=(n, k))
+     f = np.random.lognormal(sigma=.5, size=(p, k))
+     lam = l.dot(f.T)
+     x = np.random.poisson(lam=lam)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[40]:
+   :END:
+
+   Get the oracle rank of \([\ln \lambda_{ij}]\).
+
+   #+BEGIN_SRC ipython
+     d = np.linalg.svd(np.log(lam))[1]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[54]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/sim-spectrum.png
+     plt.clf()
+     plt.gcf().set_size_inches(5, 3)
+     plt.plot(np.arange(n), d, lw=1, c='k')
+     plt.xlabel('Singular value')
+     plt.ylabel('Magnitude')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[53]:
+   : Text(0, 0.5, 'Magnitude')
+   [[file:figure/imputation.org/sim-spectrum.png]]
+   :END:
+
+   #+BEGIN_SRC ipython
+     np.where(d <= 1e-4)[0].min()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[58]:
+   : 29
+   :END:
+
+   Mask 10% of entries at random. For each choice of rank, evaluate the
+   imputation loss of different methods.
+
+   #+BEGIN_SRC ipython :async t
+     imputation_res = []
+     for rank in range(1, 11):
+       for method in ('oracle', 'ebpm_point', 'wnmf', 'wglmpca'):
+         try:
+           loss = getattr(scmodes.benchmark, f'imputation_score_{method}')(x, rank=rank, frac=0.1, seed=0)
+         except RuntimeError:
+           # WGLMPCA fails often
+           loss = np.nan
+         imputation_res.append([method, rank, loss])
+     imputation_res = pd.DataFrame(imputation_res, columns=['method', 'rank', 'loss'])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[47]:
+   :END:
+
+   Plot the results.
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/sim.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 3)
+     for i, (k, g) in enumerate(imputation_res.groupby('method')):
+       plt.plot(g['rank'], g['loss'], lw=1, marker=None, c=cm(i), label=k.upper())
+     plt.axvline(x=3, lw=1, ls=':', c='k')
+     plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xticks(np.arange(1, 11), np.arange(1, 11))
+     plt.xlabel('Assumed rank')
+     plt.ylabel('Poisson loss')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[64]:
+   [[file:figure/imputation.org/sim.png]]
+   :END:
+
+   Zoom in on WNMF and WGLMPCA.
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/sim-inset.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 3)
+     for i, (k, g) in enumerate(imputation_res.groupby('method')):
+       if k in ('wnmf', 'wglmpca'):
+         plt.plot(g['rank'], g['loss'], lw=1, marker=None, c=cm(i), label=k.upper())
+     plt.axvline(x=3, lw=1, ls=':', c='k')
+     plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xticks(np.arange(1, 11), np.arange(1, 11))
+     plt.xlabel('Assumed rank')
+     plt.ylabel('Poisson loss')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[70]:
+   [[file:figure/imputation.org/sim-inset.png]]
+   :END:
+
 ** Imputation benchmark
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
