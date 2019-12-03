@@ -81,12 +81,13 @@
   #+BEGIN_SRC ipython
     import numpy as np
     import pandas as pd
+    import scipy.stats as st
     import scmodes
   #+END_SRC
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[1]:
+  # Out[92]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -457,7 +458,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[64]:
+   # Out[100]:
    [[file:figure/imputation.org/sim.png]]
    :END:
 
@@ -480,8 +481,66 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[70]:
+   # Out[101]:
    [[file:figure/imputation.org/sim-inset.png]]
+   :END:
+
+   Mask the same 10% of the entries, and look at the predicted values.
+
+   #+BEGIN_SRC ipython :async t
+     import scmodes.benchmark.imputation
+
+     w = scmodes.benchmark.imputation._mask_entries(x, frac=0.1, seed=0)
+     wnmf_res = scmodes.lra.nmf(x, w=w, rank=3)
+     # Hack
+     wglmpca_res = scmodes.lra.glmpca(.1 * x, w=w, rank=3, max_iters=5000)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[83]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     wnmf_pred = wnmf_res[0].dot(wnmf_res[1].T)[~w].ravel()
+     wglmpca_pred = np.exp(np.log(10) + wglmpca_res[0].dot(wglmpca_res[1].T))[~w].ravel()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[84]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     pd.Series({
+       'wnmf': st.poisson(mu=wnmf_pred).logpmf(x[~w].ravel()).sum(),
+       'wglmpca': st.poisson(mu=wglmpca_pred).logpmf(x[~w].ravel()).sum()})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[93]:
+   #+BEGIN_EXAMPLE
+     wnmf      -100876.82653
+     wglmpca   -101614.49192
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/sim-pred.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.scatter(wnmf_pred, wglmpca_pred, s=1, c='k', alpha=0.1)
+     plt.plot([0, 25], [0, 25], lw=1, ls=':', c='r')
+     plt.xlabel('WNMF predicted value')
+     plt.ylabel('WGLMPCA predicted value')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[87]:
+   [[file:figure/imputation.org/sim-pred.png]]
    :END:
 
 ** Imputation benchmark

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-03 Tue 11:33 -->
+<!-- 2019-12-03 Tue 12:23 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Imputation of count matrices</title>
@@ -351,6 +351,7 @@ bound) <i>without</i> marginalizing over unobserved data.
 <div class="org-src-container">
 <pre class="src src-ipython" id="org8c7ca25"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 <span class="org-keyword">import</span> scmodes
 </pre>
 </div>
@@ -785,6 +786,56 @@ plt.tight_layout()
 <p><img src="figure/imputation.org/sim-inset.png" alt="sim-inset.png">
 </p>
 </div>
+
+<p>
+Mask the same 10% of the entries, and look at the predicted values.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> scmodes.benchmark.imputation
+
+<span class="org-variable-name">w</span> = scmodes.benchmark.imputation._mask_entries(x, frac=0.1, seed=0)
+<span class="org-variable-name">wnmf_res</span> = scmodes.lra.nmf(x, w=w, rank=3)
+<span class="org-comment-delimiter"># </span><span class="org-comment">Hack</span>
+<span class="org-variable-name">wglmpca_res</span> = scmodes.lra.glmpca(.1 * x, w=w, rank=3, max_iters=5000)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">wnmf_pred</span> = wnmf_res[0].dot(wnmf_res[1].T)[~w].ravel()
+<span class="org-variable-name">wglmpca_pred</span> = np.exp(np.log(10) + wglmpca_res[0].dot(wglmpca_res[1].T))[~w].ravel()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pd.Series({
+  <span class="org-string">'wnmf'</span>: st.poisson(mu=wnmf_pred).logpmf(x[~w].ravel()).<span class="org-builtin">sum</span>(),
+  <span class="org-string">'wglmpca'</span>: st.poisson(mu=wglmpca_pred).logpmf(x[~w].ravel()).<span class="org-builtin">sum</span>()})
+</pre>
+</div>
+
+<pre class="example">
+wnmf      -100876.82653
+wglmpca   -101614.49192
+dtype: float64
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.scatter(wnmf_pred, wglmpca_pred, s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+plt.plot([0, 25], [0, 25], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+plt.xlabel(<span class="org-string">'WNMF predicted value'</span>)
+plt.ylabel(<span class="org-string">'WGLMPCA predicted value'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/imputation.org/sim-pred.png" alt="sim-pred.png">
+</p>
+</div>
 </div>
 </div>
 
@@ -868,7 +919,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-03 Tue 11:33</p>
+<p class="date">Created: 2019-12-03 Tue 12:23</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
