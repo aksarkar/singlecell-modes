@@ -75,7 +75,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar
 
   #+RESULTS:
-  : Submitted batch job 64121390
+  : Submitted batch job 64134296
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -87,7 +87,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[92]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -229,10 +229,10 @@
 
    \begin{align*}
      \ell \triangleq \ln p(\mx \mid \ml, \mf, \mw) &= \sum_{i, j} w_{ij} \left[x_{ij} \sum_k l_{ik} f_{jk} - \exp\left(\sum_k l_{ik} f_{jk}\right) \right] + \const\\
-     \frac{\partial \ell}{\partial l_{ik}} &= \sum_j w_{ij} \left[x_{ij} f_{jk} - \exp\left(\sum_k l_{ik} f_{jk}\right) f_{jk}\right]\\
-     \frac{\partial \ell}{\partial f_{jk}} &= \sum_i w_{ij} \left[x_{ij} l_{ik} - \exp\left(\sum_k l_{ik} f_{jk}\right) l_{ik}\right]\\
-     \mathcal{I}(l_{ik}) &= \sum_j w_{ij} \exp\left(\sum_k l_{ik} f_{jk}\right) f_{jk}^2\\
-     \mathcal{I}(f_{jk}) &= \sum_i w_{ij} \exp\left(\sum_k l_{ik} f_{jk}\right) l_{ik}^2
+     \frac{\partial \ell}{\partial l_{ik}} &= \sum_j w_{ij} \left[x_{ij} f_{jk} - \exp\left(\sum_t l_{it} f_{jt}\right) f_{jk}\right]\\
+     \frac{\partial \ell}{\partial f_{jk}} &= \sum_i w_{ij} \left[x_{ij} l_{ik} - \exp\left(\sum_t l_{it} f_{jt}\right) l_{ik}\right]\\
+     \mathcal{I}(l_{ik}) &= \sum_j w_{ij} \exp\left(\sum_t l_{it} f_{jt}\right) f_{jk}^2\\
+     \mathcal{I}(f_{jk}) &= \sum_i w_{ij} \exp\left(\sum_t l_{it} f_{jt}\right) l_{ik}^2
    \end{align*}
 
 ** Incomplete data VAE
@@ -380,7 +380,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[40]:
+   # Out[4]:
    :END:
 
    Get the oracle rank of \([\ln \lambda_{ij}]\).
@@ -586,7 +586,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[15]:
+   # Out[6]:
    :END:
 
    Plot the results.
@@ -613,6 +613,38 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[16]:
+   # Out[66]:
    [[file:figure/imputation.org/pois-loss.png]]
+   :END:
+
+   Plot the improvement over mean imputation.
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/pois-loss-improvement.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 3, sharex=True)
+     fig.set_size_inches(5, 4)
+     for a, d, t in zip(ax.ravel(), data, ['T cells', 'B cells', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC']):
+       g = imputation_res[imputation_res['dataset'] == d]
+       base = g.loc[g['method'] == 'ebpm_point']
+       for x, m in enumerate(methods[2:]):
+         y = g.loc[g['method'] == m]
+         a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
+                   1e5 * (base['loss'].values - y['loss'].values), s=2, c='k', zorder=4)
+       a.axhline(y=0, c='r', lw=1, ls=':')
+       a.set_title(t)
+       a.grid(c='0.8', lw=1, axis='x')
+     for a in ax[-1]:
+       a.set_xticks(np.arange(2))
+       a.set_xticklabels([m.upper() for m in methods[2:]], rotation=90)
+       a.set_xlabel('Method')
+     a = fig.add_subplot(111, frameon=False)
+     a.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+     a.set_ylabel('Improvement in Poisson loss\nover mean imputation')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[67]:
+   [[file:figure/imputation.org/pois-loss-improvement.png]]
    :END:
