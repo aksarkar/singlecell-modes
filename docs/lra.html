@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-02 Mon 16:12 -->
+<!-- 2019-12-04 Wed 15:22 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Low rank approximation</title>
+<title>&lrm;</title>
 <meta name="generator" content="Org mode">
 <meta name="author" content="Abhishek Sarkar">
 <style type="text/css">
@@ -253,7 +253,6 @@ for the JavaScript code in this tag.
 </head>
 <body>
 <div id="content">
-<h1 class="title">Low rank approximation</h1>
 <div id="table-of-contents">
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
@@ -269,15 +268,15 @@ for the JavaScript code in this tag.
 <ul>
 <li><a href="#ipsc">PCA on (log) counts</a></li>
 <li><a href="#orgfa9be3b">Poisson thinning benchmark</a></li>
-<li><a href="#orge68d487">Sorted cells benchmark</a></li>
-<li><a href="#org924d356">Synthetic mixtures benchmark</a></li>
-<li><a href="#pbmc">PBMCs benchmark</a></li>
 <li><a href="#org443406e">Plot the results</a></li>
 </ul>
 </li>
 </ul>
 </div>
 </div>
+<p>
+1#+TITLE: Low rank approximation
+</p>
 
 <div id="outline-container-orga9ab311" class="outline-2">
 <h2 id="orga9ab311">Introduction</h2>
@@ -523,20 +522,40 @@ PCA of log1p counts: -3.57e+09
 <h3 id="orgfa9be3b">Poisson thinning benchmark</h3>
 <div class="outline-text-3" id="text-orgfa9be3b">
 <p>
-Run the benchmark.
+Run the CPU methods.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --time=24:00:00 --job-name=lra-generalization -a 0
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --time=24:00:00 --job-name=lra-generalization -a 3,5
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
 import os
 &lt;&lt;data&gt;&gt;
-<span class="org-sh-heredoc">methods = ['nmf', 'glmpca', 'wglmpca', 'pvae']</span>
+<span class="org-sh-heredoc">methods = ['wglmpca']</span>
 <span class="org-sh-heredoc">tasks = [(d, m) for d in data for m in methods]</span>
 <span class="org-sh-heredoc">d, m = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
+<span class="org-sh-heredoc">x = data[d]()</span>
+<span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_trials=10)</span>
+<span class="org-sh-heredoc">res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<p>
+Run the GPU methods.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=gpu2 --mem=16G --time=12:00:00 --job-name=lra-generalization -a 0
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+import os
+&lt;&lt;data&gt;&gt;
+<span class="org-sh-heredoc">d = data.keys()[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
 <span class="org-sh-heredoc">x = data[d]()</span>
 <span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_lra_generalization(x.values, methods=[m], n_trials=10)</span>
 <span class="org-sh-heredoc">res.to_csv('/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz', compression='gzip', sep='\t')</span>
@@ -550,95 +569,6 @@ Move the results to permanent storage.
 
 <div class="org-src-container">
 <pre class="src src-sh">rsync -au /scratch/midway2/aksarkar/modes/lra-generalization/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/
-</pre>
-</div>
-</div>
-</div>
-
-<div id="outline-container-orge68d487" class="outline-3">
-<h3 id="orge68d487">Sorted cells benchmark</h3>
-<div class="outline-text-3" id="text-orge68d487">
-<div class="org-src-container">
-<pre class="src src-ipython" id="orgc308207">&lt;&lt;imports&gt;&gt;
-<span class="org-keyword">import</span> os
-<span class="org-variable-name">methods</span> = [<span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>, <span class="org-string">'pvae'</span>]
-<span class="org-variable-name">datasets</span> = [<span class="org-string">'b_cells'</span>, <span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>]
-<span class="org-variable-name">m</span> = methods[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
-<span class="org-keyword">for</span> d <span class="org-keyword">in</span> datasets:
-  <span class="org-variable-name">data</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{d}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
-  <span class="org-variable-name">res</span> = scmodes.benchmark.evaluate_lra_generalization(data, methods=[m], n_trials=10)
-  res.to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz'</span>)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 -a 2 --time=2:00:00 --job-name=lra-benchmark
-<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
-<span class="org-builtin">source</span> activate scmodes
-python /project2/mstephens/aksarkar/projects/singlecell-modes/code/zheng-bench-lra.py
-</pre>
-</div>
-</div>
-</div>
-
-<div id="outline-container-org924d356" class="outline-3">
-<h3 id="org924d356">Synthetic mixtures benchmark</h3>
-<div class="outline-text-3" id="text-org924d356">
-<div class="org-src-container">
-<pre class="src src-ipython" id="orgec82fc0">&lt;&lt;imports&gt;&gt;
-<span class="org-keyword">import</span> os
-<span class="org-variable-name">methods</span> = [<span class="org-string">'pvae'</span>]
-<span class="org-variable-name">datasets</span> = [(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'b_cells'</span>), (<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>)]
-<span class="org-variable-name">d1</span>, <span class="org-variable-name">d2</span> = datasets[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
-<span class="org-variable-name">x1</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{d1}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
-<span class="org-variable-name">x2</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{d2}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
-<span class="org-variable-name">x</span>, <span class="org-variable-name">y</span> = scmodes.dataset.synthetic_mix(x1, x2, min_detect=.25)
-<span class="org-variable-name">res</span> = scmodes.benchmark.evaluate_lra_generalization(x, methods=methods, n_trials=10)
-res.to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/lra-generalization/{d1}-{d2}-pvae.txt.gz'</span>)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 -a 0-1 --mem=16G --time=6:00:00 --job-name=lra-benchmark
-<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
-<span class="org-builtin">source</span> activate scmodes
-python /project2/mstephens/aksarkar/projects/singlecell-modes/code/synthetic-mix-lra.py
-</pre>
-</div>
-</div>
-</div>
-
-<div id="outline-container-org00024ce" class="outline-3">
-<h3 id="pbmc"><a id="org00024ce"></a>PBMCs benchmark</h3>
-<div class="outline-text-3" id="text-pbmc">
-<div class="org-src-container">
-<pre class="src src-ipython">&lt;&lt;imports&gt;&gt;
-<span class="org-keyword">import</span> os
-<span class="org-variable-name">tasks</span> = [<span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>, <span class="org-string">'pvae'</span>]
-<span class="org-variable-name">task</span> = tasks[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
-<span class="org-variable-name">data</span> = scmodes.dataset.read_10x(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>)
-<span class="org-variable-name">res</span> = scmodes.benchmark.evaluate_lra_generalization(data, methods=[task], n_trials=10)
-res.to_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/lra-generalization/pbmcs-{task}.txt.gz'</span>)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -a 1 -n1 -c28 --exclusive --time=6:00:00 --job-name=lra-benchmark
-<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
-<span class="org-builtin">source</span> activate scmodes
-python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lra.py
-</pre>
-</div>
-
-<p>
-Run PVAE on GPU.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 -a 2 --mem=16G --time=6:00:00 --job-name=lra-benchmark
-<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
-<span class="org-builtin">source</span> activate scmodes
-python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lra.py
 </pre>
 </div>
 </div>
@@ -692,7 +622,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-02 Mon 16:12</p>
+<p class="date">Created: 2019-12-04 Wed 15:22</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

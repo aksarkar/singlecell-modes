@@ -1,4 +1,4 @@
-#+TITLE: Low rank approximation
+1#+TITLE: Low rank approximation
 #+SETUPFILE: setup.org
 
 * Introduction
@@ -246,27 +246,44 @@
 
 ** Poisson thinning benchmark
 
-   Run the benchmark.
+   Run the CPU methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --time=24:00:00 --job-name=lra-generalization -a 0
+     sbatch --partition=broadwl -n1 -c28 --exclusive --time=24:00:00 --job-name=lra-generalization -a 3,5
      #!/bin/bash
      source activate scmodes
      python <<EOF
      <<imports>>
      import os
      <<data>>
-     methods = ['nmf', 'glmpca', 'wglmpca', 'pvae']
+     methods = ['wglmpca']
      tasks = [(d, m) for d in data for m in methods]
      d, m = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     x = data[d]()
+     res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_trials=10)
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz', compression='gzip', sep='\t')
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 64134916
+
+   Run the GPU methods.
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --mem=16G --time=12:00:00 --job-name=lra-generalization -a 0
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     import os
+     <<data>>
+     d = data.keys()[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      x = data[d]()
      res = scmodes.benchmark.evaluate_lra_generalization(x.values, methods=[m], n_trials=10)
      res.to_csv('/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
-
-   #+RESULTS:
-   : Submitted batch job 64108875
 
    Move the results to permanent storage.
 
@@ -275,94 +292,6 @@
    #+END_SRC
 
    #+RESULTS:
-
-** Sorted cells benchmark
-
-   #+NAME: zheng-bench
-   #+BEGIN_SRC ipython :eval never :noweb tangle :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/zheng-bench-lra.py
-     <<imports>>
-     import os
-     methods = ['nmf', 'glmpca', 'pvae']
-     datasets = ['b_cells', 'cytotoxic_t', 'naive_t']
-     m = methods[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-     for d in datasets:
-       data = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{d}/filtered_matrices_mex/hg19/', return_df=True)
-       res = scmodes.benchmark.evaluate_lra_generalization(data, methods=[m], n_trials=10)
-       res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz')
-   #+END_SRC
-
-   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes
-     sbatch --partition=gpu2 --gres=gpu:1 -a 2 --time=2:00:00 --job-name=lra-benchmark
-     #!/bin/bash
-     source activate scmodes
-     python /project2/mstephens/aksarkar/projects/singlecell-modes/code/zheng-bench-lra.py
-   #+END_SRC
-
-   #+RESULTS:
-   : Submitted batch job 62338927
-
-** Synthetic mixtures benchmark
-
-   #+NAME: synthetic-mix-bench
-   #+BEGIN_SRC ipython :eval never :noweb tangle :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/synthetic-mix-lra.py
-     <<imports>>
-     import os
-     methods = ['pvae']
-     datasets = [('cytotoxic_t', 'b_cells'), ('cytotoxic_t', 'naive_t')]
-     d1, d2 = datasets[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-     x1 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{d1}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
-     x2 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{d2}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
-     x, y = scmodes.dataset.synthetic_mix(x1, x2, min_detect=.25)
-     res = scmodes.benchmark.evaluate_lra_generalization(x, methods=methods, n_trials=10)
-     res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d1}-{d2}-pvae.txt.gz')
-   #+END_SRC
-
-   #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 -a 0-1 --mem=16G --time=6:00:00 --job-name=lra-benchmark
-     #!/bin/bash
-     source activate scmodes
-     python /project2/mstephens/aksarkar/projects/singlecell-modes/code/synthetic-mix-lra.py
-   #+END_SRC
-
-   #+RESULTS:
-   : Submitted batch job 62349555
-
-** PBMCs benchmark
-   :PROPERTIES:
-   :CUSTOM_ID: pbmc
-   :END:
-
-   #+BEGIN_SRC ipython :eval never :noweb tangle :tangle /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lra.py
-     <<imports>>
-     import os
-     tasks = ['nmf', 'glmpca', 'pvae']
-     task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-     data = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/fresh_68k_pbmc_donor_a/filtered_matrices_mex/hg19/', return_df=True)
-     res = scmodes.benchmark.evaluate_lra_generalization(data, methods=[task], n_trials=10)
-     res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/pbmcs-{task}.txt.gz')
-   #+END_SRC
-
-   #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -a 1 -n1 -c28 --exclusive --time=6:00:00 --job-name=lra-benchmark
-     #!/bin/bash
-     source activate scmodes
-     python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lra.py
-   #+END_SRC
-
-   #+RESULTS:
-   : Submitted batch job 62160371
-
-   Run PVAE on GPU.
-
-   #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 -a 2 --mem=16G --time=6:00:00 --job-name=lra-benchmark
-     #!/bin/bash
-     source activate scmodes
-     python /project2/mstephens/aksarkar/projects/singlecell-modes/code/pbmc-bench-lra.py
-   #+END_SRC
-
-   #+RESULTS:
-   : Submitted batch job 62374803
 
 ** Plot the results
 
