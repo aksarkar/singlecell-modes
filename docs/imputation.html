@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-04 Wed 11:15 -->
+<!-- 2019-12-04 Wed 15:24 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Imputation of count matrices</title>
@@ -271,7 +271,8 @@ for the JavaScript code in this tag.
 </li>
 <li><a href="#results">Results</a>
 <ul>
-<li><a href="#simulation">Simulated example</a></li>
+<li><a href="#simulation">Simulated Poisson example</a></li>
+<li><a href="#org7b6fb9c">Simulated NB example</a></li>
 <li><a href="#org92221a4">Imputation benchmark</a></li>
 </ul>
 </li>
@@ -518,7 +519,7 @@ the model assuming \(h = \log\). The weighted version of the problem is
 </p>
 
 \begin{align*}
-  \ell \triangleq \ln p(\mx \mid \ml, \mf, \mw) &= \sum_{i, j} w_{ij} \left[x_{ij} \sum_k l_{ik} f_{jk} - \exp\left(\sum_k l_{ik} f_{jk}\right) \right] + \const\\
+  \ell \triangleq \ln p(\mx \mid \ml, \mf, \mw) &= \sum_{i, j} w_{ij} \left[x_{ij} \sum_k l_{ik} f_{jk} - \exp\left(\sum_t l_{it} f_{jt}\right) \right] + \const\\
   \frac{\partial \ell}{\partial l_{ik}} &= \sum_j w_{ij} \left[x_{ij} f_{jk} - \exp\left(\sum_t l_{it} f_{jt}\right) f_{jk}\right]\\
   \frac{\partial \ell}{\partial f_{jk}} &= \sum_i w_{ij} \left[x_{ij} l_{ik} - \exp\left(\sum_t l_{it} f_{jt}\right) l_{ik}\right]\\
   \mathcal{I}(l_{ik}) &= \sum_j w_{ij} \exp\left(\sum_t l_{it} f_{jt}\right) f_{jk}^2\\
@@ -660,8 +661,8 @@ dtype: float64
 <h2 id="results"><a id="orgaa1a22b"></a>Results</h2>
 <div class="outline-text-2" id="text-results">
 </div>
-<div id="outline-container-orge2ba87d" class="outline-3">
-<h3 id="simulation"><a id="orge2ba87d"></a>Simulated example</h3>
+<div id="outline-container-org303c4d5" class="outline-3">
+<h3 id="simulation"><a id="org303c4d5"></a>Simulated Poisson example</h3>
 <div class="outline-text-3" id="text-simulation">
 <p>
 Simulate some data where \([\lambda_{ij}]\) is rank 3.
@@ -839,6 +840,102 @@ plt.tight_layout()
 </div>
 </div>
 
+<div id="outline-container-org7b6fb9c" class="outline-3">
+<h3 id="org7b6fb9c">Simulated NB example</h3>
+<div class="outline-text-3" id="text-org7b6fb9c">
+<p>
+Simulate some data from the model, where the signal-to-noise ratio is 1.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(0)
+<span class="org-variable-name">n</span> = 500
+<span class="org-variable-name">p</span> = 1000
+<span class="org-variable-name">k</span> = 3
+<span class="org-variable-name">l</span> = np.random.lognormal(sigma=.5, size=(n, k))
+<span class="org-variable-name">f</span> = np.random.lognormal(sigma=.5, size=(p, k))
+<span class="org-variable-name">lam</span> = l.dot(f.T)
+<span class="org-variable-name">u</span> = np.random.gamma(shape=1 / lam.var(), scale=lam.var(), size=(n, p))
+<span class="org-variable-name">x</span> = np.random.poisson(lam=lam * u)
+</pre>
+</div>
+
+<p>
+Run the methods. In WNBMF, fix the inverse dispersion to the oracle value.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">imputation_res</span> = []
+<span class="org-keyword">for</span> rank <span class="org-keyword">in</span> <span class="org-builtin">range</span>(1, 11):
+  <span class="org-keyword">for</span> method <span class="org-keyword">in</span> (<span class="org-string">'oracle'</span>, <span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnmf'</span>, <span class="org-string">'wglmpca'</span>, <span class="org-string">'wnbmf'</span>):
+    <span class="org-keyword">try</span>:
+      <span class="org-variable-name">loss</span> = <span class="org-builtin">getattr</span>(scmodes.benchmark, f<span class="org-string">'imputation_score_{method}'</span>)(x, rank=rank, frac=0.1, seed=0, inv_disp=1 / lam.var())
+    <span class="org-keyword">except</span> <span class="org-type">RuntimeError</span>:
+      <span class="org-comment-delimiter"># </span><span class="org-comment">WGLMPCA fails often</span>
+      <span class="org-variable-name">loss</span> = np.nan
+    imputation_res.append([method, rank, loss])
+<span class="org-variable-name">imputation_res</span> = pd.DataFrame(imputation_res, columns=[<span class="org-string">'method'</span>, <span class="org-string">'rank'</span>, <span class="org-string">'loss'</span>])
+</pre>
+</div>
+
+<p>
+0 - 6b196ec4-d70b-4223-b182-1a1344c779ec
+</p>
+
+<p>
+Plot the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(4, 3)
+<span class="org-keyword">for</span> i, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(imputation_res.groupby(<span class="org-string">'method'</span>)):
+  plt.plot(g[<span class="org-string">'rank'</span>], g[<span class="org-string">'loss'</span>], lw=1, marker=<span class="org-constant">None</span>, c=cm(i), label=k.upper())
+plt.axvline(x=3, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+plt.xticks(np.arange(1, 11), np.arange(1, 11))
+plt.xlabel(<span class="org-string">'Assumed rank'</span>)
+plt.ylabel(<span class="org-string">'Poisson loss'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/imputation.org/sim-nb.png" alt="sim-nb.png">
+</p>
+</div>
+
+<p>
+Zoom in on WNBMF and EBPM-Point.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(4, 3)
+<span class="org-keyword">for</span> i, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(imputation_res.groupby(<span class="org-string">'method'</span>)):
+  <span class="org-keyword">if</span> k <span class="org-keyword">in</span> (<span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnbmf'</span>):
+    plt.plot(g[<span class="org-string">'rank'</span>], g[<span class="org-string">'loss'</span>], lw=1, marker=<span class="org-constant">None</span>, c=cm(i), label=k.upper())
+plt.axvline(x=3, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+plt.xticks(np.arange(1, 11), np.arange(1, 11))
+plt.xlabel(<span class="org-string">'Assumed rank'</span>)
+plt.ylabel(<span class="org-string">'Poisson loss'</span>)
+plt.tight_layout()
+
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/imputation.org/sim-nb-inset.png" alt="sim-nb-inset.png">
+</p>
+</div>
+</div>
+</div>
+
 <div id="outline-container-org92221a4" class="outline-3">
 <h3 id="org92221a4">Imputation benchmark</h3>
 <div class="outline-text-3" id="text-org92221a4">
@@ -954,7 +1051,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-04 Wed 11:15</p>
+<p class="date">Created: 2019-12-04 Wed 15:24</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

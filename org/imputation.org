@@ -228,7 +228,7 @@
    the model assuming \(h = \log\). The weighted version of the problem is
 
    \begin{align*}
-     \ell \triangleq \ln p(\mx \mid \ml, \mf, \mw) &= \sum_{i, j} w_{ij} \left[x_{ij} \sum_k l_{ik} f_{jk} - \exp\left(\sum_k l_{ik} f_{jk}\right) \right] + \const\\
+     \ell \triangleq \ln p(\mx \mid \ml, \mf, \mw) &= \sum_{i, j} w_{ij} \left[x_{ij} \sum_k l_{ik} f_{jk} - \exp\left(\sum_t l_{it} f_{jt}\right) \right] + \const\\
      \frac{\partial \ell}{\partial l_{ik}} &= \sum_j w_{ij} \left[x_{ij} f_{jk} - \exp\left(\sum_t l_{it} f_{jt}\right) f_{jk}\right]\\
      \frac{\partial \ell}{\partial f_{jk}} &= \sum_i w_{ij} \left[x_{ij} l_{ik} - \exp\left(\sum_t l_{it} f_{jt}\right) l_{ik}\right]\\
      \mathcal{I}(l_{ik}) &= \sum_j w_{ij} \exp\left(\sum_t l_{it} f_{jt}\right) f_{jk}^2\\
@@ -360,7 +360,7 @@
   :PROPERTIES:
   :CUSTOM_ID: results
   :END:
-** Simulated example
+** Simulated Poisson example
    :PROPERTIES:
    :CUSTOM_ID: simulation
    :END:
@@ -380,7 +380,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[71]:
    :END:
 
    Get the oracle rank of \([\ln \lambda_{ij}]\).
@@ -541,6 +541,93 @@
    :RESULTS:
    # Out[87]:
    [[file:figure/imputation.org/sim-pred.png]]
+   :END:
+
+** Simulated NB example
+   
+   Simulate some data from the model, where the signal-to-noise ratio is 1.
+
+   #+BEGIN_SRC ipython
+     np.random.seed(0)
+     n = 500
+     p = 1000
+     k = 3
+     l = np.random.lognormal(sigma=.5, size=(n, k))
+     f = np.random.lognormal(sigma=.5, size=(p, k))
+     lam = l.dot(f.T)
+     u = np.random.gamma(shape=1 / lam.var(), scale=lam.var(), size=(n, p))
+     x = np.random.poisson(lam=lam * u)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[146]:
+   :END:
+
+   Run the methods. In WNBMF, fix the inverse dispersion to the oracle value.
+
+   #+BEGIN_SRC ipython :async t
+     imputation_res = []
+     for rank in range(1, 11):
+       for method in ('oracle', 'ebpm_point', 'wnmf', 'wglmpca', 'wnbmf'):
+         try:
+           loss = getattr(scmodes.benchmark, f'imputation_score_{method}')(x, rank=rank, frac=0.1, seed=0, inv_disp=1 / lam.var())
+         except RuntimeError:
+           # WGLMPCA fails often
+           loss = np.nan
+         imputation_res.append([method, rank, loss])
+     imputation_res = pd.DataFrame(imputation_res, columns=['method', 'rank', 'loss'])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   0 - 6b196ec4-d70b-4223-b182-1a1344c779ec
+   :END:
+
+   Plot the results.
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/sim-nb.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 3)
+     for i, (k, g) in enumerate(imputation_res.groupby('method')):
+       plt.plot(g['rank'], g['loss'], lw=1, marker=None, c=cm(i), label=k.upper())
+     plt.axvline(x=3, lw=1, ls=':', c='k')
+     plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xticks(np.arange(1, 11), np.arange(1, 11))
+     plt.xlabel('Assumed rank')
+     plt.ylabel('Poisson loss')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[137]:
+   [[file:figure/imputation.org/sim-nb.png]]
+   :END:
+
+   Zoom in on WNBMF and EBPM-Point.
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/sim-nb-inset.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 3)
+     for i, (k, g) in enumerate(imputation_res.groupby('method')):
+       if k in ('ebpm_point', 'wnbmf'):
+         plt.plot(g['rank'], g['loss'], lw=1, marker=None, c=cm(i), label=k.upper())
+     plt.axvline(x=3, lw=1, ls=':', c='k')
+     plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xticks(np.arange(1, 11), np.arange(1, 11))
+     plt.xlabel('Assumed rank')
+     plt.ylabel('Poisson loss')
+     plt.tight_layout()
+
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[138]:
+   [[file:figure/imputation.org/sim-nb-inset.png]]
    :END:
 
 ** Imputation benchmark
