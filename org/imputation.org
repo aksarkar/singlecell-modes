@@ -75,7 +75,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar
 
   #+RESULTS:
-  : Submitted batch job 64134296
+  : Submitted batch job 64143034
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -177,24 +177,29 @@
 
    Gouvert et al. 2018 only consider the case \(\phi_{ij} = \phi\); however,
    other natural choices are \(\phi_{ij} = \phi_j\) and \(\phi_{ij} = \phi_i +
-   \phi_j\). To derive an EM algorithm, first note that \(p(\mz \mid \mx, \mU,
-   \ml, \mf) = p(\mz \mid \mx, \ml, \mf)\). Further,
+   \phi_j\). To derive an EM algorithm, first note that
+
+   \[ p(\mz \mid \mx, \mU, \ml, \mf) 
+   = p(\mz \mid \mx, \ml, \mf)
+   = \operatorname{Multinomial}(\cdot; x_{ij}, \frac{l_{i1} f_{j1}}{\sum_t l_{it} f_{jt}}, \ldots, \frac{l_{iK} f_{jK}}{\sum_t l_{it} f_{jt}}) \]
+
+   Further,
 
    \begin{align*}
      p(u_{ij} \mid \mx, \mz, \ml, \mf) &\propto p(\mx, \mz, u_{ij} \mid \ml, \mf)\\
      &\propto \prod_k u_{ij}^{z_{ijk}} \exp(-l_{ik} f_{jk} u_{ij}) u_{ij}^{1/\phi_{ij} - 1} \exp(-u_{ij} / \phi_{ij})\\
-     &\propto u_{ij}^{x_{ij} + 1/\phi_{ij} - 1} \exp\left(-u_{ij}\left(\sum_k [l_{ik} f_{jk}] + 1/\phi_{ij}\right)\right)\\
-     &= \operatorname{Gamma}(x_{ij} + 1/\phi_{ij}, \sum_k [l_{ik} f_{jk}] + 1/\phi_{ij})
+     &\propto u_{ij}^{x_{ij} + 1/\phi_{ij} - 1} \exp\left(-u_{ij}\left(\left(\sum_k l_{ik} f_{jk}\right) + 1/\phi_{ij}\right)\right)\\
+     &= \operatorname{Gamma}(x_{ij} + 1/\phi_{ij}, \left(\sum_k l_{ik} f_{jk}\right) + 1/\phi_{ij})
    \end{align*}
 
    The expected log joint
 
    \begin{multline*}
-     \E{\ln p(\mx, \mz, \mU \mid \ml, \mf)} = \sum_{i, j, k} [\E{z_{ijk}}(\E{\ln u_{ij}} + \ln (l_{ik} f_{jk})) - l_{ik} f_{jk} \E{u_{ij}} - \ln\Gamma(x_{ij} + 1)]\\
+     h \triangleq \E{\ln p(\mx, \mz, \mU \mid \ml, \mf)} = \sum_{i, j, k} [\E{z_{ijk}}(\E{\ln u_{ij}} + \ln (l_{ik} f_{jk})) - l_{ik} f_{jk} \E{u_{ij}} - \ln\Gamma(x_{ij} + 1)]\\
      + \sum_{i, j} [(1 / \phi_{ij}) \ln(1 / \phi_{ij}) + (\E{u_{ij}} - 1) \ln(1 / \phi_{ij}) - \E{u_{ij}}  /  \phi_{ij} - \ln\Gamma(1 / \phi_{ij})]
    \end{multline*}
 
-   leading to M step updates
+   yielding analytic M step updates
 
    \begin{align*}
      l_{ik} &= \frac{\sum_j \E{z_{ijk}}}{\sum_j f_{jk} \E{u_{ij}}}\\
@@ -203,20 +208,26 @@
 
    Using properties of the Gamma distribution,
 
-   \begin{align*}
-     \E{u_{ij}} &= \frac{x_{ij} + 1/\phi_{ij}}{\sum_k [l_{ik} f_{jk}] + 1/\phi_{ij}}\\
-     \E{\ln u_{ij}} &= \psi(1/\phi_{ij}) + \ln \phi_{ij}
-   \end{align*}
+   \[ \E{u_{ij}} = \frac{x_{ij} + 1/\phi_{ij}}{\left(\sum_k l_{ik} f_{jk}\right) + 1 / \phi_{ij}} \]
 
-   where \(\psi(\cdot)\) denotes the digamma function. Plugging in
-   \(\E{z_{ijk}}, \E{u_{ij}}\) yields the multiplicative updates proposed by
-   Gouvert et al. 2018. Following the arguments for WNMF, if we introduce
-   weights \(w_{ij} \in \{0, 1\}\), they will enter the M step updates in the
-   numerator and denominator.
+   Plugging in \(\E{z_{ijk}}\), \(\E{u_{ij}}\) yields the multiplicative
+   updates of a form similar to WNMF. Following the arguments for WNMF, if we
+   introduce weights \(w_{ij} \in \{0, 1\}\), they will enter the M step
+   updates in the numerator and denominator.
 
    Gouvert et al. 2018 treat \(\phi_{ij}\) as fixed, rather than estimating it
    from data. For the easy case \(\phi_{ij} = \phi\), numerical optimization of
-   the expected log joint with respect to \(\phi\) is possible.
+   the expected log joint with respect to \(\theta = 1 / \phi\) is
+   straightforward (using e.g. Newton's method):
+
+   \begin{align*}
+     \frac{\partial h}{\partial \theta} &= \sum_{i, j} \Bigg[1 + \ln \theta + \frac{\E{u_{ij}} - 1}{\theta} - \E{u_{ij}} - \psi(\theta)\Bigg]\\
+     \frac{\partial^2 h}{\partial \theta^2} &= \sum_{i, j} \Bigg[\frac{1}{\theta} - \frac{\E{u_{ij}} - 1}{\theta^2} - \psi_1(\theta)\Bigg]
+   \end{align*}
+
+   where \(\psi(\cdot)\) denotes the digamma function and \(\psi_1(\cdot)\)
+   denotes the trigamma function. It is clear that weights \(w_{ij} \in \{0,
+   1\}\) enter inside the sums in these expressions.
 
 ** Weighted GLM-PCA
    :PROPERTIES:
@@ -545,7 +556,7 @@
 
 ** Simulated NB example
    
-   Simulate some data from the model, where the signal-to-noise ratio is 1.
+   Simulate some data from the model.
 
    #+BEGIN_SRC ipython
      np.random.seed(0)
@@ -555,13 +566,14 @@
      l = np.random.lognormal(sigma=.5, size=(n, k))
      f = np.random.lognormal(sigma=.5, size=(p, k))
      lam = l.dot(f.T)
-     u = np.random.gamma(shape=1 / lam.var(), scale=lam.var(), size=(n, p))
+     inv_disp = 0.1
+     u = np.random.gamma(shape=inv_disp, scale=1 / inv_disp, size=(n, p))
      x = np.random.poisson(lam=lam * u)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[146]:
+   # Out[4]:
    :END:
 
    Run the methods. In WNBMF, fix the inverse dispersion to the oracle value.
@@ -571,7 +583,7 @@
      for rank in range(1, 11):
        for method in ('oracle', 'ebpm_point', 'wnmf', 'wglmpca', 'wnbmf'):
          try:
-           loss = getattr(scmodes.benchmark, f'imputation_score_{method}')(x, rank=rank, frac=0.1, seed=0, inv_disp=1 / lam.var())
+           loss = getattr(scmodes.benchmark, f'imputation_score_{method}')(x, rank=rank, frac=0.1, seed=0, inv_disp=inv_disp)
          except RuntimeError:
            # WGLMPCA fails often
            loss = np.nan
@@ -581,7 +593,7 @@
 
    #+RESULTS:
    :RESULTS:
-   0 - 6b196ec4-d70b-4223-b182-1a1344c779ec
+   # Out[5]:
    :END:
 
    Plot the results.
@@ -602,7 +614,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[137]:
+   # Out[6]:
    [[file:figure/imputation.org/sim-nb.png]]
    :END:
 
@@ -621,12 +633,11 @@
      plt.xlabel('Assumed rank')
      plt.ylabel('Poisson loss')
      plt.tight_layout()
-
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[138]:
+   # Out[7]:
    [[file:figure/imputation.org/sim-nb-inset.png]]
    :END:
 
