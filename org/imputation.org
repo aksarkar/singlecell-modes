@@ -598,7 +598,7 @@
 
    #+RESULTS:
    :RESULTS:
-   0 - a6ea5372-0ce9-4c07-9692-8933072c2416
+   # Out[52]:
    :END:
 
    Plot the results.
@@ -619,7 +619,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[53]:
    [[file:figure/imputation.org/sim-nb.png]]
    :END:
 
@@ -642,7 +642,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[24]:
+   # Out[54]:
    [[file:figure/imputation.org/sim-nb-inset.png]]
    :END:
 

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-04 Wed 19:30 -->
+<!-- 2019-12-04 Wed 23:00 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Imputation of count matrices</title>
@@ -272,16 +272,16 @@ for the JavaScript code in this tag.
 <li><a href="#results">Results</a>
 <ul>
 <li><a href="#simulation">Simulated Poisson example</a></li>
-<li><a href="#org7b6fb9c">Simulated NB example</a></li>
-<li><a href="#org92221a4">Imputation benchmark</a></li>
+<li><a href="#org05c8395">Simulated NB example</a></li>
+<li><a href="#orgfd4d399">Imputation benchmark</a></li>
 </ul>
 </li>
 </ul>
 </div>
 </div>
 
-<div id="outline-container-orga86d1f7" class="outline-2">
-<h2 id="introduction"><a id="orga86d1f7"></a>Introduction</h2>
+<div id="outline-container-orga364103" class="outline-2">
+<h2 id="introduction"><a id="orga364103"></a>Introduction</h2>
 <div class="outline-text-2" id="text-introduction">
 <p>
 The key idea of our approach to modeling scRNA-seq is to separate sampling
@@ -346,11 +346,11 @@ bound) <i>without</i> marginalizing over unobserved data.
 </div>
 </div>
 
-<div id="outline-container-orgcdabdd9" class="outline-2">
-<h2 id="setup"><a id="orgcdabdd9"></a>Setup</h2>
+<div id="outline-container-orgd313ff0" class="outline-2">
+<h2 id="setup"><a id="orgd313ff0"></a>Setup</h2>
 <div class="outline-text-2" id="text-setup">
 <div class="org-src-container">
-<pre class="src src-ipython" id="org8c7ca25"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<pre class="src src-ipython" id="orgac614da"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 <span class="org-keyword">import</span> scmodes
@@ -372,12 +372,12 @@ bound) <i>without</i> marginalizing over unobserved data.
 </div>
 </div>
 
-<div id="outline-container-org0a82632" class="outline-2">
-<h2 id="methods"><a id="org0a82632"></a>Methods</h2>
+<div id="outline-container-orge24e3e1" class="outline-2">
+<h2 id="methods"><a id="orge24e3e1"></a>Methods</h2>
 <div class="outline-text-2" id="text-methods">
 </div>
-<div id="outline-container-org8aca765" class="outline-3">
-<h3 id="wnmf"><a id="org8aca765"></a>Weighted non-negative matrix factorization</h3>
+<div id="outline-container-org8f78969" class="outline-3">
+<h3 id="wnmf"><a id="org8f78969"></a>Weighted non-negative matrix factorization</h3>
 <div class="outline-text-3" id="text-wnmf">
 <p>
 Weighted non-negative matrix factorization (WNMF;
@@ -447,12 +447,14 @@ Negative Binomial Matrix Factorization (NBMF; Gouvert et al 2018) is the
 </p>
 
 \begin{align*}
-  x_{ij} &= \sum_k z_{ijk}\\
+  x_{ij} &= \sum_{k=1}^K z_{ijk}\\
   z_{ijk} &\sim \operatorname{Poisson}(l_{ik} f_{jk} u_{ij})\\
   u_{ij} &\sim \operatorname{Gamma}(1/\phi_{ij}, 1/\phi_{ij})
 \end{align*}
 
 <p>
+where the Gamma distribution is parameterized by a shape and a rate. (The
+mean of the Gamma distribution is 1, and its variance is \(\phi_{ij}\).)
 Gouvert et al. 2018 only consider the case \(\phi_{ij} = \phi\); however,
 other natural choices are \(\phi_{ij} = \phi_j\) and \(\phi_{ij} = \phi_i +
    \phi_j\). To derive an EM algorithm, first note that
@@ -461,18 +463,18 @@ other natural choices are \(\phi_{ij} = \phi_j\) and \(\phi_{ij} = \phi_i +
 <p>
 \[ p(\mz \mid \mx, \mU, \ml, \mf) 
    = p(\mz \mid \mx, \ml, \mf)
-   = \operatorname{Multinomial}(\cdot; x_{ij}, \frac{l_{i1} f_{j1}}{\sum_t l_{it} f_{jt}}, \ldots, \frac{l_{iK} f_{jK}}{\sum_t l_{it} f_{jt}}) \]
+   = \sum_{i, j} \operatorname{Multinomial}(\cdot; x_{ij}, \frac{l_{i1} f_{j1}}{\mu_{ij}}, \ldots, \frac{l_{iK} f_{jK}}{\mu_{ij}}) \]
 </p>
 
 <p>
-Further,
+where \(\mu_{ij} \triangleq \sum_t l_{it} f_{jt}\). Further,
 </p>
 
 \begin{align*}
   p(u_{ij} \mid \mx, \mz, \ml, \mf) &\propto p(\mx, \mz, u_{ij} \mid \ml, \mf)\\
   &\propto \prod_k u_{ij}^{z_{ijk}} \exp(-l_{ik} f_{jk} u_{ij}) u_{ij}^{1/\phi_{ij} - 1} \exp(-u_{ij} / \phi_{ij})\\
-  &\propto u_{ij}^{x_{ij} + 1/\phi_{ij} - 1} \exp\left(-u_{ij}\left(\left(\sum_k l_{ik} f_{jk}\right) + 1/\phi_{ij}\right)\right)\\
-  &= \operatorname{Gamma}(x_{ij} + 1/\phi_{ij}, \left(\sum_k l_{ik} f_{jk}\right) + 1/\phi_{ij})
+  &\propto u_{ij}^{x_{ij} + 1 / \phi_{ij} - 1} \exp\left(-u_{ij}\left(\mu_{ij} + 1 / \phi_{ij}\right)\right)\\
+  &= \operatorname{Gamma}(x_{ij} + 1 / \phi_{ij}, \mu_{ij} + 1 / \phi_{ij})
 \end{align*}
 
 <p>
@@ -480,8 +482,8 @@ The expected log joint
 </p>
 
 \begin{multline*}
-  h \triangleq \E{\ln p(\mx, \mz, \mU \mid \ml, \mf)} = \sum_{i, j, k} [\E{z_{ijk}}(\E{\ln u_{ij}} + \ln (l_{ik} f_{jk})) - l_{ik} f_{jk} \E{u_{ij}} - \ln\Gamma(x_{ij} + 1)]\\
-  + \sum_{i, j} [(1 / \phi_{ij}) \ln(1 / \phi_{ij}) + (\E{u_{ij}} - 1) \ln(1 / \phi_{ij}) - \E{u_{ij}}  /  \phi_{ij} - \ln\Gamma(1 / \phi_{ij})]
+  \ell \triangleq \E{\ln p(\mx, \mz, \mU \mid \ml, \mf)} = \sum_{i, j, k} [\E{z_{ijk}}(\E{\ln u_{ij}} + \ln (l_{ik} f_{jk})) - l_{ik} f_{jk} \E{u_{ij}} - \ln\Gamma(x_{ij} + 1)]\\
+  + \sum_{i, j} [(1 / \phi_{ij}) \ln(1 / \phi_{ij}) + (1 / \phi_{ij} - 1) \E{\ln u_{ij}} - \E{u_{ij}} / \phi_{ij} - \ln\Gamma(1 / \phi_{ij})]
 \end{multline*}
 
 <p>
@@ -497,15 +499,16 @@ yielding analytic M step updates
 Using properties of the Gamma distribution,
 </p>
 
-<p>
-\[ \E{u_{ij}} = \frac{x_{ij} + 1/\phi_{ij}}{\left(\sum_k l_{ik} f_{jk}\right) + 1 / \phi_{ij}} \]
-</p>
+\begin{align*}
+  \E{u_{ij}} &= \frac{x_{ij} + 1/\phi_{ij}}{\mu_{ij} + 1/\phi_{ij}}\\
+  \E{\ln u_{ij}} &= \psi(x_{ij} + 1 / \phi_{ij}) - \ln(\mu_{ij} + 1 / \phi_{ij})
+\end{align*}
 
 <p>
-Plugging in \(\E{z_{ijk}}\), \(\E{u_{ij}}\) yields the multiplicative
-updates of a form similar to WNMF. Following the arguments for WNMF, if we
-introduce weights \(w_{ij} \in \{0, 1\}\), they will enter the M step
-updates in the numerator and denominator.
+Plugging in \(\E{z_{ijk}}\), \(\E{u_{ij}}\) yields multiplicative updates of
+a form similar to WNMF. Following the arguments for WNMF, if we introduce
+weights \(w_{ij} \in \{0, 1\}\), they will enter the M step updates in the
+numerator and denominator.
 </p>
 
 <p>
@@ -516,8 +519,8 @@ straightforward (using e.g. Newton's method):
 </p>
 
 \begin{align*}
-  \frac{\partial h}{\partial \theta} &= \sum_{i, j} \Bigg[1 + \ln \theta + \frac{\E{u_{ij}} - 1}{\theta} - \E{u_{ij}} - \psi(\theta)\Bigg]\\
-  \frac{\partial^2 h}{\partial \theta^2} &= \sum_{i, j} \Bigg[\frac{1}{\theta} - \frac{\E{u_{ij}} - 1}{\theta^2} - \psi_1(\theta)\Bigg]
+  \frac{\partial \ell}{\partial \theta} &= \sum_{i, j} \Bigg[1 + \ln \theta + \E{\ln u_{ij}} - \E{u_{ij}} - \psi(\theta)\Bigg]\\
+  \frac{\partial^2 \ell}{\partial \theta^2} &= \sum_{i, j} \Bigg[\frac{1}{\theta} - \psi_1(\theta)\Bigg]
 \end{align*}
 
 <p>
@@ -528,8 +531,8 @@ denotes the trigamma function. It is clear that weights \(w_{ij} \in \{0,
 </div>
 </div>
 
-<div id="outline-container-org7735dc1" class="outline-3">
-<h3 id="wglmpca"><a id="org7735dc1"></a>Weighted GLM-PCA</h3>
+<div id="outline-container-org288f584" class="outline-3">
+<h3 id="wglmpca"><a id="org288f584"></a>Weighted GLM-PCA</h3>
 <div class="outline-text-3" id="text-wglmpca">
 <p>
 GLM-PCA (<a href="https://arxiv.org/abs/1907.02647">Townes 2019</a>) uses
@@ -547,8 +550,8 @@ the model assuming \(h = \log\). The weighted version of the problem is
 </div>
 </div>
 
-<div id="outline-container-org0786c11" class="outline-3">
-<h3 id="vae"><a id="org0786c11"></a>Incomplete data VAE</h3>
+<div id="outline-container-org52c6bb5" class="outline-3">
+<h3 id="vae"><a id="org52c6bb5"></a>Incomplete data VAE</h3>
 <div class="outline-text-3" id="text-vae">
 <p>
 Variational autoencoders fit a generative model parameterized by a neural
@@ -604,11 +607,11 @@ works, and that a tighter bound can be achieved using importance sampling
 </div>
 </div>
 
-<div id="outline-container-org4846c95" class="outline-3">
-<h3 id="datasets"><a id="org4846c95"></a>Datasets</h3>
+<div id="outline-container-orgdb67a90" class="outline-3">
+<h3 id="datasets"><a id="orgdb67a90"></a>Datasets</h3>
 <div class="outline-text-3" id="text-datasets">
 <div class="org-src-container">
-<pre class="src src-ipython" id="orgb049ac8"><span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k, min_detect=0.01, n_cells=1000, seed=1):
+<pre class="src src-ipython" id="org2a19ee0"><span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k, min_detect=0.01, n_cells=1000, seed=1):
   <span class="org-keyword">return</span> scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/'</span>, min_detect=0.01, return_df=<span class="org-constant">True</span>).sample(n=n_cells, axis=0, random_state=seed)
 
 <span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.01, n_cells=1000, seed=1):
@@ -676,12 +679,12 @@ dtype: float64
 </div>
 </div>
 
-<div id="outline-container-orgaa1a22b" class="outline-2">
-<h2 id="results"><a id="orgaa1a22b"></a>Results</h2>
+<div id="outline-container-org2d627c5" class="outline-2">
+<h2 id="results"><a id="org2d627c5"></a>Results</h2>
 <div class="outline-text-2" id="text-results">
 </div>
-<div id="outline-container-org303c4d5" class="outline-3">
-<h3 id="simulation"><a id="org303c4d5"></a>Simulated Poisson example</h3>
+<div id="outline-container-org3e578ad" class="outline-3">
+<h3 id="simulation"><a id="org3e578ad"></a>Simulated Poisson example</h3>
 <div class="outline-text-3" id="text-simulation">
 <p>
 Simulate some data where \([\lambda_{ij}]\) is rank 3.
@@ -859,9 +862,9 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-org7b6fb9c" class="outline-3">
-<h3 id="org7b6fb9c">Simulated NB example</h3>
-<div class="outline-text-3" id="text-org7b6fb9c">
+<div id="outline-container-org05c8395" class="outline-3">
+<h3 id="org05c8395">Simulated NB example</h3>
+<div class="outline-text-3" id="text-org05c8395">
 <p>
 Simulate some data from the model.
 </p>
@@ -881,7 +884,7 @@ Simulate some data from the model.
 </div>
 
 <p>
-Run the methods. In WNBMF, fix the inverse dispersion to the oracle value.
+Run the methods. For WNBMF, initialize at the oracle value.
 </p>
 
 <div class="org-src-container">
@@ -889,7 +892,7 @@ Run the methods. In WNBMF, fix the inverse dispersion to the oracle value.
 <span class="org-keyword">for</span> rank <span class="org-keyword">in</span> <span class="org-builtin">range</span>(1, 11):
   <span class="org-keyword">for</span> method <span class="org-keyword">in</span> (<span class="org-string">'oracle'</span>, <span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnmf'</span>, <span class="org-string">'wglmpca'</span>, <span class="org-string">'wnbmf'</span>):
     <span class="org-keyword">try</span>:
-      <span class="org-variable-name">loss</span> = <span class="org-builtin">getattr</span>(scmodes.benchmark, f<span class="org-string">'imputation_score_{method}'</span>)(x, rank=rank, frac=0.1, seed=0, inv_disp=inv_disp)
+      <span class="org-variable-name">loss</span> = <span class="org-builtin">getattr</span>(scmodes.benchmark, f<span class="org-string">'imputation_score_{method}'</span>)(x, rank=rank, frac=0.1, seed=0, inv_disp=inv_disp, fix_inv_disp=<span class="org-constant">False</span>)
     <span class="org-keyword">except</span> <span class="org-type">RuntimeError</span>:
       <span class="org-comment-delimiter"># </span><span class="org-comment">WGLMPCA fails often</span>
       <span class="org-variable-name">loss</span> = np.nan
@@ -951,9 +954,9 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-org92221a4" class="outline-3">
-<h3 id="org92221a4">Imputation benchmark</h3>
-<div class="outline-text-3" id="text-org92221a4">
+<div id="outline-container-orgfd4d399" class="outline-3">
+<h3 id="orgfd4d399">Imputation benchmark</h3>
+<div class="outline-text-3" id="text-orgfd4d399">
 <div class="org-src-container">
 <pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 --job-name=imputation-benchmark -a 0-5
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
@@ -1066,7 +1069,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-04 Wed 19:30</p>
+<p class="date">Created: 2019-12-04 Wed 23:00</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
