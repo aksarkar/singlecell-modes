@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2019-12-05 Thu 15:04 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variational autoencoders for scRNA-seq data</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Variational autoencoders for scRNA-seq data</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#org8b9c3f3">Results</a>
+<ul>
+<li><a href="#org75c9b04">Poisson thinning example</a></li>
+<li><a href="#orga679601">Imputation example</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org219995a" class="outline-2">
+<h2 id="introduction"><a id="org219995a"></a>Introduction</h2>
+<div class="outline-text-2" id="text-introduction">
+<p>
+Variational autoencoders fit a generative model parameterized by a neural
+network (Kingma and Welling 2014, Rezende and Mohammed 2014). Our model of
+interest is \(
+  \newcommand\const{\mathrm{const}}
+  \newcommand\E[1]{\left\langle #1 \right\rangle}
+  \newcommand\vx{\mathbf{x}}
+  \newcommand\vw{\mathbf{w}}
+  \newcommand\vz{\mathbf{z}}
+  \newcommand\mx{\mathbf{X}}
+  \newcommand\mU{\mathbf{U}}
+  \newcommand\mw{\mathbf{W}}
+  \newcommand\mz{\mathbf{Z}}
+  \newcommand\ml{\mathbf{L}}
+  \newcommand\mf{\mathbf{F}}
+  \)
+</p>
+
+\begin{align*}
+  x_{ij} \mid \lambda_{ij} &\sim \operatorname{Poisson}(\lambda_{ij})\\
+  \lambda_{ij} \mid \vz_i, u_{ij} &= \mu(\vz_i)_j\, u_{ij}\\
+  u_{ij} &\sim p(u_{ij})\\
+  \vz_i &\sim \mathcal{N}(\boldsymbol{0}, \mathbf{I}_K)
+\end{align*}
+
+<p>
+where \(\mu(\cdot)\) is a \(p\)-dimensional output of a fully connected
+feed-forward neural network. To approximate the intractable posterior
+\(p(\vz_i \mid \vx_i)\), we use a variational approximation
+</p>
+
+<p>
+\[ q(\vz_i \mid \vx_i) = \mathcal{N}(m(\vz_i), \operatorname{diag}(S(\vz_i))) \]
+</p>
+
+<p>
+where \(m(\cdot), S(\cdot)\) are \(K\)-dimensional outputs of a FF
+network. 
+</p>
+
+<p>
+<b>Remark</b> Unlike previously published methods (e.g. Lopez et al 2018, Eraslan
+et al. 2018), parameters of \(p(u_{ij})\) are <i>not</i> outputs of the decoder
+network, because they describe random effects (assumed to be unstructured).
+</p>
+
+<p>
+Fitting VAEs with incomplete data has only recently been studied
+(<a href="https://arxiv.org/abs/1807.03653">Nazabal et al. 2018</a>,
+<a href="https://arxiv.org/abs/1812.02633">Mattei and Frellsen 2018</a>). The key
+idea is that if the coordinates of \(\vx_i\) are separable (meaning the
+likelihood factorizes) and coordinates are missing at random, then
+maximizing the log likelihood (or a lower bound to the log likelihood) of
+only the observed coordinates is a statistically sound procedure. In this
+case, the lower bound is
+</p>
+
+<p>
+\[ \ell \triangleq \sum_{i, j} \E{w_{ij} \ln\left(\int_0^\infty \operatorname{Poisson}(x_{ij}; \mu(\vz_i)_j\, u_{ij})\; dp(u_{ij})\right)} - \sum_{i} \E{\ln\left(\frac{q(\vz_i \mid f(\vx_i))}{p(\vz_i)}\right)}\]
+</p>
+
+<p>
+where \(f\) is some imputation function (e.g., fill in missing values with
+zero) and expectations are taken with respect to \(q\). For easy choices of
+\(p(u_{ij})\), the integrals inside the expectation are analytic. Mattei and
+Frellsen 2018 suggest filling missing data with 0 in the encoder network
+works, and that a tighter bound can be achieved using importance sampling
+(<a href="https://arxiv.org/abs/1509.00519">Burda et al. 2016</a>)
+</p>
+
+<p>
+\[ \ell_{\text{IWAE}} \triangleq \sum_i \E{\ln\left(\frac{1}{S} \sum_{s=1}^S \frac{p(\vx_i, \vz_i^{(s)})}{q(\vz_i^{(s)} \mid \vx_i)}\right)} \]
+</p>
+</div>
+</div>
+
+<div id="outline-container-org6f8c74e" class="outline-2">
+<h2 id="setup"><a id="org6f8c74e"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scmodes
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+<span class="org-keyword">import</span> torch
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org8b9c3f3" class="outline-2">
+<h2 id="org8b9c3f3">Results</h2>
+<div class="outline-text-2" id="text-org8b9c3f3">
+</div>
+<div id="outline-container-org75c9b04" class="outline-3">
+<h3 id="org75c9b04">Poisson thinning example</h3>
+<div class="outline-text-3" id="text-org75c9b04">
+<p>
+Simulate some data from the model.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(0)
+<span class="org-variable-name">n</span> = 500
+<span class="org-variable-name">p</span> = 100
+<span class="org-variable-name">k</span> = 3
+<span class="org-variable-name">l</span> = np.random.lognormal(sigma=.5, size=(n, k))
+<span class="org-variable-name">f</span> = np.random.lognormal(sigma=.5, size=(p, k))
+<span class="org-variable-name">mu</span> = l @ f.T
+<span class="org-variable-name">u</span> = np.random.gamma(shape=.1, scale=10, size=(n, p))
+<span class="org-variable-name">lam</span> = mu * u
+<span class="org-variable-name">x</span> = np.random.poisson(lam=lam)
+</pre>
+</div>
+
+<p>
+Fit the models.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Important: cast to float32 is required</span>
+<span class="org-variable-name">xt</span> = torch.tensor(x.astype(np.float32))
+<span class="org-variable-name">m0</span> = scmodes.lra.vae.PVAE(input_dim=p, latent_dim=10).fit(xt, lr=1e-2, n_samples=10, max_epochs=2000)
+<span class="org-variable-name">m1</span> = scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=10).fit(xt, lr=1e-2, n_samples=10, max_epochs=2000)
+<span class="org-variable-name">m2</span> = scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=10).fit(xt, lr=1e-2, n_samples=10, max_epochs=2000)
+</pre>
+</div>
+
+<p>
+Generate a validation data set having exactly the same \([\lambda_{ij}]\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x_val</span> = np.random.poisson(lam=lam)
+</pre>
+</div>
+
+<p>
+Evaluate the estimated \([\lambda_{ij}]\) on the validation data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">xvt</span> = torch.tensor(x_val, dtype=torch.<span class="org-builtin">float</span>)
+pd.Series({<span class="org-builtin">type</span>(m).<span class="org-builtin">__name__</span>: st.poisson(mu=m.denoise(xvt)).logpmf(x_val).mean() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> (m0, m1, m2)})
+</pre>
+</div>
+
+<pre class="example">
+PVAE      -3.856198
+NBVAE     -5.120229
+ZINBVAE   -9.182907
+dtype: float64
+</pre>
+
+<p>
+Compare against NMF.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">This will be &gt; oracle rank due to fitting u</span>
+<span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nmf(x, rank=27)
+st.poisson(mu=l.dot(f.T)).logpmf(x_val).mean()
+</pre>
+</div>
+
+<pre class="example">
+-5.082246093625973
+
+</pre>
+</div>
+</div>
+
+<div id="outline-container-orga679601" class="outline-3">
+<h3 id="orga679601">Imputation example</h3>
+<div class="outline-text-3" id="text-orga679601">
+<p>
+Simulate some data from the model. Mask 10% of the entries.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(0)
+<span class="org-variable-name">n</span> = 500
+<span class="org-variable-name">p</span> = 100
+<span class="org-variable-name">k</span> = 3
+<span class="org-variable-name">l</span> = np.random.lognormal(sigma=.5, size=(n, k))
+<span class="org-variable-name">f</span> = np.random.lognormal(sigma=.5, size=(p, k))
+<span class="org-variable-name">mu</span> = l @ f.T
+<span class="org-variable-name">u</span> = np.random.gamma(shape=.1, scale=10, size=(n, p))
+<span class="org-variable-name">lam</span> = mu * u
+<span class="org-variable-name">x</span> = np.random.poisson(lam=lam)
+<span class="org-variable-name">xt</span> = torch.tensor(w.astype(np.float32), dtype=torch.<span class="org-builtin">float</span>)
+<span class="org-variable-name">w</span> = np.random.uniform(size=x.shape) &lt; 0.9
+<span class="org-variable-name">wt</span> = torch.tensor(w.astype(np.float32), dtype=torch.<span class="org-builtin">float</span>)
+</pre>
+</div>
+
+<p>
+Fit the models.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">m0</span> = scmodes.lra.vae.PVAE(input_dim=p, latent_dim=10).fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000)
+<span class="org-variable-name">m1</span> = scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=10).fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000)
+<span class="org-variable-name">m2</span> = scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=10).fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000)
+</pre>
+</div>
+
+<p>
+Evaluate the imputation loss.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pd.Series({<span class="org-builtin">type</span>(m).<span class="org-builtin">__name__</span>: np.where(w, st.poisson(mu=m.decoder.forward(m.encoder.forward(xt.cuda())[0]).detach().cpu().numpy()).logpmf(x), 0).<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> (m0, m1, m2)})
+</pre>
+</div>
+
+<pre class="example">
+PVAE      -476840.324426
+NBVAE     -476896.336044
+ZINBVAE   -477223.668249
+dtype: float64
+</pre>
+
+<p>
+Compare against NMF.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nmf(x, w=w, rank=30)
+np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<pre class="example">
+-158590.38164120057
+
+</pre>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2019-12-05 Thu 15:04</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

@@ -1,0 +1,264 @@
+#+TITLE: Variational autoencoders for scRNA-seq data
+#+SETUPFILE: setup.org
+
+* Introduction
+  :PROPERTIES:
+  :CUSTOM_ID: introduction
+  :END:
+
+  Variational autoencoders fit a generative model parameterized by a neural
+  network (Kingma and Welling 2014, Rezende and Mohammed 2014). Our model of
+  interest is \(
+  \newcommand\const{\mathrm{const}}
+  \newcommand\E[1]{\left\langle #1 \right\rangle}
+  \newcommand\vx{\mathbf{x}}
+  \newcommand\vw{\mathbf{w}}
+  \newcommand\vz{\mathbf{z}}
+  \newcommand\mx{\mathbf{X}}
+  \newcommand\mU{\mathbf{U}}
+  \newcommand\mw{\mathbf{W}}
+  \newcommand\mz{\mathbf{Z}}
+  \newcommand\ml{\mathbf{L}}
+  \newcommand\mf{\mathbf{F}}
+  \)
+
+  \begin{align*}
+    x_{ij} \mid \lambda_{ij} &\sim \operatorname{Poisson}(\lambda_{ij})\\
+    \lambda_{ij} \mid \vz_i, u_{ij} &= \mu(\vz_i)_j\, u_{ij}\\
+    u_{ij} &\sim p(u_{ij})\\
+    \vz_i &\sim \mathcal{N}(\boldsymbol{0}, \mathbf{I}_K)
+  \end{align*}
+
+  where \(\mu(\cdot)\) is a \(p\)-dimensional output of a fully connected
+  feed-forward neural network. To approximate the intractable posterior
+  \(p(\vz_i \mid \vx_i)\), we use a variational approximation
+
+  \[ q(\vz_i \mid \vx_i) = \mathcal{N}(m(\vz_i), \operatorname{diag}(S(\vz_i))) \]
+
+  where \(m(\cdot), S(\cdot)\) are \(K\)-dimensional outputs of a FF
+  network. 
+
+  *Remark* Unlike previously published methods (e.g. Lopez et al 2018, Eraslan
+  et al. 2018), parameters of \(p(u_{ij})\) are /not/ outputs of the decoder
+  network, because they describe random effects (assumed to be unstructured).
+
+  Fitting VAEs with incomplete data has only recently been studied
+  ([[https://arxiv.org/abs/1807.03653][Nazabal et al. 2018]],
+  [[https://arxiv.org/abs/1812.02633][Mattei and Frellsen 2018]]). The key
+  idea is that if the coordinates of \(\vx_i\) are separable (meaning the
+  likelihood factorizes) and coordinates are missing at random, then
+  maximizing the log likelihood (or a lower bound to the log likelihood) of
+  only the observed coordinates is a statistically sound procedure. In this
+  case, the lower bound is
+
+  \[ \ell \triangleq \sum_{i, j} \E{w_{ij} \ln\left(\int_0^\infty \operatorname{Poisson}(x_{ij}; \mu(\vz_i)_j\, u_{ij})\; dp(u_{ij})\right)} - \sum_{i} \E{\ln\left(\frac{q(\vz_i \mid f(\vx_i))}{p(\vz_i)}\right)}\]
+
+  where \(f\) is some imputation function (e.g., fill in missing values with
+  zero) and expectations are taken with respect to \(q\). For easy choices of
+  \(p(u_{ij})\), the integrals inside the expectation are analytic. Mattei and
+  Frellsen 2018 suggest filling missing data with 0 in the encoder network
+  works, and that a tighter bound can be achieved using importance sampling
+  ([[https://arxiv.org/abs/1509.00519][Burda et al. 2016]])
+
+  \[ \ell_{\text{IWAE}} \triangleq \sum_i \E{\ln\left(\frac{1}{S} \sum_{s=1}^S \frac{p(\vx_i, \vz_i^{(s)})}{q(\vz_i^{(s)} \mid \vx_i)}\right)} \]
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="2G") :exports none :dir /scratch/midway2/aksarkar/modes/
+
+  #+RESULTS:
+  : Submitted batch job 64156577
+
+  #+BEGIN_SRC ipython
+    import numpy as np
+    import pandas as pd
+    import scmodes
+    import scipy.stats as st
+    import torch
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[25]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+* Results
+** Poisson thinning example
+
+   Simulate some data from the model.
+
+   #+BEGIN_SRC ipython
+     np.random.seed(0)
+     n = 500
+     p = 100
+     k = 3
+     l = np.random.lognormal(sigma=.5, size=(n, k))
+     f = np.random.lognormal(sigma=.5, size=(p, k))
+     mu = l @ f.T
+     u = np.random.gamma(shape=.1, scale=10, size=(n, p))
+     lam = mu * u
+     x = np.random.poisson(lam=lam)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[5]:
+   :END:
+
+   Fit the models.
+
+   #+BEGIN_SRC ipython :async t
+     # Important: cast to float32 is required
+     xt = torch.tensor(x.astype(np.float32))
+     m0 = scmodes.lra.vae.PVAE(input_dim=p, latent_dim=10).fit(xt, lr=1e-2, n_samples=10, max_epochs=2000)
+     m1 = scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=10).fit(xt, lr=1e-2, n_samples=10, max_epochs=2000)
+     m2 = scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=10).fit(xt, lr=1e-2, n_samples=10, max_epochs=2000)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[52]:
+   :END:
+
+   Generate a validation data set having exactly the same \([\lambda_{ij}]\).
+
+   #+BEGIN_SRC ipython
+     x_val = np.random.poisson(lam=lam)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[16]:
+   :END:
+
+   Evaluate the estimated \([\lambda_{ij}]\) on the validation data.
+
+   #+BEGIN_SRC ipython :async t
+     xvt = torch.tensor(x_val, dtype=torch.float)
+     pd.Series({type(m).__name__: st.poisson(mu=m.denoise(xvt)).logpmf(x_val).mean() for m in (m0, m1, m2)})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[53]:
+   #+BEGIN_EXAMPLE
+     PVAE      -3.856198
+     NBVAE     -5.120229
+     ZINBVAE   -9.182907
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Compare against NMF.
+
+   #+BEGIN_SRC ipython :async t
+     # This will be > oracle rank due to fitting u
+     l, f, _ = scmodes.lra.nmf(x, rank=27)
+     st.poisson(mu=l.dot(f.T)).logpmf(x_val).mean()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[67]:
+   : -5.082246093625973
+   :END:
+
+** Imputation example
+
+   Simulate some data from the model. Mask 10% of the entries.
+
+   #+BEGIN_SRC ipython
+     np.random.seed(0)
+     n = 500
+     p = 100
+     k = 3
+     l = np.random.lognormal(sigma=.5, size=(n, k))
+     f = np.random.lognormal(sigma=.5, size=(p, k))
+     mu = l @ f.T
+     u = np.random.gamma(shape=.1, scale=10, size=(n, p))
+     lam = mu * u
+     x = np.random.poisson(lam=lam)
+     xt = torch.tensor(w.astype(np.float32), dtype=torch.float)
+     w = np.random.uniform(size=x.shape) < 0.9
+     wt = torch.tensor(w.astype(np.float32), dtype=torch.float)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[99]:
+   :END:
+
+   Fit the models.
+
+   #+BEGIN_SRC ipython :async t
+     m0 = scmodes.lra.vae.PVAE(input_dim=p, latent_dim=10).fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000)
+     m1 = scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=10).fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000)
+     m2 = scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=10).fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[100]:
+   :END:
+
+   Evaluate the imputation loss.
+
+   #+BEGIN_SRC ipython
+     pd.Series({type(m).__name__: np.where(w, st.poisson(mu=m.decoder.forward(m.encoder.forward(xt.cuda())[0]).detach().cpu().numpy()).logpmf(x), 0).sum() for m in (m0, m1, m2)})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[101]:
+   #+BEGIN_EXAMPLE
+     PVAE      -476840.324426
+     NBVAE     -476896.336044
+     ZINBVAE   -477223.668249
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Compare against NMF.
+
+   #+BEGIN_SRC ipython
+     l, f, _ = scmodes.lra.nmf(x, w=w, rank=30)
+     np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[105]:
+   : -158590.38164120057
+   :END:

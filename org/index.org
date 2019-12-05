@@ -35,3 +35,4 @@ Technical details:
 - [[file:pois-truncnorm.org][Poisson-truncated normal data]]
 - [[file:gamma-mix.org][Poisson-unimodal Gamma mixture model]]
 - [[file:pois-gam-lik.org][Poisson-Gamma log likelihood surface]]
+- [[file:vae.org][Variational autoencoders for scRNA-seq data]]
