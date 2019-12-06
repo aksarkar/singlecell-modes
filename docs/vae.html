@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-06 Fri 11:52 -->
+<!-- 2019-12-06 Fri 15:24 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Variational autoencoders for scRNA-seq data</title>
@@ -577,27 +577,45 @@ Fit the models.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">m0</span> = (scmodes.lra.vae.PVAE(input_dim=p, latent_dim=3)
-      .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000, verbose=<span class="org-constant">True</span>))
+      .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=3000, verbose=<span class="org-constant">True</span>))
 <span class="org-variable-name">m1</span> = (scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=3, disp_by_gene=<span class="org-constant">False</span>)
-      .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000, verbose=<span class="org-constant">True</span>))
+      .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=3000, verbose=<span class="org-constant">True</span>))
 <span class="org-variable-name">m2</span> = (scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=3, disp_by_gene=<span class="org-constant">False</span>, logodds_by_gene=<span class="org-constant">False</span>)
-      .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000, verbose=<span class="org-constant">True</span>))
+      .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=3000, verbose=<span class="org-constant">True</span>))
 </pre>
 </div>
 
 <p>
-Evaluate the imputation loss.
+Evaluate the imputation loss, imputing values as \(\mu(\E{\vz_i})_j\), where
+the expectation is taken with respect to \(q\).
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">pd.Series({<span class="org-builtin">type</span>(m).<span class="org-builtin">__name__</span>: np.where(w, st.poisson(mu=m.decoder.forward(m.encoder.forward(xt.cuda())[0]).detach().cpu().numpy()).logpmf(x), 0).<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> (m0, m1, m2)})
+<pre class="src src-ipython">pd.Series({<span class="org-builtin">type</span>(m).<span class="org-builtin">__name__</span>: np.where(w, st.poisson(mu=m.predict(wt * xt)).logpmf(x), 0).<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> (m0, m1, m2)})
 </pre>
 </div>
 
 <pre class="example">
-PVAE      -239298.698822
-NBVAE     -274276.617000
-ZINBVAE   -326857.867842
+PVAE      -167575.265731
+NBVAE     -231874.631810
+ZINBVAE   -321747.785248
+dtype: float64
+</pre>
+
+<p>
+Evaluate the imputation loss, imputing values as \(\E{\mu(\vz_i)_j}\), where
+the expectation is estimated by drawing samples from \(q\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pd.Series({<span class="org-builtin">type</span>(m).<span class="org-builtin">__name__</span>: np.where(w, st.poisson(mu=m.predict(wt * xt, n_samples=100)).logpmf(x), 0).<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> (m0, m1, m2)})
+</pre>
+</div>
+
+<pre class="example">
+PVAE      -167489.990176
+NBVAE     -233566.128557
+ZINBVAE   -322616.699734
 dtype: float64
 </pre>
 
@@ -606,13 +624,39 @@ Compare against NMF.
 </p>
 
 <div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nmf(x, w=w, rank=3)
+np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<pre class="example">
+-314052.09500172065
+
+</pre>
+
+<div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nmf(x, w=w, rank=30)
 np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).<span class="org-builtin">sum</span>()
 </pre>
 </div>
 
 <pre class="example">
--158786.32484083134
+-156195.2215742887
+
+</pre>
+
+<p>
+Compare against NBMF.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nbmf(x, w=w, rank=3, inv_disp=0.1, fix_inv_disp=<span class="org-constant">False</span>)
+np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<pre class="example">
+-327706.3480304909
 
 </pre>
 </div>
@@ -621,7 +665,7 @@ np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).<span class="org-builtin">sum</
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-06 Fri 11:52</p>
+<p class="date">Created: 2019-12-06 Fri 15:24</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

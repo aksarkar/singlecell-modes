@@ -78,7 +78,7 @@
   #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="2G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 64170878
+  : Submitted batch job 64172978
 
   #+BEGIN_SRC ipython
     import numpy as np
@@ -90,7 +90,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -100,7 +100,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -111,7 +111,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[4]:
   :END:
 
 * Results
@@ -143,7 +143,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
+   # Out[8]:
    :END:
 
    Fit the models. First, fix the latent dimension to the oracle value.
@@ -306,43 +306,73 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[17]:
+   # Out[9]:
    :END:
 
    Fit the models.
 
    #+BEGIN_SRC ipython :async t
      m0 = (scmodes.lra.vae.PVAE(input_dim=p, latent_dim=3)
-           .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000, verbose=True))
+           .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=3000, verbose=True))
      m1 = (scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=3, disp_by_gene=False)
-           .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000, verbose=True))
+           .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=3000, verbose=True))
      m2 = (scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=3, disp_by_gene=False, logodds_by_gene=False)
-           .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000, verbose=True))
+           .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=3000, verbose=True))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[20]:
+   # Out[6]:
    :END:
 
-   Evaluate the imputation loss.
+   Evaluate the imputation loss, imputing values as \(\mu(\E{\vz_i})_j\), where
+   the expectation is taken with respect to \(q\).
 
    #+BEGIN_SRC ipython
-     pd.Series({type(m).__name__: np.where(w, st.poisson(mu=m.decoder.forward(m.encoder.forward(xt.cuda())[0]).detach().cpu().numpy()).logpmf(x), 0).sum() for m in (m0, m1, m2)})
+     pd.Series({type(m).__name__: np.where(w, st.poisson(mu=m.predict(wt * xt)).logpmf(x), 0).sum() for m in (m0, m1, m2)})
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[21]:
+   # Out[7]:
    #+BEGIN_EXAMPLE
-     PVAE      -239298.698822
-     NBVAE     -274276.617000
-     ZINBVAE   -326857.867842
+     PVAE      -167575.265731
+     NBVAE     -231874.631810
+     ZINBVAE   -321747.785248
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Evaluate the imputation loss, imputing values as \(\E{\mu(\vz_i)_j}\), where
+   the expectation is estimated by drawing samples from \(q\).
+
+   #+BEGIN_SRC ipython
+     pd.Series({type(m).__name__: np.where(w, st.poisson(mu=m.predict(wt * xt, n_samples=100)).logpmf(x), 0).sum() for m in (m0, m1, m2)})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[10]:
+   #+BEGIN_EXAMPLE
+     PVAE      -167489.990176
+     NBVAE     -233566.128557
+     ZINBVAE   -322616.699734
      dtype: float64
    #+END_EXAMPLE
    :END:
 
    Compare against NMF.
+
+   #+BEGIN_SRC ipython
+     l, f, _ = scmodes.lra.nmf(x, w=w, rank=3)
+     np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[23]:
+   : -314052.09500172065
+   :END:
 
    #+BEGIN_SRC ipython
      l, f, _ = scmodes.lra.nmf(x, w=w, rank=30)
@@ -351,6 +381,19 @@
 
    #+RESULTS:
    :RESULTS:
+   # Out[24]:
+   : -156195.2215742887
+   :END:
+
+   Compare against NBMF.
+
+   #+BEGIN_SRC ipython
+     l, f, _ = scmodes.lra.nbmf(x, w=w, rank=3, inv_disp=0.1, fix_inv_disp=False)
+     np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
    # Out[22]:
-   : -158786.32484083134
+   : -327706.3480304909
    :END:
