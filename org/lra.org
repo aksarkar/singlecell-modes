@@ -1,4 +1,4 @@
-1#+TITLE: Low rank approximation
+#+TITLE: Low rank approximation
 #+SETUPFILE: setup.org
 
 * Introduction
@@ -77,7 +77,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 62303428
+  : Submitted batch job 64164248
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -160,7 +160,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[86]:
+   # Out[5]:
    :END:
 
    Report the data dimensions.
@@ -249,14 +249,14 @@
    Run the CPU methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --time=24:00:00 --job-name=lra-generalization -a 3,5
+     sbatch --partition=broadwl -n1 -c28 --exclusive --time=24:00:00 --job-name=lra-generalization -a 0-5
      #!/bin/bash
      source activate scmodes
      python <<EOF
      <<imports>>
      import os
      <<data>>
-     methods = ['wglmpca']
+     methods = ['glmpca']
      tasks = [(d, m) for d in data for m in methods]
      d, m = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      x = data[d]()
@@ -266,7 +266,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 64134916
+   : Submitted batch job 64156161
 
    Run the GPU methods.
 
@@ -299,13 +299,10 @@
 
    #+BEGIN_SRC ipython
      methods = ['nmf', 'glmpca', 'pvae']
-     data = ['b_cells', 'cytotoxic_t', 'naive_t', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'pbmcs']
      titles = ['B cell', 'Cytotoxic T', 'Naive T', 'B cell/T cell', 'Naive/cytotoxic T', 'PBMC']
-     results = {k: pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/{k}-{m}.txt.gz',
-                                          header=[0, 1],
-                                          index_col=0)
-                              for m in methods], axis='columns')
-                for k in data}
+     poisthin_res = pd.DataFrame(
+       {(k, m): pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/{k}-{m}.txt.gz', header=[0, 1], index_col=0)
+        for k in data for m in methods})
    #+END_SRC
 
    #+RESULTS:
