@@ -223,49 +223,6 @@
    [[file:figure/deconvolution.org/mlcb-skp1.png]]
    :END:
 
-** Plot the results
-
-   Read the results.
-
-   #+BEGIN_SRC ipython
-     methods = ['nmf', 'glmpca', 'pvae']
-     data = ['b_cells', 'cytotoxic_t', 'naive_t', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'pbmcs']
-     titles = ['B cell', 'Cytotoxic T', 'Naive T', 'B cell/T cell', 'Naive/cytotoxic T', 'PBMC']
-     results = {k: pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/{k}-{m}.txt.gz',
-                                          header=[0, 1],
-                                          index_col=0)
-                              for m in methods], axis='columns')
-                for k in data}
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[4]:
-   :END:
-
-   #+BEGIN_SRC ipython :ipyfile figure/lra.org/mlcb-bench-lra.png
-     plt.clf()
-     fig, ax = plt.subplots(1, len(results), sharey=True)
-     fig.set_size_inches(8, 2)
-     for a, k, t in zip(ax, results, titles):
-       llik = results[k]['validation']
-       for x, m in enumerate(llik):
-         a.scatter(x + np.random.normal(scale=0.1, size=llik.shape[0]), llik[m].values, s=1, c='k', zorder=3)
-       a.grid(c='0.8', lw=1, axis='x')
-       a.set_xlim(-0.5, 2.5)
-       a.set_xticks(np.arange(3))
-       a.set_xticklabels([m.upper() for m in methods], rotation=90)
-       a.set_title(t)
-     ax[0].set_ylabel('Validation log lik')
-     fig.tight_layout()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[96]:
-   [[file:figure/lra.org/mlcb-bench-lra.png]]
-   :END:
-
 ** Vector format
 
    #+BEGIN_SRC ipython
@@ -394,4 +351,110 @@
    :RESULTS:
    # Out[30]:
    [[file:figure/mlcb.org/mlcb-rpl34.svg]]
+   :END:
+
+** Poster figures
+
+   #+BEGIN_SRC ipython
+     %config InlineBackend.figure_formats = set(['svg'])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[61]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/mlcb.org/poisthin-bench.svg
+     data = ['cytotoxic_t', 'b_cells', 'naive_t', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'pbmcs_68k']
+     methods = ['nmf', 'wglmpca', 'pvae']
+     titles = ['B cell', 'Cytotoxic T', 'Naive T', 'B cell/T cell', 'Naive/cytotoxic T', 'PBMC']
+     poisthin_res = pd.concat(
+       {k: pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/{k}-{m}.txt.gz', header=[0, 1], index_col=0, sep='\t') for m in methods if not (k == 'pbmcs_68k' and m == 'wglmpca')], axis=1) for k in data})
+
+     plt.clf()
+     fig, ax = plt.subplots(2, 3, sharex=True)
+     fig.set_size_inches(5, 4)
+     for a, k, t in zip(ax.ravel(), data, titles):
+       llik = poisthin_res.loc[k]['validation']
+       for x, m in enumerate(llik):
+         a.scatter(x + np.random.normal(scale=0.1, size=llik.shape[0]), llik[m].values, s=1, c='k', zorder=3)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xlim(-0.5, 2.5)
+       a.set_xticks(np.arange(3))
+       a.set_title(t)
+     for a in ax[-1]:
+       a.set_xlabel('Method')
+       a.set_xticklabels([m.upper() for m in llik.columns], rotation=90)
+     for a in ax:
+       a[0].set_ylabel('Validation log lik')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[62]:
+   [[file:figure/mlcb.org/poisthin-bench.svg]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/mlcb.org/imputation-bench.svg
+     data = ['cytotoxic_t', 'b_cells', 'ipsc', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'pbmcs_68k']
+     methods = ['oracle', 'ebpm_point', 'wnmf', 'wglmpca']
+     imputation_res = (pd.concat({(d, m): pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/{d}-{m}.txt.gz', sep='\t', index_col=0)
+                                      for d in data for m in methods if d != 'naive_t'})
+                       .reset_index(level=0)
+                       .reset_index(drop=True)
+                       .rename({'level_0': 'dataset'}, axis=1))
+
+     plt.clf()
+     fig, ax = plt.subplots(2, 3, sharex=True)
+     fig.set_size_inches(5, 4)
+     for a, d, t in zip(ax.ravel(), data, ['T cells', 'B cells', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC']):
+       g = imputation_res[imputation_res['dataset'] == d]
+       base = g.loc[g['method'] == 'ebpm_point']
+       for x, m in enumerate(methods[2:]):
+         y = g.loc[g['method'] == m]
+         a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
+                   1e5 * (base['loss'].values - y['loss'].values), s=2, c='k', zorder=4)
+       a.axhline(y=0, c='r', lw=1, ls=':')
+       a.set_title(t)
+       a.grid(c='0.8', lw=1, axis='x')
+     for a in ax[-1]:
+       a.set_xticks(np.arange(2))
+       a.set_xticklabels([m.upper() for m in methods[2:]], rotation=90)
+       a.set_xlabel('Method')
+     a = fig.add_subplot(111, frameon=False)
+     a.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+     a.set_ylabel('Improvement in Poisson loss\nover mean imputation')
+     fig.tight_layout()
+
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[66]:
+   [[file:figure/mlcb.org/imputation-bench.svg]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/mlcb.org/gamma-gof-hist.svg
+     gof_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/gof.txt.gz', sep='\t', index_col=0)
+     plt.clf()
+     fig, ax = plt.subplots(1, 6, sharey=True)
+     fig.set_size_inches(8, 2)
+     for a, t, (k, g) in zip(ax.ravel(),
+                             ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC'],
+                             gof_res.groupby('dataset')):
+       a.hist(g.loc[g['method'] == 'gamma', 'p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+       a.axhline(y=1, c='k', ls=':', lw=1)
+       a.set_xlim([0, 1])
+       a.set_title(t)
+     ax[0].set_ylabel('Density')
+     for a in ax:
+       a.set_xlabel('$p$-value')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[67]:
+   [[file:figure/mlcb.org/gamma-gof-hist.svg]]
    :END:
