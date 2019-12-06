@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-05 Thu 23:48 -->
+<!-- 2019-12-06 Fri 00:17 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Low rank approximation</title>
@@ -583,25 +583,28 @@ Read the results.
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, <span class="org-builtin">len</span>(data), sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(8, 2.5)
-<span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, data, titles):
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>)
+fig.set_size_inches(5, 4)
+<span class="org-keyword">for</span> a, k, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), data, titles):
   <span class="org-variable-name">llik</span> = poisthin_res.loc[k][<span class="org-string">'validation'</span>]
   <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(llik):
     a.scatter(x + np.random.normal(scale=0.1, size=llik.shape[0]), llik[m].values, s=1, c=<span class="org-string">'k'</span>, zorder=3)
   a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
   a.set_xlim(-0.5, 2.5)
   a.set_xticks(np.arange(3))
-  a.set_xticklabels([m.upper() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> llik.columns], rotation=90)
   a.set_title(t)
-ax[0].set_ylabel(<span class="org-string">'Validation log lik'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax[-1]:
+  a.set_xlabel(<span class="org-string">'Method'</span>)
+  a.set_xticklabels([m.upper() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> llik.columns], rotation=90)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Validation log lik'</span>)
 fig.tight_layout()
 </pre>
 </div>
 
 
 <div class="figure">
-<p><img src="figure/lra.org/mlcb-bench-lra.png" alt="mlcb-bench-lra.png">
+<p><img src="figure/lra.org/lra-bench.png" alt="lra-bench.png">
 </p>
 </div>
 </div>
@@ -610,7 +613,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-05 Thu 23:48</p>
+<p class="date">Created: 2019-12-06 Fri 00:17</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
