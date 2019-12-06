@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-05 Thu 15:04 -->
+<!-- 2019-12-06 Fri 11:52 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Variational autoencoders for scRNA-seq data</title>
@@ -260,10 +260,10 @@ for the JavaScript code in this tag.
 <ul>
 <li><a href="#introduction">Introduction</a></li>
 <li><a href="#setup">Setup</a></li>
-<li><a href="#org8b9c3f3">Results</a>
+<li><a href="#results">Results</a>
 <ul>
-<li><a href="#org75c9b04">Poisson thinning example</a></li>
-<li><a href="#orga679601">Imputation example</a></li>
+<li><a href="#poisthin">Poisson thinning example</a></li>
+<li><a href="#imputation">Imputation example</a></li>
 </ul>
 </li>
 </ul>
@@ -377,14 +377,14 @@ works, and that a tighter bound can be achieved using importance sampling
 </div>
 
 <div id="outline-container-org8b9c3f3" class="outline-2">
-<h2 id="org8b9c3f3">Results</h2>
-<div class="outline-text-2" id="text-org8b9c3f3">
+<h2 id="results"><a id="org8b9c3f3"></a>Results</h2>
+<div class="outline-text-2" id="text-results">
 </div>
 <div id="outline-container-org75c9b04" class="outline-3">
-<h3 id="org75c9b04">Poisson thinning example</h3>
-<div class="outline-text-3" id="text-org75c9b04">
+<h3 id="poisthin"><a id="org75c9b04"></a>Poisson thinning example</h3>
+<div class="outline-text-3" id="text-poisthin">
 <p>
-Simulate some data from the model.
+Simulate two independent data sets from the (same) model.
 </p>
 
 <div class="org-src-container">
@@ -398,29 +398,108 @@ Simulate some data from the model.
 <span class="org-variable-name">u</span> = np.random.gamma(shape=.1, scale=10, size=(n, p))
 <span class="org-variable-name">lam</span> = mu * u
 <span class="org-variable-name">x</span> = np.random.poisson(lam=lam)
+<span class="org-variable-name">xt</span> = torch.tensor(x, dtype=torch.<span class="org-builtin">float</span>)
+<span class="org-variable-name">x_val</span> = np.random.poisson(lam=lam)
+<span class="org-variable-name">xvt</span> = torch.tensor(x_val, dtype=torch.<span class="org-builtin">float</span>)
 </pre>
 </div>
 
 <p>
-Fit the models.
+Fit the models. First, fix the latent dimension to the oracle value.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Important: cast to float32 is required</span>
-<span class="org-variable-name">xt</span> = torch.tensor(x.astype(np.float32))
-<span class="org-variable-name">m0</span> = scmodes.lra.vae.PVAE(input_dim=p, latent_dim=10).fit(xt, lr=1e-2, n_samples=10, max_epochs=2000)
-<span class="org-variable-name">m1</span> = scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=10).fit(xt, lr=1e-2, n_samples=10, max_epochs=2000)
-<span class="org-variable-name">m2</span> = scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=10).fit(xt, lr=1e-2, n_samples=10, max_epochs=2000)
+<pre class="src src-ipython"><span class="org-variable-name">m0</span> = (scmodes.lra.vae.PVAE(input_dim=p, latent_dim=3)
+      .fit(xt, lr=1e-2, n_samples=10, max_epochs=3000, trace=<span class="org-constant">True</span>))
+<span class="org-variable-name">m1</span> = (scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=3, disp_by_gene=<span class="org-constant">False</span>)
+      .fit(xt, lr=1e-2, n_samples=10, max_epochs=3000, trace=<span class="org-constant">True</span>))
+<span class="org-variable-name">m2</span> = (scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=3, disp_by_gene=<span class="org-constant">False</span>, logodds_by_gene=<span class="org-constant">False</span>)
+      .fit(xt, lr=1e-2, n_samples=10, max_epochs=3000, trace=<span class="org-constant">True</span>))
 </pre>
 </div>
 
 <p>
-Generate a validation data set having exactly the same \([\lambda_{ij}]\).
+Plot the ELBO over the training iterations.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">x_val</span> = np.random.poisson(lam=lam)
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(6, 3)
+plt.yscale(<span class="org-string">'log'</span>)
+<span class="org-keyword">for</span> i, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>([m0, m1, m2]):
+  plt.plot(m.trace, lw=1, c=cm(i), label=<span class="org-builtin">type</span>(m).<span class="org-builtin">__name__</span>)
+plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+plt.xlabel(<span class="org-string">'Epoch'</span>)
+plt.ylabel(<span class="org-string">'Negative ELBO'</span>)
+plt.tight_layout()
 </pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/vae.org/ex1-elbo-trace.png" alt="ex1-elbo-trace.png">
+</p>
+</div>
+
+<p>
+Now, compare against matched models with latent dimension 10.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">m0p</span> = (scmodes.lra.vae.PVAE(input_dim=p, latent_dim=10)
+      .fit(xt, lr=1e-2, n_samples=10, max_epochs=3000, trace=<span class="org-constant">True</span>))
+<span class="org-variable-name">m1p</span> = (scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=10, disp_by_gene=<span class="org-constant">False</span>)
+      .fit(xt, lr=1e-2, n_samples=10, max_epochs=3000, trace=<span class="org-constant">True</span>))
+<span class="org-variable-name">m2p</span> = (scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=10, disp_by_gene=<span class="org-constant">False</span>, logodds_by_gene=<span class="org-constant">False</span>)
+      .fit(xt, lr=1e-2, n_samples=10, max_epochs=3000, trace=<span class="org-constant">True</span>))
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Paired'</span>)
+plt.clf()
+plt.gcf().set_size_inches(6, 3)
+plt.yscale(<span class="org-string">'log'</span>)
+<span class="org-keyword">for</span> i, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>([m0, m0p, m1, m1p, m2, m2p]):
+  plt.plot(m.trace, lw=1, c=cm(i), label=f<span class="org-string">'{type(m).__name__}&#8211;{m.encoder.mean.out_features}'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+plt.xlabel(<span class="org-string">'Epoch'</span>)
+plt.ylabel(<span class="org-string">'Negative ELBO'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/vae.org/ex2-elbo-trace.png" alt="ex2-elbo-trace.png">
+</p>
+</div>
+
+<p>
+Zoom in on NBVAE, ZINBVAE.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Paired'</span>)
+plt.clf()
+plt.gcf().set_size_inches(4, 3)
+plt.yscale(<span class="org-string">'log'</span>)
+<span class="org-keyword">for</span> i, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>([m0, m0p, m1, m1p, m2, m2p]):
+  <span class="org-keyword">if</span> i &gt; 1:
+    plt.plot(m.trace, lw=1, c=cm(i), label=f<span class="org-string">'{type(m).__name__}&#8211;{m.encoder.mean.out_features}'</span>)
+plt.xlim(0, 300)
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.xlabel(<span class="org-string">'Epoch'</span>)
+plt.ylabel(<span class="org-string">'Negative ELBO'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/vae.org/ex2-elbo-trace-inset.png" alt="ex2-elbo-trace-inset.png">
+</p>
 </div>
 
 <p>
@@ -428,15 +507,18 @@ Evaluate the estimated \([\lambda_{ij}]\) on the validation data.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">xvt</span> = torch.tensor(x_val, dtype=torch.<span class="org-builtin">float</span>)
-pd.Series({<span class="org-builtin">type</span>(m).<span class="org-builtin">__name__</span>: st.poisson(mu=m.denoise(xvt)).logpmf(x_val).mean() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> (m0, m1, m2)})
+<pre class="src src-ipython">pd.Series({f<span class="org-string">'{type(m).__name__}-{m.encoder.mean.out_features}'</span>: 
+           st.poisson(mu=m.denoise(xvt)).logpmf(x_val).mean() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> (m0, m0p, m1, m1p, m2, m2p)})
 </pre>
 </div>
 
 <pre class="example">
-PVAE      -3.856198
-NBVAE     -5.120229
-ZINBVAE   -9.182907
+PVAE-3       -5.047203
+PVAE-10      -4.236100
+NBVAE-3      -5.540319
+NBVAE-10     -5.610215
+ZINBVAE-3    -9.574759
+ZINBVAE-10   -9.707689
 dtype: float64
 </pre>
 
@@ -445,7 +527,7 @@ Compare against NMF.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">This will be &gt; oracle rank due to fitting u</span>
+<pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Best will be &gt; oracle rank due to fitting u</span>
 <span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nmf(x, rank=27)
 st.poisson(mu=l.dot(f.T)).logpmf(x_val).mean()
 </pre>
@@ -455,12 +537,19 @@ st.poisson(mu=l.dot(f.T)).logpmf(x_val).mean()
 -5.082246093625973
 
 </pre>
+
+<p>
+This comparison may not be fair, because NMF/PVAE are estimating
+\(\lambda_{ij}\) by maximizing the likelihood (or a variational lower bound
+to the evidence), where NBVAE/ZINBVAE are estimating the posterior mean
+\(\lambda_{ij}\), which may be shrunk compared to the MLE.
+</p>
 </div>
 </div>
 
 <div id="outline-container-orga679601" class="outline-3">
-<h3 id="orga679601">Imputation example</h3>
-<div class="outline-text-3" id="text-orga679601">
+<h3 id="imputation"><a id="orga679601"></a>Imputation example</h3>
+<div class="outline-text-3" id="text-imputation">
 <p>
 Simulate some data from the model. Mask 10% of the entries.
 </p>
@@ -476,7 +565,7 @@ Simulate some data from the model. Mask 10% of the entries.
 <span class="org-variable-name">u</span> = np.random.gamma(shape=.1, scale=10, size=(n, p))
 <span class="org-variable-name">lam</span> = mu * u
 <span class="org-variable-name">x</span> = np.random.poisson(lam=lam)
-<span class="org-variable-name">xt</span> = torch.tensor(w.astype(np.float32), dtype=torch.<span class="org-builtin">float</span>)
+<span class="org-variable-name">xt</span> = torch.tensor(x, dtype=torch.<span class="org-builtin">float</span>)
 <span class="org-variable-name">w</span> = np.random.uniform(size=x.shape) &lt; 0.9
 <span class="org-variable-name">wt</span> = torch.tensor(w.astype(np.float32), dtype=torch.<span class="org-builtin">float</span>)
 </pre>
@@ -487,9 +576,12 @@ Fit the models.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">m0</span> = scmodes.lra.vae.PVAE(input_dim=p, latent_dim=10).fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000)
-<span class="org-variable-name">m1</span> = scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=10).fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000)
-<span class="org-variable-name">m2</span> = scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=10).fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000)
+<pre class="src src-ipython"><span class="org-variable-name">m0</span> = (scmodes.lra.vae.PVAE(input_dim=p, latent_dim=3)
+      .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000, verbose=<span class="org-constant">True</span>))
+<span class="org-variable-name">m1</span> = (scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=3, disp_by_gene=<span class="org-constant">False</span>)
+      .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000, verbose=<span class="org-constant">True</span>))
+<span class="org-variable-name">m2</span> = (scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=3, disp_by_gene=<span class="org-constant">False</span>, logodds_by_gene=<span class="org-constant">False</span>)
+      .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000, verbose=<span class="org-constant">True</span>))
 </pre>
 </div>
 
@@ -503,9 +595,9 @@ Evaluate the imputation loss.
 </div>
 
 <pre class="example">
-PVAE      -476840.324426
-NBVAE     -476896.336044
-ZINBVAE   -477223.668249
+PVAE      -239298.698822
+NBVAE     -274276.617000
+ZINBVAE   -326857.867842
 dtype: float64
 </pre>
 
@@ -520,7 +612,7 @@ np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).<span class="org-builtin">sum</
 </div>
 
 <pre class="example">
--158590.38164120057
+-158786.32484083134
 
 </pre>
 </div>
@@ -529,7 +621,7 @@ np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).<span class="org-builtin">sum</
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-05 Thu 15:04</p>
+<p class="date">Created: 2019-12-06 Fri 11:52</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

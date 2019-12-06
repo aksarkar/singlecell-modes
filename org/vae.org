@@ -78,7 +78,7 @@
   #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="2G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 64156577
+  : Submitted batch job 64170878
 
   #+BEGIN_SRC ipython
     import numpy as np
@@ -90,7 +90,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[25]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -115,9 +115,15 @@
   :END:
 
 * Results
+  :PROPERTIES:
+  :CUSTOM_ID: results
+  :END:
 ** Poisson thinning example
+   :PROPERTIES:
+   :CUSTOM_ID: poisthin
+   :END:
 
-   Simulate some data from the model.
+   Simulate two independent data sets from the (same) model.
 
    #+BEGIN_SRC ipython
      np.random.seed(0)
@@ -130,53 +136,128 @@
      u = np.random.gamma(shape=.1, scale=10, size=(n, p))
      lam = mu * u
      x = np.random.poisson(lam=lam)
+     xt = torch.tensor(x, dtype=torch.float)
+     x_val = np.random.poisson(lam=lam)
+     xvt = torch.tensor(x_val, dtype=torch.float)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[12]:
    :END:
 
-   Fit the models.
+   Fit the models. First, fix the latent dimension to the oracle value.
 
    #+BEGIN_SRC ipython :async t
-     # Important: cast to float32 is required
-     xt = torch.tensor(x.astype(np.float32))
-     m0 = scmodes.lra.vae.PVAE(input_dim=p, latent_dim=10).fit(xt, lr=1e-2, n_samples=10, max_epochs=2000)
-     m1 = scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=10).fit(xt, lr=1e-2, n_samples=10, max_epochs=2000)
-     m2 = scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=10).fit(xt, lr=1e-2, n_samples=10, max_epochs=2000)
+     m0 = (scmodes.lra.vae.PVAE(input_dim=p, latent_dim=3)
+           .fit(xt, lr=1e-2, n_samples=10, max_epochs=3000, trace=True))
+     m1 = (scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=3, disp_by_gene=False)
+           .fit(xt, lr=1e-2, n_samples=10, max_epochs=3000, trace=True))
+     m2 = (scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=3, disp_by_gene=False, logodds_by_gene=False)
+           .fit(xt, lr=1e-2, n_samples=10, max_epochs=3000, trace=True))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[29]:
+   :END:
+
+   Plot the ELBO over the training iterations.
+
+   #+BEGIN_SRC ipython :ipyfile figure/vae.org/ex1-elbo-trace.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(6, 3)
+     plt.yscale('log')
+     for i, m in enumerate([m0, m1, m2]):
+       plt.plot(m.trace, lw=1, c=cm(i), label=type(m).__name__)
+     plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xlabel('Epoch')
+     plt.ylabel('Negative ELBO')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[51]:
+   [[file:figure/vae.org/ex1-elbo-trace.png]]
+   :END:
+
+   Now, compare against matched models with latent dimension 10.
+
+   #+BEGIN_SRC ipython :async t
+     m0p = (scmodes.lra.vae.PVAE(input_dim=p, latent_dim=10)
+           .fit(xt, lr=1e-2, n_samples=10, max_epochs=3000, trace=True))
+     m1p = (scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=10, disp_by_gene=False)
+           .fit(xt, lr=1e-2, n_samples=10, max_epochs=3000, trace=True))
+     m2p = (scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=10, disp_by_gene=False, logodds_by_gene=False)
+           .fit(xt, lr=1e-2, n_samples=10, max_epochs=3000, trace=True))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[43]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/vae.org/ex2-elbo-trace.png
+     cm = plt.get_cmap('Paired')
+     plt.clf()
+     plt.gcf().set_size_inches(6, 3)
+     plt.yscale('log')
+     for i, m in enumerate([m0, m0p, m1, m1p, m2, m2p]):
+       plt.plot(m.trace, lw=1, c=cm(i), label=f'{type(m).__name__}–{m.encoder.mean.out_features}')
+     plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xlabel('Epoch')
+     plt.ylabel('Negative ELBO')
+     plt.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
    # Out[52]:
+   [[file:figure/vae.org/ex2-elbo-trace.png]]
    :END:
 
-   Generate a validation data set having exactly the same \([\lambda_{ij}]\).
+   Zoom in on NBVAE, ZINBVAE.
 
-   #+BEGIN_SRC ipython
-     x_val = np.random.poisson(lam=lam)
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[16]:
-   :END:
-
-   Evaluate the estimated \([\lambda_{ij}]\) on the validation data.
-
-   #+BEGIN_SRC ipython :async t
-     xvt = torch.tensor(x_val, dtype=torch.float)
-     pd.Series({type(m).__name__: st.poisson(mu=m.denoise(xvt)).logpmf(x_val).mean() for m in (m0, m1, m2)})
+   #+BEGIN_SRC ipython :ipyfile figure/vae.org/ex2-elbo-trace-inset.png
+     cm = plt.get_cmap('Paired')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 3)
+     plt.yscale('log')
+     for i, m in enumerate([m0, m0p, m1, m1p, m2, m2p]):
+       if i > 1:
+         plt.plot(m.trace, lw=1, c=cm(i), label=f'{type(m).__name__}–{m.encoder.mean.out_features}')
+     plt.xlim(0, 300)
+     plt.legend(frameon=False)
+     plt.xlabel('Epoch')
+     plt.ylabel('Negative ELBO')
+     plt.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
    # Out[53]:
+   [[file:figure/vae.org/ex2-elbo-trace-inset.png]]
+   :END:
+
+   Evaluate the estimated \([\lambda_{ij}]\) on the validation data.
+
+   #+BEGIN_SRC ipython :async t
+     pd.Series({f'{type(m).__name__}-{m.encoder.mean.out_features}': 
+                st.poisson(mu=m.denoise(xvt)).logpmf(x_val).mean() for m in (m0, m0p, m1, m1p, m2, m2p)})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[50]:
    #+BEGIN_EXAMPLE
-     PVAE      -3.856198
-     NBVAE     -5.120229
-     ZINBVAE   -9.182907
+     PVAE-3       -5.047203
+     PVAE-10      -4.236100
+     NBVAE-3      -5.540319
+     NBVAE-10     -5.610215
+     ZINBVAE-3    -9.574759
+     ZINBVAE-10   -9.707689
      dtype: float64
    #+END_EXAMPLE
    :END:
@@ -184,7 +265,7 @@
    Compare against NMF.
 
    #+BEGIN_SRC ipython :async t
-     # This will be > oracle rank due to fitting u
+     # Best will be > oracle rank due to fitting u
      l, f, _ = scmodes.lra.nmf(x, rank=27)
      st.poisson(mu=l.dot(f.T)).logpmf(x_val).mean()
    #+END_SRC
@@ -195,7 +276,15 @@
    : -5.082246093625973
    :END:
 
+   This comparison may not be fair, because NMF/PVAE are estimating
+   \(\lambda_{ij}\) by maximizing the likelihood (or a variational lower bound
+   to the evidence), where NBVAE/ZINBVAE are estimating the posterior mean
+   \(\lambda_{ij}\), which may be shrunk compared to the MLE.
+
 ** Imputation example
+   :PROPERTIES:
+   :CUSTOM_ID: imputation
+   :END:
 
    Simulate some data from the model. Mask 10% of the entries.
 
@@ -210,27 +299,30 @@
      u = np.random.gamma(shape=.1, scale=10, size=(n, p))
      lam = mu * u
      x = np.random.poisson(lam=lam)
-     xt = torch.tensor(w.astype(np.float32), dtype=torch.float)
+     xt = torch.tensor(x, dtype=torch.float)
      w = np.random.uniform(size=x.shape) < 0.9
      wt = torch.tensor(w.astype(np.float32), dtype=torch.float)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[99]:
+   # Out[17]:
    :END:
 
    Fit the models.
 
    #+BEGIN_SRC ipython :async t
-     m0 = scmodes.lra.vae.PVAE(input_dim=p, latent_dim=10).fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000)
-     m1 = scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=10).fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000)
-     m2 = scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=10).fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000)
+     m0 = (scmodes.lra.vae.PVAE(input_dim=p, latent_dim=3)
+           .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000, verbose=True))
+     m1 = (scmodes.lra.vae.NBVAE(input_dim=p, latent_dim=3, disp_by_gene=False)
+           .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000, verbose=True))
+     m2 = (scmodes.lra.vae.ZINBVAE(input_dim=p, latent_dim=3, disp_by_gene=False, logodds_by_gene=False)
+           .fit(xt, w=wt, lr=1e-2, n_samples=10, max_epochs=2000, verbose=True))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[100]:
+   # Out[20]:
    :END:
 
    Evaluate the imputation loss.
@@ -241,11 +333,11 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[101]:
+   # Out[21]:
    #+BEGIN_EXAMPLE
-     PVAE      -476840.324426
-     NBVAE     -476896.336044
-     ZINBVAE   -477223.668249
+     PVAE      -239298.698822
+     NBVAE     -274276.617000
+     ZINBVAE   -326857.867842
      dtype: float64
    #+END_EXAMPLE
    :END:
@@ -259,6 +351,6 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[105]:
-   : -158590.38164120057
+   # Out[22]:
+   : -158786.32484083134
    :END:
