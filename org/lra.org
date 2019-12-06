@@ -293,35 +293,32 @@
 
    #+RESULTS:
 
-** Plot the results
-
    Read the results.
 
    #+BEGIN_SRC ipython
-     methods = ['nmf', 'glmpca', 'pvae']
+     methods = ['nmf', 'wglmpca', 'pvae']
      titles = ['B cell', 'Cytotoxic T', 'Naive T', 'B cell/T cell', 'Naive/cytotoxic T', 'PBMC']
-     poisthin_res = pd.DataFrame(
-       {(k, m): pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/{k}-{m}.txt.gz', header=[0, 1], index_col=0)
-        for k in data for m in methods})
+     poisthin_res = pd.concat(
+       {k: pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/{k}-{m}.txt.gz', header=[0, 1], index_col=0, sep='\t') for m in methods if not (k == 'pbmcs_68k' and m == 'wglmpca')], axis=1) for k in data})
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[77]:
+   # Out[44]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/lra.org/mlcb-bench-lra.png
      plt.clf()
-     fig, ax = plt.subplots(1, len(results), sharey=True)
-     fig.set_size_inches(8, 2)
-     for a, k, t in zip(ax, results, titles):
-       llik = results[k]['validation']
+     fig, ax = plt.subplots(1, len(data), sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, k, t in zip(ax, data, titles):
+       llik = poisthin_res.loc[k]['validation']
        for x, m in enumerate(llik):
          a.scatter(x + np.random.normal(scale=0.1, size=llik.shape[0]), llik[m].values, s=1, c='k', zorder=3)
        a.grid(c='0.8', lw=1, axis='x')
        a.set_xlim(-0.5, 2.5)
        a.set_xticks(np.arange(3))
-       a.set_xticklabels([m.upper() for m in methods], rotation=90)
+       a.set_xticklabels([m.upper() for m in llik.columns], rotation=90)
        a.set_title(t)
      ax[0].set_ylabel('Validation log lik')
      fig.tight_layout()
@@ -329,6 +326,6 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[96]:
+   # Out[45]:
    [[file:figure/lra.org/mlcb-bench-lra.png]]
    :END:
