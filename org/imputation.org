@@ -75,7 +75,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar
 
   #+RESULTS:
-  : Submitted batch job 64144430
+  : Submitted batch job 64208763
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -178,7 +178,7 @@
    where the Gamma distribution is parameterized by a shape and a rate. (The
    mean of the Gamma distribution is 1, and its variance is \(\phi_{ij}\).)
    Gouvert et al. 2018 only consider the case \(\phi_{ij} = \phi\); however,
-   other natural choices are \(\phi_{ij} = \phi_j\) and \(\phi_{ij} = \phi_i +
+   other natural choices are \(\phi_{ij} = \phi_j\) and \(\phi_{ij} = \phi_i
    \phi_j\). To derive an EM algorithm, first note that
 
    \[ p(\mz \mid \mx, \mU, \ml, \mf) 
@@ -570,15 +570,15 @@
      k = 3
      l = np.random.lognormal(sigma=.5, size=(n, k))
      f = np.random.lognormal(sigma=.5, size=(p, k))
-     lam = l.dot(f.T)
+     mu = l.dot(f.T)
      inv_disp = 0.1
      u = np.random.gamma(shape=inv_disp, scale=1 / inv_disp, size=(n, p))
-     x = np.random.poisson(lam=lam * u)
+     x = np.random.poisson(lam=mu * u)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[28]:
    :END:
 
    Run the methods. For WNBMF, initialize at the oracle value.

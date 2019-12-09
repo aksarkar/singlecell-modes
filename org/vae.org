@@ -90,7 +90,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[30]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -296,7 +296,7 @@
      l = np.random.lognormal(sigma=.5, size=(n, k))
      f = np.random.lognormal(sigma=.5, size=(p, k))
      mu = l @ f.T
-     u = np.random.gamma(shape=.1, scale=10, size=(n, p))
+     u = np.random.gamma(shape=1 / mu.var(), scale=mu.var(), size=(n, p))
      lam = mu * u
      x = np.random.poisson(lam=lam)
      xt = torch.tensor(x, dtype=torch.float)
@@ -306,10 +306,50 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[9]:
+   # Out[48]:
    :END:
 
-   Fit the models.
+   As baselines, fit NMF and NBMF.
+
+   #+BEGIN_SRC ipython :async t
+     nmf_res = dict()
+     nbmf_res = dict()
+     for rank in range(1, 31):
+       l, f, _ = scmodes.lra.nmf(x, w=w, rank=rank)
+       nmf_res[rank] = np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).sum()
+       l, f, _ = scmodes.lra.nbmf(x, w=w, rank=rank, inv_disp=0.1, fix_inv_disp=False)
+       nbmf_res[rank] = np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).sum()
+     nmf_res = pd.Series(nmf_res)
+     nbmf_res = pd.Series(nbmf_res)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[52]:
+   :END:
+
+   Plot the results.
+
+   #+BEGIN_SRC ipython :ipyfile figure/vae.org/ex3-nmf-nbmf.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.plot(-pd.Series(nmf_res), lw=1, color=cm(0), label='WNMF')
+     plt.plot(-pd.Series(nbmf_res), lw=1, color=cm(1), label='WNBMF')
+     plt.axvline(x=3, ls=':', lw=1, c='k')
+     plt.xlabel('Rank')
+     plt.ylabel('Imputation loss')
+     plt.legend(frameon=False)
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[55]:
+   [[file:figure/vae.org/ex3-nmf-nbmf.png]]
+   :END:
+
+   Fit the VAE models.
 
    #+BEGIN_SRC ipython :async t
      m0 = (scmodes.lra.vae.PVAE(input_dim=p, latent_dim=3)
@@ -361,39 +401,3 @@
    #+END_EXAMPLE
    :END:
 
-   Compare against NMF.
-
-   #+BEGIN_SRC ipython
-     l, f, _ = scmodes.lra.nmf(x, w=w, rank=3)
-     np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).sum()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[23]:
-   : -314052.09500172065
-   :END:
-
-   #+BEGIN_SRC ipython
-     l, f, _ = scmodes.lra.nmf(x, w=w, rank=30)
-     np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).sum()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[24]:
-   : -156195.2215742887
-   :END:
-
-   Compare against NBMF.
-
-   #+BEGIN_SRC ipython
-     l, f, _ = scmodes.lra.nbmf(x, w=w, rank=3, inv_disp=0.1, fix_inv_disp=False)
-     np.where(w, st.poisson(mu=l @ f.T).logpmf(x), 0).sum()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[22]:
-   : -327706.3480304909
-   :END:
