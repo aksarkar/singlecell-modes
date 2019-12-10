@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-10 Tue 11:15 -->
+<!-- 2019-12-10 Tue 12:06 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Weighted negative binomial matrix factorization</title>
@@ -613,13 +613,152 @@ plt.tight_layout()
 <p><img src="figure/wnbmf.org/rank-1-frac-inset.png" alt="rank-1-frac-inset.png">
 </p>
 </div>
+
+<p>
+Look at one example where PVE = 0.5.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span>, <span class="org-variable-name">mu</span>, <span class="org-variable-name">u</span> = simulate(n=500, p=100, k=1, pve=0.5, seed=0)
+<span class="org-variable-name">w</span> = np.random.uniform(size=x.shape) &lt; 0.99
+
+<span class="org-variable-name">m0</span> = scmodes.lra.nbmf(x, w=w, rank=1, inv_disp=1, fix_inv_disp=<span class="org-constant">False</span>)
+<span class="org-comment-delimiter"># </span><span class="org-comment">Fix inverse dispersion to oracle value</span>
+<span class="org-variable-name">m1</span> = scmodes.lra.nbmf(x, w=w, rank=1, inv_disp=u.var(), fix_inv_disp=<span class="org-constant">True</span>)
+<span class="org-comment-delimiter"># </span><span class="org-comment">Initialize inverse dispersion to oracle value</span>
+<span class="org-variable-name">m2</span> = scmodes.lra.nbmf(x, w=w, rank=1, inv_disp=u.var(), fix_inv_disp=<span class="org-constant">False</span>)
+</pre>
+</div>
+
+<p>
+Look at the difference in log likelihood between default initialization of
+inverse dispersion and oracle inverse dispersion.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">m0[-1] - m1[-1]
+</pre>
+</div>
+
+<pre class="example">
+-826.6176850515767
+
+</pre>
+
+<p>
+Look at the difference in log likelihood between default initialization and
+initializing at oracle inverse dispersion.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">m0[-1] - m2[-1]
+</pre>
+</div>
+
+<pre class="example">
+-0.02368231453874614
+
+</pre>
+
+<p>
+Look at the difference in imputation performance.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.array([np.where(w, -st.poisson(mu=m[0] @ m[1].T).logpmf(x), 0).<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> (m0, m1, m2)])
+</pre>
+</div>
+
+<pre class="example">
+array([72207.27616216, 72227.28379018, 72207.59613526])
+
+</pre>
+
+<p>
+Look at mean imputation.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">s</span> = (w * x).<span class="org-builtin">sum</span>(axis=1)
+<span class="org-variable-name">muhat</span> = (w * x).<span class="org-builtin">sum</span>(axis=0) / s.<span class="org-builtin">sum</span>()
+-np.where(w, st.poisson(mu=np.outer(s, muhat)).logpmf(x), 0).<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<pre class="example">
+72185.58560610042
+
+</pre>
+
+<p>
+Look at the median absolute difference in the estimated \(\mu_{ij}\) at
+observed entries.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Important: in numpy.ma, True = missing</span>
+np.ma.median(np.ma.masked_array(<span class="org-builtin">abs</span>(x - m0[0] @ m0[1].T), mask=~w))
+</pre>
+</div>
+
+<pre class="example">
+0.7076492332569424
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.ma.median(np.ma.masked_array(<span class="org-builtin">abs</span>(x - np.outer(s, muhat)), mask=~w))
+</pre>
+</div>
+
+<pre class="example">
+0.7092451591147081
+
+</pre>
+
+<p>
+Look at the scatter of predicted \(\mu_{ij}\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 2, sharex=<span class="org-constant">True</span>, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(5, 5)
+
+ax[0,0].scatter((m0[0] @ m0[1].T)[w].ravel(), mu[w].ravel(), c=<span class="org-string">'0.7'</span>, label=<span class="org-string">'Observed'</span>, s=1, alpha=0.1)
+ax[0,0].scatter((m0[0] @ m0[1].T)[~w].ravel(), mu[~w].ravel(), c=<span class="org-string">'r'</span>, label=<span class="org-string">'Masked'</span>, s=1, alpha=0.5)
+ax[0,0].set_ylabel(<span class="org-string">'Ground truth $\mu$'</span>)
+<span class="org-variable-name">leg</span> = ax[0,0].legend(frameon=<span class="org-constant">False</span>, handletextpad=0, markerscale=4)
+<span class="org-keyword">for</span> t <span class="org-keyword">in</span> leg.legendHandles:
+  t.set_alpha(1)
+
+ax[0,1].axis(<span class="org-string">'off'</span>)
+
+ax[1,0].scatter((m0[0] @ m0[1].T)[w].ravel(), np.outer(s, muhat)[w].ravel(), c=<span class="org-string">'0.7'</span>, label=<span class="org-string">'Observed'</span>, s=1, alpha=0.1)
+ax[1,0].scatter((m0[0] @ m0[1].T)[~w].ravel(), np.outer(s, muhat)[~w].ravel(), c=<span class="org-string">'r'</span>, label=<span class="org-string">'Masked'</span>, s=1, alpha=0.5)
+ax[1,0].set_xlabel(<span class="org-string">'WNBMF $\hat\mu$'</span>)
+ax[1,0].set_ylabel(<span class="org-string">'EBPM-Point $\hat\mu$'</span>)
+
+ax[1,1].scatter(mu[w].ravel(), np.outer(s, muhat)[w].ravel(), c=<span class="org-string">'0.7'</span>, label=<span class="org-string">'Observed'</span>, s=1, alpha=0.1)
+ax[1,1].scatter(mu[~w].ravel(), np.outer(s, muhat)[~w].ravel(), c=<span class="org-string">'r'</span>, label=<span class="org-string">'Masked'</span>, s=1, alpha=0.5)
+ax[1,1].set_xlabel(<span class="org-string">'Ground truth $\mu$'</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/wnbmf.org/rank-1-pred.png" alt="rank-1-pred.png">
+</p>
+</div>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-10 Tue 11:15</p>
+<p class="date">Created: 2019-12-10 Tue 12:06</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

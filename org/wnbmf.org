@@ -350,3 +350,131 @@
    # Out[43]:
    [[file:figure/wnbmf.org/rank-1-frac-inset.png]]
    :END:
+
+   Look at one example where PVE = 0.5.
+
+   #+BEGIN_SRC ipython
+     x, mu, u = simulate(n=500, p=100, k=1, pve=0.5, seed=0)
+     w = np.random.uniform(size=x.shape) < 0.99
+
+     m0 = scmodes.lra.nbmf(x, w=w, rank=1, inv_disp=1, fix_inv_disp=False)
+     # Fix inverse dispersion to oracle value
+     m1 = scmodes.lra.nbmf(x, w=w, rank=1, inv_disp=u.var(), fix_inv_disp=True)
+     # Initialize inverse dispersion to oracle value
+     m2 = scmodes.lra.nbmf(x, w=w, rank=1, inv_disp=u.var(), fix_inv_disp=False)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[96]:
+   :END:
+
+   Look at the difference in log likelihood between default initialization of
+   inverse dispersion and oracle inverse dispersion.
+
+   #+BEGIN_SRC ipython
+     m0[-1] - m1[-1]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[77]:
+   : -826.6176850515767
+   :END:
+
+   Look at the difference in log likelihood between default initialization and
+   initializing at oracle inverse dispersion.
+
+   #+BEGIN_SRC ipython
+     m0[-1] - m2[-1]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[83]:
+   : -0.02368231453874614
+   :END:
+
+   Look at the difference in imputation performance.
+
+   #+BEGIN_SRC ipython
+     np.array([np.where(w, -st.poisson(mu=m[0] @ m[1].T).logpmf(x), 0).sum() for m in (m0, m1, m2)])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[86]:
+   : array([72207.27616216, 72227.28379018, 72207.59613526])
+   :END:
+
+   Look at mean imputation.
+
+   #+BEGIN_SRC ipython
+     s = (w * x).sum(axis=1)
+     muhat = (w * x).sum(axis=0) / s.sum()
+     -np.where(w, st.poisson(mu=np.outer(s, muhat)).logpmf(x), 0).sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[101]:
+   : 72185.58560610042
+   :END:
+
+   Look at the median absolute difference in the estimated \(\mu_{ij}\) at
+   observed entries.
+
+   #+BEGIN_SRC ipython
+     # Important: in numpy.ma, True = missing
+     np.ma.median(np.ma.masked_array(abs(x - m0[0] @ m0[1].T), mask=~w))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[106]:
+   : 0.7076492332569424
+   :END:
+
+   #+BEGIN_SRC ipython
+     np.ma.median(np.ma.masked_array(abs(x - np.outer(s, muhat)), mask=~w))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[118]:
+   : 0.7092451591147081
+   :END:
+
+   Look at the scatter of predicted \(\mu_{ij}\).
+
+   #+BEGIN_SRC ipython :ipyfile figure/wnbmf.org/rank-1-pred.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 2, sharex=True, sharey=True)
+     fig.set_size_inches(5, 5)
+
+     ax[0,0].scatter((m0[0] @ m0[1].T)[w].ravel(), mu[w].ravel(), c='0.7', label='Observed', s=1, alpha=0.1)
+     ax[0,0].scatter((m0[0] @ m0[1].T)[~w].ravel(), mu[~w].ravel(), c='r', label='Masked', s=1, alpha=0.5)
+     ax[0,0].set_ylabel('Ground truth $\mu$')
+     leg = ax[0,0].legend(frameon=False, handletextpad=0, markerscale=4)
+     for t in leg.legendHandles:
+       t.set_alpha(1)
+
+     ax[0,1].axis('off')
+
+     ax[1,0].scatter((m0[0] @ m0[1].T)[w].ravel(), np.outer(s, muhat)[w].ravel(), c='0.7', label='Observed', s=1, alpha=0.1)
+     ax[1,0].scatter((m0[0] @ m0[1].T)[~w].ravel(), np.outer(s, muhat)[~w].ravel(), c='r', label='Masked', s=1, alpha=0.5)
+     ax[1,0].set_xlabel('WNBMF $\hat\mu$')
+     ax[1,0].set_ylabel('EBPM-Point $\hat\mu$')
+
+     ax[1,1].scatter(mu[w].ravel(), np.outer(s, muhat)[w].ravel(), c='0.7', label='Observed', s=1, alpha=0.1)
+     ax[1,1].scatter(mu[~w].ravel(), np.outer(s, muhat)[~w].ravel(), c='r', label='Masked', s=1, alpha=0.5)
+     ax[1,1].set_xlabel('Ground truth $\mu$')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[143]:
+   [[file:figure/wnbmf.org/rank-1-pred.png]]
+   :END:
