@@ -36,3 +36,4 @@ Technical details:
 - [[file:gamma-mix.org][Poisson-unimodal Gamma mixture model]]
 - [[file:pois-gam-lik.org][Poisson-Gamma log likelihood surface]]
 - [[file:vae.org][Variational autoencoders for scRNA-seq data]]
+- [[file:wnbmf.org][Weighted Negative Binomial Matrix Factorization]]

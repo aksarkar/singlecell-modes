@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2019-12-10 Tue 11:15 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weighted negative binomial matrix factorization</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Weighted negative binomial matrix factorization</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#orga0f3a15">Methods</a>
+<ul>
+<li><a href="#orgd168caa">Simulation</a></li>
+</ul>
+</li>
+<li><a href="#org9ed7568">Results</a>
+<ul>
+<li><a href="#sim-nb">Simulated NB example</a></li>
+<li><a href="#rank-1">Rank 1 problem</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org89c8977" class="outline-2">
+<h2 id="introduction"><a id="org89c8977"></a>Introduction</h2>
+<div class="outline-text-2" id="text-introduction">
+<p>
+Negative Binomial Matrix Factorization (NBMF; Gouvert et al 2018) is the
+(augmented) model \(
+  \newcommand\const{\mathrm{const}}
+  \newcommand\E[1]{\left\langle #1 \right\rangle}
+  \newcommand\vx{\mathbf{x}}
+  \newcommand\vw{\mathbf{w}}
+  \newcommand\vz{\mathbf{z}}
+  \newcommand\mx{\mathbf{X}}
+  \newcommand\mU{\mathbf{U}}
+  \newcommand\mw{\mathbf{W}}
+  \newcommand\mz{\mathbf{Z}}
+  \newcommand\ml{\mathbf{L}}
+  \newcommand\mf{\mathbf{F}}
+  \)
+</p>
+
+\begin{align*}
+  x_{ij} &= \sum_{k=1}^K z_{ijk}\\
+  z_{ijk} &\sim \operatorname{Poisson}(l_{ik} f_{jk} u_{ij})\\
+  u_{ij} &\sim \operatorname{Gamma}(1/\phi_{ij}, 1/\phi_{ij})
+\end{align*}
+
+<p>
+where the Gamma distribution is parameterized by a shape and a rate. (The
+mean of the Gamma distribution is 1, and its variance is \(\phi_{ij}\).)
+Gouvert et al. 2018 only consider the case \(\phi_{ij} = \phi\); however,
+other natural choices are \(\phi_{ij} = \phi_j\) and \(\phi_{ij} = \phi_i
+  \phi_j\). The model admits <a href="imputation.html#wnbmf">analytic EM
+updates</a> for \(\ml\) and \(\mf\), and numerical updates for the simple case
+\(\phi_{ij} = \phi\).
+</p>
+
+<p>
+Here, we study the imputation performance of WNBMF on simulated problems.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org66235c4" class="outline-2">
+<h2 id="setup"><a id="org66235c4"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> itertools <span class="org-keyword">as</span> it
+<span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+<span class="org-keyword">import</span> scmodes
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orga0f3a15" class="outline-2">
+<h2 id="orga0f3a15">Methods</h2>
+<div class="outline-text-2" id="text-orga0f3a15">
+</div>
+<div id="outline-container-orgd168caa" class="outline-3">
+<h3 id="orgd168caa">Simulation</h3>
+<div class="outline-text-3" id="text-orgd168caa">
+<p>
+Draw data from the model, assuming \(\phi_{ij} = \phi\). We define
+"proportion of variance explained" as \(\operatorname{Var}(\mu_{ij}) /
+   (\operatorname{Var}(\mu_{ij}) + \operatorname{Var}(u_{ij}))\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">simulate</span>(n, p, k, pve=0.5, seed=0):
+  np.random.seed(seed)
+  <span class="org-variable-name">l</span> = np.random.lognormal(sigma=.5, size=(n, k))
+  <span class="org-variable-name">f</span> = np.random.lognormal(sigma=.5, size=(p, k))
+  <span class="org-variable-name">mu</span> = l.dot(f.T)
+  <span class="org-keyword">if</span> pve &lt; 1:
+    <span class="org-variable-name">inv_disp</span> = 1 / ((1 / pve - 1) * mu.var())
+    <span class="org-variable-name">u</span> = np.random.gamma(shape=inv_disp, scale=1 / inv_disp, size=(n, p))
+  <span class="org-keyword">else</span>:
+    <span class="org-variable-name">u</span> = 1
+  <span class="org-variable-name">x</span> = np.random.poisson(lam=mu * u)
+  <span class="org-keyword">return</span> x, mu, u
+</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org9ed7568" class="outline-2">
+<h2 id="org9ed7568">Results</h2>
+<div class="outline-text-2" id="text-org9ed7568">
+</div>
+<div id="outline-container-org1102f07" class="outline-3">
+<h3 id="sim-nb"><a id="org1102f07"></a>Simulated NB example</h3>
+<div class="outline-text-3" id="text-sim-nb">
+<p>
+Simulate some data from the model.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(0)
+<span class="org-variable-name">n</span> = 500
+<span class="org-variable-name">p</span> = 100
+<span class="org-variable-name">k</span> = 3
+<span class="org-variable-name">l</span> = np.random.lognormal(sigma=.5, size=(n, k))
+<span class="org-variable-name">f</span> = np.random.lognormal(sigma=.5, size=(p, k))
+<span class="org-variable-name">mu</span> = l.dot(f.T)
+<span class="org-variable-name">inv_disp</span> = 0.1
+<span class="org-variable-name">u</span> = np.random.gamma(shape=inv_disp, scale=1 / inv_disp, size=(n, p))
+<span class="org-variable-name">x</span> = np.random.poisson(lam=mu * u)
+</pre>
+</div>
+
+<p>
+Run the methods. For WNBMF, initialize at the oracle value.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">imputation_res</span> = []
+<span class="org-keyword">for</span> rank <span class="org-keyword">in</span> <span class="org-builtin">range</span>(1, 11):
+  <span class="org-keyword">for</span> method <span class="org-keyword">in</span> (<span class="org-string">'oracle'</span>, <span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnmf'</span>, <span class="org-string">'wglmpca'</span>, <span class="org-string">'wnbmf'</span>):
+    <span class="org-keyword">try</span>:
+      <span class="org-variable-name">loss</span> = <span class="org-builtin">getattr</span>(scmodes.benchmark, f<span class="org-string">'imputation_score_{method}'</span>)(x, rank=rank, frac=0.1, seed=0, inv_disp=inv_disp, fix_inv_disp=<span class="org-constant">False</span>)
+    <span class="org-keyword">except</span> <span class="org-type">RuntimeError</span>:
+      <span class="org-comment-delimiter"># </span><span class="org-comment">WGLMPCA fails often</span>
+      <span class="org-variable-name">loss</span> = np.nan
+    imputation_res.append([method, rank, loss])
+<span class="org-variable-name">imputation_res</span> = pd.DataFrame(imputation_res, columns=[<span class="org-string">'method'</span>, <span class="org-string">'rank'</span>, <span class="org-string">'loss'</span>])
+</pre>
+</div>
+
+<p>
+Plot the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(4, 3)
+<span class="org-keyword">for</span> i, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(imputation_res.groupby(<span class="org-string">'method'</span>)):
+  plt.plot(g[<span class="org-string">'rank'</span>], g[<span class="org-string">'loss'</span>], lw=1, marker=<span class="org-constant">None</span>, c=cm(i), label=k.upper())
+plt.axvline(x=3, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+plt.xticks(np.arange(1, 11), np.arange(1, 11))
+plt.xlabel(<span class="org-string">'Assumed rank'</span>)
+plt.ylabel(<span class="org-string">'Poisson loss'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/imputation.org/sim-nb.png" alt="sim-nb.png">
+</p>
+</div>
+
+<p>
+Zoom in on WNBMF and EBPM-Point.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(4, 3)
+<span class="org-keyword">for</span> i, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(imputation_res.groupby(<span class="org-string">'method'</span>)):
+  <span class="org-keyword">if</span> k <span class="org-keyword">in</span> (<span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnbmf'</span>):
+    plt.plot(g[<span class="org-string">'rank'</span>], g[<span class="org-string">'loss'</span>], lw=1, marker=<span class="org-constant">None</span>, c=cm(i), label=k.upper())
+plt.axvline(x=3, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+plt.xticks(np.arange(1, 11), np.arange(1, 11))
+plt.xlabel(<span class="org-string">'Assumed rank'</span>)
+plt.ylabel(<span class="org-string">'Poisson loss'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/imputation.org/sim-nb-inset.png" alt="sim-nb-inset.png">
+</p>
+</div>
+
+<p>
+Look at how imputation performance depends on the relative magnitude of the
+random effect variance \(\phi\) and the structured variance
+\(\operatorname{Var}(\mu)\). Give each method the oracle rank.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">imputation_res</span> = []
+<span class="org-keyword">for</span> pve <span class="org-keyword">in</span> np.linspace(.1, .9, 9):
+  <span class="org-keyword">for</span> method <span class="org-keyword">in</span> (<span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnmf'</span>, <span class="org-string">'wnbmf'</span>):
+    x, *<span class="org-variable-name">_</span> = simulate(n=500, p=100, k=3, pve=pve, seed=0)
+    <span class="org-variable-name">loss</span> = <span class="org-builtin">getattr</span>(scmodes.benchmark, f<span class="org-string">'imputation_score_{method}'</span>)(x, rank=3, frac=0.1, seed=0, inv_disp=1, fix_inv_disp=<span class="org-constant">False</span>)
+    imputation_res.append([pve, method, loss])
+<span class="org-variable-name">imputation_res</span> = pd.DataFrame(imputation_res, columns=[<span class="org-string">'pve'</span>, <span class="org-string">'method'</span>, <span class="org-string">'loss'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(3, 3)
+<span class="org-keyword">for</span> i, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(imputation_res.groupby(<span class="org-string">'method'</span>)):
+  plt.plot(g[<span class="org-string">'pve'</span>], g[<span class="org-string">'loss'</span>], lw=1, c=cm(i), label=k.upper())
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.xlabel(<span class="org-string">'Proportion of variance explained'</span>)
+plt.ylabel(<span class="org-string">'Poisson loss'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/imputation.org/sim-nb-pve.png" alt="sim-nb-pve.png">
+</p>
+</div>
+
+<p>
+Look at how imputation performance depends on the proportion of masked
+entries.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">imputation_res</span> = []
+<span class="org-keyword">for</span> frac <span class="org-keyword">in</span> np.linspace(.01, .3, 10):
+  <span class="org-keyword">for</span> method <span class="org-keyword">in</span> (<span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnmf'</span>, <span class="org-string">'wnbmf'</span>):
+    x, *<span class="org-variable-name">_</span> = simulate(n=500, p=100, k=3, pve=0.9, seed=0)
+    <span class="org-variable-name">loss</span> = <span class="org-builtin">getattr</span>(scmodes.benchmark, f<span class="org-string">'imputation_score_{method}'</span>)(x, rank=3, frac=frac, seed=0, inv_disp=1, fix_inv_disp=<span class="org-constant">False</span>)
+    imputation_res.append([frac, method, loss])
+<span class="org-variable-name">imputation_res</span> = pd.DataFrame(imputation_res, columns=[<span class="org-string">'frac'</span>, <span class="org-string">'method'</span>, <span class="org-string">'loss'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+<span class="org-variable-name">T</span> = imputation_res.pivot(index=<span class="org-string">'frac'</span>, columns=<span class="org-string">'method'</span>)[<span class="org-string">'loss'</span>]
+plt.clf()
+plt.gcf().set_size_inches(3, 3)
+<span class="org-keyword">for</span> i, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>((<span class="org-string">'wnmf'</span>, <span class="org-string">'wnbmf'</span>)):
+  plt.plot(T.index, T[<span class="org-string">'ebpm_point'</span>] - T[m], lw=1, c=cm(i), label=m.upper())
+plt.axhline(y=0, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.xlabel(<span class="org-string">'Fraction masked entries'</span>)
+plt.ylabel(<span class="org-string">'Improvement in Poisson loss\nover mean imputation'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/imputation.org/sim-nb-frac.png" alt="sim-nb-frac.png">
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org362220a" class="outline-3">
+<h3 id="rank-1"><a id="org362220a"></a>Rank 1 problem</h3>
+<div class="outline-text-3" id="text-rank-1">
+<p>
+To understand why WNMF/WNBMF do worse than mean imputation when the fraction
+of masked entries is small, look at a rank 1 problem. First, repeat the
+analysis varying the fraction of masked entries, fixing the rank of each
+method to the oracle value.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">imputation_res</span> = []
+<span class="org-keyword">for</span> pve <span class="org-keyword">in</span> (0.5, 0.9, 1):
+  x, *<span class="org-variable-name">_</span> = simulate(n=500, p=100, k=1, pve=pve, seed=0)
+  <span class="org-keyword">for</span> frac <span class="org-keyword">in</span> np.linspace(.01, .3, 10):
+    <span class="org-keyword">for</span> method <span class="org-keyword">in</span> (<span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnmf'</span>, <span class="org-string">'wnbmf'</span>):
+      <span class="org-variable-name">loss</span> = <span class="org-builtin">getattr</span>(scmodes.benchmark, f<span class="org-string">'imputation_score_{method}'</span>)(x, rank=1, frac=frac, seed=0, inv_disp=1, fix_inv_disp=<span class="org-constant">False</span>)
+      imputation_res.append([pve, frac, method, loss])
+<span class="org-variable-name">imputation_res</span> = pd.DataFrame(imputation_res, columns=[<span class="org-string">'pve'</span>, <span class="org-string">'frac'</span>, <span class="org-string">'method'</span>, <span class="org-string">'loss'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Paired'</span>)
+<span class="org-variable-name">T</span> = imputation_res.pivot_table(index=<span class="org-string">'frac'</span>, columns=[<span class="org-string">'method'</span>, <span class="org-string">'pve'</span>], values=<span class="org-string">'loss'</span>)
+plt.clf()
+plt.gcf().set_size_inches(3.5, 3)
+<span class="org-keyword">for</span> i, (p, m) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(it.product((0.5, 0.9, 1), (<span class="org-string">'wnmf'</span>, <span class="org-string">'wnbmf'</span>))):
+  plt.plot(T.index, T[<span class="org-string">'ebpm_point'</span>, p] - T[m, p], lw=1, c=cm(i), label=f<span class="org-string">'{m.upper()}&#8211;{p:.1f}'</span>)
+plt.axhline(y=0, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.xlabel(<span class="org-string">'Fraction masked entries'</span>)
+plt.ylabel(<span class="org-string">'Improvement in Poisson loss\nover mean imputation'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/wnbmf.org/rank-1-frac.png" alt="rank-1-frac.png">
+</p>
+</div>
+
+<p>
+Zoom in around 0 improvement.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Paired'</span>)
+<span class="org-variable-name">T</span> = imputation_res.pivot_table(index=<span class="org-string">'frac'</span>, columns=[<span class="org-string">'method'</span>, <span class="org-string">'pve'</span>], values=<span class="org-string">'loss'</span>)
+plt.clf()
+plt.gcf().set_size_inches(3.5, 3)
+plt.ylim(-2e-4, 2e-4)
+<span class="org-keyword">for</span> i, (p, m) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(it.product((0.5, 0.9, 1), (<span class="org-string">'wnmf'</span>, <span class="org-string">'wnbmf'</span>))):
+  plt.plot(T.index, T[<span class="org-string">'ebpm_point'</span>, p] - T[m, p], lw=1, c=cm(i), label=f<span class="org-string">'{m.upper()}&#8211;{p:.1f}'</span>)
+plt.axhline(y=0, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.xlabel(<span class="org-string">'Fraction masked entries'</span>)
+plt.ylabel(<span class="org-string">'Improvement in Poisson loss\nover mean imputation'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/wnbmf.org/rank-1-frac-inset.png" alt="rank-1-frac-inset.png">
+</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2019-12-10 Tue 11:15</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

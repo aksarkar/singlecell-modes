@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-10 Tue 01:43 -->
+<!-- 2019-12-10 Tue 11:09 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Imputation of count matrices</title>
@@ -272,7 +272,6 @@ for the JavaScript code in this tag.
 <li><a href="#results">Results</a>
 <ul>
 <li><a href="#simulation">Simulated Poisson example</a></li>
-<li><a href="#sim-nb">Simulated NB example</a></li>
 <li><a href="#orgfd4d399">Imputation benchmark</a></li>
 </ul>
 </li>
@@ -862,188 +861,6 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-org05c8395" class="outline-3">
-<h3 id="sim-nb"><a id="org05c8395"></a>Simulated NB example</h3>
-<div class="outline-text-3" id="text-sim-nb">
-<p>
-Simulate some data from the model.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">np.random.seed(0)
-<span class="org-variable-name">n</span> = 500
-<span class="org-variable-name">p</span> = 100
-<span class="org-variable-name">k</span> = 3
-<span class="org-variable-name">l</span> = np.random.lognormal(sigma=.5, size=(n, k))
-<span class="org-variable-name">f</span> = np.random.lognormal(sigma=.5, size=(p, k))
-<span class="org-variable-name">mu</span> = l.dot(f.T)
-<span class="org-variable-name">inv_disp</span> = 0.1
-<span class="org-variable-name">u</span> = np.random.gamma(shape=inv_disp, scale=1 / inv_disp, size=(n, p))
-<span class="org-variable-name">x</span> = np.random.poisson(lam=mu * u)
-</pre>
-</div>
-
-<p>
-Run the methods. For WNBMF, initialize at the oracle value.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">imputation_res</span> = []
-<span class="org-keyword">for</span> rank <span class="org-keyword">in</span> <span class="org-builtin">range</span>(1, 11):
-  <span class="org-keyword">for</span> method <span class="org-keyword">in</span> (<span class="org-string">'oracle'</span>, <span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnmf'</span>, <span class="org-string">'wglmpca'</span>, <span class="org-string">'wnbmf'</span>):
-    <span class="org-keyword">try</span>:
-      <span class="org-variable-name">loss</span> = <span class="org-builtin">getattr</span>(scmodes.benchmark, f<span class="org-string">'imputation_score_{method}'</span>)(x, rank=rank, frac=0.1, seed=0, inv_disp=inv_disp, fix_inv_disp=<span class="org-constant">False</span>)
-    <span class="org-keyword">except</span> <span class="org-type">RuntimeError</span>:
-      <span class="org-comment-delimiter"># </span><span class="org-comment">WGLMPCA fails often</span>
-      <span class="org-variable-name">loss</span> = np.nan
-    imputation_res.append([method, rank, loss])
-<span class="org-variable-name">imputation_res</span> = pd.DataFrame(imputation_res, columns=[<span class="org-string">'method'</span>, <span class="org-string">'rank'</span>, <span class="org-string">'loss'</span>])
-</pre>
-</div>
-
-<p>
-Plot the results.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
-plt.clf()
-plt.gcf().set_size_inches(4, 3)
-<span class="org-keyword">for</span> i, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(imputation_res.groupby(<span class="org-string">'method'</span>)):
-  plt.plot(g[<span class="org-string">'rank'</span>], g[<span class="org-string">'loss'</span>], lw=1, marker=<span class="org-constant">None</span>, c=cm(i), label=k.upper())
-plt.axvline(x=3, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
-plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
-plt.xticks(np.arange(1, 11), np.arange(1, 11))
-plt.xlabel(<span class="org-string">'Assumed rank'</span>)
-plt.ylabel(<span class="org-string">'Poisson loss'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/imputation.org/sim-nb.png" alt="sim-nb.png">
-</p>
-</div>
-
-<p>
-Zoom in on WNBMF and EBPM-Point.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
-plt.clf()
-plt.gcf().set_size_inches(4, 3)
-<span class="org-keyword">for</span> i, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(imputation_res.groupby(<span class="org-string">'method'</span>)):
-  <span class="org-keyword">if</span> k <span class="org-keyword">in</span> (<span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnbmf'</span>):
-    plt.plot(g[<span class="org-string">'rank'</span>], g[<span class="org-string">'loss'</span>], lw=1, marker=<span class="org-constant">None</span>, c=cm(i), label=k.upper())
-plt.axvline(x=3, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
-plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
-plt.xticks(np.arange(1, 11), np.arange(1, 11))
-plt.xlabel(<span class="org-string">'Assumed rank'</span>)
-plt.ylabel(<span class="org-string">'Poisson loss'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/imputation.org/sim-nb-inset.png" alt="sim-nb-inset.png">
-</p>
-</div>
-
-<p>
-Look at how imputation performance depends on the relative magnitude of the
-random effect variance \(\phi\) and the structured variance
-\(\operatorname{Var}(\mu)\).
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">simulate</span>(n, p, k, pve=0.5, seed=0):
-  np.random.seed(seed)
-  <span class="org-variable-name">l</span> = np.random.lognormal(sigma=.5, size=(n, k))
-  <span class="org-variable-name">f</span> = np.random.lognormal(sigma=.5, size=(p, k))
-  <span class="org-variable-name">mu</span> = l.dot(f.T)
-  <span class="org-variable-name">inv_disp</span> = 1 / ((1 / pve - 1) * mu.var())
-  <span class="org-variable-name">u</span> = np.random.gamma(shape=inv_disp, scale=1 / inv_disp, size=(n, p))
-  <span class="org-variable-name">x</span> = np.random.poisson(lam=mu * u)
-  <span class="org-keyword">return</span> x, mu, u
-</pre>
-</div>
-
-<p>
-Give each method the oracle rank.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">imputation_res</span> = []
-<span class="org-keyword">for</span> pve <span class="org-keyword">in</span> np.linspace(.1, .9, 9):
-  <span class="org-keyword">for</span> method <span class="org-keyword">in</span> (<span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnmf'</span>, <span class="org-string">'wnbmf'</span>):
-    x, *<span class="org-variable-name">_</span> = simulate(n=500, p=100, k=3, pve=pve, seed=0)
-    <span class="org-variable-name">loss</span> = <span class="org-builtin">getattr</span>(scmodes.benchmark, f<span class="org-string">'imputation_score_{method}'</span>)(x, rank=3, frac=0.1, seed=0, inv_disp=1, fix_inv_disp=<span class="org-constant">False</span>)
-    imputation_res.append([pve, method, loss])
-<span class="org-variable-name">imputation_res</span> = pd.DataFrame(imputation_res, columns=[<span class="org-string">'pve'</span>, <span class="org-string">'method'</span>, <span class="org-string">'loss'</span>])
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
-plt.clf()
-plt.gcf().set_size_inches(3, 3)
-<span class="org-keyword">for</span> i, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(imputation_res.groupby(<span class="org-string">'method'</span>)):
-  plt.plot(g[<span class="org-string">'pve'</span>], g[<span class="org-string">'loss'</span>], lw=1, c=cm(i), label=k.upper())
-plt.legend(frameon=<span class="org-constant">False</span>)
-plt.xlabel(<span class="org-string">'Proportion of variance explained'</span>)
-plt.ylabel(<span class="org-string">'Poisson loss'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/imputation.org/sim-nb-pve.png" alt="sim-nb-pve.png">
-</p>
-</div>
-
-<p>
-Look at how imputation performance depends on the proportion of masked
-entries.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">imputation_res</span> = []
-<span class="org-keyword">for</span> frac <span class="org-keyword">in</span> np.linspace(.01, .3, 10):
-  <span class="org-keyword">for</span> method <span class="org-keyword">in</span> (<span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnmf'</span>, <span class="org-string">'wnbmf'</span>):
-    x, *<span class="org-variable-name">_</span> = simulate(n=500, p=100, k=3, pve=0.9, seed=0)
-    <span class="org-variable-name">loss</span> = <span class="org-builtin">getattr</span>(scmodes.benchmark, f<span class="org-string">'imputation_score_{method}'</span>)(x, rank=3, frac=frac, seed=0, inv_disp=1, fix_inv_disp=<span class="org-constant">False</span>)
-    imputation_res.append([frac, method, loss])
-<span class="org-variable-name">imputation_res</span> = pd.DataFrame(imputation_res, columns=[<span class="org-string">'frac'</span>, <span class="org-string">'method'</span>, <span class="org-string">'loss'</span>])
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
-<span class="org-variable-name">T</span> = imputation_res.pivot(index=<span class="org-string">'frac'</span>, columns=<span class="org-string">'method'</span>)[<span class="org-string">'loss'</span>]
-plt.clf()
-plt.gcf().set_size_inches(3, 3)
-<span class="org-keyword">for</span> i, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>((<span class="org-string">'wnmf'</span>, <span class="org-string">'wnbmf'</span>)):
-  plt.plot(T.index, T[<span class="org-string">'ebpm_point'</span>] - T[m], lw=1, c=cm(i), label=m.upper())
-plt.axhline(y=0, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
-plt.legend(frameon=<span class="org-constant">False</span>)
-plt.xlabel(<span class="org-string">'Fraction masked entries'</span>)
-plt.ylabel(<span class="org-string">'Improvement in Poisson loss\nover mean imputation'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/imputation.org/sim-nb-frac.png" alt="sim-nb-frac.png">
-</p>
-</div>
-</div>
-</div>
-
 <div id="outline-container-orgfd4d399" class="outline-3">
 <h3 id="orgfd4d399">Imputation benchmark</h3>
 <div class="outline-text-3" id="text-orgfd4d399">
@@ -1159,7 +976,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-10 Tue 01:43</p>
+<p class="date">Created: 2019-12-10 Tue 11:09</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
