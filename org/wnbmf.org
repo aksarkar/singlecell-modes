@@ -53,7 +53,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="2G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 64233006
+  : Submitted batch job 64257582
 
   #+BEGIN_SRC ipython
     import itertools as it
@@ -65,7 +65,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[21]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -115,10 +115,95 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[58]:
+   # Out[4]:
    :END:
 
 * Results
+** Simulated Poisson problem
+   :PROPERTIES:
+   :CUSTOM_ID: wnmf
+   :END:
+
+   Look at overfitting the training data in WNMF.
+
+   #+BEGIN_SRC ipython :async t
+     nmf_res = []
+     x, *_ = simulate(n=200, p=300, k=3, pve=1, seed=0)
+     w = np.random.uniform(size=x.shape) < 0.99
+     for tol in np.logspace(-6, 2, 9):
+       # Important: seed the random initialization
+       np.random.seed(100)
+       l, f, training_loss = scmodes.lra.nmf(x, w=w, rank=3, tol=tol, max_iters=50000)
+       val_loss = -np.where(~w, st.poisson(mu=l @ f.T).logpmf(x), 0).sum()
+       nmf_res.append([tol, training_loss, val_loss])
+     nmf_res = pd.DataFrame(nmf_res, columns=['tol', 'training_loss', 'val_loss'])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[10]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/wnbmf.org/wnmf-tol.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.xscale('log')
+     plt.yscale('symlog', linthreshy=1)
+     plt.plot(nmf_res['tol'], nmf_res['training_loss'].min() - nmf_res['training_loss'], lw=1, c='k', label='Training')
+     plt.plot(nmf_res['tol'], nmf_res['val_loss'].min() - nmf_res['val_loss'], lw=1, c='r', label='Validation')
+     plt.axvline(x=nmf_res.loc[nmf_res['val_loss'].idxmin(), 'tol'], lw=1, ls=':', c='0.5')
+     plt.legend()
+     plt.ylabel('Difference from best loss')
+     plt.xlabel('Threshold log lik change')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[28]:
+   [[file:figure/wnbmf.org/wnmf-tol.png]]
+   :END:
+
+   Repeat for 5% missing.
+
+   #+BEGIN_SRC ipython :async t
+     nmf_res = []
+     x, *_ = simulate(n=200, p=300, k=3, pve=1, seed=0)
+     w = np.random.uniform(size=x.shape) < 0.95
+     for tol in np.logspace(-6, 2, 9):
+       # Important: seed the random initialization
+       np.random.seed(100)
+       l, f, training_loss = scmodes.lra.nmf(x, w=w, rank=3, tol=tol, max_iters=50000)
+       val_loss = -np.where(~w, st.poisson(mu=l @ f.T).logpmf(x), 0).sum()
+       nmf_res.append([tol, training_loss, val_loss])
+     nmf_res = pd.DataFrame(nmf_res, columns=['tol', 'training_loss', 'val_loss'])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[30]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/wnbmf.org/wnmf-tol-frac-0.05.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.xscale('log')
+     plt.yscale('symlog', linthreshy=1)
+     plt.plot(nmf_res['tol'], nmf_res['training_loss'].min() - nmf_res['training_loss'], lw=1, c='k', label='Training')
+     plt.plot(nmf_res['tol'], nmf_res['val_loss'].min() - nmf_res['val_loss'], lw=1, c='r', label='Validation')
+     plt.axvline(x=nmf_res.loc[nmf_res['val_loss'].idxmin(), 'tol'], lw=1, ls=':', c='0.5')
+     plt.legend(loc='lower left')
+     plt.ylabel('Distance from optimal loss')
+     plt.xlabel('Threshold log lik change')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[37]:
+   [[file:figure/wnbmf.org/wnmf-tol-frac-0.05.png]]
+   :END:
+
 ** Simulated NB example
    :PROPERTIES:
    :CUSTOM_ID: sim-nb
@@ -549,7 +634,7 @@
      x, mu, u = simulate(n=500, p=100, k=1, mu_max=100, pve=0.5, seed=0)
      w = np.random.uniform(size=x.shape) < 0.99
 
-     m0 = scmodes.lra.nbmf(x, w=w, rank=1, inv_disp=1, fix_inv_disp=False)
+     m0 = scmodes.lra.nbmf(x, w=w, rank=1, inv_disp=1, fix_inv_disp=False, verbose=True)
 
      s = (w * x).sum(axis=1)
      muhat = (w * x).sum(axis=0) / s.sum()
@@ -557,7 +642,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[73]:
+   # Out[79]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/wnbmf.org/rank-1-pred-mu-max-100.png

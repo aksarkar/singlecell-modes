@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-11 Wed 12:18 -->
+<!-- 2019-12-11 Wed 17:58 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Weighted negative binomial matrix factorization</title>
@@ -267,6 +267,7 @@ for the JavaScript code in this tag.
 </li>
 <li><a href="#org9ed7568">Results</a>
 <ul>
+<li><a href="#wnmf">Simulated Poisson problem</a></li>
 <li><a href="#sim-nb">Simulated NB example</a></li>
 <li><a href="#rank-1">Rank 1 problem</a></li>
 </ul>
@@ -382,6 +383,89 @@ Draw data from the model, assuming \(\phi_{ij} = \phi\). We define
 <h2 id="org9ed7568">Results</h2>
 <div class="outline-text-2" id="text-org9ed7568">
 </div>
+<div id="outline-container-org09020f5" class="outline-3">
+<h3 id="wnmf"><a id="org09020f5"></a>Simulated Poisson problem</h3>
+<div class="outline-text-3" id="text-wnmf">
+<p>
+Look at overfitting the training data in WNMF.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">nmf_res</span> = []
+x, *<span class="org-variable-name">_</span> = simulate(n=200, p=300, k=3, pve=1, seed=0)
+<span class="org-variable-name">w</span> = np.random.uniform(size=x.shape) &lt; 0.99
+<span class="org-keyword">for</span> tol <span class="org-keyword">in</span> np.logspace(-6, 2, 9):
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: seed the random initialization</span>
+  np.random.seed(100)
+  <span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">training_loss</span> = scmodes.lra.nmf(x, w=w, rank=3, tol=tol, max_iters=50000)
+  <span class="org-variable-name">val_loss</span> = -np.where(~w, st.poisson(mu=l @ f.T).logpmf(x), 0).<span class="org-builtin">sum</span>()
+  nmf_res.append([tol, training_loss, val_loss])
+<span class="org-variable-name">nmf_res</span> = pd.DataFrame(nmf_res, columns=[<span class="org-string">'tol'</span>, <span class="org-string">'training_loss'</span>, <span class="org-string">'val_loss'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.xscale(<span class="org-string">'log'</span>)
+plt.yscale(<span class="org-string">'symlog'</span>, linthreshy=1)
+plt.plot(nmf_res[<span class="org-string">'tol'</span>], nmf_res[<span class="org-string">'training_loss'</span>].<span class="org-builtin">min</span>() - nmf_res[<span class="org-string">'training_loss'</span>], lw=1, c=<span class="org-string">'k'</span>, label=<span class="org-string">'Training'</span>)
+plt.plot(nmf_res[<span class="org-string">'tol'</span>], nmf_res[<span class="org-string">'val_loss'</span>].<span class="org-builtin">min</span>() - nmf_res[<span class="org-string">'val_loss'</span>], lw=1, c=<span class="org-string">'r'</span>, label=<span class="org-string">'Validation'</span>)
+plt.axvline(x=nmf_res.loc[nmf_res[<span class="org-string">'val_loss'</span>].idxmin(), <span class="org-string">'tol'</span>], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'0.5'</span>)
+plt.legend()
+plt.ylabel(<span class="org-string">'Difference from best loss'</span>)
+plt.xlabel(<span class="org-string">'Threshold log lik change'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/wnbmf.org/wnmf-tol.png" alt="wnmf-tol.png">
+</p>
+</div>
+
+<p>
+Repeat for 5% missing.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">nmf_res</span> = []
+x, *<span class="org-variable-name">_</span> = simulate(n=200, p=300, k=3, pve=1, seed=0)
+<span class="org-variable-name">w</span> = np.random.uniform(size=x.shape) &lt; 0.95
+<span class="org-keyword">for</span> tol <span class="org-keyword">in</span> np.logspace(-6, 2, 9):
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: seed the random initialization</span>
+  np.random.seed(100)
+  <span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">training_loss</span> = scmodes.lra.nmf(x, w=w, rank=3, tol=tol, max_iters=50000)
+  <span class="org-variable-name">val_loss</span> = -np.where(~w, st.poisson(mu=l @ f.T).logpmf(x), 0).<span class="org-builtin">sum</span>()
+  nmf_res.append([tol, training_loss, val_loss])
+<span class="org-variable-name">nmf_res</span> = pd.DataFrame(nmf_res, columns=[<span class="org-string">'tol'</span>, <span class="org-string">'training_loss'</span>, <span class="org-string">'val_loss'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.xscale(<span class="org-string">'log'</span>)
+plt.yscale(<span class="org-string">'symlog'</span>, linthreshy=1)
+plt.plot(nmf_res[<span class="org-string">'tol'</span>], nmf_res[<span class="org-string">'training_loss'</span>].<span class="org-builtin">min</span>() - nmf_res[<span class="org-string">'training_loss'</span>], lw=1, c=<span class="org-string">'k'</span>, label=<span class="org-string">'Training'</span>)
+plt.plot(nmf_res[<span class="org-string">'tol'</span>], nmf_res[<span class="org-string">'val_loss'</span>].<span class="org-builtin">min</span>() - nmf_res[<span class="org-string">'val_loss'</span>], lw=1, c=<span class="org-string">'r'</span>, label=<span class="org-string">'Validation'</span>)
+plt.axvline(x=nmf_res.loc[nmf_res[<span class="org-string">'val_loss'</span>].idxmin(), <span class="org-string">'tol'</span>], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'0.5'</span>)
+plt.legend(loc=<span class="org-string">'lower left'</span>)
+plt.ylabel(<span class="org-string">'Distance from optimal loss'</span>)
+plt.xlabel(<span class="org-string">'Threshold log lik change'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/wnbmf.org/wnmf-tol-frac-0.05.png" alt="wnmf-tol-frac-0.05.png">
+</p>
+</div>
+</div>
+</div>
+
 <div id="outline-container-org1102f07" class="outline-3">
 <h3 id="sim-nb"><a id="org1102f07"></a>Simulated NB example</h3>
 <div class="outline-text-3" id="text-sim-nb">
@@ -823,7 +907,7 @@ Look at one example.
 <pre class="src src-ipython"><span class="org-variable-name">x</span>, <span class="org-variable-name">mu</span>, <span class="org-variable-name">u</span> = simulate(n=500, p=100, k=1, mu_max=100, pve=0.5, seed=0)
 <span class="org-variable-name">w</span> = np.random.uniform(size=x.shape) &lt; 0.99
 
-<span class="org-variable-name">m0</span> = scmodes.lra.nbmf(x, w=w, rank=1, inv_disp=1, fix_inv_disp=<span class="org-constant">False</span>)
+<span class="org-variable-name">m0</span> = scmodes.lra.nbmf(x, w=w, rank=1, inv_disp=1, fix_inv_disp=<span class="org-constant">False</span>, verbose=<span class="org-constant">True</span>)
 
 <span class="org-variable-name">s</span> = (w * x).<span class="org-builtin">sum</span>(axis=1)
 <span class="org-variable-name">muhat</span> = (w * x).<span class="org-builtin">sum</span>(axis=0) / s.<span class="org-builtin">sum</span>()
@@ -868,7 +952,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-11 Wed 12:18</p>
+<p class="date">Created: 2019-12-11 Wed 17:58</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
