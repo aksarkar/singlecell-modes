@@ -97,11 +97,13 @@
    (\operatorname{Var}(\mu_{ij}) + \operatorname{Var}(u_{ij}))\).
 
    #+BEGIN_SRC ipython
-     def simulate(n, p, k, pve=0.5, seed=0):
+     def simulate(n, p, k, pve=0.5, seed=0, mu_max=None):
        np.random.seed(seed)
        l = np.random.lognormal(sigma=.5, size=(n, k))
        f = np.random.lognormal(sigma=.5, size=(p, k))
        mu = l.dot(f.T)
+       if mu_max is not None:
+         mu *= mu_max / mu.max()
        if pve < 1:
          inv_disp = 1 / ((1 / pve - 1) * mu.var())
          u = np.random.gamma(shape=inv_disp, scale=1 / inv_disp, size=(n, p))
@@ -113,7 +115,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[34]:
+   # Out[58]:
    :END:
 
 * Results
@@ -366,7 +368,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[96]:
+   # Out[72]:
    :END:
 
    Look at the difference in log likelihood between default initialization of
@@ -477,4 +479,115 @@
    :RESULTS:
    # Out[143]:
    [[file:figure/wnbmf.org/rank-1-pred.png]]
+   :END:
+
+   Look at how imputation performance depends on the scale of \(\mu\). First,
+   look at the typical maximum simulated value.
+
+   #+BEGIN_SRC ipython
+     [simulate(n=500, p=100, k=1, pve=0.5, seed=i)[1].max() for i in range(10)]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[60]:
+   #+BEGIN_EXAMPLE
+     [10.52486304374879,
+     32.94138955233211,
+     27.056806481363978,
+     21.39358920123412,
+     13.6783369842979,
+     12.004504063906163,
+     11.943634373434936,
+     14.671976105187785,
+     13.467243812000493,
+     17.786908562734304]
+   #+END_EXAMPLE
+   :END:
+
+   Fix the PVE at 0.5, the fraction of masked entries to 0.05, and the rank to
+   the oracle value. Vary the maximum \(\mu\) by scaling the simulated values.
+
+   #+BEGIN_SRC ipython :async t
+     imputation_res = []
+     for mu_max in (10, 50, 100):
+       x, *_ = simulate(n=500, p=100, k=1, mu_max=mu_max, pve=0.5, seed=0)
+       for method in ('ebpm_point', 'wnmf', 'wnbmf'):
+         loss = getattr(scmodes.benchmark, f'imputation_score_{method}')(x, rank=1, frac=0.05, seed=0, inv_disp=1, fix_inv_disp=False)
+         imputation_res.append([mu_max, method, loss])
+     imputation_res = pd.DataFrame(imputation_res, columns=['mu_max', 'method', 'loss'])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[61]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/wnbmf.org/rank-1-mu-max.png
+     cm = plt.get_cmap('Dark2')
+     T = imputation_res.pivot(index='mu_max', columns='method', values='loss')
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     for i, k in enumerate(['wnmf', 'wnbmf']):
+       plt.plot(T.index, T['ebpm_point'] - T[k], lw=1, c=cm(i), label=k.upper())
+     plt.axhline(y=0, ls=':', lw=1, c='k')
+     plt.legend(frameon=False)
+     plt.xlabel('Maximum $\mu$')
+     plt.ylabel('Improvement in Poisson loss\nover mean imputation')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[71]:
+   [[file:figure/wnbmf.org/rank-1-mu-max.png]]
+   :END:
+
+   Look at one example.
+
+   #+BEGIN_SRC ipython :async t
+     x, mu, u = simulate(n=500, p=100, k=1, mu_max=100, pve=0.5, seed=0)
+     w = np.random.uniform(size=x.shape) < 0.99
+
+     m0 = scmodes.lra.nbmf(x, w=w, rank=1, inv_disp=1, fix_inv_disp=False)
+
+     s = (w * x).sum(axis=1)
+     muhat = (w * x).sum(axis=0) / s.sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[73]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/wnbmf.org/rank-1-pred-mu-max-100.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 2, sharex=True, sharey=True)
+     fig.set_size_inches(5, 5)
+
+     ax[0,0].scatter((m0[0] @ m0[1].T)[w].ravel(), mu[w].ravel(), c='0.7', label='Observed', s=1, alpha=0.1)
+     ax[0,0].scatter((m0[0] @ m0[1].T)[~w].ravel(), mu[~w].ravel(), c='r', label='Masked', s=1, alpha=0.5)
+     ax[0,0].set_ylabel('Ground truth $\mu$')
+     leg = ax[0,0].legend(frameon=False, handletextpad=0, markerscale=4)
+     for t in leg.legendHandles:
+       t.set_alpha(1)
+
+     ax[0,1].axis('off')
+
+     ax[1,0].scatter((m0[0] @ m0[1].T)[w].ravel(), np.outer(s, muhat)[w].ravel(), c='0.7', label='Observed', s=1, alpha=0.1)
+     ax[1,0].scatter((m0[0] @ m0[1].T)[~w].ravel(), np.outer(s, muhat)[~w].ravel(), c='r', label='Masked', s=1, alpha=0.5)
+     ax[1,0].set_xlabel('WNBMF $\hat\mu$')
+     ax[1,0].set_ylabel('EBPM-Point $\hat\mu$')
+
+     ax[1,1].scatter(mu[w].ravel(), np.outer(s, muhat)[w].ravel(), c='0.7', label='Observed', s=1, alpha=0.1)
+     ax[1,1].scatter(mu[~w].ravel(), np.outer(s, muhat)[~w].ravel(), c='r', label='Masked', s=1, alpha=0.5)
+     ax[1,1].set_xlabel('Ground truth $\mu$')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[74]:
+   [[file:figure/wnbmf.org/rank-1-pred-mu-max-100.png]]
    :END:

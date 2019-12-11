@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-10 Tue 12:06 -->
+<!-- 2019-12-11 Wed 12:18 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Weighted negative binomial matrix factorization</title>
@@ -358,11 +358,13 @@ Draw data from the model, assuming \(\phi_{ij} = \phi\). We define
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">simulate</span>(n, p, k, pve=0.5, seed=0):
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">simulate</span>(n, p, k, pve=0.5, seed=0, mu_max=<span class="org-constant">None</span>):
   np.random.seed(seed)
   <span class="org-variable-name">l</span> = np.random.lognormal(sigma=.5, size=(n, k))
   <span class="org-variable-name">f</span> = np.random.lognormal(sigma=.5, size=(p, k))
   <span class="org-variable-name">mu</span> = l.dot(f.T)
+  <span class="org-keyword">if</span> mu_max <span class="org-keyword">is</span> <span class="org-keyword">not</span> <span class="org-constant">None</span>:
+    <span class="org-variable-name">mu</span> *= mu_max / mu.<span class="org-builtin">max</span>()
   <span class="org-keyword">if</span> pve &lt; 1:
     <span class="org-variable-name">inv_disp</span> = 1 / ((1 / pve - 1) * mu.var())
     <span class="org-variable-name">u</span> = np.random.gamma(shape=inv_disp, scale=1 / inv_disp, size=(n, p))
@@ -752,13 +754,121 @@ fig.tight_layout()
 <p><img src="figure/wnbmf.org/rank-1-pred.png" alt="rank-1-pred.png">
 </p>
 </div>
+
+<p>
+Look at how imputation performance depends on the scale of \(\mu\). First,
+look at the typical maximum simulated value.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">[simulate(n=500, p=100, k=1, pve=0.5, seed=i)[1].<span class="org-builtin">max</span>() <span class="org-keyword">for</span> i <span class="org-keyword">in</span> <span class="org-builtin">range</span>(10)]
+</pre>
+</div>
+
+<pre class="example">
+[10.52486304374879,
+32.94138955233211,
+27.056806481363978,
+21.39358920123412,
+13.6783369842979,
+12.004504063906163,
+11.943634373434936,
+14.671976105187785,
+13.467243812000493,
+17.786908562734304]
+</pre>
+
+<p>
+Fix the PVE at 0.5, the fraction of masked entries to 0.05, and the rank to
+the oracle value. Vary the maximum \(\mu\) by scaling the simulated values.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">imputation_res</span> = []
+<span class="org-keyword">for</span> mu_max <span class="org-keyword">in</span> (10, 50, 100):
+  x, *<span class="org-variable-name">_</span> = simulate(n=500, p=100, k=1, mu_max=mu_max, pve=0.5, seed=0)
+  <span class="org-keyword">for</span> method <span class="org-keyword">in</span> (<span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnmf'</span>, <span class="org-string">'wnbmf'</span>):
+    <span class="org-variable-name">loss</span> = <span class="org-builtin">getattr</span>(scmodes.benchmark, f<span class="org-string">'imputation_score_{method}'</span>)(x, rank=1, frac=0.05, seed=0, inv_disp=1, fix_inv_disp=<span class="org-constant">False</span>)
+    imputation_res.append([mu_max, method, loss])
+<span class="org-variable-name">imputation_res</span> = pd.DataFrame(imputation_res, columns=[<span class="org-string">'mu_max'</span>, <span class="org-string">'method'</span>, <span class="org-string">'loss'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+<span class="org-variable-name">T</span> = imputation_res.pivot(index=<span class="org-string">'mu_max'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'loss'</span>)
+plt.clf()
+plt.gcf().set_size_inches(3, 3)
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>([<span class="org-string">'wnmf'</span>, <span class="org-string">'wnbmf'</span>]):
+  plt.plot(T.index, T[<span class="org-string">'ebpm_point'</span>] - T[k], lw=1, c=cm(i), label=k.upper())
+plt.axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.xlabel(<span class="org-string">'Maximum $\mu$'</span>)
+plt.ylabel(<span class="org-string">'Improvement in Poisson loss\nover mean imputation'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/wnbmf.org/rank-1-mu-max.png" alt="rank-1-mu-max.png">
+</p>
+</div>
+
+<p>
+Look at one example.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span>, <span class="org-variable-name">mu</span>, <span class="org-variable-name">u</span> = simulate(n=500, p=100, k=1, mu_max=100, pve=0.5, seed=0)
+<span class="org-variable-name">w</span> = np.random.uniform(size=x.shape) &lt; 0.99
+
+<span class="org-variable-name">m0</span> = scmodes.lra.nbmf(x, w=w, rank=1, inv_disp=1, fix_inv_disp=<span class="org-constant">False</span>)
+
+<span class="org-variable-name">s</span> = (w * x).<span class="org-builtin">sum</span>(axis=1)
+<span class="org-variable-name">muhat</span> = (w * x).<span class="org-builtin">sum</span>(axis=0) / s.<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 2, sharex=<span class="org-constant">True</span>, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(5, 5)
+
+ax[0,0].scatter((m0[0] @ m0[1].T)[w].ravel(), mu[w].ravel(), c=<span class="org-string">'0.7'</span>, label=<span class="org-string">'Observed'</span>, s=1, alpha=0.1)
+ax[0,0].scatter((m0[0] @ m0[1].T)[~w].ravel(), mu[~w].ravel(), c=<span class="org-string">'r'</span>, label=<span class="org-string">'Masked'</span>, s=1, alpha=0.5)
+ax[0,0].set_ylabel(<span class="org-string">'Ground truth $\mu$'</span>)
+<span class="org-variable-name">leg</span> = ax[0,0].legend(frameon=<span class="org-constant">False</span>, handletextpad=0, markerscale=4)
+<span class="org-keyword">for</span> t <span class="org-keyword">in</span> leg.legendHandles:
+  t.set_alpha(1)
+
+ax[0,1].axis(<span class="org-string">'off'</span>)
+
+ax[1,0].scatter((m0[0] @ m0[1].T)[w].ravel(), np.outer(s, muhat)[w].ravel(), c=<span class="org-string">'0.7'</span>, label=<span class="org-string">'Observed'</span>, s=1, alpha=0.1)
+ax[1,0].scatter((m0[0] @ m0[1].T)[~w].ravel(), np.outer(s, muhat)[~w].ravel(), c=<span class="org-string">'r'</span>, label=<span class="org-string">'Masked'</span>, s=1, alpha=0.5)
+ax[1,0].set_xlabel(<span class="org-string">'WNBMF $\hat\mu$'</span>)
+ax[1,0].set_ylabel(<span class="org-string">'EBPM-Point $\hat\mu$'</span>)
+
+ax[1,1].scatter(mu[w].ravel(), np.outer(s, muhat)[w].ravel(), c=<span class="org-string">'0.7'</span>, label=<span class="org-string">'Observed'</span>, s=1, alpha=0.1)
+ax[1,1].scatter(mu[~w].ravel(), np.outer(s, muhat)[~w].ravel(), c=<span class="org-string">'r'</span>, label=<span class="org-string">'Masked'</span>, s=1, alpha=0.5)
+ax[1,1].set_xlabel(<span class="org-string">'Ground truth $\mu$'</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/wnbmf.org/rank-1-pred-mu-max-100.png" alt="rank-1-pred-mu-max-100.png">
+</p>
+</div>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-10 Tue 12:06</p>
+<p class="date">Created: 2019-12-11 Wed 12:18</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
