@@ -1,0 +1,209 @@
+#+TITLE: Marker genes in /in silico/ mixtures
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  We [[file:gof.org][previously found that almost no genes depart from a
+  unimodal assumption on expression variation]], even for heterogeneous
+  tissues. Here, we investigate this question on /in silico/ mixtures of sorted
+  immune cells.
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="broadwl",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
+
+  #+RESULTS:
+  : Submitted batch job 64287385
+
+  #+BEGIN_SRC ipython
+    import anndata
+    import numpy as np
+    import pandas as pd
+    import scipy.io
+    import scipy.sparse as ss
+    import scmodes
+    import scmodes.ebpm
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[1]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+* Methods
+** Data
+
+   Load the sorted cells.
+
+   #+BEGIN_SRC ipython :async t
+     def _read_10x(prefix):
+       counts = scipy.io.mmread(f'{prefix}/matrix.mtx.gz').tocsr()
+       samples = pd.read_csv(f'{prefix}/barcodes.tsv.gz', sep='\t', header=None)
+       genes = pd.read_csv(f'{prefix}/genes.tsv.gz', sep='\t', header=None)
+       return anndata.AnnData(counts.T, obs=samples, var=genes, filemode='memory')
+
+     cell_types = ['b_cells', 'cd14_monocytes', 'cd34', 'cd4_t_helper', 'cd56_nk',
+              'cytotoxic_t', 'memory_t', 'naive_cytotoxic', 'naive_t', 'regulatory_t']
+
+     data = {k: _read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/') for k in cell_types}
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     # TODO: anndata.concatenate is broken?
+     mix_obs = (pd.concat([data[k].obs for k in data], keys=data.keys())
+                .reset_index(level=0)
+                .rename({'level_0': 'cell_type', 0: 'barcode'}, axis=1))
+     mix_var = data['b_cells'].var.rename({0: 'gene', 1: 'name'}, axis=1)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[5]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     # Important: we need CSR for vstack, but CSC to subset by gene downstream
+     mix = anndata.AnnData(ss.vstack([data[k].X for k in data]).tocsc(), var=mix_var, obs=mix_obs)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   :END:
+
+** Marker genes
+
+   Get marker genes from
+   [[https://assets.thermofisher.com/TFS-Assets/LSG/brochures/immune-cell-guide.pdf][Thermo
+   Fisher]].
+
+   #+BEGIN_SRC ipython
+     markers = [
+       'CD11B',   # DC pan
+       'CD127',    # CD4 pan
+       'CD13',    # DC pan
+       'CD134',    # CD4 pan
+       'CD137',    # CD4 pan
+       'CD152',    # CD4 pan
+       'CD154',    # CD4 pan
+       'CD19',    # B cell pan
+       'CD2',    # CD4 pan
+       'CD20',    # B cell pan
+       'CD22',    # B cell pan
+       'CD25',    #  (HIGH) CD4 pan
+       'CD27',    # CD4 pan
+       'CD272',    # CD4 pan
+       'CD279',    # CD4 pan
+       'CD28',    # CD4 pan
+       'CD3',    # CD4 pan
+       'CD33',    # DC pan
+       'CD4',    # CD4 pan
+       'CD45RA',    # NAIVE
+       'CD45RO',    # MEMORY
+       'CD5',    # CD4 pan
+       'CD62L',    # low: EFFECTOR high: MEMORY/NAIVE
+       'CD69',    # HIGH
+       'CD7',    # CD4 pan
+       'CD70h',    # B cell pan
+       'CD79A'    # B cell pan
+       'CD79B'    # B cell pan
+       'CD80',    # DC pan
+       'CD83',    # DC pan
+       'CD86',    # DC pan
+     ]
+   #+END_SRC
+* Results
+** EBPM-Unimodal
+
+   Look at CD4.
+
+   #+BEGIN_SRC ipython :ipyfile figure/marker-genes.org/cd4.png
+     idx = mix.var[mix.var['name'] == 'CD4'].index
+     n_bins = mix.X[:,idx].max()
+     cm = plt.get_cmap('Paired')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 3)
+     plt.yscale('symlog', linthreshy=10)
+     for i, k in enumerate(data):
+       bins, edges = np.histogram(data[k].X[:,idx].A.ravel(), bins=np.arange(n_bins + 1))
+       plt.plot(edges[:-1], bins, color=cm(i), lw=1, c=cm(i), label=k)
+     plt.axhline(y=0, lw=1, ls=':', c='k')
+     plt.title('CD4')
+     plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xlabel('Number of molecules')
+     plt.ylabel('Number of cells')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[55]:
+   [[file:figure/marker-genes.org/cd4.png]]
+   :END:
+
+   #+BEGIN_SRC ipython
+     scmodes.ebpm.ebpm_unimodal()
+   #+END_SRC
+
+   Look at CD8A.
+
+   #+BEGIN_SRC ipython :ipyfile figure/marker-genes.org/cd8a.png
+     idx = mix.var[mix.var['name'] == 'CD8A'].index
+     n_bins = mix.X[:,idx].max()
+     cm = plt.get_cmap('Paired')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 3)
+     plt.yscale('symlog', linthreshy=10)
+     for i, k in enumerate(data):
+       bins, edges = np.histogram(data[k].X[:,idx].A.ravel(), bins=np.arange(n_bins + 1))
+       plt.plot(edges[:-1], bins, color=cm(i), lw=1, c=cm(i), label=k)
+     plt.axhline(y=0, lw=1, ls=':', c='k')
+     plt.title('CD8')
+     plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xlabel('Number of molecules')
+     plt.ylabel('Number of cells')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[54]:
+   [[file:figure/marker-genes.org/cd8a.png]]
+   :END:

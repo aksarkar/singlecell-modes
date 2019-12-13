@@ -37,3 +37,4 @@ Technical details:
 - [[file:pois-gam-lik.org][Poisson-Gamma log likelihood surface]]
 - [[file:vae.org][Variational autoencoders for scRNA-seq data]]
 - [[file:wnbmf.org][Weighted Negative Binomial Matrix Factorization]]
+- [[file:marker-genes.org][Marker genes in /in silico/ mixtures]]
