@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-13 Fri 23:59 -->
+<!-- 2019-12-14 Sat 01:15 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org7b2ee41">Test for goodness of fit</a></li>
+<li><a href="#org15e690e">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -351,9 +351,9 @@ Here, we directly test for the goodness of fit of the estimated distributions
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org7b2ee41" class="outline-3">
-<h3 id="org7b2ee41">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org7b2ee41">
+<div id="outline-container-org15e690e" class="outline-3">
+<h3 id="org15e690e">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-org15e690e">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -762,8 +762,8 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-org05c4edf" class="outline-3">
-<h3 id="gof"><a id="org05c4edf"></a>Test for goodness of fit</h3>
+<div id="outline-container-org1a1e0dd" class="outline-3">
+<h3 id="gof"><a id="org1a1e0dd"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -1278,6 +1278,59 @@ fig.tight_layout()
 </div>
 
 <p>
+Look at the randomized quantiles.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">F</span> = scmodes.benchmark.gof._ash_cdf(x.X[:,0] - 1, res, x.obs[<span class="org-string">'size'</span>])
+<span class="org-variable-name">f</span> = scmodes.benchmark.gof._ash_pmf(x.X[:,0], fit=res, s=x.obs[<span class="org-string">'size'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(0)
+<span class="org-variable-name">rpp</span> = F + np.random.uniform(size=F.shape[0]) * f
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.hist(rpp, bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+plt.axhline(y=1, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
+plt.xlim(0, 1)
+plt.xlabel(<span class="org-string">'$p$-value'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/ENSG00000177954-rpp.png" alt="ENSG00000177954-rpp.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.xscale(<span class="org-string">'log'</span>)
+plt.yscale(<span class="org-string">'log'</span>)
+plt.scatter(np.linspace(0, 1, rpp.shape[0] + 2)[1:-1], np.sort(rpp), s=1, c=<span class="org-string">'k'</span>)
+plt.plot([1e-5, 1], [1e-5, 1], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+plt.xlabel(<span class="org-string">'Theoretical quantile'</span>)
+plt.ylabel(<span class="org-string">'Randomized quantile'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/ENSG00000177954-diagnostic.png" alt="ENSG00000177954-diagnostic.png">
+</p>
+</div>
+
+<p>
 <i>CXCR4</i> departs from Gamma, but not from point-Gamma.
 </p>
 
@@ -1312,7 +1365,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-13 Fri 23:59</p>
+<p class="date">Created: 2019-12-14 Sat 01:15</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

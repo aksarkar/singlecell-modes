@@ -36,7 +36,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 64289810
+  : Submitted batch job 64292707
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -294,7 +294,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[12]:
+   # Out[5]:
    :END:
 
    Report the dimensions of each data set. To reduce computational burden,
@@ -987,6 +987,58 @@
    :RESULTS:
    # Out[54]:
    [[file:figure/gof.org/ENSG00000177954.png]]
+   :END:
+
+   Look at the randomized quantiles.
+
+   #+BEGIN_SRC ipython
+     F = scmodes.benchmark.gof._ash_cdf(x.X[:,0] - 1, res, x.obs['size'])
+     f = scmodes.benchmark.gof._ash_pmf(x.X[:,0], fit=res, s=x.obs['size'])
+   #+END_SRC
+
+   #+BEGIN_SRC ipython
+     np.random.seed(0)
+     rpp = F + np.random.uniform(size=F.shape[0]) * f
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[50]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-rpp.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.hist(rpp, bins=np.linspace(0, 1, 11), color='0.7', density=True)
+     plt.axhline(y=1, ls=':', lw=1, c='k')
+     plt.xlim(0, 1)
+     plt.xlabel('$p$-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[69]:
+   [[file:figure/gof.org/ENSG00000177954-rpp.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-diagnostic.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.xscale('log')
+     plt.yscale('log')
+     plt.scatter(np.linspace(0, 1, rpp.shape[0] + 2)[1:-1], np.sort(rpp), s=1, c='k')
+     plt.plot([1e-5, 1], [1e-5, 1], lw=1, ls=':', c='r')
+     plt.xlabel('Theoretical quantile')
+     plt.ylabel('Randomized quantile')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[67]:
+   [[file:figure/gof.org/ENSG00000177954-diagnostic.png]]
    :END:
 
    /CXCR4/ departs from Gamma, but not from point-Gamma.
