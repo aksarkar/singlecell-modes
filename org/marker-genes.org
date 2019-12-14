@@ -24,16 +24,17 @@
   #+CALL: ipython3(venv="scmodes",partition="broadwl",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 64287385
+  : Submitted batch job 64290334
 
   #+BEGIN_SRC ipython
     import anndata
     import numpy as np
     import pandas as pd
+    import scanpy
     import scipy.io
     import scipy.sparse as ss
     import scmodes
-    import scmodes.ebpm
+    import sqlite3
   #+END_SRC
 
   #+RESULTS:
@@ -105,7 +106,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[6]:
    :END:
 
 ** Marker genes
@@ -149,8 +150,14 @@
        'CD86',    # DC pan
      ]
    #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[56]:
+   :END:
+
 * Results
-** EBPM-Unimodal
+** Examples
 
    Look at CD4.
 
@@ -178,10 +185,6 @@
    [[file:figure/marker-genes.org/cd4.png]]
    :END:
 
-   #+BEGIN_SRC ipython
-     scmodes.ebpm.ebpm_unimodal()
-   #+END_SRC
-
    Look at CD8A.
 
    #+BEGIN_SRC ipython :ipyfile figure/marker-genes.org/cd8a.png
@@ -207,3 +210,42 @@
    # Out[54]:
    [[file:figure/marker-genes.org/cd8a.png]]
    :END:
+
+** Browser
+
+   Pick out an interesting set of genes (superset of markers).
+
+   #+BEGIN_SRC ipython
+     idx = mix.var.loc[mix.var.apply(lambda x: x[1].startswith('CD') or x[1].startswith('HLA'), axis=1)].index
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     with sqlite3.connect('/project2/mstephens/aksarkar/projects/singlecell-modes/browser/browser.db') as conn:
+       conn.execute('drop table if exists markers;')
+       for j in idx:
+         print(f'Processsing gene {j}')
+         n_bins = mix.X[:,j].A.ravel().max()
+         if n_bins <= 1:
+           continue
+         for k in data:
+           bins, edges = np.histogram(data[k].X[:,j].A.ravel(), bins=np.arange(n_bins + 1))
+           t = pd.DataFrame({'n_mols': edges[:-1], 'n_cells': bins})
+           t['cell_type'] = k
+           t['name'] = mix.var.loc[j, 'name']
+           t.to_sql(name='markers', con=conn, if_exists='append', index=False)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[12]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     with sqlite3.connect('/project2/mstephens/aksarkar/projects/singlecell-modes/browser/browser.db') as conn:
+       conn.execute('create index idx_markers on markers(name, cell_type);')
+   #+END_SRC

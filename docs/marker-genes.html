@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-13 Fri 13:39 -->
+<!-- 2019-12-13 Fri 23:59 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Marker genes in <i>in silico</i> mixtures</title>
@@ -246,7 +246,8 @@ for the JavaScript code in this tag.
 </li>
 <li><a href="#org83b90c6">Results</a>
 <ul>
-<li><a href="#org7afd444">EBPM-Unimodal</a></li>
+<li><a href="#org6d6d579">Examples</a></li>
+<li><a href="#org762587a">Browser</a></li>
 </ul>
 </li>
 </ul>
@@ -272,10 +273,11 @@ immune cells.
 <pre class="src src-ipython"><span class="org-keyword">import</span> anndata
 <span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scanpy
 <span class="org-keyword">import</span> scipy.io
 <span class="org-keyword">import</span> scipy.sparse <span class="org-keyword">as</span> ss
 <span class="org-keyword">import</span> scmodes
-<span class="org-keyword">import</span> scmodes.ebpm
+<span class="org-keyword">import</span> sqlite3
 </pre>
 </div>
 
@@ -384,13 +386,14 @@ Fisher</a>.
 </div>
 </div>
 </div>
+
 <div id="outline-container-org83b90c6" class="outline-2">
 <h2 id="org83b90c6">Results</h2>
 <div class="outline-text-2" id="text-org83b90c6">
 </div>
-<div id="outline-container-org7afd444" class="outline-3">
-<h3 id="org7afd444">EBPM-Unimodal</h3>
-<div class="outline-text-3" id="text-org7afd444">
+<div id="outline-container-org6d6d579" class="outline-3">
+<h3 id="org6d6d579">Examples</h3>
+<div class="outline-text-3" id="text-org6d6d579">
 <p>
 Look at CD4.
 </p>
@@ -418,11 +421,6 @@ plt.tight_layout()
 <div class="figure">
 <p><img src="figure/marker-genes.org/cd4.png" alt="cd4.png">
 </p>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">scmodes.ebpm.ebpm_unimodal()
-</pre>
 </div>
 
 <p>
@@ -455,11 +453,48 @@ plt.tight_layout()
 </div>
 </div>
 </div>
+
+<div id="outline-container-org762587a" class="outline-3">
+<h3 id="org762587a">Browser</h3>
+<div class="outline-text-3" id="text-org762587a">
+<p>
+Pick out an interesting set of genes (superset of markers).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">idx</span> = mix.var.loc[mix.var.<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: x[1].startswith(<span class="org-string">'CD'</span>) <span class="org-keyword">or</span> x[1].startswith(<span class="org-string">'HLA'</span>), axis=1)].index
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">with</span> sqlite3.connect(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/browser/browser.db'</span>) <span class="org-keyword">as</span> conn:
+  conn.execute(<span class="org-string">'drop table if exists markers;'</span>)
+  <span class="org-keyword">for</span> j <span class="org-keyword">in</span> idx:
+    <span class="org-keyword">print</span>(f<span class="org-string">'Processsing gene {j}'</span>)
+    <span class="org-variable-name">n_bins</span> = mix.X[:,j].A.ravel().<span class="org-builtin">max</span>()
+    <span class="org-keyword">if</span> n_bins &lt;= 1:
+      <span class="org-keyword">continue</span>
+    <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data:
+      <span class="org-variable-name">bins</span>, <span class="org-variable-name">edges</span> = np.histogram(data[k].X[:,j].A.ravel(), bins=np.arange(n_bins + 1))
+      <span class="org-variable-name">t</span> = pd.DataFrame({<span class="org-string">'n_mols'</span>: edges[:-1], <span class="org-string">'n_cells'</span>: bins})
+      <span class="org-variable-name">t</span>[<span class="org-string">'cell_type'</span>] = k
+      <span class="org-variable-name">t</span>[<span class="org-string">'name'</span>] = mix.var.loc[j, <span class="org-string">'name'</span>]
+      t.to_sql(name=<span class="org-string">'markers'</span>, con=conn, if_exists=<span class="org-string">'append'</span>, index=<span class="org-constant">False</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">with</span> sqlite3.connect(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/browser/browser.db'</span>) <span class="org-keyword">as</span> conn:
+  conn.execute(<span class="org-string">'create index idx_markers on markers(name, cell_type);'</span>)
+</pre>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-13 Fri 13:39</p>
+<p class="date">Created: 2019-12-13 Fri 23:59</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

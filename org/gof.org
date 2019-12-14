@@ -36,7 +36,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 63985091
+  : Submitted batch job 64289810
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -64,7 +64,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[57]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -294,7 +294,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[6]:
+   # Out[12]:
    :END:
 
    Report the dimensions of each data set. To reduce computational burden,
@@ -526,7 +526,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[7]:
+    # Out[13]:
     :END:
 
     Write out the post-processed results.
@@ -734,7 +734,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[9]:
+    # Out[16]:
     :END:
 
     Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
@@ -803,7 +803,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[10]:
+    # Out[17]:
     #+BEGIN_EXAMPLE
       method               gamma  unimodal  zig
       dataset
@@ -873,7 +873,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
+   # Out[6]:
    :END:
 
    Populate the database to visualize all of the results.
@@ -889,7 +889,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[13]:
+   # Out[14]:
    :END:
 
    #+BEGIN_SRC ipython :async t
