@@ -1,0 +1,462 @@
+#+TITLE: Expression variation in human brain cells
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  [[https://www.nature.com/articles/nmeth.4407][Habib et al. 2017]] performed
+  DroNc-Seq on GTEx brain tissues. Here, we study the prevalence of
+  multi-modal expression variation in this data.
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="4G") :exports none :dir /scratch/midway2/aksarkar/modes
+
+  #+RESULTS:
+  : Submitted batch job 64347800
+
+  #+NAME: imports
+  #+BEGIN_SRC ipython
+    import anndata
+    import numpy as np
+    import pandas as pd
+    import scanpy
+    import scipy.sparse as ss
+    import scmodes
+    import scmodes.ebpm.sgd
+    import torch
+  #+END_SRC
+
+  #+RESULTS: imports
+  :RESULTS:
+  # Out[1]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+* Data
+
+   Read the data.
+
+   #+BEGIN_SRC ipython :async t
+     x = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/GTEx_droncseq_hip_pcf/GTEx_droncseq_hip_pcf.umi_counts.txt.gz', sep='\t', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   Report the sparsity.
+
+   #+BEGIN_SRC ipython
+     (x.values == 0).mean()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   : 0.9794958734883428
+   :END:
+
+   Convert to
+   [[https://en.wikipedia.org/wiki/Sparse_matrix#Compressed_sparse_column_(CSC_or_CCS)][CSC]],
+   and write to ~h5ad~.
+
+   #+BEGIN_SRC ipython :async t
+     d = anndata.AnnData(
+       ss.csc_matrix(x.values.T), 
+       obs=x.columns.to_frame().reset_index(drop=True).rename({0: 'barcode'}, axis=1),
+       var=x.index.to_frame().reset_index(drop=True).rename({0: 'gene'}, axis=1),
+     )
+     d.write('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/gtex-droncseq.h5ad')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[16]:
+   :END:
+
+   Read the data. Keep genes with a non-zero count in at least 1% of cells.
+
+   #+BEGIN_SRC ipython
+     x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/gtex-droncseq.h5ad')
+     scanpy.pp.filter_genes(x, min_counts=.01 * x.shape[0])
+     x.obs['size'] = x.X.sum(axis=1)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[17]:
+   :END:
+
+   Report the number of cells and genes analyzed.
+
+   #+BEGIN_SRC ipython
+     x.shape
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   : (14963, 11744)
+   :END:
+
+* Results
+** Gamma assumption
+
+   Fit a Gamma distribution to expression variation at each gene.
+
+   #+BEGIN_SRC ipython :async t
+     res = scmodes.ebpm.sgd.ebpm_gamma(x.X, max_epochs=15, verbose=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[38]:
+   :END:
+
+   Test GOF at each gene.
+
+   #+BEGIN_SRC ipython :async t
+     import scmodes.benchmark.gof
+
+     s = x.X.sum(axis=1).A.ravel()
+     gof_res = []
+     for j, (log_mu, neg_log_phi) in enumerate(np.vstack(res[:-1]).T):
+       d, p = scmodes.benchmark.gof._gof(x=x.X[:,j].A.ravel(),
+                                         cdf=scmodes.benchmark.gof._zig_cdf,
+                                         pmf=scmodes.benchmark.gof._zig_pmf,
+                                         size=s,
+                                         log_mu=log_mu,
+                                         log_phi=-neg_log_phi)
+       gof_res.append([d, p])
+     gof_res = pd.DataFrame(gof_res, columns=['stat', 'p'], index=x.var['gene']).reset_index()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[46]:
+   :END:
+
+   Plot the histogram of GOF \(p\)-values.
+
+   #+BEGIN_SRC ipython :ipyfile figure/brain-dronc-seq.org/gamma-gof-hist.png
+     plt.clf()
+     plt.gcf().set_size_inches(2, 2)
+     plt.hist(gof_res['p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+     plt.axhline(y=1, lw=1, ls=':', c='k')
+     plt.xlim(0, 1)
+     plt.xlabel('$p$-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[49]:
+   [[file:figure/brain-dronc-seq.org/gamma-gof-hist.png]]
+   :END:
+
+   Report the fraction of genes which significantly depart from point-Gamma
+   (Bonferroni-corrected \(p < 0.05\)).
+
+   #+BEGIN_SRC ipython
+     sig = gof_res.loc[gof_res['p'] < 0.05 / gof_res.shape[0]]
+     sig.shape[0] / gof_res.shape[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[51]:
+   : 0.025630108991825613
+   :END:
+
+   Write out the results.
+
+   #+BEGIN_SRC ipython
+     gof_res.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/brain-dronc-seq-gamma.txt.gz', sep='\t', compression='gzip')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[52]:
+   :END:
+
+** Point-Gamma assumption
+
+   Fit a point-Gamma distribution to expression variation at each gene.
+
+   #+BEGIN_SRC ipython :async t
+     res = scmodes.ebpm.sgd.ebpm_point_gamma(x.X, max_epochs=20, verbose=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   :END:
+
+   Test GOF at each gene.
+
+   #+BEGIN_SRC ipython :async t
+     import scmodes.benchmark.gof
+
+     s = x.X.sum(axis=1).A.ravel()
+     result = []
+     for j, (log_mu, log_phi, logodds) in enumerate(np.vstack(res[:3]).T):
+       d, p = scmodes.benchmark.gof._gof(x=x.X[:,j].A.ravel(),
+                                         cdf=scmodes.benchmark.gof._zig_cdf,
+                                         pmf=scmodes.benchmark.gof._zig_pmf,
+                                         size=s,
+                                         log_mu=log_mu,
+                                         log_phi=-log_phi,
+                                         logodds=logodds)
+       result.append([d, p])
+     result = pd.DataFrame(result, columns=['stat', 'p'], index=x.var['gene']).reset_index()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[38]:
+   :END:
+
+   Plot the histogram of GOF \(p\)-values.
+
+   #+BEGIN_SRC ipython :ipyfile figure/brain-dronc-seq.org/point-gamma-gof-hist.png
+     plt.clf()
+     plt.gcf().set_size_inches(2, 2)
+     plt.hist(result['p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+     plt.axhline(y=1, lw=1, ls=':', c='k')
+     plt.xlim(0, 1)
+     plt.xlabel('$p$-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[52]:
+   [[file:figure/brain-dronc-seq.org/point-gamma-gof-hist.png]]
+   :END:
+
+   Report the fraction of genes which significantly depart from point-Gamma
+   (Bonferroni-corrected \(p < 0.05\)).
+
+   #+BEGIN_SRC ipython
+     sig = result.loc[result['p'] < 0.05 / result.shape[0]]
+     sig.shape[0] / result.shape[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[47]:
+   : 0.025204359673024524
+   :END:
+
+   Write out the results.
+
+   #+BEGIN_SRC ipython
+     result.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/brain-dronc-seq-gpu.txt.gz', sep='\t', compression='gzip')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[56]:
+   :END:
+
+   Write out the significant genes.
+
+   #+BEGIN_SRC ipython
+     x[:,sig.index].write('/scratch/midway2/aksarkar/modes/unimodal-data/brain-dronc-seq.h5ad')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[54]:
+   :END:
+
+** Unimodal assumption
+
+   Fit a unimodal distribution to expression variation at each gene which
+   departed significantly from a point-Gamma assumption.
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 --job-name=gof
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     import anndata
+     import multiprocessing as mp
+     import pandas as pd
+     import scmodes
+     with mp.Pool(maxtasksperchild=20) as pool:
+       x = anndata.read('/scratch/midway2/aksarkar/modes/unimodal-data/brain-dronc-seq.h5ad')
+       res = scmodes.benchmark.evaluate_gof(pd.DataFrame(x.X.A), s=x.obs['size'], pool=pool, 
+                                            methods=['unimodal'])
+       res.index = x.var['gene']
+       res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/brain-dronc-seq-unimodal.txt.gz', compression='gzip', sep='\t')
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 64323240
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     unimodal_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/brain-dronc-seq-unimodal.txt.gz', sep='\t', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   Plot the histogram of GOF \(p\)-values.
+
+   #+BEGIN_SRC ipython :ipyfile figure/brain-dronc-seq.org/unimodal-gof-hist.png
+     plt.clf()
+     plt.gcf().set_size_inches(2, 2)
+     plt.hist(unimodal_res['p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+     plt.axhline(y=1, lw=1, ls=':', c='k')
+     plt.xlim(0, 1)
+     plt.xlabel('$p$-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   [[file:figure/brain-dronc-seq.org/unimodal-gof-hist.png]]
+   :END:
+
+   Report the number and fraction of genes which depart from a unimodal
+   assumption.
+
+   #+BEGIN_SRC ipython
+     sig = unimodal_res.loc[unimodal_res['p'] < .05 / unimodal_res.shape[0]]
+     sig.shape[0], sig.shape[0] / x.shape[1]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   : (62, 0.005279291553133515)
+   :END:
+
+   Plot the top 6 examples (by KS test statistic).
+
+   #+BEGIN_SRC ipython :ipyfile figure/brain-dronc-seq.org/non-ua-examples.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 3)
+     fig.set_size_inches(6, 3)
+     for a, k in zip(ax.ravel(), sig.sort_values('stat', ascending=False).index):
+       xj = x.X[:,sig.loc[k, 'gene.1']].A.ravel()
+       a.hist(xj, bins=np.arange(xj.max() + 1), color='k')
+       a.set_title(k)
+     for a in ax:
+       a[0].set_ylabel('Num cells')
+     for a in ax.T:
+       a[0].set_xlabel('Num mols')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[14]:
+   [[file:figure/brain-dronc-seq.org/non-ua-examples.png]]
+   :END:
+
+   Plot randomized quantiles for MALAT1.
+
+   #+BEGIN_SRC ipython :async t
+     malat1_counts = x.X[:,sig.loc['MALAT1', 'gene.1']].A.ravel()
+     malat1_res = scmodes.ebpm.ebpm_unimodal(malat1_counts, x.obs['size'].values.ravel())
+     Fx = scmodes.benchmark.gof._ash_cdf(malat1_counts - 1, malat1_res, s=x.obs['size'].values.ravel())
+     fx = scmodes.benchmark.gof._ash_pmf(malat1_counts, malat1_res)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[20]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/brain-dronc-seq.org/malat1-qq.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.xscale('log')
+     plt.yscale('log')
+     plt.scatter(np.linspace(0, 1, malat1_counts.shape[0] + 2)[1:-1], np.sort(Fx + np.random.uniform(size=malat1_counts.shape[0]) * fx), s=1, c='k')
+     plt.plot([5e-5, 1], [5e-5, 1], lw=1, ls=':', c='r')
+     plt.xlabel('Theoretical quantile')
+     plt.ylabel('Randomized quantile')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[25]:
+   [[file:figure/brain-dronc-seq.org/malat1-qq.png]]
+   :END:
+
+   Plot the deconvolved distributions.
+
+   #+BEGIN_SRC ipython :ipyfile figure/brain-dronc-seq.org/malat1-dist.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(6, 4)
+     bins, edges = np.histogram(malat1_counts, bins=np.arange(malat1_counts.max() + 1))
+     ax[0].set_yscale('symlog')
+     ax[0].plot(edges[:-1] + .5, bins, lw=1, c='k')
+     ax[0].set_xlabel('Number of molecules')
+     ax[0].set_ylabel('Number of cells')
+     ax[0].set_xlim(0, malat1_counts.max())
+     ax[0].set_title('MALAT1')
+
+     for i, (m, t) in enumerate(zip(('unimodal', 'zig'), ('Unimodal', 'Point-Gamma'))):
+       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{m}')(malat1_counts, x.obs['size'].values.ravel()), lw=1, c=cm(i), label=t)
+     ax[1].set_xlim(0, 2e-3)
+     ax[1].set_xticks(np.linspace(0, 2e-3, 3))
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+     ax[1].legend(frameon=False)
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[37]:
+   [[file:figure/brain-dronc-seq.org/malat1-dist.png]]
+   :END:

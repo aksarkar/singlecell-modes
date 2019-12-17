@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2019-12-17 Tue 13:18 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expression variation in human brain cells</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Expression variation in human brain cells</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#orgca090a5">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#org1482647">Data</a></li>
+<li><a href="#org3e1560e">Results</a>
+<ul>
+<li><a href="#orga1434e5">Gamma assumption</a></li>
+<li><a href="#org55d9bd4">Point-Gamma assumption</a></li>
+<li><a href="#org20d9290">Unimodal assumption</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-orgca090a5" class="outline-2">
+<h2 id="orgca090a5">Introduction</h2>
+<div class="outline-text-2" id="text-orgca090a5">
+<p>
+<a href="https://www.nature.com/articles/nmeth.4407">Habib et al. 2017</a> performed
+DroNc-Seq on GTEx brain tissues. Here, we study the prevalence of
+multi-modal expression variation in this data.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org221bd70" class="outline-2">
+<h2 id="setup"><a id="org221bd70"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython" id="org8e01eb1"><span class="org-keyword">import</span> anndata
+<span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scanpy
+<span class="org-keyword">import</span> scipy.sparse <span class="org-keyword">as</span> ss
+<span class="org-keyword">import</span> scmodes
+<span class="org-keyword">import</span> scmodes.ebpm.sgd
+<span class="org-keyword">import</span> torch
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org1482647" class="outline-2">
+<h2 id="org1482647">Data</h2>
+<div class="outline-text-2" id="text-org1482647">
+<p>
+Read the data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/GTEx_droncseq_hip_pcf/GTEx_droncseq_hip_pcf.umi_counts.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+</pre>
+</div>
+
+<p>
+Report the sparsity.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">(x.values == 0).mean()
+</pre>
+</div>
+
+<pre class="example">
+0.9794958734883428
+
+</pre>
+
+<p>
+Convert to
+<a href="https://en.wikipedia.org/wiki/Sparse_matrix#Compressed_sparse_column_(CSC_or_CCS)">CSC</a>,
+and write to <code>h5ad</code>.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">d</span> = anndata.AnnData(
+  ss.csc_matrix(x.values.T), 
+  obs=x.columns.to_frame().reset_index(drop=<span class="org-constant">True</span>).rename({0: <span class="org-string">'barcode'</span>}, axis=1),
+  var=x.index.to_frame().reset_index(drop=<span class="org-constant">True</span>).rename({0: <span class="org-string">'gene'</span>}, axis=1),
+)
+d.write(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/gtex-droncseq.h5ad'</span>)
+</pre>
+</div>
+
+<p>
+Read the data. Keep genes with a non-zero count in at least 1% of cells.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/gtex-droncseq.h5ad'</span>)
+scanpy.pp.filter_genes(x, min_counts=.01 * x.shape[0])
+<span class="org-variable-name">x.obs</span>[<span class="org-string">'size'</span>] = x.X.<span class="org-builtin">sum</span>(axis=1)
+</pre>
+</div>
+
+<p>
+Report the number of cells and genes analyzed.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">x.shape
+</pre>
+</div>
+
+<pre class="example">
+(14963, 11744)
+
+</pre>
+</div>
+</div>
+
+<div id="outline-container-org3e1560e" class="outline-2">
+<h2 id="org3e1560e">Results</h2>
+<div class="outline-text-2" id="text-org3e1560e">
+</div>
+<div id="outline-container-orga1434e5" class="outline-3">
+<h3 id="orga1434e5">Gamma assumption</h3>
+<div class="outline-text-3" id="text-orga1434e5">
+<p>
+Fit a Gamma distribution to expression variation at each gene.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">res</span> = scmodes.ebpm.sgd.ebpm_gamma(x.X, max_epochs=15, verbose=<span class="org-constant">True</span>)
+</pre>
+</div>
+
+<p>
+Test GOF at each gene.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> scmodes.benchmark.gof
+
+<span class="org-variable-name">s</span> = x.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
+<span class="org-variable-name">gof_res</span> = []
+<span class="org-keyword">for</span> j, (log_mu, neg_log_phi) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(np.vstack(res[:-1]).T):
+  <span class="org-variable-name">d</span>, <span class="org-variable-name">p</span> = scmodes.benchmark.gof._gof(x=x.X[:,j].A.ravel(),
+                                    cdf=scmodes.benchmark.gof._zig_cdf,
+                                    pmf=scmodes.benchmark.gof._zig_pmf,
+                                    size=s,
+                                    log_mu=log_mu,
+                                    log_phi=-neg_log_phi)
+  gof_res.append([d, p])
+<span class="org-variable-name">gof_res</span> = pd.DataFrame(gof_res, columns=[<span class="org-string">'stat'</span>, <span class="org-string">'p'</span>], index=x.var[<span class="org-string">'gene'</span>]).reset_index()
+</pre>
+</div>
+
+<p>
+Plot the histogram of GOF \(p\)-values.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(2, 2)
+plt.hist(gof_res[<span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+plt.axhline(y=1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.xlim(0, 1)
+plt.xlabel(<span class="org-string">'$p$-value'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/brain-dronc-seq.org/gamma-gof-hist.png" alt="gamma-gof-hist.png">
+</p>
+</div>
+
+<p>
+Report the fraction of genes which significantly depart from point-Gamma
+(Bonferroni-corrected \(p < 0.05\)).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">sig</span> = gof_res.loc[gof_res[<span class="org-string">'p'</span>] &lt; 0.05 / gof_res.shape[0]]
+sig.shape[0] / gof_res.shape[0]
+</pre>
+</div>
+
+<pre class="example">
+0.025630108991825613
+
+</pre>
+
+<p>
+Write out the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">gof_res.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/brain-dronc-seq-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>)
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org55d9bd4" class="outline-3">
+<h3 id="org55d9bd4">Point-Gamma assumption</h3>
+<div class="outline-text-3" id="text-org55d9bd4">
+<p>
+Fit a point-Gamma distribution to expression variation at each gene.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">res</span> = scmodes.ebpm.sgd.ebpm_point_gamma(x.X, max_epochs=20, verbose=<span class="org-constant">True</span>)
+</pre>
+</div>
+
+<p>
+Test GOF at each gene.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> scmodes.benchmark.gof
+
+<span class="org-variable-name">s</span> = x.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
+<span class="org-variable-name">result</span> = []
+<span class="org-keyword">for</span> j, (log_mu, log_phi, logodds) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(np.vstack(res[:3]).T):
+  <span class="org-variable-name">d</span>, <span class="org-variable-name">p</span> = scmodes.benchmark.gof._gof(x=x.X[:,j].A.ravel(),
+                                    cdf=scmodes.benchmark.gof._zig_cdf,
+                                    pmf=scmodes.benchmark.gof._zig_pmf,
+                                    size=s,
+                                    log_mu=log_mu,
+                                    log_phi=-log_phi,
+                                    logodds=logodds)
+  result.append([d, p])
+<span class="org-variable-name">result</span> = pd.DataFrame(result, columns=[<span class="org-string">'stat'</span>, <span class="org-string">'p'</span>], index=x.var[<span class="org-string">'gene'</span>]).reset_index()
+</pre>
+</div>
+
+<p>
+Plot the histogram of GOF \(p\)-values.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(2, 2)
+plt.hist(result[<span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+plt.axhline(y=1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.xlim(0, 1)
+plt.xlabel(<span class="org-string">'$p$-value'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/brain-dronc-seq.org/point-gamma-gof-hist.png" alt="point-gamma-gof-hist.png">
+</p>
+</div>
+
+<p>
+Report the fraction of genes which significantly depart from point-Gamma
+(Bonferroni-corrected \(p < 0.05\)).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">sig</span> = result.loc[result[<span class="org-string">'p'</span>] &lt; 0.05 / result.shape[0]]
+sig.shape[0] / result.shape[0]
+</pre>
+</div>
+
+<pre class="example">
+0.025204359673024524
+
+</pre>
+
+<p>
+Write out the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">result.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/brain-dronc-seq-gpu.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>)
+</pre>
+</div>
+
+<p>
+Write out the significant genes.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">x[:,sig.index].write(<span class="org-string">'/scratch/midway2/aksarkar/modes/unimodal-data/brain-dronc-seq.h5ad'</span>)
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org20d9290" class="outline-3">
+<h3 id="org20d9290">Unimodal assumption</h3>
+<div class="outline-text-3" id="text-org20d9290">
+<p>
+Fit a unimodal distribution to expression variation at each gene which
+departed significantly from a point-Gamma assumption.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 --job-name=gof
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">import anndata</span>
+<span class="org-sh-heredoc">import multiprocessing as mp</span>
+<span class="org-sh-heredoc">import pandas as pd</span>
+<span class="org-sh-heredoc">import scmodes</span>
+<span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=20) as pool:</span>
+<span class="org-sh-heredoc">  x = anndata.read('/scratch/midway2/aksarkar/modes/unimodal-data/brain-dronc-seq.h5ad')</span>
+<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_gof(pd.DataFrame(x.X.A), s=x.obs['size'], pool=pool, </span>
+<span class="org-sh-heredoc">                                       methods=['unimodal'])</span>
+<span class="org-sh-heredoc">  res.index = x.var['gene']</span>
+<span class="org-sh-heredoc">  res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/brain-dronc-seq-unimodal.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<p>
+Read the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">unimodal_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/brain-dronc-seq-unimodal.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+</pre>
+</div>
+
+<p>
+Plot the histogram of GOF \(p\)-values.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(2, 2)
+plt.hist(unimodal_res[<span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+plt.axhline(y=1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.xlim(0, 1)
+plt.xlabel(<span class="org-string">'$p$-value'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/brain-dronc-seq.org/unimodal-gof-hist.png" alt="unimodal-gof-hist.png">
+</p>
+</div>
+
+<p>
+Report the number and fraction of genes which depart from a unimodal
+assumption.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">sig</span> = unimodal_res.loc[unimodal_res[<span class="org-string">'p'</span>] &lt; .05 / unimodal_res.shape[0]]
+sig.shape[0], sig.shape[0] / x.shape[1]
+</pre>
+</div>
+
+<pre class="example">
+(62, 0.005279291553133515)
+
+</pre>
+
+<p>
+Plot the top 6 examples (by KS test statistic).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3)
+fig.set_size_inches(6, 3)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), sig.sort_values(<span class="org-string">'stat'</span>, ascending=<span class="org-constant">False</span>).index):
+  <span class="org-variable-name">xj</span> = x.X[:,sig.loc[k, <span class="org-string">'gene.1'</span>]].A.ravel()
+  a.hist(xj, bins=np.arange(xj.<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+  a.set_title(k)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
+  a[0].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/brain-dronc-seq.org/non-ua-examples.png" alt="non-ua-examples.png">
+</p>
+</div>
+
+<p>
+Plot randomized quantiles for MALAT1.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">malat1_counts</span> = x.X[:,sig.loc[<span class="org-string">'MALAT1'</span>, <span class="org-string">'gene.1'</span>]].A.ravel()
+<span class="org-variable-name">malat1_res</span> = scmodes.ebpm.ebpm_unimodal(malat1_counts, x.obs[<span class="org-string">'size'</span>].values.ravel())
+<span class="org-variable-name">Fx</span> = scmodes.benchmark.gof._ash_cdf(malat1_counts - 1, malat1_res, s=x.obs[<span class="org-string">'size'</span>].values.ravel())
+<span class="org-variable-name">fx</span> = scmodes.benchmark.gof._ash_pmf(malat1_counts, malat1_res)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.xscale(<span class="org-string">'log'</span>)
+plt.yscale(<span class="org-string">'log'</span>)
+plt.scatter(np.linspace(0, 1, malat1_counts.shape[0] + 2)[1:-1], np.sort(Fx + np.random.uniform(size=malat1_counts.shape[0]) * fx), s=1, c=<span class="org-string">'k'</span>)
+plt.plot([5e-5, 1], [5e-5, 1], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+plt.xlabel(<span class="org-string">'Theoretical quantile'</span>)
+plt.ylabel(<span class="org-string">'Randomized quantile'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/brain-dronc-seq.org/malat1-qq.png" alt="malat1-qq.png">
+</p>
+</div>
+
+<p>
+Plot the deconvolved distributions.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
+fig.set_size_inches(6, 4)
+<span class="org-variable-name">bins</span>, <span class="org-variable-name">edges</span> = np.histogram(malat1_counts, bins=np.arange(malat1_counts.<span class="org-builtin">max</span>() + 1))
+ax[0].set_yscale(<span class="org-string">'symlog'</span>)
+ax[0].plot(edges[:-1] + .5, bins, lw=1, c=<span class="org-string">'k'</span>)
+ax[0].set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+ax[0].set_xlim(0, malat1_counts.<span class="org-builtin">max</span>())
+ax[0].set_title(<span class="org-string">'MALAT1'</span>)
+
+<span class="org-keyword">for</span> i, (m, t) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>((<span class="org-string">'unimodal'</span>, <span class="org-string">'zig'</span>), (<span class="org-string">'Unimodal'</span>, <span class="org-string">'Point-Gamma'</span>))):
+  ax[1].plot(*<span class="org-builtin">getattr</span>(scmodes.deconvolve, f<span class="org-string">'fit_{m}'</span>)(malat1_counts, x.obs[<span class="org-string">'size'</span>].values.ravel()), lw=1, c=cm(i), label=t)
+ax[1].set_xlim(0, 2e-3)
+ax[1].set_xticks(np.linspace(0, 2e-3, 3))
+ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
+ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
+ax[1].legend(frameon=<span class="org-constant">False</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/brain-dronc-seq.org/malat1-dist.png" alt="malat1-dist.png">
+</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2019-12-17 Tue 13:18</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

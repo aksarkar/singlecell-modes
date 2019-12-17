@@ -39,3 +39,4 @@ Technical details:
 - [[file:wnbmf.org][Weighted Negative Binomial Matrix Factorization]]
 - [[file:marker-genes.org][Marker genes in /in silico/ mixtures]]
   ([[http://shiny.stephenslab.uchicago.edu:5009/markers][interactive browser]])
+- [[file:brain-dronc-seq.org][Expression variation in human brain cells]]
