@@ -40,3 +40,4 @@ Technical details:
 - [[file:marker-genes.org][Marker genes in /in silico/ mixtures]]
   ([[http://shiny.stephenslab.uchicago.edu:5009/markers][interactive browser]])
 - [[file:brain-dronc-seq.org][Expression variation in human brain cells]]
+- [[file:immune-census.org][Expression variation in Census of Immune Cells]]

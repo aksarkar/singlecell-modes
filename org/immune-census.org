@@ -1,0 +1,371 @@
+#+TITLE: Expression variation in Census of Immune Cells
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  The
+  [[https://data.humancellatlas.org/explore/projects/cc95ff89-2e68-4a08-a234-480eca21ce79][Census
+  of Immune Cells]] is part of the Human Cell Atlas. Currently, it comprises
+  scRNA-seq of 593,844 cells from 16 donors.
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="32G") :exports none :dir /scratch/midway2/aksarkar/modes
+
+  #+RESULTS:
+  : Submitted batch job 64522722
+
+  #+NAME: imports
+  #+BEGIN_SRC ipython
+    import anndata
+    import loompy
+    import multiprocessing as mp
+    import numpy as np
+    import pandas as pd
+    import scanpy
+    import scipy.io as sio
+    import scipy.sparse as ss
+    import scmodes
+    import scmodes.benchmark.gof
+    import scmodes.ebpm.sgd
+    import sys
+    import torch
+  #+END_SRC
+
+  #+RESULTS: imports
+  :RESULTS:
+  # Out[24]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+* Data
+
+  The data is available in ~loom~ and Matrix Market format. The ~loom~ format
+  allows out-of-memory processing, but the entire sparse data should take 6GB
+  of memory. ~loom~ stores the data as dense, indexed ~hdf5~, making it
+  unsuitable to load the entire data. However, out-of-memory scanning of the
+  metadata seems to be faster than loading everything into ~pandas~. 
+
+  The Matrix Market data is stored using format ~real~, which makes it twice as
+  big as necessary. Convert the Matrix Market data to integer on disk.
+
+  #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
+    sbatch --partition=mstephens
+    #!/bin/bash
+    zcat /project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/immune-cell-census/matrix.mtx.gz | \
+        awk 'NR == 1 {sub("real", "integer", $4)} NR > 1 {$3 = int($3)} {print}' >immune-cell-census.mtx
+  #+END_SRC
+
+  #+RESULTS:
+  : Submitted batch job 64513924
+
+  Read the sparse data. (16 minutes; reading compressed takes 26 minutes)
+
+  #+BEGIN_SRC ipython :async t
+    x = sio.mmread('/scratch/midway2/aksarkar/modes/immune-cell-census.mtx')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+  Get its shape.
+
+  #+BEGIN_SRC ipython
+    x.shape  
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[7]:
+  : (58347, 782859)
+  :END:
+
+  As loaded, rows are genes, and columns are samples. Get its size in memory.
+
+  #+BEGIN_SRC ipython
+    pd.Series({k: sys.getsizeof(getattr(x, k)) for k in ('row', 'col', 'data')}) / (2 ** 30)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[21]:
+  #+BEGIN_EXAMPLE
+    row     2.307106
+    col     2.307106
+    data    4.614212
+    dtype: float64
+  #+END_EXAMPLE
+  :END:
+
+  The data still got read in as ~int64~ in COO format, which defeated the
+  purpose of our processing on disk. The current implementation converting COO
+  format to CSR is [[https://github.com/scipy/scipy/issues/9819][broken]]. One
+  possible explanation is that the implementation of coalescing COO entries is
+  the culprit, which isn't needed for this data (there should be no duplicate
+  row/column entries).
+
+  Figure out whether the COO data is row-major or column-major.
+
+  #+BEGIN_SRC ipython
+    (x.row[:5], x.col[:5])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[6]:
+  #+BEGIN_EXAMPLE
+    (array([ 76, 198, 231, 326, 589], dtype=int32),
+    array([0, 0, 0, 0, 0], dtype=int32))
+  #+END_EXAMPLE
+  :END:
+
+  Columns are samples, which means we should compress the indices and transpose
+  in one shot.
+
+  #+BEGIN_SRC ipython
+    indices = x.row
+    indptr = np.hstack((0, 1 + np.where(np.diff(x.col))[0], x.nnz))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[33]:
+  :END:
+
+  Make sure the compression was correct.
+
+  #+BEGIN_SRC ipython :async t
+    for j in range(10):
+      assert (x.data[x.col == j] == x.data[indptr[j]:indptr[j+1]]).all()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[47]:
+  :END:
+
+  We could actually get away with using ~np.int16~, but we need ~int32~ on the GPU.
+
+  #+BEGIN_SRC ipython
+    x.data.max()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[50]:
+  : 21524
+  :END:
+
+  #+BEGIN_SRC ipython
+    y = ss.csr_matrix((x.data.astype(np.int32), indices, indptr), shape=tuple(reversed(x.shape)))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[52]:
+  :END:
+
+  Write out the sparse data as ~npz~. (5 minutes)
+
+  #+BEGIN_SRC ipython :async t
+    ss.save_npz('/scratch/midway2/aksarkar/modes/immune-cell-census.npz', y)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[53]:
+  :END:
+
+  Get its size on disk.
+
+  #+BEGIN_SRC sh
+    ls -lh /scratch/midway2/aksarkar/modes/immune-cell-census.npz
+  #+END_SRC
+
+  #+RESULTS:
+  : -rw-rw-r-- 1 aksarkar aksarkar 1.3G Dec 20 14:20 /scratch/midway2/aksarkar/modes/immune-cell-census.npz
+
+  Read the sparse data. (20 seconds)
+
+  #+BEGIN_SRC ipython :async t
+    y = ss.load_npz('/scratch/midway2/aksarkar/modes/immune-cell-census.npz')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[4]:
+  :END:
+
+  Get the droplets which are predicted to contain mRNA from an intact cell.
+
+  #+BEGIN_SRC ipython
+    with loompy.connect('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/immune-cell-census.loom') as d:
+      keep_samples = d.ca['emptydrops_is_cell'] == 't'  
+    keep_samples.sum()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[5]:
+  : 593844
+  :END:
+
+  Only keep genes with non-zero observations in >1% of cells.
+
+  #+BEGIN_SRC ipython :async t
+    gene_detect = (y[keep_samples] > 0).tocsc().sum(axis=0).A.ravel()
+    keep_genes = (gene_detect / keep_samples.sum()) > 0.01
+    keep_genes.sum()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[6]:
+  : 10601
+  :END:
+
+  #+BEGIN_SRC ipython :async t
+    yy = y[keep_samples].tocsc()[:,keep_genes].tocsr()
+    yy.shape
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[15]:
+  : (593844, 10601)
+  :END:
+
+  #+BEGIN_SRC ipython
+    with loompy.connect('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/immune-cell-census.loom') as d:
+      genes = d.ra['Gene'][keep_genes]
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[20]:
+  :END:
+
+* Results
+** Gamma assumption
+
+   Fit a Gamma distribution to expression variation at each gene. (8 minutes/epoch)
+
+   #+BEGIN_SRC ipython :async t
+     res = scmodes.ebpm.sgd.ebpm_gamma(yy, batch_size=128, lr=2e-2, max_epochs=3, verbose=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[18]:
+   :END:
+
+   Write out the results.
+
+   #+BEGIN_SRC ipython
+     (pd.DataFrame(np.vstack(res[:-1]).T, columns=['log_mu', 'neg_log_phi'], index=genes).
+      to_csv('/scratch/midway2/aksarkar/modes/immune-cell-census-gamma.txt.gz', sep='\t'))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[22]:
+   :END:
+
+   Test GOF at each gene.
+
+   #+BEGIN_SRC ipython :async t
+     s = yy.sum(axis=1).A.ravel()
+     gof_res = []
+     for j, (log_mu, neg_log_phi) in enumerate(np.vstack(res[:-1]).T):
+       d, p = scmodes.benchmark.gof._gof(x=yy[:,j].A.ravel(),
+                                         cdf=scmodes.benchmark.gof._zig_cdf,
+                                         pmf=scmodes.benchmark.gof._zig_pmf,
+                                         size=s,
+                                         log_mu=log_mu,
+                                         log_phi=-neg_log_phi)
+       gof_res.append([d, p])
+     gof_res = pd.DataFrame(gof_res, columns=['stat', 'p'], index=genes).reset_index()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   0 - 731ec8f1-3dd4-4e93-a89e-3385d7478b23
+   :END:
+
+   Plot the histogram of GOF \(p\)-values.
+
+   #+BEGIN_SRC ipython :ipyfile figure/brain-dronc-seq.org/gamma-gof-hist.png
+     plt.clf()
+     plt.gcf().set_size_inches(2, 2)
+     plt.hist(gof_res['p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+     plt.axhline(y=1, lw=1, ls=':', c='k')
+     plt.xlim(0, 1)
+     plt.xlabel('$p$-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[49]:
+   [[file:figure/brain-dronc-seq.org/gamma-gof-hist.png]]
+   :END:
+
+   Report the fraction of genes which significantly depart from point-Gamma
+   (Bonferroni-corrected \(p < 0.05\)).
+
+   #+BEGIN_SRC ipython
+     sig = gof_res.loc[gof_res['p'] < 0.05 / gof_res.shape[0]]
+     sig.shape[0] / gof_res.shape[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[51]:
+   : 0.025630108991825613
+   :END:
+
+   Write out the results.
+
+   #+BEGIN_SRC ipython
+     gof_res.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/brain-dronc-seq-gamma.txt.gz', sep='\t', compression='gzip')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[52]:
+   :END:
+   
