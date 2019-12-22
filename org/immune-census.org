@@ -16,6 +16,7 @@
   #+BEGIN_SRC emacs-lisp :exports none
     (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
     (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+    (org-babel-lob-ingest "immune-census.org")
   #+END_SRC
 
   #+RESULTS:
@@ -24,12 +25,13 @@
   #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="32G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 64522722
+  : Submitted batch job 64529778
 
   #+NAME: imports
   #+BEGIN_SRC ipython
     import anndata
     import loompy
+    import functools as ft
     import multiprocessing as mp
     import numpy as np
     import pandas as pd
@@ -45,7 +47,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[24]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -88,7 +90,7 @@
   #+END_SRC
 
   #+RESULTS:
-  : Submitted batch job 64513924
+  : Submitted batch job 64529789
 
   Read the sparse data. (16 minutes; reading compressed takes 26 minutes)
 
@@ -98,7 +100,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[7]:
   :END:
 
   Get its shape.
@@ -109,7 +111,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[7]:
+  # Out[8]:
   : (58347, 782859)
   :END:
 
@@ -121,7 +123,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[21]:
+  # Out[10]:
   #+BEGIN_EXAMPLE
     row     2.307106
     col     2.307106
@@ -131,10 +133,23 @@
   :END:
 
   The data still got read in as ~int64~ in COO format, which defeated the
-  purpose of our processing on disk. The current implementation converting COO
-  format to CSR is [[https://github.com/scipy/scipy/issues/9819][broken]]. One
-  possible explanation is that the implementation of coalescing COO entries is
-  the culprit, which isn't needed for this data (there should be no duplicate
+  purpose of our processing on disk. 
+
+  #+BEGIN_SRC ipython
+    x.data.dtype
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[11]:
+  : dtype('int64')
+  :END:
+
+  To actually do anything with the data, we need to convert to CSR/CSC. The
+  current implementation converting COO to CSR is
+  [[https://github.com/scipy/scipy/issues/9819][broken]]. One possible
+  explanation is that the implementation of coalescing COO entries is the
+  culprit, which isn't needed for this data (there should be no duplicate
   row/column entries).
 
   Figure out whether the COO data is row-major or column-major.
@@ -145,15 +160,15 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[6]:
+  # Out[9]:
   #+BEGIN_EXAMPLE
     (array([ 76, 198, 231, 326, 589], dtype=int32),
     array([0, 0, 0, 0, 0], dtype=int32))
   #+END_EXAMPLE
   :END:
 
-  Columns are samples, which means we should compress the indices and transpose
-  in one shot.
+  Columns are samples, which means we can compress the indices and transpose in
+  one shot.
 
   #+BEGIN_SRC ipython
     indices = x.row
@@ -162,7 +177,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[33]:
+  # Out[12]:
   :END:
 
   Make sure the compression was correct.
@@ -177,7 +192,7 @@
   # Out[47]:
   :END:
 
-  We could actually get away with using ~np.int16~, but we need ~int32~ on the GPU.
+  We could actually get away with using ~np.int16~, but we need ~torch.int32~ on the GPU.
 
   #+BEGIN_SRC ipython
     x.data.max()
@@ -195,87 +210,124 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[52]:
-  :END:
-
-  Write out the sparse data as ~npz~. (5 minutes)
-
-  #+BEGIN_SRC ipython :async t
-    ss.save_npz('/scratch/midway2/aksarkar/modes/immune-cell-census.npz', y)
-  #+END_SRC
-
-  #+RESULTS:
-  :RESULTS:
-  # Out[53]:
-  :END:
-
-  Get its size on disk.
-
-  #+BEGIN_SRC sh
-    ls -lh /scratch/midway2/aksarkar/modes/immune-cell-census.npz
-  #+END_SRC
-
-  #+RESULTS:
-  : -rw-rw-r-- 1 aksarkar aksarkar 1.3G Dec 20 14:20 /scratch/midway2/aksarkar/modes/immune-cell-census.npz
-
-  Read the sparse data. (20 seconds)
-
-  #+BEGIN_SRC ipython :async t
-    y = ss.load_npz('/scratch/midway2/aksarkar/modes/immune-cell-census.npz')
-  #+END_SRC
-
-  #+RESULTS:
-  :RESULTS:
-  # Out[4]:
+  # Out[13]:
   :END:
 
   Get the droplets which are predicted to contain mRNA from an intact cell.
 
   #+BEGIN_SRC ipython
     with loompy.connect('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/immune-cell-census.loom') as d:
-      keep_samples = d.ca['emptydrops_is_cell'] == 't'  
+      keep_samples = d.ca['emptydrops_is_cell'] == 't'
+      donor = pd.Categorical(d.ca['donor_organism.provenance.document_id'][keep_samples])
     keep_samples.sum()
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[5]:
+  # Out[41]:
   : 593844
   :END:
 
-  Only keep genes with non-zero observations in >1% of cells.
+  Count how many cells came from each donor.
+
+  #+BEGIN_SRC ipython
+    donor.value_counts()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[45]:
+  #+BEGIN_EXAMPLE
+    085e737d-adb5-4597-bd54-5ebeda170038    37262
+    0a6c46dd-0905-4581-95eb-d89eef8a7213    36368
+    0b91cb1f-e2a8-413a-836c-1d38e7af3f2d    36672
+    31f89559-2682-4bbc-84c6-826dfe4a4e39    26079
+    4a404c91-0dbf-4246-bc23-d13aff961ba7    37493
+    4e98f612-15ec-44ab-b5f9-39787f92b01a    44776
+    509c507c-4759-452f-994e-d134d90329fd    32926
+    53af872d-b838-44d6-ae1b-25b56405483c    46690
+    6072d1f5-aa0c-4ab1-a8a6-a00ab479a1ba    45513
+    9aaf8a07-924f-456c-86dc-82f5da718246    35527
+    af7fe7a6-7d7e-4cdf-9799-909680fa9a3f    33235
+    cf514c66-88b2-45e4-a397-7fb362ae9950    31551
+    d23515a7-e182-4bc6-89e2-b1635885c0ec    42175
+    e4b5115d-3a0d-4c50-aba4-04b5f76810da    32834
+    eb8fb36b-6e02-41c4-8760-3eabbde6bacb    35376
+    fb30bb83-0278-4117-bd42-e2e8dddfedfe    39367
+    dtype: int64
+  #+END_EXAMPLE
+  :END:
+
+  Only keep genes with non-zero observations in 1000 cells.
 
   #+BEGIN_SRC ipython :async t
     gene_detect = (y[keep_samples] > 0).tocsc().sum(axis=0).A.ravel()
-    keep_genes = (gene_detect / keep_samples.sum()) > 0.01
+    keep_genes = gene_detect > 1000
     keep_genes.sum()
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[6]:
-  : 10601
-  :END:
-
-  #+BEGIN_SRC ipython :async t
-    yy = y[keep_samples].tocsc()[:,keep_genes].tocsr()
-    yy.shape
-  #+END_SRC
-
-  #+RESULTS:
-  :RESULTS:
   # Out[15]:
-  : (593844, 10601)
+  : 16002
   :END:
+
+  Write the gene metadata, only for the genes analyzed.
 
   #+BEGIN_SRC ipython
     with loompy.connect('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/immune-cell-census.loom') as d:
-      genes = d.ra['Gene'][keep_genes]
+      genes = pd.DataFrame({k: d.ra[k] for k in d.ra}).loc[keep_genes]
+      genes.to_csv('/scratch/midway2/aksarkar/modes/immune-cell-census-genes.txt.gz', sep='\t')
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[20]:
+  # Out[27]:
+  :END:
+
+  We need to use CSC to subset genes, and then CSR to efficiently get
+  minibatches (subset samples).
+
+  #+BEGIN_SRC ipython :async t
+    y_csr = y[keep_samples].tocsc()[:,keep_genes].tocsr()
+    y_csr.shape
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[14]:
+  : (593844, 16002)
+  :END:
+
+  Write out the sparse data as ~npz~. (5 minutes)
+
+  #+BEGIN_SRC ipython :async t
+    ss.save_npz('/scratch/midway2/aksarkar/modes/immune-cell-census.npz', y_csr)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[18]:
+  :END:
+
+  Get its size on disk.
+
+  #+BEGIN_SRC sh :exports both
+    ls -lh /scratch/midway2/aksarkar/modes/immune-cell-census.npz
+  #+END_SRC
+
+  #+RESULTS:
+  : -rw-rw-r-- 1 aksarkar aksarkar 1.1G Dec 21 10:44 /scratch/midway2/aksarkar/modes/immune-cell-census.npz
+
+  Read the sparse data. (20 seconds)
+
+  #+BEGIN_SRC ipython :async t
+    y_csr = ss.load_npz('/scratch/midway2/aksarkar/modes/immune-cell-census.npz')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[28]:
   :END:
 
 * Results
@@ -284,50 +336,79 @@
    Fit a Gamma distribution to expression variation at each gene. (8 minutes/epoch)
 
    #+BEGIN_SRC ipython :async t
-     res = scmodes.ebpm.sgd.ebpm_gamma(yy, batch_size=128, lr=2e-2, max_epochs=3, verbose=True)
+     res = scmodes.ebpm.sgd.ebpm_gamma(y_csr, batch_size=128, lr=2e-2, max_epochs=3, verbose=True)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[18]:
+   # Out[16]:
    :END:
 
    Write out the results.
 
    #+BEGIN_SRC ipython
-     (pd.DataFrame(np.vstack(res[:-1]).T, columns=['log_mu', 'neg_log_phi'], index=genes).
-      to_csv('/scratch/midway2/aksarkar/modes/immune-cell-census-gamma.txt.gz', sep='\t'))
+     (pd.DataFrame(np.vstack(res[:-1]).T, columns=['log_mu', 'neg_log_phi'], index=genes)
+      .to_csv('/scratch/midway2/aksarkar/modes/immune-cell-census-gamma.txt.gz', sep='\t'))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[22]:
+   # Out[17]:
    :END:
 
-   Test GOF at each gene.
+   Test GOF at each gene. (1 hour)
 
-   #+BEGIN_SRC ipython :async t
-     s = yy.sum(axis=1).A.ravel()
-     gof_res = []
-     for j, (log_mu, neg_log_phi) in enumerate(np.vstack(res[:-1]).T):
-       d, p = scmodes.benchmark.gof._gof(x=yy[:,j].A.ravel(),
-                                         cdf=scmodes.benchmark.gof._zig_cdf,
-                                         pmf=scmodes.benchmark.gof._zig_pmf,
-                                         size=s,
-                                         log_mu=log_mu,
-                                         log_phi=-neg_log_phi)
-       gof_res.append([d, p])
-     gof_res = pd.DataFrame(gof_res, columns=['stat', 'p'], index=genes).reset_index()
+   #+NAME: gamma-gof
+   #+BEGIN_SRC ipython :eval never
+     def _gof(j, args, x, s):
+       _, (log_mu, neg_log_phi) = args
+       return scmodes.benchmark.gof._gof(
+         x=x[:,j].A.ravel(),
+         cdf=scmodes.benchmark.gof._zig_cdf,
+         pmf=scmodes.benchmark.gof._zig_pmf,
+         size=s,
+         log_mu=log_mu,
+         log_phi=-neg_log_phi)
+
+     gamma_res = pd.read_csv('/scratch/midway2/aksarkar/modes/immune-cell-census-gamma.txt.gz', sep='\t', index_col=0)
+     y_csc = ss.load_npz('/scratch/midway2/aksarkar/modes/immune-cell-census.npz').tocsc()
+     s = y_csc.sum(axis=1).A.ravel()
+     # TODO: this cannot be done in multiprocessing with Python <= 3.8.0
+     # https://bugs.python.org/issue17560
+     # https://github.com/python/cpython/pull/10305
+     # https://thelaziestprogrammer.com/python/multiprocessing-pool-expect-initret-proposal
+     gof_res = [_gof(j, args, x=y_csc, s=s) for j, args in enumerate(gamma_res.iterrows())]
+     gof_res = pd.DataFrame(gof_res, columns=['stat', 'p'])
+     gof_res.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/immune-census-gamma.txt.gz', sep='\t', compression='gzip')
+   #+END_SRC
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl --mem=16G --job-name=gof --time=24:00:00
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     <<gamma-gof>>
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 64529701
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     gof_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/immune-census-gamma.txt.gz', sep='\t', index_col=0)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   0 - 731ec8f1-3dd4-4e93-a89e-3385d7478b23
+   # Out[32]:
    :END:
 
    Plot the histogram of GOF \(p\)-values.
 
-   #+BEGIN_SRC ipython :ipyfile figure/brain-dronc-seq.org/gamma-gof-hist.png
+   #+BEGIN_SRC ipython :ipyfile figure/immune-census.org/gamma-gof-hist.png
      plt.clf()
      plt.gcf().set_size_inches(2, 2)
      plt.hist(gof_res['p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
@@ -340,11 +421,11 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[49]:
-   [[file:figure/brain-dronc-seq.org/gamma-gof-hist.png]]
+   # Out[34]:
+   [[file:figure/immune-census.org/gamma-gof-hist.png]]
    :END:
 
-   Report the fraction of genes which significantly depart from point-Gamma
+   Report the fraction of genes which significantly depart from Gamma
    (Bonferroni-corrected \(p < 0.05\)).
 
    #+BEGIN_SRC ipython
@@ -354,18 +435,27 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[51]:
-   : 0.025630108991825613
+   # Out[35]:
+   : 0.3431446069241345
    :END:
 
-   Write out the results.
+** Point-Gamma assumption
 
-   #+BEGIN_SRC ipython
-     gof_res.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/brain-dronc-seq-gamma.txt.gz', sep='\t', compression='gzip')
+   Fit a point-Gamma assumption distribution to expression variation.
+
+   #+BEGIN_SRC ipython :async t
+     gamma_res = pd.read_csv('/scratch/midway2/aksarkar/modes/immune-cell-census-gamma.txt.gz', sep='\t', index_col=0)
+     point_gamma_res = scmodes.ebpm.sgd.ebpm_point_gamma(
+       y_csr,
+       init=(gamma_res['log_mu'].values.reshape(1, -1), 
+             gamma_res['neg_log_phi'].values.reshape(1, -1)),
+       batch_size=128,
+       lr=2e-2,
+       max_epochs=5,
+       verbose=True)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[52]:
+   # Out[37]:
    :END:
-   
