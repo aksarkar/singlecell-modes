@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-21 Sat 20:34 -->
+<!-- 2019-12-22 Sun 15:35 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Expression variation in Census of Immune Cells</title>
@@ -260,7 +260,12 @@ for the JavaScript code in this tag.
 <ul>
 <li><a href="#org4c365c5">Introduction</a></li>
 <li><a href="#setup">Setup</a></li>
-<li><a href="#org2693f0a">Data</a></li>
+<li><a href="#org2693f0a">Data</a>
+<ul>
+<li><a href="#orgc2a066a">Pre-processing</a></li>
+<li><a href="#org2888cd5">Read the data</a></li>
+</ul>
+</li>
 <li><a href="#org0b94841">Results</a>
 <ul>
 <li><a href="#org2037b52">Gamma assumption</a></li>
@@ -322,6 +327,10 @@ scRNA-seq of 593,844 cells from 16 donors.
 <div id="outline-container-org2693f0a" class="outline-2">
 <h2 id="org2693f0a">Data</h2>
 <div class="outline-text-2" id="text-org2693f0a">
+</div>
+<div id="outline-container-orgc2a066a" class="outline-3">
+<h3 id="orgc2a066a">Pre-processing</h3>
+<div class="outline-text-3" id="text-orgc2a066a">
 <p>
 The data is available in <code>loom</code> and Matrix Market format. The <code>loom</code> format
 allows out-of-memory processing, but the entire sparse data should take 6GB
@@ -468,6 +477,7 @@ Get the droplets which are predicted to contain mRNA from an intact cell.
 <pre class="src src-ipython"><span class="org-keyword">with</span> loompy.connect(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/immune-cell-census.loom'</span>) <span class="org-keyword">as</span> d:
   <span class="org-variable-name">keep_samples</span> = d.ca[<span class="org-string">'emptydrops_is_cell'</span>] == <span class="org-string">'t'</span>
   <span class="org-variable-name">donor</span> = pd.Categorical(d.ca[<span class="org-string">'donor_organism.provenance.document_id'</span>][keep_samples])
+  pd.DataFrame(donor).to_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/immune-cell-census-samples.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
 keep_samples.<span class="org-builtin">sum</span>()
 </pre>
 </div>
@@ -571,7 +581,12 @@ Get its size on disk.
 -rw-rw-r-- 1 aksarkar aksarkar 1.1G Dec 21 10:44 /scratch/midway2/aksarkar/modes/immune-cell-census.npz
 
 </pre>
+</div>
+</div>
 
+<div id="outline-container-org2888cd5" class="outline-3">
+<h3 id="org2888cd5">Read the data</h3>
+<div class="outline-text-3" id="text-org2888cd5">
 <p>
 Read the sparse data. (20 seconds)
 </p>
@@ -579,6 +594,17 @@ Read the sparse data. (20 seconds)
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">y_csr</span> = ss.load_npz(<span class="org-string">'/scratch/midway2/aksarkar/modes/immune-cell-census.npz'</span>)
 </pre>
+</div>
+
+<p>
+Read the metadata.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">genes</span> = pd.read_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/immune-cell-census-genes.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<span class="org-variable-name">donor</span> = pd.Categorical(pd.read_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/immune-cell-census-samples.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)[<span class="org-string">'0'</span>])
+</pre>
+</div>
 </div>
 </div>
 </div>
@@ -591,11 +617,18 @@ Read the sparse data. (20 seconds)
 <h3 id="org2037b52">Gamma assumption</h3>
 <div class="outline-text-3" id="text-org2037b52">
 <p>
-Fit a Gamma distribution to expression variation at each gene. (8 minutes/epoch)
+Fit a Gamma distribution to expression variation within each donor at each
+gene. (18 s/epoch)
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">res</span> = scmodes.ebpm.sgd.ebpm_gamma(y_csr, batch_size=128, lr=2e-2, max_epochs=3, verbose=<span class="org-constant">True</span>)
+<pre class="src src-ipython"><span class="org-variable-name">gamma_res</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(donor.categories):
+  <span class="org-keyword">print</span>(f<span class="org-string">'Fitting donor {i}'</span>)
+  <span class="org-variable-name">gamma_res</span>[k] = scmodes.ebpm.sgd.ebpm_gamma(y_csr[donor.codes == i], batch_size=128, lr=5e-2, max_epochs=10, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">gamma_res</span> = pd.concat({
+  k: pd.DataFrame(np.vstack(gamma_res[k][:-1]).T, columns=[<span class="org-string">'log_mu'</span>, <span class="org-string">'neg_log_phi'</span>], index=genes[<span class="org-string">'Gene'</span>])
+  <span class="org-keyword">for</span> k <span class="org-keyword">in</span> gamma_res}, axis=1)
 </pre>
 </div>
 
@@ -604,56 +637,38 @@ Write out the results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">(pd.DataFrame(np.vstack(res[:-1]).T, columns=[<span class="org-string">'log_mu'</span>, <span class="org-string">'neg_log_phi'</span>], index=genes)
- .to_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/immune-cell-census-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>))
+<pre class="src src-ipython">gamma_res.to_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/immune-cell-census-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
 </pre>
 </div>
 
 <p>
-Test GOF at each gene. (1 hour)
+Test GOF at each gene.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="org6b94712"><span class="org-keyword">def</span> <span class="org-function-name">_gof</span>(j, args, x, s):
-  _, (log_mu, neg_log_phi) = args
-  <span class="org-keyword">return</span> scmodes.benchmark.gof._gof(
-    x=x[:,j].A.ravel(),
-    cdf=scmodes.benchmark.gof._zig_cdf,
-    pmf=scmodes.benchmark.gof._zig_pmf,
-    size=s,
-    log_mu=log_mu,
-    log_phi=-neg_log_phi)
-
-<span class="org-variable-name">gamma_res</span> = pd.read_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/immune-cell-census-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
-<span class="org-variable-name">y_csc</span> = ss.load_npz(<span class="org-string">'/scratch/midway2/aksarkar/modes/immune-cell-census.npz'</span>).tocsc()
-<span class="org-variable-name">s</span> = y_csc.<span class="org-builtin">sum</span>(axis=1).A.ravel()
-<span class="org-comment-delimiter"># </span><span class="org-comment">TODO: this cannot be done in multiprocessing with Python &lt;= 3.8.0</span>
-<span class="org-comment-delimiter"># </span><span class="org-comment">https://bugs.python.org/issue17560</span>
-<span class="org-comment-delimiter"># </span><span class="org-comment">https://github.com/python/cpython/pull/10305</span>
-<span class="org-comment-delimiter"># </span><span class="org-comment">https://thelaziestprogrammer.com/python/multiprocessing-pool-expect-initret-proposal</span>
-<span class="org-variable-name">gof_res</span> = [_gof(j, args, x=y_csc, s=s) <span class="org-keyword">for</span> j, args <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(gamma_res.iterrows())]
-<span class="org-variable-name">gof_res</span> = pd.DataFrame(gof_res, columns=[<span class="org-string">'stat'</span>, <span class="org-string">'p'</span>])
-gof_res.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/immune-census-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl --mem=16G --job-name=gof --time=24:00:00
-<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
-<span class="org-builtin">source</span> activate scmodes
-python &lt;&lt;EOF
-<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-&lt;&lt;gamma-gof&gt;&gt;
-EOF
+<pre class="src src-ipython"><span class="org-variable-name">gamma_gof</span> = []
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> gamma_res.groupby(level=0, axis=1):
+  <span class="org-variable-name">query</span> = y_csr[donor.codes == k].tocsc()
+  <span class="org-variable-name">s</span> = query.<span class="org-builtin">sum</span>(axis=1)
+  <span class="org-keyword">for</span> j, (gene, (log_mu, neg_log_phi)) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(g[k].iterrows()):
+    <span class="org-variable-name">d</span>, <span class="org-variable-name">p</span> = scmodes.benchmark.gof._gof(
+      x=query[:,j].A.ravel(),
+      cdf=scmodes.benchmark.gof._zig_cdf,
+      pmf=scmodes.benchmark.gof._zig_pmf,
+      size=s,
+      log_mu=log_mu,
+      log_phi=-neg_log_phi)
+    gamma_gof.append([gene, k, d, p])
+<span class="org-variable-name">gamma_gof</span> = pd.DataFrame(gamma_gof, columns=[<span class="org-string">'gene'</span>, <span class="org-string">'donor'</span>, <span class="org-string">'stat'</span>, <span class="org-string">'p'</span>])
 </pre>
 </div>
 
 <p>
-Read the results.
+Write the GOF results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">gof_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/immune-census-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<pre class="src src-ipython">gamma_gof.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/immune-census-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
 </pre>
 </div>
 
@@ -664,7 +679,8 @@ Plot the histogram of GOF \(p\)-values.
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
 plt.gcf().set_size_inches(2, 2)
-plt.hist(gof_res[<span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+plt.hist(gamma_gof.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'donor'</span>, values=<span class="org-string">'p'</span>).values.ravel(),
+         bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
 plt.axhline(y=1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
 plt.xlim(0, 1)
 plt.xlabel(<span class="org-string">'$p$-value'</span>)
@@ -680,18 +696,44 @@ plt.tight_layout()
 </div>
 
 <p>
+Plot the GOF by donor.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 4, sharex=<span class="org-constant">True</span>)
+fig.set_size_inches(6, 6)
+<span class="org-keyword">for</span> a, (k, g) <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), gamma_gof.groupby([<span class="org-string">'donor'</span>])):
+  a.hist(g[<span class="org-string">'p'</span>].values.ravel(), bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+  a.axhline(y=1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+  a.set_xlim(0, 1)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Density'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
+  a[-1].set_xlabel(<span class="org-string">'$p$-value'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/immune-census.org/gamma-gof-hist-by-donor.png" alt="gamma-gof-hist-by-donor.png">
+</p>
+</div>
+
+<p>
 Report the fraction of genes which significantly depart from Gamma
 (Bonferroni-corrected \(p < 0.05\)).
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">sig</span> = gof_res.loc[gof_res[<span class="org-string">'p'</span>] &lt; 0.05 / gof_res.shape[0]]
-sig.shape[0] / gof_res.shape[0]
+<pre class="src src-ipython"><span class="org-variable-name">sig</span> = gamma_gof[gamma_gof[<span class="org-string">'p'</span>] &lt; 0.05 / gamma_gof.shape[0]]
+sig.shape[0] / gamma_gof.shape[0]
 </pre>
 </div>
 
 <pre class="example">
-0.3431446069241345
+3.9057617797775274e-06
 
 </pre>
 </div>
@@ -705,16 +747,82 @@ Fit a point-Gamma assumption distribution to expression variation.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">gamma_res</span> = pd.read_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/immune-cell-census-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
-<span class="org-variable-name">point_gamma_res</span> = scmodes.ebpm.sgd.ebpm_point_gamma(
-  y_csr,
-  init=(gamma_res[<span class="org-string">'log_mu'</span>].values.reshape(1, -1), 
-        gamma_res[<span class="org-string">'neg_log_phi'</span>].values.reshape(1, -1)),
-  batch_size=128,
-  lr=2e-2,
-  max_epochs=5,
-  verbose=<span class="org-constant">True</span>)
+<pre class="src src-ipython"><span class="org-variable-name">gamma_res</span> = pd.read_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/immune-cell-census-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, header=[0, 1], index_col=0)
+<span class="org-variable-name">point_gamma_res</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(donor.categories):
+  <span class="org-keyword">print</span>(f<span class="org-string">'Fitting donor {i}'</span>)
+  <span class="org-variable-name">point_gamma_res</span>[k] = scmodes.ebpm.sgd.ebpm_point_gamma(
+    y_csr[donor.codes == i],
+    init=(gamma_res[k, <span class="org-string">'log_mu'</span>].values.reshape(1, -1), 
+          gamma_res[k, <span class="org-string">'neg_log_phi'</span>].values.reshape(1, -1)),
+    batch_size=128,
+    lr=2e-2,
+    max_epochs=15,
+    verbose=<span class="org-constant">True</span>)
 </pre>
+</div>
+
+<p>
+Write out the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">point_gamma_res</span> = pd.concat({
+  k: pd.DataFrame(np.vstack(point_gamma_res[k][:-1]).T, columns=[<span class="org-string">'log_mu'</span>, <span class="org-string">'neg_log_phi'</span>, <span class="org-string">'logodds'</span>], index=genes[<span class="org-string">'Gene'</span>])
+  <span class="org-keyword">for</span> k <span class="org-keyword">in</span> point_gamma_res}, axis=1)
+point_gamma_res.to_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/immune-cell-census-point-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
+</pre>
+</div>
+
+<p>
+Test for GOF.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">point_gamma_gof</span> = []
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> point_gamma_res.groupby(level=0, axis=1):
+  <span class="org-variable-name">query</span> = y_csr[donor.codes == k].tocsc()
+  <span class="org-variable-name">s</span> = query.<span class="org-builtin">sum</span>(axis=1)
+  <span class="org-keyword">for</span> j, (gene, (log_mu, neg_log_phi, logodds)) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(g[k].iterrows()):
+    <span class="org-variable-name">d</span>, <span class="org-variable-name">p</span> = scmodes.benchmark.gof._gof(
+      x=query[:,j].A.ravel(),
+      cdf=scmodes.benchmark.gof._zig_cdf,
+      pmf=scmodes.benchmark.gof._zig_pmf,
+      size=s,
+      log_mu=log_mu,
+      log_phi=-neg_log_phi,
+      logodds=logodds)
+    point_gamma_gof.append([gene, k, d, p])
+<span class="org-variable-name">point_gamma_gof</span> = pd.DataFrame(point_gamma_gof, columns=[<span class="org-string">'gene'</span>, <span class="org-string">'donor'</span>, <span class="org-string">'stat'</span>, <span class="org-string">'p'</span>])
+</pre>
+</div>
+
+<p>
+Write out the GOF results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">point_gamma_gof.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/immune-census-point-gamma.txt.gz'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(2, 2)
+plt.hist(point_gamma_gof.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'donor'</span>, values=<span class="org-string">'p'</span>).values.ravel(),
+         bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+plt.axhline(y=1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.xlim(0, 1)
+plt.xlabel(<span class="org-string">'$p$-value'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/immune-census.org/point-gamma-got-hist.png" alt="point-gamma-got-hist.png">
+</p>
 </div>
 </div>
 </div>
@@ -722,7 +830,7 @@ Fit a point-Gamma assumption distribution to expression variation.
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-21 Sat 20:34</p>
+<p class="date">Created: 2019-12-22 Sun 15:35</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
