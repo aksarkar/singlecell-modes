@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-17 Tue 13:18 -->
+<!-- 2019-12-24 Tue 20:14 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Expression variation in human brain cells</title>
@@ -665,9 +665,14 @@ Plot randomized quantiles for MALAT1.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">malat1_counts</span> = x.X[:,sig.loc[<span class="org-string">'MALAT1'</span>, <span class="org-string">'gene.1'</span>]].A.ravel()
-<span class="org-variable-name">malat1_res</span> = scmodes.ebpm.ebpm_unimodal(malat1_counts, x.obs[<span class="org-string">'size'</span>].values.ravel())
-<span class="org-variable-name">Fx</span> = scmodes.benchmark.gof._ash_cdf(malat1_counts - 1, malat1_res, s=x.obs[<span class="org-string">'size'</span>].values.ravel())
+<pre class="src src-ipython"><span class="org-variable-name">malat1_counts</span> = x.X[:,np.where(x.var[<span class="org-string">'gene'</span>] == <span class="org-string">'MALAT1'</span>)[0]].A.ravel()
+<span class="org-variable-name">s</span> = x.obs[<span class="org-string">'size'</span>].values.ravel()
+<span class="org-variable-name">malat1_res</span> = scmodes.ebpm.ebpm_unimodal(malat1_counts, s)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">Fx</span> = scmodes.benchmark.gof._ash_cdf(malat1_counts - 1, malat1_res, s=x.obs[<span class="org-string">'size'</span>].values.ravel())
 <span class="org-variable-name">fx</span> = scmodes.benchmark.gof._ash_pmf(malat1_counts, malat1_res)
 </pre>
 </div>
@@ -725,13 +730,47 @@ fig.tight_layout()
 <p><img src="figure/brain-dronc-seq.org/malat1-dist.png" alt="malat1-dist.png">
 </p>
 </div>
+
+<p>
+Fit EBPM-Unimodal assuming a log link function.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">log_lam</span> = np.log(malat1_counts / s + 1 / s.mean())
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">malat1_log_link_res</span> = scmodes.ebpm.ebpm_unimodal(
+  malat1_counts,
+  s,
+  link=<span class="org-string">'log'</span>,
+  mixsd=pd.Series(np.arange(.1 * log_lam.std(), -log_lam.<span class="org-builtin">min</span>(), -np.log(.5))))
+</pre>
+</div>
+
+<p>
+Compare the log likelihoods of the fitted models.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pd.Series({<span class="org-string">'identity'</span>: np.array(malat1_res.rx2(<span class="org-string">'loglik'</span>)[0]),
+           <span class="org-string">'log'</span>: np.array(malat1_log_link_res.rx2(<span class="org-string">'loglik'</span>))[0]})
+</pre>
+</div>
+
+<pre class="example">
+identity    -77332.04902555935
+log                   -64006.4
+dtype: object
+</pre>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-17 Tue 13:18</p>
+<p class="date">Created: 2019-12-24 Tue 20:14</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

@@ -116,7 +116,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[17]:
+   # Out[4]:
    :END:
 
    Report the number of cells and genes analyzed.
@@ -400,16 +400,20 @@
    Plot randomized quantiles for MALAT1.
 
    #+BEGIN_SRC ipython :async t
-     malat1_counts = x.X[:,sig.loc['MALAT1', 'gene.1']].A.ravel()
-     malat1_res = scmodes.ebpm.ebpm_unimodal(malat1_counts, x.obs['size'].values.ravel())
-     Fx = scmodes.benchmark.gof._ash_cdf(malat1_counts - 1, malat1_res, s=x.obs['size'].values.ravel())
-     fx = scmodes.benchmark.gof._ash_pmf(malat1_counts, malat1_res)
+     malat1_counts = x.X[:,np.where(x.var['gene'] == 'MALAT1')[0]].A.ravel()
+     s = x.obs['size'].values.ravel()
+     malat1_res = scmodes.ebpm.ebpm_unimodal(malat1_counts, s)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[20]:
+   # Out[22]:
    :END:
+
+   #+BEGIN_SRC ipython :async t
+     Fx = scmodes.benchmark.gof._ash_cdf(malat1_counts - 1, malat1_res, s=x.obs['size'].values.ravel())
+     fx = scmodes.benchmark.gof._ash_pmf(malat1_counts, malat1_res)
+   #+END_SRC
 
    #+BEGIN_SRC ipython :ipyfile figure/brain-dronc-seq.org/malat1-qq.png
      plt.clf()
@@ -459,4 +463,45 @@
    :RESULTS:
    # Out[37]:
    [[file:figure/brain-dronc-seq.org/malat1-dist.png]]
+   :END:
+
+   Fit EBPM-Unimodal assuming a log link function.
+
+   #+BEGIN_SRC ipython :async t
+     log_lam = np.log(malat1_counts / s + 1 / s.mean())
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     malat1_log_link_res = scmodes.ebpm.ebpm_unimodal(
+       malat1_counts,
+       s,
+       link='log',
+       mixsd=pd.Series(np.arange(.1 * log_lam.std(), -log_lam.min(), -np.log(.5))))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[23]:
+   :END:
+
+   Compare the log likelihoods of the fitted models.
+
+   #+BEGIN_SRC ipython
+     pd.Series({'identity': np.array(malat1_res.rx2('loglik')[0]),
+                'log': np.array(malat1_log_link_res.rx2('loglik'))[0]})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[38]:
+   #+BEGIN_EXAMPLE
+     identity    -77332.04902555935
+     log                   -64006.4
+     dtype: object
+   #+END_EXAMPLE
    :END:
