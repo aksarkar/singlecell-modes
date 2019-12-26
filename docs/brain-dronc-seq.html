@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-24 Tue 20:14 -->
+<!-- 2019-12-26 Thu 13:23 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Expression variation in human brain cells</title>
@@ -286,6 +286,16 @@ multi-modal expression variation in this data.
 <div id="outline-container-org221bd70" class="outline-2">
 <h2 id="setup"><a id="org221bd70"></a>Setup</h2>
 <div class="outline-text-2" id="text-setup">
+<pre class="example">
+1
+
+</pre>
+
+<pre class="example">
+Submitted batch job 64561038
+
+</pre>
+
 <div class="org-src-container">
 <pre class="src src-ipython" id="org8e01eb1"><span class="org-keyword">import</span> anndata
 <span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
@@ -667,12 +677,16 @@ Plot randomized quantiles for MALAT1.
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">malat1_counts</span> = x.X[:,np.where(x.var[<span class="org-string">'gene'</span>] == <span class="org-string">'MALAT1'</span>)[0]].A.ravel()
 <span class="org-variable-name">s</span> = x.obs[<span class="org-string">'size'</span>].values.ravel()
-<span class="org-variable-name">malat1_res</span> = scmodes.ebpm.ebpm_unimodal(malat1_counts, s)
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">Fx</span> = scmodes.benchmark.gof._ash_cdf(malat1_counts - 1, malat1_res, s=x.obs[<span class="org-string">'size'</span>].values.ravel())
+<pre class="src src-ipython"><span class="org-variable-name">malat1_res</span> = scmodes.ebpm.ebpm_unimodal(malat1_counts, s)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">Fx</span> = scmodes.benchmark.gof._ash_cdf(malat1_counts - 1, malat1_res, s=s)
 <span class="org-variable-name">fx</span> = scmodes.benchmark.gof._ash_pmf(malat1_counts, malat1_res)
 </pre>
 </div>
@@ -736,7 +750,12 @@ Fit EBPM-Unimodal assuming a log link function.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">log_lam</span> = np.log(malat1_counts / s + 1 / s.mean())
+<pre class="src src-ipython"><span class="org-variable-name">eps</span> = 1 / s.mean()
+<span class="org-variable-name">lam</span> = malat1_counts / s
+<span class="org-variable-name">log_lam</span> = np.log(lam + eps)
+<span class="org-comment-delimiter"># </span><span class="org-comment">V[ln(x + eps)] = E[ln(x + eps)^2] - (E[ln(x + eps)])^2; take 2nd order Taylor</span>
+<span class="org-comment-delimiter"># </span><span class="org-comment">expansions and keep the 0th order term of the result</span>
+<span class="org-variable-name">se_log_lam</span> = np.sqrt(np.var(lam) / np.square(lam + eps))
 </pre>
 </div>
 
@@ -745,7 +764,8 @@ Fit EBPM-Unimodal assuming a log link function.
   malat1_counts,
   s,
   link=<span class="org-string">'log'</span>,
-  mixsd=pd.Series(np.arange(.1 * log_lam.std(), -log_lam.<span class="org-builtin">min</span>(), -np.log(.5))))
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Follow ashr::autoselect.mixsd</span>
+  mixsd=pd.Series(np.arange(.1 * se_log_lam.<span class="org-builtin">min</span>(), 2 * np.sqrt((np.square(log_lam) - np.square(se_log_lam)).<span class="org-builtin">max</span>()), .5 * np.log(2))))
 </pre>
 </div>
 
@@ -761,16 +781,54 @@ Compare the log likelihoods of the fitted models.
 
 <pre class="example">
 identity    -77332.04902555935
-log                   -64006.4
+log                   -64994.7
 dtype: object
 </pre>
+
+<p>
+Plot randomized quantiles for the log link solution.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">Fx_1</span> = scmodes.benchmark.gof._ash_cdf(malat1_counts - 1, malat1_log_link_res, s=s)
+<span class="org-variable-name">fx</span> = scmodes.benchmark.gof._ash_pmf(malat1_counts, malat1_log_link_res)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.xscale(<span class="org-string">'log'</span>)
+plt.yscale(<span class="org-string">'log'</span>)
+plt.scatter(np.linspace(0, 1, malat1_counts.shape[0] + 2)[1:-1], np.sort(Fx_1 + np.random.uniform(size=malat1_counts.shape[0]) * fx), s=1, c=<span class="org-string">'k'</span>)
+plt.plot([5e-5, 1], [5e-5, 1], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+plt.xlabel(<span class="org-string">'Theoretical quantile'</span>)
+plt.ylabel(<span class="org-string">'Randomized quantile'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/brain-dronc-seq.org/malat1-qq-log-link.png" alt="malat1-qq-log-link.png">
+</p>
+</div>
+
+<p>
+Test for GOF.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">st.kstest(Fx_1 + np.random.uniform(size=malat1_counts.shape[0]) * fx, <span class="org-string">'uniform'</span>)
+</pre>
+</div>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-24 Tue 20:14</p>
+<p class="date">Created: 2019-12-26 Thu 13:23</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

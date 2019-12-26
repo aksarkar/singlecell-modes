@@ -166,11 +166,11 @@
    and:
 
    \begin{align*}
-     \Pr(x_i = x) &= \int_0^\infty \operatorname{Poisson}(x_i; x_i^+ \lambda_i) \operatorname{Uniform}(a, b) d\lambda_i\\
-     &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x_i; x_i^+ \lambda_i) d\lambda_i\\
-     &= \frac{1}{x_i^+ (b - a)} \int_a^b \frac{(x_i^+)^{x_i + 1}}{\Gamma(x_i + 1)} \lambda_i^{(x_i + 1) - 1}\exp(-x_i^+ \lambda_i) d\lambda_i\\
-     &= \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; x_i + 1, x_i^+) - F_\Gamma(a, x_i + 1, x_i^+) \right)\\
-     \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; k + 1, x_i^+) - F_\Gamma(a, k + 1, x_i^+) \right)
+     \Pr(x_i = x) &= \int_0^\infty \operatorname{Poisson}(x; x_i^+ \lambda_i) \operatorname{Uniform}(a, b)\,d\lambda_i\\
+     &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x; x_i^+ \lambda_i)\,d\lambda_i\\
+     &= \frac{1}{x_i^+ (b - a)} \int_a^b \frac{(x_i^+)^{x + 1}}{\Gamma(x + 1)} \lambda_i^{(x + 1) - 1}\exp(-x_i^+ \lambda_i)\,d\lambda_i\\
+     &= \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; x + 1, x_i^+) - F_\Gamma(a; x + 1, x_i^+) \right)\\
+     \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{x_i^+ (b - a)} \left( F_\Gamma(b; k + 1, x_i^+) - F_\Gamma(a; k + 1, x_i^+) \right)
    \end{align*}
 
    where \(F_\Gamma(\cdot; \alpha, \beta)\) denotes the CDF of the Gamma
@@ -221,6 +221,24 @@
    # Out[133]:
    : KstestResult(statistic=0.008062709224521236, pvalue=0.533974089244596)
    :END:
+
+   An alternative parameterization (for one component) is to assume the log
+   link
+
+   \begin{align*}
+     x_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
+     \theta_i = \ln \lambda_i &\sim \operatorname{Uniform}(a, b)
+   \end{align*}
+
+   and
+
+   \begin{align*}
+     \Pr(x_i = x) &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x; \exp(\ln x_i^+ + \theta_i))\,d\theta_i\\
+     &= \frac{1}{b - a} \int_a^b \frac{(x_i^+)^x}{\Gamma(x + 1)} \exp(\theta_i)^{x}\exp(-x_i^+ \exp(\theta_i))\,d\theta_i\\
+     &= \frac{1}{x (b - a)} \int_{\exp(a)}^{\exp(b)} \frac{(x_i^+)^x}{\Gamma(x)} \lambda_i^{x - 1}\exp(-x_i^+ \lambda_i)\,d\lambda_i\\
+     &= \frac{1}{x (b - a)} \left( F_\Gamma(\exp(b); x, x_i^+) - F_\Gamma(\exp(a); x, x_i^+) \right)\\
+     \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{k (b - a)} \left( F_\Gamma(\exp(b); k, x_i^+) - F_\Gamma(\exp(a); k, x_i^+) \right)
+   \end{align*}
 
 ** Data
 

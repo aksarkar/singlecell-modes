@@ -17,13 +17,15 @@
     (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
   #+END_SRC
 
-  #+RESULTS:
+  #+RnESULTS:
   : 1
 
   #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="4G") :exports none :dir /scratch/midway2/aksarkar/modes
 
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="4G") :exports none :dir /scratch/midway2/aksarkar/modes
+
   #+RESULTS:
-  : Submitted batch job 64347800
+  : Submitted batch job 64561038
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -116,7 +118,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[5]:
    :END:
 
    Report the number of cells and genes analyzed.
@@ -402,16 +404,24 @@
    #+BEGIN_SRC ipython :async t
      malat1_counts = x.X[:,np.where(x.var['gene'] == 'MALAT1')[0]].A.ravel()
      s = x.obs['size'].values.ravel()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
      malat1_res = scmodes.ebpm.ebpm_unimodal(malat1_counts, s)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[22]:
+   # Out[16]:
    :END:
 
    #+BEGIN_SRC ipython :async t
-     Fx = scmodes.benchmark.gof._ash_cdf(malat1_counts - 1, malat1_res, s=x.obs['size'].values.ravel())
+     Fx = scmodes.benchmark.gof._ash_cdf(malat1_counts - 1, malat1_res, s=s)
      fx = scmodes.benchmark.gof._ash_pmf(malat1_counts, malat1_res)
    #+END_SRC
 
@@ -468,25 +478,31 @@
    Fit EBPM-Unimodal assuming a log link function.
 
    #+BEGIN_SRC ipython :async t
-     log_lam = np.log(malat1_counts / s + 1 / s.mean())
+     eps = 1 / s.mean()
+     lam = malat1_counts / s
+     log_lam = np.log(lam + eps)
+     # V[ln(x + eps)] = E[ln(x + eps)^2] - (E[ln(x + eps)])^2; take 2nd order Taylor
+     # expansions and keep the 0th order term of the result
+     se_log_lam = np.sqrt(np.var(lam) / np.square(lam + eps))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[17]:
    :END:
 
-   #+BEGIN_SRC ipython
+   #+BEGIN_SRC ipython :async t
      malat1_log_link_res = scmodes.ebpm.ebpm_unimodal(
        malat1_counts,
        s,
        link='log',
-       mixsd=pd.Series(np.arange(.1 * log_lam.std(), -log_lam.min(), -np.log(.5))))
+       # Follow ashr::autoselect.mixsd
+       mixsd=pd.Series(np.arange(.1 * se_log_lam.min(), 2 * np.sqrt((np.square(log_lam) - np.square(se_log_lam)).max()), .5 * np.log(2))))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[23]:
+   # Out[18]:
    :END:
 
    Compare the log likelihoods of the fitted models.
@@ -498,10 +514,46 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[38]:
+   # Out[19]:
    #+BEGIN_EXAMPLE
      identity    -77332.04902555935
-     log                   -64006.4
+     log                   -64994.7
      dtype: object
    #+END_EXAMPLE
    :END:
+
+   Plot randomized quantiles for the log link solution.
+
+   #+BEGIN_SRC ipython :async t
+     Fx_1 = scmodes.benchmark.gof._ash_cdf(malat1_counts - 1, malat1_log_link_res, s=s)
+     fx = scmodes.benchmark.gof._ash_pmf(malat1_counts, malat1_log_link_res)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[21]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/brain-dronc-seq.org/malat1-qq-log-link.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.xscale('log')
+     plt.yscale('log')
+     plt.scatter(np.linspace(0, 1, malat1_counts.shape[0] + 2)[1:-1], np.sort(Fx_1 + np.random.uniform(size=malat1_counts.shape[0]) * fx), s=1, c='k')
+     plt.plot([5e-5, 1], [5e-5, 1], lw=1, ls=':', c='r')
+     plt.xlabel('Theoretical quantile')
+     plt.ylabel('Randomized quantile')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[22]:
+   [[file:figure/brain-dronc-seq.org/malat1-qq-log-link.png]]
+   :END:
+
+   Test for GOF.
+
+   #+BEGIN_SRC ipython
+     st.kstest(Fx_1 + np.random.uniform(size=malat1_counts.shape[0]) * fx, 'uniform')
+   #+END_SRC
