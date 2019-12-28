@@ -87,7 +87,16 @@
      fit0$loglik
    #+END_SRC
 
-   Fit a unimodal assuymption under the log link.
+   Report the diagnostic test statistic and p-value.
+
+   #+BEGIN_SRC sh
+     zgrep -wm1 ENSG00000019582 /project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/b_cells-unimodal.txt.gz
+   #+END_SRC
+
+   #+RESULTS:
+   | ENSG00000019582 | unimodal | ENSG00000019582 | 0.01741172556226811 | 0.004419383098344525 |
+
+   Fit a unimodal assumption under the log link.
 
    #+BEGIN_SRC R
      fit1 <- ashr::ash_pois(query$count, query$size, link="log", mixcompdist="halfuniform")
@@ -100,6 +109,9 @@
 
    #+BEGIN_SRC R
      any(fit1$fitted_g$pi %*% ashr:::comp_dens_conv(fit1$fitted_g, fit1$data) > 1)
+   #+END_SRC
+
+   #+BEGIN_SRC R
      any(ashr:::comp_dens_conv(fit1$fitted_g, fit1$data) > 1)
    #+END_SRC
 
@@ -110,6 +122,7 @@
      fx = fit1$fitted_g$pi %*% ashr:::comp_dens_conv(fit1$fitted_g, fit1$data)
      N = nrow(query)
      K = length(fit1$fitted_g$a)
+     ## Important: this is F_j(x_{ij} - 1), needed for randomized quantiles
      Fx_1 = matrix(rep(0, N * K), N, K)
      for (i in 1:N) {
        for (k in 1:K) {
@@ -125,11 +138,19 @@
          else {
            ak = min(fit1$fitted_g$a[k], fit1$fitted_g$b[k])
            bk = max(fit1$fitted_g$a[k], fit1$fitted_g$b[k])
-           grid = seq(0, query$count[i], by=1)
-           Fx_1[i, k] = sum((pgamma(exp(bk), shape=grid + 1e-8, rate=query$size[i]) - pgamma(exp(ak), shape=grid + 1e-8, rate=query$size[i])) / (grid * (bk - ak)))
+           ## Important: the required integral cannot be expressed in terms of the
+           ## Gamma CDF for x = 0
+           Fx_1[i, k] = integrate(function (log_lam) {dpois(0, query$size[i] * exp(log_lam))}, ak, bk)$value
+           if (query$count[i] > 1) {
+             grid = seq(1, query$count[i] - 1, by=1)
+             Fx_1[i, k] = Fx_1[i, k] + sum((pgamma(exp(bk), shape=grid, rate=query$size[i]) - pgamma(exp(ak), shape=grid, rate=query$size[i])) / (grid * (bk - ak)))        
+           }
          }
        }
      }
-     rpp = fit1$fitted_g$pi %*% Fx_1 + runif(n=N) * fx
+   #+END_SRC
+
+   #+BEGIN_SRC R
+     rpp = drop(Fx_1 %*% fit1$fitted_g$pi) + runif(n=N) * fx
      ks.test(rpp, punif)
    #+END_SRC

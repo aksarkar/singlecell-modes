@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-27 Fri 19:34 -->
+<!-- 2019-12-28 Sat 10:39 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Log link in Poisson ash</title>
@@ -393,7 +393,16 @@ fit0$loglik
 </div>
 
 <p>
-Fit a unimodal assuymption under the log link.
+Report the diagnostic test statistic and p-value.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">zgrep -wm1 ENSG00000019582 /project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/b_cells-unimodal.txt.gz
+</pre>
+</div>
+
+<p>
+Fit a unimodal assumption under the log link.
 </p>
 
 <div class="org-src-container">
@@ -410,7 +419,11 @@ was not implemented correctly before.</a>)
 
 <div class="org-src-container">
 <pre class="src src-R">any(fit1$fitted_g$pi <span class="org-ess-XopX">%*%</span> ashr:::comp_dens_conv(fit1$fitted_g, fit1$data) &gt; 1)
-any(ashr:::comp_dens_conv(fit1$fitted_g, fit1$data) &gt; 1)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-R">any(ashr:::comp_dens_conv(fit1$fitted_g, fit1$data) &gt; 1)
 </pre>
 </div>
 
@@ -422,6 +435,7 @@ Implement the <a href="gof.html#org1e959d4">diagnostic</a> for the log link.
 <pre class="src src-R">fx = fit1$fitted_g$pi <span class="org-ess-XopX">%*%</span> ashr:::comp_dens_conv(fit1$fitted_g, fit1$data)
 N = nrow(query)
 K = length(fit1$fitted_g$a)
+<span class="org-comment-delimiter">## </span><span class="org-comment">Important: this is F_j(x_{ij} - 1), needed for randomized quantiles</span>
 Fx_1 = matrix(rep(0, N * K), N, K)
 <span class="org-ess-keyword">for</span> (i <span class="org-ess-keyword">in</span> 1:N) {
   <span class="org-ess-keyword">for</span> (k <span class="org-ess-keyword">in</span> 1:K) {
@@ -437,12 +451,21 @@ Fx_1 = matrix(rep(0, N * K), N, K)
     <span class="org-ess-keyword">else</span> {
       ak = min(fit1$fitted_g$a[k], fit1$fitted_g$b[k])
       bk = max(fit1$fitted_g$a[k], fit1$fitted_g$b[k])
-      grid = seq(0, query$count[i], by=1)
-      Fx_1[i, k] = sum((pgamma(exp(bk), shape=grid + 1e-8, rate=query$size[i]) - pgamma(exp(ak), shape=grid + 1e-8, rate=query$size[i])) / (grid * (bk - ak)))
+      <span class="org-comment-delimiter">## </span><span class="org-comment">Important: the required integral cannot be expressed in terms of the</span>
+      <span class="org-comment-delimiter">## </span><span class="org-comment">Gamma CDF for x = 0</span>
+      Fx_1[i, k] = integrate(<span class="org-ess-keyword">function</span> (log_lam) {dpois(0, query$size[i] * exp(log_lam))}, ak, bk)$value
+      <span class="org-ess-keyword">if</span> (query$count[i] &gt; 1) {
+        grid = seq(1, query$count[i] - 1, by=1)
+        Fx_1[i, k] = Fx_1[i, k] + sum((pgamma(exp(bk), shape=grid, rate=query$size[i]) - pgamma(exp(ak), shape=grid, rate=query$size[i])) / (grid * (bk - ak)))        
+      }
     }
   }
 }
-rpp = fit1$fitted_g$pi <span class="org-ess-XopX">%*%</span> Fx_1 + runif(n=N) * fx
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-R">rpp = drop(Fx_1 <span class="org-ess-XopX">%*%</span> fit1$fitted_g$pi) + runif(n=N) * fx
 ks.test(rpp, punif)
 </pre>
 </div>
@@ -452,7 +475,7 @@ ks.test(rpp, punif)
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-27 Fri 19:34</p>
+<p class="date">Created: 2019-12-28 Sat 10:39</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
