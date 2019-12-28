@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-26 Thu 20:53 -->
+<!-- 2019-12-27 Fri 19:28 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org662e8d9">Test for goodness of fit</a></li>
+<li><a href="#org541cb49">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -351,9 +351,9 @@ Here, we directly test for the goodness of fit of the estimated distributions
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org662e8d9" class="outline-3">
-<h3 id="org662e8d9">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org662e8d9">
+<div id="outline-container-org541cb49" class="outline-3">
+<h3 id="org541cb49">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-org541cb49">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -511,8 +511,7 @@ KstestResult(statistic=0.008062709224521236, pvalue=0.533974089244596)
 </pre>
 
 <p>
-An alternative parameterization (for one component) is to assume the log
-link
+An alternative parameterization is to assume the log link. For one component,
 </p>
 
 \begin{align*}
@@ -784,8 +783,8 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-org541cb49" class="outline-3">
-<h3 id="gof"><a id="org541cb49"></a>Test for goodness of fit</h3>
+<div id="outline-container-orga903a24" class="outline-3">
+<h3 id="gof"><a id="orga903a24"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -797,8 +796,8 @@ Run the GPU-based methods.
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-import os
-&lt;&lt;data&gt;&gt;
+<span class="org-sh-heredoc">import os</span>
+<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
 <span class="org-sh-heredoc">tasks = list(data.keys())</span>
 <span class="org-sh-heredoc">task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
 <span class="org-sh-heredoc">x = data[task]()</span>
@@ -893,10 +892,10 @@ tracked down bug.)
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-import anndata
-import multiprocessing as mp
-import os
-&lt;&lt;data&gt;&gt;
+<span class="org-sh-heredoc">import anndata</span>
+<span class="org-sh-heredoc">import multiprocessing as mp</span>
+<span class="org-sh-heredoc">import os</span>
+<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
 <span class="org-sh-heredoc">tasks = list(data.keys())</span>
 <span class="org-sh-heredoc">task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
 <span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=20) as pool:</span>
@@ -1387,7 +1386,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-26 Thu 20:53</p>
+<p class="date">Created: 2019-12-27 Fri 19:28</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

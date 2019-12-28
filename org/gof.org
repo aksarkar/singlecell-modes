@@ -222,8 +222,7 @@
    : KstestResult(statistic=0.008062709224521236, pvalue=0.533974089244596)
    :END:
 
-   An alternative parameterization (for one component) is to assume the log
-   link
+   An alternative parameterization is to assume the log link. For one component,
 
    \begin{align*}
      x_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-27 Fri 19:33 -->
+<!-- 2019-12-27 Fri 19:34 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Modeling single cell data</title>
+<title>Log link in Poisson ash</title>
 <meta name="generator" content="Org mode">
 <meta name="author" content="Abhishek Sarkar">
 <style type="text/css">
@@ -228,63 +228,231 @@ for the JavaScript code in this tag.
  }
 /*]]>*///-->
 </script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
 </head>
 <body>
 <div id="content">
-<h1 class="title">Modeling single cell data</h1>
+<h1 class="title">Log link in Poisson ash</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#orgd6d6039">Introduction</a></li>
+<li><a href="#orgd1fc04b">Results</a>
+<ul>
+<li><a href="#orgb579b04">Simulated data</a></li>
+<li><a href="#org58e4cf0">Real data</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-orgd6d6039" class="outline-2">
+<h2 id="orgd6d6039">Introduction</h2>
+<div class="outline-text-2" id="text-orgd6d6039">
 <p>
-The development of single cell RNA sequencing (scRNA-Seq) technology has
-enabled investigation of heterogeneity between individuals cells, dynamics of
-cellular processes, and the biological pathways underlying cellular
-differentiation. However, a number of features of scRNA-seq data continue to
-cause confusion among practitioners applying published methods to analyze new
-datasets, as well as researchers developing and benchmarking new methods.
+We previously found <a href="gof.html#org2542000">several</a>
+<a href="brain-dronc-seq.html#org20d9290">instances</a> of genes which
+clearly exhibit unimodal expression variation (by inspection), but
+significantly depart from the estimated unimodal distribution
 </p>
 
-<ul class="org-ul">
-<li><a href="deconvolution.html">Comparison of distribution deconvolution methods</a></li>
-<li><a href="deconv-examples.html">Distribution deconvolution examples</a></li>
-<li><a href="gof.html">Goodness of fit of deconvolved distributions</a> (<a href="http://shiny.stephenslab.uchicago.edu:5009/gof">interactive browser</a>)</li>
-<li><a href="lra.html">Low rank approximation</a></li>
-<li><a href="imputation.html">Imputation of count matrices</a></li>
-<li><a href="transforms.html">Transformations of deconvolved gene expression distributions</a></li>
-</ul>
+\begin{align*}
+  x_i \mid x_i^+, \lambda_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
+  \lambda_i &\sim g(\cdot) = \sum_{k=1}^K w_k \operatorname{Uniform}(\lambda_0, a_k)
+\end{align*}
 
 <p>
-Technical details:
+where \(\lambda_0\) is the mode and we abuse notation to allow endpoints
+\(a_k < \lambda_0\). One feature which appears to be common to these examples
+is estimating the density near zero wrong, such that the smallest randomized
+quantiles deviate from uniform.
 </p>
 
-<ul class="org-ul">
-<li><a href="pitfalls.html">Technical zero-generating mechanism in scRNA-seq data</a></li>
-<li><a href="modes.html">Estimating the number of modes</a></li>
-<li><a href="browser.html">Interactive simulations</a></li>
-<li><a href="capture.html">Effect of capture rate on sampling variation</a></li>
-<li><a href="ash-estmode.html">Speed up ash mode estimation</a></li>
-<li><a href="mix-nb.html">Mixture of negative binomials</a></li>
-<li><a href="gamma.html">Convergence of Gamma deconvolution</a></li>
-<li><a href="poisson.html">Deconvolution of near-Poisson data</a></li>
-<li><a href="validation.html">Validation set log likelihood comparison</a></li>
-<li><a href="npmle.html">NPMLE on C1 spike-in data</a></li>
-<li><a href="deconv-de.html">Differential expression from distribution deconvolution</a></li>
-<li><a href="ep.html">Posterior approximation for scRNA-seq data</a></li>
-<li><a href="link.html">Link functions in Poisson LRA</a></li>
-<li><a href="random-effect.html">Distributional assumptions in Poisson LRA</a></li>
-<li><a href="mlcb.html">MLCB plots</a></li>
-<li><a href="pois-truncnorm.html">Poisson-truncated normal data</a></li>
-<li><a href="gamma-mix.html">Poisson-unimodal Gamma mixture model</a></li>
-<li><a href="pois-gam-lik.html">Poisson-Gamma log likelihood surface</a></li>
-<li><a href="vae.html">Variational autoencoders for scRNA-seq data</a></li>
-<li><a href="wnbmf.html">Weighted Negative Binomial Matrix Factorization</a></li>
-<li><a href="marker-genes.html">Marker genes in <i>in silico</i> mixtures</a>
-(<a href="http://shiny.stephenslab.uchicago.edu:5009/markers">interactive browser</a>)</li>
-<li><a href="brain-dronc-seq.html">Expression variation in human brain cells</a></li>
-<li><a href="immune-census.html">Expression variation in Census of Immune Cells</a></li>
-<li><a href="ash-pois-log-link.html">Log link in Poisson ash</a></li>
-</ul>
+<p>
+Here, we investigate
+<a href="https://github.com/stephens999/ashr/issues/114">problems in fitting a
+unimodal assumption under the log link</a>
+</p>
+
+\begin{align*}
+  x_i \mid x_i^+, \lambda_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
+  \theta_i = \ln \lambda_i &\sim g(\cdot) = \sum_{k=1}^K w_k \operatorname{Uniform}(\theta_0, a_k)
+\end{align*}
+</div>
+</div>
+
+<div id="outline-container-orgd1fc04b" class="outline-2">
+<h2 id="orgd1fc04b">Results</h2>
+<div class="outline-text-2" id="text-orgd1fc04b">
+</div>
+<div id="outline-container-orgb579b04" class="outline-3">
+<h3 id="orgb579b04">Simulated data</h3>
+<div class="outline-text-3" id="text-orgb579b04">
+<p>
+Simulate some near-NB ZINB data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R">dat <span class="org-ess-assignment">&lt;-</span> readRDS(<span class="org-string">"/scratch/midway2/aksarkar/modes/test-data/pois-mode-est.Rds"</span>)
+with(dat, summary(MASS::glm.nb(x ~ offset(log(s))))$twologlik / 2)
+</pre>
+</div>
+
+<p>
+Fit <code>ash_pois</code> using identity link.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R">fit0 <span class="org-ess-assignment">&lt;-</span> ashr::ash_pois(dat$x, dat$s, link=<span class="org-string">"identity"</span>, mixcompdist=<span class="org-string">"halfuniform"</span>)
+fit0$loglik
+</pre>
+</div>
+
+<p>
+<a href="https://github.com/aksarkar/ashr/commit/1b7b1d4ab2ccbe9fa6fa6752985b5a4d0dbfb777">Implement</a>
+<code>autoselect.mixsd</code> for log link.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R">lam <span class="org-ess-assignment">&lt;-</span> dat$x / dat$s
+eps = 1 / mean(dat$s)
+log_lam <span class="org-ess-assignment">&lt;-</span> log(lam + eps)
+se_log_lam <span class="org-ess-assignment">&lt;-</span> sqrt(var(lam) / (lam + eps)^2)
+mixsd <span class="org-ess-assignment">&lt;-</span> seq(.1 * min(se_log_lam), max(2 * sqrt(log_lam^2 - se_log_lam^2)), by=.5 * log(2))
+</pre>
+</div>
+
+<p>
+Fit <code>ash_pois</code> using log link. (The problem turned out to be
+<a href="https://github.com/aksarkar/ashr/commit/f3c3c32e2ae2579390d0847e4a2b1f8b9d4b2b50">mode
+estimation limits</a>.)
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R">fit1 <span class="org-ess-assignment">&lt;-</span> ashr::ash_pois(dat$x, dat$s, link=<span class="org-string">"log"</span>, mixcompdist=<span class="org-string">"halfuniform"</span>)
+fit1$loglik
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org58e4cf0" class="outline-3">
+<h3 id="org58e4cf0">Real data</h3>
+<div class="outline-text-3" id="text-org58e4cf0">
+<p>
+Load a real data example which is clearly unimodal, but departs from the
+fitted distribution.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R">dat <span class="org-ess-assignment">&lt;-</span> readRDS(<span class="org-string">"/scratch/midway2/aksarkar/modes/test-data/b-cell-data.Rds"</span>)
+query <span class="org-ess-assignment">&lt;-</span> dat[dat[<span class="org-string">"gene"</span>] == <span class="org-string">"ENSG00000019582"</span>,]
+</pre>
+</div>
+
+<p>
+As a baseline, fit a Gamma assumption.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R">with(query, summary(MASS::glm.nb(count ~ offset(log(size))))$twologlik / 2)
+</pre>
+</div>
+
+<p>
+Fit a unimodal assuymption under the identity link.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R">fit0 <span class="org-ess-assignment">&lt;-</span> ashr::ash_pois(query$count, query$size, link=<span class="org-string">"identity"</span>, mixcompdist=<span class="org-string">"halfuniform"</span>)
+fit0$loglik
+</pre>
+</div>
+
+<p>
+Fit a unimodal assuymption under the log link.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R">fit1 <span class="org-ess-assignment">&lt;-</span> ashr::ash_pois(query$count, query$size, link=<span class="org-string">"log"</span>, mixcompdist=<span class="org-string">"halfuniform"</span>)
+fit1$loglik
+</pre>
+</div>
+
+<p>
+Make sure the marginal PMF is
+sensible. (<a href="https://github.com/aksarkar/ashr/commit/95b80d71842158c101c58941921174a03db095b5">This
+was not implemented correctly before.</a>)
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R">any(fit1$fitted_g$pi <span class="org-ess-XopX">%*%</span> ashr:::comp_dens_conv(fit1$fitted_g, fit1$data) &gt; 1)
+any(ashr:::comp_dens_conv(fit1$fitted_g, fit1$data) &gt; 1)
+</pre>
+</div>
+
+<p>
+Implement the <a href="gof.html#org1e959d4">diagnostic</a> for the log link.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-R">fx = fit1$fitted_g$pi <span class="org-ess-XopX">%*%</span> ashr:::comp_dens_conv(fit1$fitted_g, fit1$data)
+N = nrow(query)
+K = length(fit1$fitted_g$a)
+Fx_1 = matrix(rep(0, N * K), N, K)
+<span class="org-ess-keyword">for</span> (i <span class="org-ess-keyword">in</span> 1:N) {
+  <span class="org-ess-keyword">for</span> (k <span class="org-ess-keyword">in</span> 1:K) {
+    <span class="org-ess-keyword">if</span> (fit1$fitted_g$pi[k] &lt; 1e-8) {
+      <span class="org-ess-keyword">next</span>
+    }
+    <span class="org-ess-keyword">else</span> <span class="org-ess-keyword">if</span> (query$count[i] == 0) {
+      Fx_1[i, k] = 0
+    }
+    <span class="org-ess-keyword">else</span> <span class="org-ess-keyword">if</span> (fit1$fitted_g$a[k] == fit1$fitted_g$b[k]) {
+      Fx_1[i, k] = ppois(query$count[i] - 1, lambda=query$size[i] * exp(fit1$fitted_g$a[k]))
+    }
+    <span class="org-ess-keyword">else</span> {
+      ak = min(fit1$fitted_g$a[k], fit1$fitted_g$b[k])
+      bk = max(fit1$fitted_g$a[k], fit1$fitted_g$b[k])
+      grid = seq(0, query$count[i], by=1)
+      Fx_1[i, k] = sum((pgamma(exp(bk), shape=grid + 1e-8, rate=query$size[i]) - pgamma(exp(ak), shape=grid + 1e-8, rate=query$size[i])) / (grid * (bk - ak)))
+    }
+  }
+}
+rpp = fit1$fitted_g$pi <span class="org-ess-XopX">%*%</span> Fx_1 + runif(n=N) * fx
+ks.test(rpp, punif)
+</pre>
+</div>
+</div>
+</div>
+</div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-27 Fri 19:33</p>
+<p class="date">Created: 2019-12-27 Fri 19:34</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

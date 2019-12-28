@@ -1,0 +1,135 @@
+#+TITLE: Log link in Poisson ash
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  We previously found [[file:gof.org::*Real data examples][several]]
+  [[file:brain-dronc-seq.org::*Unimodal assumption][instances]] of genes which
+  clearly exhibit unimodal expression variation (by inspection), but
+  significantly depart from the estimated unimodal distribution
+
+  \begin{align*}
+    x_i \mid x_i^+, \lambda_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
+    \lambda_i &\sim g(\cdot) = \sum_{k=1}^K w_k \operatorname{Uniform}(\lambda_0, a_k)
+  \end{align*}
+
+  where \(\lambda_0\) is the mode and we abuse notation to allow endpoints
+  \(a_k < \lambda_0\). One feature which appears to be common to these examples
+  is estimating the density near zero wrong, such that the smallest randomized
+  quantiles deviate from uniform.
+
+  Here, we investigate
+  [[https://github.com/stephens999/ashr/issues/114][problems in fitting a
+  unimodal assumption under the log link]]
+
+  \begin{align*}
+    x_i \mid x_i^+, \lambda_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
+    \theta_i = \ln \lambda_i &\sim g(\cdot) = \sum_{k=1}^K w_k \operatorname{Uniform}(\theta_0, a_k)
+  \end{align*}
+
+* Results
+** Simulated data
+
+   Simulate some near-NB ZINB data.
+
+   #+BEGIN_SRC R
+     dat <- readRDS("/scratch/midway2/aksarkar/modes/test-data/pois-mode-est.Rds")
+     with(dat, summary(MASS::glm.nb(x ~ offset(log(s))))$twologlik / 2)
+   #+END_SRC
+
+   Fit ~ash_pois~ using identity link.
+   
+   #+BEGIN_SRC R
+     fit0 <- ashr::ash_pois(dat$x, dat$s, link="identity", mixcompdist="halfuniform")
+     fit0$loglik
+   #+END_SRC
+
+   [[https://github.com/aksarkar/ashr/commit/1b7b1d4ab2ccbe9fa6fa6752985b5a4d0dbfb777][Implement]]
+   ~autoselect.mixsd~ for log link.
+
+   #+BEGIN_SRC R
+     lam <- dat$x / dat$s
+     eps = 1 / mean(dat$s)
+     log_lam <- log(lam + eps)
+     se_log_lam <- sqrt(var(lam) / (lam + eps)^2)
+     mixsd <- seq(.1 * min(se_log_lam), max(2 * sqrt(log_lam^2 - se_log_lam^2)), by=.5 * log(2))
+   #+END_SRC
+
+   Fit ~ash_pois~ using log link. (The problem turned out to be
+   [[https://github.com/aksarkar/ashr/commit/f3c3c32e2ae2579390d0847e4a2b1f8b9d4b2b50][mode
+   estimation limits]].)
+
+   #+BEGIN_SRC R
+     fit1 <- ashr::ash_pois(dat$x, dat$s, link="log", mixcompdist="halfuniform")
+     fit1$loglik
+   #+END_SRC
+
+** Real data
+   
+   Load a real data example which is clearly unimodal, but departs from the
+   fitted distribution.
+
+   #+BEGIN_SRC R
+     dat <- readRDS("/scratch/midway2/aksarkar/modes/test-data/b-cell-data.Rds")
+     query <- dat[dat["gene"] == "ENSG00000019582",]
+   #+END_SRC
+
+   As a baseline, fit a Gamma assumption.
+
+   #+BEGIN_SRC R
+     with(query, summary(MASS::glm.nb(count ~ offset(log(size))))$twologlik / 2)
+   #+END_SRC
+
+   Fit a unimodal assuymption under the identity link.
+
+   #+BEGIN_SRC R
+     fit0 <- ashr::ash_pois(query$count, query$size, link="identity", mixcompdist="halfuniform")
+     fit0$loglik
+   #+END_SRC
+
+   Fit a unimodal assuymption under the log link.
+
+   #+BEGIN_SRC R
+     fit1 <- ashr::ash_pois(query$count, query$size, link="log", mixcompdist="halfuniform")
+     fit1$loglik
+   #+END_SRC
+
+   Make sure the marginal PMF is
+   sensible. ([[https://github.com/aksarkar/ashr/commit/95b80d71842158c101c58941921174a03db095b5][This
+   was not implemented correctly before.]])
+
+   #+BEGIN_SRC R
+     any(fit1$fitted_g$pi %*% ashr:::comp_dens_conv(fit1$fitted_g, fit1$data) > 1)
+     any(ashr:::comp_dens_conv(fit1$fitted_g, fit1$data) > 1)
+   #+END_SRC
+
+   Implement the [[file:gof.org::*Poisson-unimodal goodness of
+   fit][diagnostic]] for the log link.
+
+   #+BEGIN_SRC R
+     fx = fit1$fitted_g$pi %*% ashr:::comp_dens_conv(fit1$fitted_g, fit1$data)
+     N = nrow(query)
+     K = length(fit1$fitted_g$a)
+     Fx_1 = matrix(rep(0, N * K), N, K)
+     for (i in 1:N) {
+       for (k in 1:K) {
+         if (fit1$fitted_g$pi[k] < 1e-8) {
+           next
+         }
+         else if (query$count[i] == 0) {
+           Fx_1[i, k] = 0
+         }
+         else if (fit1$fitted_g$a[k] == fit1$fitted_g$b[k]) {
+           Fx_1[i, k] = ppois(query$count[i] - 1, lambda=query$size[i] * exp(fit1$fitted_g$a[k]))
+         }
+         else {
+           ak = min(fit1$fitted_g$a[k], fit1$fitted_g$b[k])
+           bk = max(fit1$fitted_g$a[k], fit1$fitted_g$b[k])
+           grid = seq(0, query$count[i], by=1)
+           Fx_1[i, k] = sum((pgamma(exp(bk), shape=grid + 1e-8, rate=query$size[i]) - pgamma(exp(ak), shape=grid + 1e-8, rate=query$size[i])) / (grid * (bk - ak)))
+         }
+       }
+     }
+     rpp = fit1$fitted_g$pi %*% Fx_1 + runif(n=N) * fx
+     ks.test(rpp, punif)
+   #+END_SRC
