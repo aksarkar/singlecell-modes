@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-28 Sat 10:39 -->
+<!-- 2019-12-30 Mon 09:34 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Log link in Poisson ash</title>
@@ -259,6 +259,8 @@ for the JavaScript code in this tag.
 <div id="text-table-of-contents">
 <ul>
 <li><a href="#orgd6d6039">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#derivations">Derivations</a></li>
 <li><a href="#orgd1fc04b">Results</a>
 <ul>
 <li><a href="#orgb579b04">Simulated data</a></li>
@@ -301,6 +303,119 @@ unimodal assumption under the log link</a>
   x_i \mid x_i^+, \lambda_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
   \theta_i = \ln \lambda_i &\sim g(\cdot) = \sum_{k=1}^K w_k \operatorname{Uniform}(\theta_0, a_k)
 \end{align*}
+</div>
+</div>
+
+<div id="outline-container-org924e3d5" class="outline-2">
+<h2 id="setup"><a id="org924e3d5"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scipy.integrate <span class="org-keyword">as</span> si
+<span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org6f25dfc" class="outline-2">
+<h2 id="derivations"><a id="org6f25dfc"></a>Derivations</h2>
+<div class="outline-text-2" id="text-derivations">
+<p>
+Under the log link, we have
+</p>
+
+\begin{align*}
+  x_i \mid x_i^+, \lambda_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
+  \theta_i = \ln \lambda_i &\sim \operatorname{Uniform}(a, b)
+\end{align*}
+
+<p>
+and
+</p>
+
+\begin{align*}
+  \Pr(x_i = x) &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x; \exp(\ln x_i^+ + \theta_i))\,d\theta_i\\
+  &= \frac{1}{b - a} \int_a^b \frac{(x_i^+)^x}{\Gamma(x + 1)} \exp(\theta_i)^{x}\exp(-x_i^+ \exp(\theta_i))\,d\theta_i\\
+  &= \frac{1}{x (b - a)} \int_{\exp(a)}^{\exp(b)} \frac{(x_i^+)^x}{\Gamma(x)} \lambda_i^{x - 1}\exp(-x_i^+ \lambda_i)\,d\lambda_i\\
+  &= \frac{1}{x (b - a)} \left( F_\Gamma(\exp(b); x, x_i^+) - F_\Gamma(\exp(a); x, x_i^+) \right)\\
+  \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{k (b - a)} \left( F_\Gamma(\exp(b); k, x_i^+) - F_\Gamma(\exp(a); k, x_i^+) \right)
+\end{align*}
+
+<p>
+where \(F_\Gamma(\cdot; \alpha, \beta)\) denotes the CDF of the Gamma
+distribution with shape \(\alpha\) and rate \(\beta\). This derivation
+breaks down for \(\Pr(x_i = 0)\), because the Gamma distribution is not
+defined for \(\alpha = 0\), and because there is a factor of \(1 /
+   x_i\). Instead,
+</p>
+
+\begin{align*}
+  \Pr(x_i = 0) &= \frac{1}{b - a} \int_{\exp(a)}^{\exp(b)} \frac{\exp(-x_i^+ \lambda_i)}{\lambda_i}\,d\lambda_i\\
+  &= \frac{1}{b - a} \int_{-x_i^+ \exp(a)}^{-x_i^+ \exp(b)} \frac{\exp(t)}{t}\,dt\\
+  &= \frac{\operatorname{Ei}(-x_i^+ \exp(b)) - \operatorname{Ei}(-x_i^+ \exp(a))}{b - a}
+\end{align*}
+
+<p>
+where \(\operatorname{Ei}\) is the <a href="https://dlmf.nist.gov/6.2#E5">exponential integral</a>.
+</p>
+
+<p>
+Compare the estimate of \(\Pr(x_i = 0 \mid x_i+)\) using numerical
+integration, the special case analytic formula involving
+\(\operatorname{Ei}\), and introducing a pseudocount into the formula
+involving \(F_\Gamma\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Typical values</span>
+<span class="org-variable-name">s</span> = np.logspace(3, 6, 10)
+<span class="org-variable-name">a</span> = np.log(1e-3)
+<span class="org-variable-name">b</span> = np.log(1.1e-3)
+
+<span class="org-comment-delimiter"># </span><span class="org-comment">Numerical integration</span>
+<span class="org-variable-name">px_0</span> = np.array([si.quad(<span class="org-keyword">lambda</span> x: st.poisson(mu=s_j * np.exp(x)).pmf(0), a, b)[0] / (b - a) <span class="org-keyword">for</span> s_j <span class="org-keyword">in</span> s])
+
+<span class="org-comment-delimiter"># </span><span class="org-comment">Analytic</span>
+<span class="org-variable-name">px_1</span> = (sp.expi(-s * np.exp(b)) - sp.expi(-s * np.exp(a))) / (b - a)
+
+<span class="org-comment-delimiter"># </span><span class="org-comment">Follow ashr</span>
+<span class="org-variable-name">eps</span> = 1e-5
+<span class="org-variable-name">F</span> = st.gamma(a=eps, scale=1 / s).cdf
+<span class="org-variable-name">px_2</span> = (F(np.exp(b)) - F(np.exp(a))) / (eps * (b - a))
+
+pd.DataFrame({<span class="org-string">'quad'</span>: px_0, <span class="org-string">'Ei'</span>: px_1, <span class="org-string">'F_gamma'</span>: px_2}, index=s)
+</pre>
+</div>
+
+<pre class="example">
+quad             Ei       F_gamma
+1000.000000      3.503616e-01   3.503616e-01  3.503638e-01
+2154.434690      1.045057e-01   1.045057e-01  1.045071e-01
+4641.588834      7.742459e-03   7.742459e-03  7.742625e-03
+10000.000000     2.892313e-05   2.892313e-05  2.892399e-05
+21544.346900     1.834200e-10   1.834200e-10  2.329705e-10
+46415.888336     1.524500e-21   1.524500e-21  0.000000e+00
+100000.000000    3.864693e-45   3.864693e-45  0.000000e+00
+215443.469003    1.317091e-95   1.317091e-95  0.000000e+00
+464158.883361   5.910437e-204  5.910437e-204  0.000000e+00
+1000000.000000   0.000000e+00   0.000000e+00  0.000000e+00
+</pre>
 </div>
 </div>
 
@@ -475,7 +590,7 @@ ks.test(rpp, punif)
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-28 Sat 10:39</p>
+<p class="date">Created: 2019-12-30 Mon 09:34</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

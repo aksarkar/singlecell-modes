@@ -27,6 +27,137 @@
     \theta_i = \ln \lambda_i &\sim g(\cdot) = \sum_{k=1}^K w_k \operatorname{Uniform}(\theta_0, a_k)
   \end{align*}
 
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar
+
+  #+RESULTS:
+  : Submitted batch job 64613123
+
+  #+BEGIN_SRC ipython
+    import numpy as np
+    import pandas as pd
+    import scipy.integrate as si
+    import scipy.special as sp
+    import scipy.stats as st
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[12]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+* Derivations
+  :PROPERTIES:
+  :CUSTOM_ID: derivations
+  :END:
+
+   Under the log link, we have
+
+   \begin{align*}
+     x_i \mid x_i^+, \lambda_i &\sim \operatorname{Poisson}(x_i^+ \lambda_i)\\
+     \theta_i = \ln \lambda_i &\sim \operatorname{Uniform}(a, b)
+   \end{align*}
+
+   and
+
+   \begin{align*}
+     \Pr(x_i = x) &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x; \exp(\ln x_i^+ + \theta_i))\,d\theta_i\\
+     &= \frac{1}{b - a} \int_a^b \frac{(x_i^+)^x}{\Gamma(x + 1)} \exp(\theta_i)^{x}\exp(-x_i^+ \exp(\theta_i))\,d\theta_i\\
+     &= \frac{1}{x (b - a)} \int_{\exp(a)}^{\exp(b)} \frac{(x_i^+)^x}{\Gamma(x)} \lambda_i^{x - 1}\exp(-x_i^+ \lambda_i)\,d\lambda_i\\
+     &= \frac{1}{x (b - a)} \left( F_\Gamma(\exp(b); x, x_i^+) - F_\Gamma(\exp(a); x, x_i^+) \right)\\
+     \Pr(x_i \leq x) &= \sum_{k=0}^{x} \frac{1}{k (b - a)} \left( F_\Gamma(\exp(b); k, x_i^+) - F_\Gamma(\exp(a); k, x_i^+) \right)
+   \end{align*}
+
+   where \(F_\Gamma(\cdot; \alpha, \beta)\) denotes the CDF of the Gamma
+   distribution with shape \(\alpha\) and rate \(\beta\). This derivation
+   breaks down for \(\Pr(x_i = 0)\), because the Gamma distribution is not
+   defined for \(\alpha = 0\), and because there is a factor of \(1 /
+   x_i\). Instead,
+
+   \begin{align*}
+     \Pr(x_i = 0) &= \frac{1}{b - a} \int_{\exp(a)}^{\exp(b)} \frac{\exp(-x_i^+ \lambda_i)}{\lambda_i}\,d\lambda_i\\
+     &= \frac{1}{b - a} \int_{-x_i^+ \exp(a)}^{-x_i^+ \exp(b)} \frac{\exp(t)}{t}\,dt\\
+     &= \frac{\operatorname{Ei}(-x_i^+ \exp(b)) - \operatorname{Ei}(-x_i^+ \exp(a))}{b - a}
+   \end{align*}
+
+   where \(\operatorname{Ei}\) is the [[https://dlmf.nist.gov/6.2#E5][exponential integral]].
+
+   Compare the estimate of \(\Pr(x_i = 0 \mid x_i+)\) using numerical
+   integration, the special case analytic formula involving
+   \(\operatorname{Ei}\), and introducing a pseudocount into the formula
+   involving \(F_\Gamma\).
+
+   #+BEGIN_SRC ipython
+     # Typical values
+     s = np.logspace(3, 6, 10)
+     a = np.log(1e-3)
+     b = np.log(1.1e-3)
+
+     # Numerical integration
+     px_0 = np.array([si.quad(lambda x: st.poisson(mu=s_j * np.exp(x)).pmf(0), a, b)[0] / (b - a) for s_j in s])
+
+     # Analytic
+     px_1 = (sp.expi(-s * np.exp(b)) - sp.expi(-s * np.exp(a))) / (b - a)
+
+     # Follow ashr
+     eps = 1e-5
+     F = st.gamma(a=eps, scale=1 / s).cdf
+     px_2 = (F(np.exp(b)) - F(np.exp(a))) / (eps * (b - a))
+
+     pd.DataFrame({'quad': px_0, 'Ei': px_1, 'F_gamma': px_2}, index=s)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[50]:
+   #+BEGIN_EXAMPLE
+     quad             Ei       F_gamma
+     1000.000000      3.503616e-01   3.503616e-01  3.503638e-01
+     2154.434690      1.045057e-01   1.045057e-01  1.045071e-01
+     4641.588834      7.742459e-03   7.742459e-03  7.742625e-03
+     10000.000000     2.892313e-05   2.892313e-05  2.892399e-05
+     21544.346900     1.834200e-10   1.834200e-10  2.329705e-10
+     46415.888336     1.524500e-21   1.524500e-21  0.000000e+00
+     100000.000000    3.864693e-45   3.864693e-45  0.000000e+00
+     215443.469003    1.317091e-95   1.317091e-95  0.000000e+00
+     464158.883361   5.910437e-204  5.910437e-204  0.000000e+00
+     1000000.000000   0.000000e+00   0.000000e+00  0.000000e+00
+   #+END_EXAMPLE
+   :END:
+
 * Results
 ** Simulated data
 
