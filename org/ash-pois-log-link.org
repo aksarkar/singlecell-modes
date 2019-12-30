@@ -115,16 +115,16 @@
 
    where \(\operatorname{Ei}\) is the [[https://dlmf.nist.gov/6.2#E5][exponential integral]].
 
-   Compare the estimate of \(\Pr(x_i = 0 \mid x_i+)\) using numerical
+   Compare the estimate of \(\ln \Pr(x_i = 0 \mid x_i+)\) using numerical
    integration, the special case analytic formula involving
    \(\operatorname{Ei}\), and introducing a pseudocount into the formula
    involving \(F_\Gamma\).
 
    #+BEGIN_SRC ipython
      # Typical values
-     s = np.logspace(3, 6, 10)
-     a = np.log(1e-3)
-     b = np.log(1.1e-3)
+     s = np.logspace(3, 6, 20)
+     a = np.log(2e-3)
+     b = np.log(3e-3)
 
      # Numerical integration
      px_0 = np.array([si.quad(lambda x: st.poisson(mu=s_j * np.exp(x)).pmf(0), a, b)[0] / (b - a) for s_j in s])
@@ -137,24 +137,34 @@
      F = st.gamma(a=eps, scale=1 / s).cdf
      px_2 = (F(np.exp(b)) - F(np.exp(a))) / (eps * (b - a))
 
-     pd.DataFrame({'quad': px_0, 'Ei': px_1, 'F_gamma': px_2}, index=s)
+     np.log(pd.DataFrame({'quad': px_0, 'Ei': px_1, 'F_gamma': px_2}, index=s))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[50]:
+   # Out[55]:
    #+BEGIN_EXAMPLE
-     quad             Ei       F_gamma
-     1000.000000      3.503616e-01   3.503616e-01  3.503638e-01
-     2154.434690      1.045057e-01   1.045057e-01  1.045071e-01
-     4641.588834      7.742459e-03   7.742459e-03  7.742625e-03
-     10000.000000     2.892313e-05   2.892313e-05  2.892399e-05
-     21544.346900     1.834200e-10   1.834200e-10  2.329705e-10
-     46415.888336     1.524500e-21   1.524500e-21  0.000000e+00
-     100000.000000    3.864693e-45   3.864693e-45  0.000000e+00
-     215443.469003    1.317091e-95   1.317091e-95  0.000000e+00
-     464158.883361   5.910437e-204  5.910437e-204  0.000000e+00
-     1000000.000000   0.000000e+00   0.000000e+00  0.000000e+00
+     quad          Ei    F_gamma
+     1000.000000      -2.425632   -2.425632  -2.425617
+     1438.449888      -3.464673   -3.464673  -3.464655
+     2069.138081      -4.935567   -4.935567  -4.935546
+     2976.351442      -7.008214   -7.008214  -7.008189
+     4281.332399      -9.918025   -9.918025  -9.917996
+     6158.482111     -13.999734  -13.999734 -13.999714
+     8858.667904     -19.741557  -19.741557 -19.746444
+     12742.749857    -27.858046  -27.858046       -inf
+     18329.807108    -39.384811  -39.384811       -inf
+     26366.508987    -55.813991  -55.813991       -inf
+     37926.901907    -79.292823  -79.292823       -inf
+     54555.947812   -112.910591 -112.910591       -inf
+     78475.997035   -161.111525 -161.111525       -inf
+     112883.789168  -230.288764 -230.288764       -inf
+     162377.673919  -329.638765 -329.638765       -inf
+     233572.146909  -472.390342 -472.390345       -inf
+     335981.828628  -677.572498 -677.572626       -inf
+     483293.023857         -inf        -inf       -inf
+     695192.796178         -inf        -inf       -inf
+     1000000.000000        -inf        -inf       -inf
    #+END_EXAMPLE
    :END:
 
