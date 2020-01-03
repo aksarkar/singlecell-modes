@@ -1,0 +1,51 @@
+This repository contains analysis code accompanying the paper
+
+Sarkar and Stephens. "A general statistical framework clarifies confusion in
+scRNA-seq data analysis" (working title)
+
+The minimal specification of the working environment is
+
+#+BEGIN_SRC shell
+  xargs -L100 conda create -n scmodes -c aksarkar <<EOF
+  colorcet
+  ipython
+  jupyter_console
+  matplotlib==3.0.3
+  numpy
+  pandas
+  pytest
+  python=3.6.9=h265db76_0
+  pytorch
+  r-ashr
+  r-descend
+  r-devtools
+  r-expint
+  r-glmpca
+  r-pracma
+  r-roxygen2
+  r-testthat
+  rpy2
+  scikit-learn
+  scipy
+  EOF
+#+END_SRC
+
+#+BEGIN_SRC shell
+  source activate scmodes
+  xargs -L100 pip install <<EOF  
+  git+https://github.com/aksarkar/wlra.git#egg=wlra
+  git+https://github.com/aksarkar/scqtl.git#egg=scqtl
+  h5py==2.9.0
+  scvi
+  scanpy
+  EOF
+#+END_SRC
+
+#+BEGIN_SRC shell
+  pip install -e /project2/mstephens/aksarkar/projects/scmodes/
+#+END_SRC
+
+We need to
+[[https://files.pythonhosted.org/packages/57/ae/18217b57ba3e4bb8a44ecbfc161ed065f6d1b90c75d404bd6ba8d6f024e2/numpy_groupies-0.9.10.tar.gz][mix
+pip and conda]] due to incompatibilities in the biopython builds of
+scvi/scanpy.
