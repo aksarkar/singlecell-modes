@@ -42,3 +42,4 @@ Technical details:
 - [[file:brain-dronc-seq.org][Expression variation in human brain cells]]
 - [[file:immune-census.org][Expression variation in Census of Immune Cells]]
 - [[file:ash-pois-log-link.org][Log link in Poisson ash]]
+- [[file:chromium3.org][Expression variation in 10X v3 PBMC data]]

@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2020-01-08 Wed 21:15 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expression variation in 10X v3 PBMC data</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Expression variation in 10X v3 PBMC data</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org8770795">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#orgdf07561">Data</a></li>
+<li><a href="#orgb2948c4">Results</a>
+<ul>
+<li><a href="#org4669e35">Gamma assumption</a></li>
+<li><a href="#org0cf1aad">Point-Gamma assumption</a></li>
+<li><a href="#org4748d88">Unimodal assumption</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org8770795" class="outline-2">
+<h2 id="org8770795">Introduction</h2>
+<div class="outline-text-2" id="text-org8770795">
+<p>
+We previously found no evidence of multi-modal gene expression in scRNA-seq
+of 68K PBMCs and 540K immune
+cells. <a href="https://nbviewer.jupyter.org/urls/dl.dropbox.com/s/ys3814yekrm19kd/Analyses%20regarding%20genes%20with%20multimodal%20expression%20distribution%20.ipynb">Florian
+Wagner suggested</a> this could be because the noise introduced by the
+experiments was too high, and that a more sensitive experiment would reveal
+multi-modal patterns. As a specific example, he analyzed scRNA-seq of
+<a href="https://support.10xgenomics.com/single-cell-gene-expression/datasets/3.0.0/pbmc_10k_v3">10K
+PBMCs generated by the 10X platform, version 3</a>. Here, we repeat our
+systematic analysis on this data set.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org5994f43" class="outline-2">
+<h2 id="setup"><a id="org5994f43"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<pre class="example">
+Submitted batch job 64832637
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> anndata
+<span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scanpy
+<span class="org-keyword">import</span> scipy.io <span class="org-keyword">as</span> si
+<span class="org-keyword">import</span> scipy.sparse <span class="org-keyword">as</span> ss
+<span class="org-keyword">import</span> scmodes
+<span class="org-keyword">import</span> scmodes.ebpm.sgd
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orgdf07561" class="outline-2">
+<h2 id="orgdf07561">Data</h2>
+<div class="outline-text-2" id="text-orgdf07561">
+<p>
+Read the count matrix.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = (si.mmread(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/pbmc_10k_v3/filtered_feature_bc_matrix/matrix.mtx.gz'</span>)
+     .tocsr())
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">x.shape
+</pre>
+</div>
+
+<pre class="example">
+(33538, 11769)
+
+</pre>
+
+<p>
+Read the metadata.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">barcodes</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/pbmc_10k_v3/filtered_feature_bc_matrix/barcodes.tsv.gz'</span>, header=<span class="org-constant">None</span>, sep=<span class="org-string">'\t'</span>)
+<span class="org-variable-name">barcodes.columns</span> = [<span class="org-string">'barcode'</span>]
+<span class="org-variable-name">genes</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/pbmc_10k_v3/filtered_feature_bc_matrix/features.tsv.gz'</span>, header=<span class="org-constant">None</span>, sep=<span class="org-string">'\t'</span>)
+<span class="org-variable-name">genes.columns</span> = [<span class="org-string">'ensg'</span>, <span class="org-string">'name'</span>, <span class="org-string">'type'</span>]
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">data</span> = anndata.AnnData(x.T, obs=barcodes, var=genes)
+</pre>
+</div>
+
+<p>
+Keep genes with a non-zero observation in at least 1 cell.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">scanpy.pp.filter_genes(data, min_cells=1)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">data.shape
+</pre>
+</div>
+
+<pre class="example">
+(11769, 23036)
+
+</pre>
+
+<p>
+Write out the filtered data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">data.write(<span class="org-string">'/scratch/midway2/aksarkar/modes/10k_pbmc_v3.h5ad'</span>)
+</pre>
+</div>
+
+<p>
+Read the filtered data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">data</span> = anndata.read_h5ad(<span class="org-string">'/scratch/midway2/aksarkar/modes/10k_pbmc_v3.h5ad'</span>)
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orgb2948c4" class="outline-2">
+<h2 id="orgb2948c4">Results</h2>
+<div class="outline-text-2" id="text-orgb2948c4">
+</div>
+<div id="outline-container-org4669e35" class="outline-3">
+<h3 id="org4669e35">Gamma assumption</h3>
+<div class="outline-text-3" id="text-org4669e35">
+<p>
+Fit a Gamma distribution to expression variation at each gene.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gamma_res</span> = scmodes.ebpm.sgd.ebpm_gamma(data.X, batch_size=128, lr=5e-2, max_epochs=40, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">gamma_res</span> = pd.DataFrame(np.vstack(gamma_res[:-1]).T, columns=[<span class="org-string">'log_mu'</span>, <span class="org-string">'neg_log_phi'</span>])
+</pre>
+</div>
+
+<p>
+Write out the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">gamma_res.to_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/10k_pbmc_v3-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
+</pre>
+</div>
+
+<p>
+Test GOF at each gene.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">s</span> = data.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
+<span class="org-variable-name">gamma_gof</span> = []
+<span class="org-keyword">for</span> j, (gene, (log_mu, neg_log_phi)) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(gamma_res.iterrows()):
+  <span class="org-variable-name">d</span>, <span class="org-variable-name">p</span> = scmodes.benchmark.gof._gof(
+    x=data.X[:,j].A.ravel(),
+    cdf=scmodes.benchmark.gof._zig_cdf,
+    pmf=scmodes.benchmark.gof._zig_pmf,
+    size=s,
+    log_mu=log_mu,
+    log_phi=-neg_log_phi)
+  gamma_gof.append([gene, d, p])
+<span class="org-variable-name">gamma_gof</span> = pd.DataFrame(gamma_gof, columns=[<span class="org-string">'gene'</span>, <span class="org-string">'stat'</span>, <span class="org-string">'p'</span>])
+</pre>
+</div>
+
+<p>
+Write the GOF results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">gamma_gof.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/10k_pbmc_v3-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
+</pre>
+</div>
+
+<p>
+Plot the histogram of GOF \(p\)-values.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(2, 2)
+plt.hist(gamma_gof[<span class="org-string">'p'</span>].values.ravel(), bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+plt.axhline(y=1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.xlim(0, 1)
+plt.xlabel(<span class="org-string">'$p$-value'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/chromium3.org/gamma-gof-hist.png" alt="gamma-gof-hist.png">
+</p>
+</div>
+
+<p>
+Report the fraction of genes which significantly depart from Gamma
+(Bonferroni-corrected \(p < 0.05\)).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">sig</span> = gamma_gof[gamma_gof[<span class="org-string">'p'</span>] &lt; 0.05 / gamma_gof.shape[0]]
+sig.shape[0] / gamma_gof.shape[0]
+</pre>
+</div>
+
+<pre class="example">
+0.046188574405278696
+
+</pre>
+</div>
+</div>
+
+<div id="outline-container-org0cf1aad" class="outline-3">
+<h3 id="org0cf1aad">Point-Gamma assumption</h3>
+<div class="outline-text-3" id="text-org0cf1aad">
+<p>
+Fit a point-Gamma assumption distribution to expression variation.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gamma_res</span> = pd.read_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/10k_pbmc_v3-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<span class="org-variable-name">point_gamma_res</span> = scmodes.ebpm.sgd.ebpm_point_gamma(
+  data.X,
+  init=(gamma_res[<span class="org-string">'log_mu'</span>].values.reshape(1, -1),
+        gamma_res[<span class="org-string">'neg_log_phi'</span>].values.reshape(1, -1)),
+  batch_size=128,
+  lr=5e-2,
+  max_epochs=20,
+  verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">point_gamma_res</span> = pd.DataFrame(np.vstack(point_gamma_res[:-1]).T, columns=[<span class="org-string">'log_mu'</span>, <span class="org-string">'neg_log_phi'</span>, <span class="org-string">'logodds'</span>])
+</pre>
+</div>
+
+<p>
+Write out the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">point_gamma_res.to_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/10k_pbmc_v3-point-gamma.txt.gz'</span>)
+</pre>
+</div>
+
+<p>
+Test for GOF.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">point_gamma_gof</span> = []
+<span class="org-keyword">for</span> j, (gene, (log_mu, neg_log_phi, logodds)) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(point_gamma_res.iterrows()):
+  <span class="org-variable-name">d</span>, <span class="org-variable-name">p</span> = scmodes.benchmark.gof._gof(
+    x=data.X[:,j].A.ravel(),
+    cdf=scmodes.benchmark.gof._zig_cdf,
+    pmf=scmodes.benchmark.gof._zig_pmf,
+    size=s,
+    log_mu=log_mu,
+    log_phi=-neg_log_phi,
+    logodds=logodds)
+  point_gamma_gof.append([gene, d, p])
+<span class="org-variable-name">point_gamma_gof</span> = pd.DataFrame(point_gamma_gof, columns=[<span class="org-string">'gene'</span>, <span class="org-string">'stat'</span>, <span class="org-string">'p'</span>])
+</pre>
+</div>
+
+<p>
+Write out the GOF results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">point_gamma_gof.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/10k_pbmc_v3-point-gamma.txt.gz'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(2, 2)
+plt.hist(point_gamma_gof[<span class="org-string">'p'</span>].values.ravel(), bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+plt.axhline(y=1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.xlim(0, 1)
+plt.xlabel(<span class="org-string">'$p$-value'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/chromium3.org/point-gamma-got-hist.png" alt="point-gamma-got-hist.png">
+</p>
+</div>
+
+<p>
+Report the fraction of genes which significantly depart from Gamma
+(Bonferroni-corrected \(p < 0.05\)).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">sig</span> = point_gamma_gof[point_gamma_gof[<span class="org-string">'p'</span>] &lt; 0.05 / point_gamma_gof.shape[0]]
+sig.shape[0] / point_gamma_gof.shape[0]
+</pre>
+</div>
+
+<pre class="example">
+0.04575447126237194
+
+</pre>
+</div>
+</div>
+
+<div id="outline-container-org4748d88" class="outline-3">
+<h3 id="org4748d88">Unimodal assumption</h3>
+<div class="outline-text-3" id="text-org4748d88">
+<p>
+Extract all genes which departed from a Gamma assumption on expression
+variation.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">query</span> = data[:,gamma_gof[<span class="org-string">'p'</span>] &lt; 0.05 / gamma_gof.shape[0]]
+query.shape
+</pre>
+</div>
+
+<pre class="example">
+(11769, 1064)
+
+</pre>
+
+<p>
+Write out the data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">query.write(<span class="org-string">'/scratch/midway2/aksarkar/modes/unimodal-data/10k_pbmcs_v3.h5ad'</span>)
+</pre>
+</div>
+
+<p>
+Test for goodness of fit of UA.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --time=24:00:00 --job-name=gof
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">import anndata</span>
+<span class="org-sh-heredoc">import multiprocessing as mp</span>
+<span class="org-sh-heredoc">import pandas as pd</span>
+<span class="org-sh-heredoc">import scmodes</span>
+<span class="org-sh-heredoc">with mp.Pool() as pool:</span>
+<span class="org-sh-heredoc">  data = anndata.read_h5ad('/scratch/midway2/aksarkar/modes/unimodal-data/10k_pbmcs_v3.h5ad')</span>
+<span class="org-sh-heredoc">  x = pd.DataFrame(data.X.A, index=data.obs['barcode'], columns=data.var['name'])</span>
+<span class="org-sh-heredoc">  unimodal_gof_res = scmodes.benchmark.evaluate_gof(x, methods=['unimodal'], pool=pool)</span>
+<span class="org-sh-heredoc">  unimodal_gof_res.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/10k_pbmcs_v3-unimodal.txt.gz', sep='\t')</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<p>
+Read the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">unimodal_gof_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/10k_pbmcs_v3-unimodal.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
+</pre>
+</div>
+
+<p>
+Plot the histogram of GOF \(p\)-values.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(2, 2)
+plt.hist(unimodal_gof_res[<span class="org-string">'p'</span>].values.ravel(), bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+plt.axhline(y=1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.xlim(0, 1)
+plt.xlabel(<span class="org-string">'$p$-value'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/chromium3.org/unimodal-gof-hist.png" alt="unimodal-gof-hist.png">
+</p>
+</div>
+
+<p>
+Report the fraction of genes which significantly depart from UA
+(Bonferroni-corrected \(p < 0.05\)).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">sig</span> = unimodal_gof_res[unimodal_gof_res[<span class="org-string">'p'</span>] &lt; 0.05 / unimodal_gof_res.shape[0]]
+sig.shape[0] / unimodal_gof_res.shape[0]
+</pre>
+</div>
+
+<pre class="example">
+0.1156015037593985
+
+</pre>
+
+<p>
+Plot the top genes which significantly depart from UA.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 4)
+fig.set_size_inches(8, 4)
+<span class="org-keyword">for</span> a, (j, row) <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), sig.sort_values(<span class="org-string">'p'</span>).iterrows()):
+  <span class="org-variable-name">query</span> = data.X[:,j].A.ravel()
+  a.hist(query, bins=np.arange(query.<span class="org-builtin">max</span>() + 2), color=<span class="org-string">'k'</span>)
+  a.set_title(row[<span class="org-string">'gene'</span>])
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
+  a[-1].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/chromium3.org/unimodal-ex.png" alt="unimodal-ex.png">
+</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2020-01-08 Wed 21:15</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>
