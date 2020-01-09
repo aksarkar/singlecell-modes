@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-01-07 Tue 11:34 -->
+<!-- 2020-01-08 Wed 21:15 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Log link in Poisson ash</title>
@@ -463,6 +463,11 @@ with(dat, summary(MASS::glm.nb(x ~ offset(log(s))))$twologlik / 2)
 </pre>
 </div>
 
+<pre class="example">
+-2008.50373054974
+
+</pre>
+
 <p>
 Fit <code>ash_pois</code> using identity link.
 </p>
@@ -473,19 +478,15 @@ fit0$loglik
 </pre>
 </div>
 
+<pre class="example">
+-2008.27125771255
+
+</pre>
+
 <p>
 <a href="https://github.com/aksarkar/ashr/commit/1b7b1d4ab2ccbe9fa6fa6752985b5a4d0dbfb777">Implement</a>
 <code>autoselect.mixsd</code> for log link.
 </p>
-
-<div class="org-src-container">
-<pre class="src src-R">lam <span class="org-ess-assignment">&lt;-</span> dat$x / dat$s
-eps = 1 / mean(dat$s)
-log_lam <span class="org-ess-assignment">&lt;-</span> log(lam + eps)
-se_log_lam <span class="org-ess-assignment">&lt;-</span> sqrt(var(lam) / (lam + eps)^2)
-mixsd <span class="org-ess-assignment">&lt;-</span> seq(.1 * min(se_log_lam), max(2 * sqrt(log_lam^2 - se_log_lam^2)), by=.5 * log(2))
-</pre>
-</div>
 
 <p>
 Fit <code>ash_pois</code> using log link. (The problem turned out to be
@@ -498,6 +499,11 @@ estimation limits</a>.)
 fit1$loglik
 </pre>
 </div>
+
+<pre class="example">
+-2008.26590367036
+
+</pre>
 </div>
 </div>
 
@@ -524,8 +530,13 @@ As a baseline, fit a Gamma assumption.
 </pre>
 </div>
 
+<pre class="example">
+-31414.5999341206
+
+</pre>
+
 <p>
-Fit a unimodal assuymption under the identity link.
+Fit a unimodal assumption under the identity link.
 </p>
 
 <div class="org-src-container">
@@ -533,6 +544,11 @@ Fit a unimodal assuymption under the identity link.
 fit0$loglik
 </pre>
 </div>
+
+<pre class="example">
+-31395.0538031464
+
+</pre>
 
 <p>
 Report the diagnostic test statistic and p-value.
@@ -553,6 +569,11 @@ fit1$loglik
 </pre>
 </div>
 
+<pre class="example">
+-31394.8462180293
+
+</pre>
+
 <p>
 Make sure the marginal PMF is
 sensible. (<a href="https://github.com/aksarkar/ashr/commit/95b80d71842158c101c58941921174a03db095b5">This
@@ -564,10 +585,20 @@ was not implemented correctly before.</a>)
 </pre>
 </div>
 
+<pre class="example">
+FALSE
+
+</pre>
+
 <div class="org-src-container">
 <pre class="src src-R">any(ashr:::comp_dens_conv(fit1$fitted_g, fit1$data) &gt; 1)
 </pre>
 </div>
+
+<pre class="example">
+FALSE
+
+</pre>
 
 <p>
 Implement the <a href="gof.html#org1e959d4">diagnostic</a> for the log link.
@@ -593,13 +624,10 @@ Fx_1 = matrix(rep(0, N * K), N, K)
     <span class="org-ess-keyword">else</span> {
       ak = min(fit1$fitted_g$a[k], fit1$fitted_g$b[k])
       bk = max(fit1$fitted_g$a[k], fit1$fitted_g$b[k])
-      <span class="org-comment-delimiter">## </span><span class="org-comment">Important: the required integral cannot be expressed in terms of the</span>
-      <span class="org-comment-delimiter">## </span><span class="org-comment">Gamma CDF for x = 0</span>
-      Fx_1[i, k] = integrate(<span class="org-ess-keyword">function</span> (log_lam) {dpois(0, query$size[i] * exp(log_lam))}, ak, bk)$value
-      <span class="org-ess-keyword">if</span> (query$count[i] &gt; 1) {
-        grid = seq(1, query$count[i] - 1, by=1)
-        Fx_1[i, k] = Fx_1[i, k] + sum((pgamma(exp(bk), shape=grid, rate=query$size[i]) - pgamma(exp(ak), shape=grid, rate=query$size[i])) / (grid * (bk - ak)))        
-      }
+      grid = seq(0, query$count[i] - 1)
+      Fx_1[i, k] = sum((expint::gammainc(grid, query$size[i] * exp(ak)) -
+                          expint::gammainc(grid, query$size[i] * exp(bk))) /
+                         (gamma(grid + 1) * (bk - ak)))
     }
   }
 }
@@ -608,16 +636,21 @@ Fx_1 = matrix(rep(0, N * K), N, K)
 
 <div class="org-src-container">
 <pre class="src src-R">rpp = drop(Fx_1 <span class="org-ess-XopX">%*%</span> fit1$fitted_g$pi) + runif(n=N) * fx
-ks.test(rpp, punif)
+ks.test(rpp, punif)$p.value
 </pre>
 </div>
+
+<pre class="example">
+0.00683832270839435
+
+</pre>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-01-07 Tue 11:34</p>
+<p class="date">Created: 2020-01-08 Wed 21:15</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

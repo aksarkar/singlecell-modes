@@ -32,6 +32,31 @@
   :CUSTOM_ID: setup
   :END:
 
+  #+BEGIN_SRC sh :session mstephens :exports none
+    srun --pty --partition=mstephens bash
+    source activate scmodes
+    cd /project2/mstephens/aksarkar/.local/src/ashr
+    export TMPDIR=/scratch/midway2/aksarkar/
+    R --quiet --no-save
+  #+END_SRC
+
+  #+RESULTS:
+  : 
+  : source activate scmodes
+  : source activate scmodes
+  : cd /project2/mstephens/aksarkar/.local/src/ashr
+  : cd /project2/mstephens/aksarkar/.local/src/ashr
+  : export TMPDIR=/scratch/midway2/aksarkar/
+  : R --quiet --no-save
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (load-library "aksarkar-ess")
+    (setq org-babel-temporary-directory "/scratch/midway2/aksarkar/")
+    (with-current-buffer "mstephens" (ess-remote "R" 'R))
+  #+END_SRC
+
+  #+RESULTS:
+
   #+BEGIN_SRC emacs-lisp :exports none
     (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
     (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
@@ -191,6 +216,9 @@
      with(dat, summary(MASS::glm.nb(x ~ offset(log(s))))$twologlik / 2)
    #+END_SRC
 
+   #+RESULTS:
+   : -2008.50373054974
+
    Fit ~ash_pois~ using identity link.
    
    #+BEGIN_SRC R
@@ -198,16 +226,11 @@
      fit0$loglik
    #+END_SRC
 
+   #+RESULTS:
+   : -2008.27125771255
+
    [[https://github.com/aksarkar/ashr/commit/1b7b1d4ab2ccbe9fa6fa6752985b5a4d0dbfb777][Implement]]
    ~autoselect.mixsd~ for log link.
-
-   #+BEGIN_SRC R
-     lam <- dat$x / dat$s
-     eps = 1 / mean(dat$s)
-     log_lam <- log(lam + eps)
-     se_log_lam <- sqrt(var(lam) / (lam + eps)^2)
-     mixsd <- seq(.1 * min(se_log_lam), max(2 * sqrt(log_lam^2 - se_log_lam^2)), by=.5 * log(2))
-   #+END_SRC
 
    Fit ~ash_pois~ using log link. (The problem turned out to be
    [[https://github.com/aksarkar/ashr/commit/f3c3c32e2ae2579390d0847e4a2b1f8b9d4b2b50][mode
@@ -217,6 +240,9 @@
      fit1 <- ashr::ash_pois(dat$x, dat$s, link="log", mixcompdist="halfuniform")
      fit1$loglik
    #+END_SRC
+
+   #+RESULTS:
+   : -2008.26590367036
 
 ** Real data
    
@@ -228,18 +254,26 @@
      query <- dat[dat["gene"] == "ENSG00000019582",]
    #+END_SRC
 
+   #+RESULTS:
+
    As a baseline, fit a Gamma assumption.
 
    #+BEGIN_SRC R
      with(query, summary(MASS::glm.nb(count ~ offset(log(size))))$twologlik / 2)
    #+END_SRC
 
-   Fit a unimodal assuymption under the identity link.
+   #+RESULTS:
+   : -31414.5999341206
+
+   Fit a unimodal assumption under the identity link.
 
    #+BEGIN_SRC R
      fit0 <- ashr::ash_pois(query$count, query$size, link="identity", mixcompdist="halfuniform")
      fit0$loglik
    #+END_SRC
+
+   #+RESULTS:
+   : -31395.0538031464
 
    Report the diagnostic test statistic and p-value.
 
@@ -257,6 +291,9 @@
      fit1$loglik
    #+END_SRC
 
+   #+RESULTS:
+   : -31394.8462180293
+
    Make sure the marginal PMF is
    sensible. ([[https://github.com/aksarkar/ashr/commit/95b80d71842158c101c58941921174a03db095b5][This
    was not implemented correctly before.]])
@@ -265,9 +302,15 @@
      any(fit1$fitted_g$pi %*% ashr:::comp_dens_conv(fit1$fitted_g, fit1$data) > 1)
    #+END_SRC
 
+   #+RESULTS:
+   : FALSE
+
    #+BEGIN_SRC R
      any(ashr:::comp_dens_conv(fit1$fitted_g, fit1$data) > 1)
    #+END_SRC
+
+   #+RESULTS:
+   : FALSE
 
    Implement the [[file:gof.org::*Poisson-unimodal goodness of
    fit][diagnostic]] for the log link.
@@ -292,19 +335,21 @@
          else {
            ak = min(fit1$fitted_g$a[k], fit1$fitted_g$b[k])
            bk = max(fit1$fitted_g$a[k], fit1$fitted_g$b[k])
-           ## Important: the required integral cannot be expressed in terms of the
-           ## Gamma CDF for x = 0
-           Fx_1[i, k] = integrate(function (log_lam) {dpois(0, query$size[i] * exp(log_lam))}, ak, bk)$value
-           if (query$count[i] > 1) {
-             grid = seq(1, query$count[i] - 1, by=1)
-             Fx_1[i, k] = Fx_1[i, k] + sum((pgamma(exp(bk), shape=grid, rate=query$size[i]) - pgamma(exp(ak), shape=grid, rate=query$size[i])) / (grid * (bk - ak)))        
-           }
+           grid = seq(0, query$count[i] - 1)
+           Fx_1[i, k] = sum((expint::gammainc(grid, query$size[i] * exp(ak)) -
+                               expint::gammainc(grid, query$size[i] * exp(bk))) /
+                              (gamma(grid + 1) * (bk - ak)))
          }
        }
      }
    #+END_SRC
 
+   #+RESULTS:
+
    #+BEGIN_SRC R
      rpp = drop(Fx_1 %*% fit1$fitted_g$pi) + runif(n=N) * fx
-     ks.test(rpp, punif)
+     ks.test(rpp, punif)$p.value
    #+END_SRC
+
+   #+RESULTS:
+   : 0.00683832270839435
