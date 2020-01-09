@@ -199,7 +199,7 @@
      \Pr(x_i = x) &= \frac{1}{b - a} \int_a^b \operatorname{Poisson}(x; \exp(\ln s_i + \theta_i))\,d\theta_i\\
      &= \frac{1}{b - a} \int_{\exp(a)}^{\exp(b)} \frac{s_i^x}{\Gamma(x + 1)} \lambda_i^{x - 1}\exp(-s_i \lambda_i)\,d\lambda_i\\
      &= \frac{1}{\Gamma(x + 1) (b - a)} \int_{s_i \exp(a)}^{s_i \exp(b)} u^{x-1} \exp(-u)\,du\\
-     &= \frac{1}{\Gamma(x + 1) (b - a)} \left( \Gamma(x_i, s_i \exp(a)) - \Gamma(x_i, s_i \exp(b)) \right)
+     &= \frac{1}{\Gamma(x + 1) (b - a)} \left( \Gamma(x, s_i \exp(a)) - \Gamma(x, s_i \exp(b)) \right)
    \end{align*}
 
    where \(\Gamma(\cdot, \cdot)\) is the
