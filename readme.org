@@ -21,7 +21,6 @@ The minimal specification of the working environment is
   r-devtools
   r-expint
   r-glmpca
-  r-pracma
   r-roxygen2
   r-testthat
   rpy2
