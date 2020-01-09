@@ -31,7 +31,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="4G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 64832637
+  : Submitted batch job 64851566
 
   #+BEGIN_SRC ipython
     import anndata
@@ -219,6 +219,17 @@
    # Out[48]:
    :END:
 
+   Read the GOF results.
+
+   #+BEGIN_SRC ipython
+     gamma_gof = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/10k_pbmc_v3-gamma.txt.gz', index_col=0, sep='\t')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[5]:
+   :END:
+
    Plot the histogram of GOF \(p\)-values.
 
    #+BEGIN_SRC ipython :ipyfile figure/chromium3.org/gamma-gof-hist.png
@@ -361,7 +372,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[71]:
+   # Out[6]:
    : (11769, 1064)
    :END:
 
@@ -369,6 +380,17 @@
 
    #+BEGIN_SRC ipython
      query.write('/scratch/midway2/aksarkar/modes/unimodal-data/10k_pbmcs_v3.h5ad')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[73]:
+   :END:
+
+   Read the data.
+
+   #+BEGIN_SRC ipython
+     query = anndata.read_h5ad('/scratch/midway2/aksarkar/modes/unimodal-data/10k_pbmcs_v3.h5ad')
    #+END_SRC
 
    #+RESULTS:
@@ -442,15 +464,16 @@
    : 0.1156015037593985
    :END:
 
-   Plot the top genes which significantly depart from UA.
+   Plot the top genes (by diagnostic test statistic) which significantly depart
+   from UA.
 
    #+BEGIN_SRC ipython :ipyfile figure/chromium3.org/unimodal-ex.png
      plt.clf()
      fig, ax = plt.subplots(2, 4)
      fig.set_size_inches(8, 4)
      for a, (j, row) in zip(ax.ravel(), sig.sort_values('p').iterrows()):
-       query = data.X[:,j].A.ravel()
-       a.hist(query, bins=np.arange(query.max() + 2), color='k')
+       xj = data.X[:,j].A.ravel()
+       a.hist(xj, bins=np.arange(xj.max() + 2), color='k')
        a.set_title(row['gene'])
      for a in ax:
        a[0].set_ylabel('Num cells')
@@ -463,4 +486,28 @@
    :RESULTS:
    # Out[23]:
    [[file:figure/chromium3.org/unimodal-ex.png]]
+   :END:
+
+   Plot the genes with highest average observed count which significantly
+   depart from UA.
+
+   #+BEGIN_SRC ipython :ipyfile figure/chromium3.org/unimodal-ex2.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 4)
+     fig.set_size_inches(8, 4)
+     for a, j in zip(ax.ravel(), np.argsort(-query.X.mean(axis=0).A.ravel())):
+       x_j = query.X[:,j].A.ravel()
+       a.hist(x_j, bins=np.arange(x_j.max() + 2), color='k')
+       a.set_title(query.var.iloc[j]['name'])
+     for a in ax:
+       a[0].set_ylabel('Num cells')
+     for a in ax.T:
+       a[-1].set_xlabel('Num mols')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[22]:
+   [[file:figure/chromium3.org/unimodal-ex2.png]]
    :END:

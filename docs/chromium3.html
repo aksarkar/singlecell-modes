@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-01-08 Wed 21:15 -->
+<!-- 2020-01-09 Thu 11:28 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Expression variation in 10X v3 PBMC data</title>
@@ -293,7 +293,7 @@ systematic analysis on this data set.
 <h2 id="setup"><a id="org5994f43"></a>Setup</h2>
 <div class="outline-text-2" id="text-setup">
 <pre class="example">
-Submitted batch job 64832637
+Submitted batch job 64851566
 
 </pre>
 
@@ -455,6 +455,15 @@ Write the GOF results.
 
 <div class="org-src-container">
 <pre class="src src-ipython">gamma_gof.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/10k_pbmc_v3-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
+</pre>
+</div>
+
+<p>
+Read the GOF results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gamma_gof</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/10k_pbmc_v3-gamma.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
 </pre>
 </div>
 
@@ -622,6 +631,15 @@ Write out the data.
 </div>
 
 <p>
+Read the data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">query</span> = anndata.read_h5ad(<span class="org-string">'/scratch/midway2/aksarkar/modes/unimodal-data/10k_pbmcs_v3.h5ad'</span>)
+</pre>
+</div>
+
+<p>
 Test for goodness of fit of UA.
 </p>
 
@@ -691,7 +709,8 @@ sig.shape[0] / unimodal_gof_res.shape[0]
 </pre>
 
 <p>
-Plot the top genes which significantly depart from UA.
+Plot the top genes (by diagnostic test statistic) which significantly depart
+from UA.
 </p>
 
 <div class="org-src-container">
@@ -699,8 +718,8 @@ Plot the top genes which significantly depart from UA.
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 4)
 fig.set_size_inches(8, 4)
 <span class="org-keyword">for</span> a, (j, row) <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), sig.sort_values(<span class="org-string">'p'</span>).iterrows()):
-  <span class="org-variable-name">query</span> = data.X[:,j].A.ravel()
-  a.hist(query, bins=np.arange(query.<span class="org-builtin">max</span>() + 2), color=<span class="org-string">'k'</span>)
+  <span class="org-variable-name">xj</span> = data.X[:,j].A.ravel()
+  a.hist(xj, bins=np.arange(xj.<span class="org-builtin">max</span>() + 2), color=<span class="org-string">'k'</span>)
   a.set_title(row[<span class="org-string">'gene'</span>])
 <span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
   a[0].set_ylabel(<span class="org-string">'Num cells'</span>)
@@ -715,13 +734,40 @@ fig.tight_layout()
 <p><img src="figure/chromium3.org/unimodal-ex.png" alt="unimodal-ex.png">
 </p>
 </div>
+
+<p>
+Plot the genes with highest average observed count which significantly
+depart from UA.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 4)
+fig.set_size_inches(8, 4)
+<span class="org-keyword">for</span> a, j <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), np.argsort(-query.X.mean(axis=0).A.ravel())):
+  <span class="org-variable-name">x_j</span> = query.X[:,j].A.ravel()
+  a.hist(x_j, bins=np.arange(x_j.<span class="org-builtin">max</span>() + 2), color=<span class="org-string">'k'</span>)
+  a.set_title(query.var.iloc[j][<span class="org-string">'name'</span>])
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Num cells'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
+  a[-1].set_xlabel(<span class="org-string">'Num mols'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/chromium3.org/unimodal-ex2.png" alt="unimodal-ex2.png">
+</p>
+</div>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-01-08 Wed 21:15</p>
+<p class="date">Created: 2020-01-09 Thu 11:28</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
