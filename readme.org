@@ -23,7 +23,6 @@ The minimal specification of the working environment is
   r-glmpca
   r-roxygen2
   r-testthat
-  rpy2
   scikit-learn
   scipy
   EOF
@@ -35,6 +34,7 @@ The minimal specification of the working environment is
   git+https://github.com/aksarkar/wlra.git#egg=wlra
   git+https://github.com/aksarkar/scqtl.git#egg=scqtl
   h5py==2.9.0
+  rpy2==3.2.4
   scvi
   scanpy
   EOF
