@@ -65,17 +65,21 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="scmodes",partition="broadwl") :exports none :dir /scratch/midway2/aksarkar
+  #+CALL: ipython3(venv="scmodes",partition="mstephens") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 64792149
+  : Submitted batch job 64894096
 
   #+BEGIN_SRC ipython
     import numpy as np
     import pandas as pd
+    import rpy2.robjects
+    import rpy2.robjects.pandas2ri
     import scipy.integrate as si
     import scipy.special as sp
     import scipy.stats as st
+
+    rpy2.robjects.pandas2ri.activate()
   #+END_SRC
 
   #+RESULTS:
@@ -255,6 +259,50 @@
    #+END_SRC
 
    #+RESULTS:
+
+   #+BEGIN_SRC ipython
+     data = pd.DataFrame(rpy2.robjects.r['readRDS']("/scratch/midway2/aksarkar/modes/test-data/b-cell-data.Rds"))
+     query = data[data["gene"] == "ENSG00000019582"]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   :END:
+
+   Plot the empirical distribution of molecule counts.
+
+   #+BEGIN_SRC ipython :ipyfile figure/ash-pois-log-link.org/b-cell-ex.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.hist(query['count'], bins=np.arange(query['count'].max() + 1), color='k')
+     plt.xlabel('Number of molecules')
+     plt.ylabel('Number of cells')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[10]:
+   [[file:figure/ash-pois-log-link.org/b-cell-ex.png]]
+   :END:
+
+   Plot the distribution of MLEs \(x_i / s_i\).
+
+   #+BEGIN_SRC ipython :ipyfile figure/ash-pois-log-link.org/b-cell-ex2.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.hist(query['count'] / query['size'], bins=100, color='k')
+     plt.xlabel('$\hat\lambda_i$')
+     plt.ylabel('Number of cells')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[17]:
+   [[file:figure/ash-pois-log-link.org/b-cell-ex2.png]]
+   :END:
 
    As a baseline, fit a Gamma assumption.
 
