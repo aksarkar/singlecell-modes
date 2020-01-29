@@ -1,0 +1,502 @@
+#+TITLE: Manuscript figures
+#+SETUPFILE: setup.org
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
+
+  #+RESULTS:
+  : Submitted batch job 65436025
+
+  #+BEGIN_SRC ipython
+    import numpy as np
+    import pandas as pd
+    import scmodes
+    import scipy.stats as st
+    import scipy.special as sp
+    import sqlite3
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[1]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['svg'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+* Figure 1
+
+  Draw an example of our approach to testing GOF using real data.
+
+  #+BEGIN_SRC ipython
+    gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[11]:
+  :END:
+
+  #+BEGIN_SRC ipython :async t
+    cytotoxic_t = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[20]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    k = 'ENSG00000109475'
+    x = cytotoxic_t.loc[:,k]
+    s = cytotoxic_t.sum(axis=1)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[21]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/figures.org/cytotoxic_t-rpl34.svg
+    plt.clf()
+    fig, ax = plt.subplots(2, 1)
+    fig.set_size_inches(4, 4)
+    ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+    ax[0].set_title(gene_info.loc[k, 'name'])
+    ax[0].set_xlabel('Number of molecules')
+    ax[0].set_ylabel('Number of cells')
+
+    for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+      ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{k.lower()}')(x, s), color=c, lw=1, label=k)
+    ax[1].set_xlabel('Latent gene expression')
+    ax[1].set_ylabel('CDF')
+    ax[1].legend(frameon=False)
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[10]:
+  [[file:figure/figures.org/cytotoxic_t-rpl34.svg]]
+  :END:
+
+  #+BEGIN_SRC ipython
+    rpp = dict()
+    np.random.seed(1)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[29]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
+    rpp['Gamma'] = scmodes.benchmark.gof._rpp(
+      scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]),
+      scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[30]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    point_gamma_res = scmodes.ebpm.ebpm_point_gamma(x, s)
+    rpp['ZIG'] = scmodes.benchmark.gof._rpp(
+      scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]),
+      scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[31]:
+  :END:
+
+  #+BEGIN_SRC ipython :async t
+    zief_res = scmodes.ebpm.ebpm_point_expfam(x, s)
+    rpp['ZIEF'] = scmodes.benchmark.gof._rpp(
+      scmodes.benchmark.gof._point_expfam_cdf(x.values.ravel() - 1, size=s, res=zief_res),
+      scmodes.benchmark.gof._point_expfam_pmf(x.values.ravel(), size=s, res=zief_res))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[32]:
+  :END:
+
+  #+BEGIN_SRC ipython :async t
+    unimodal_res = scmodes.ebpm.ebpm_unimodal(x, s)
+    rpp['Unimodal'] = scmodes.benchmark.gof._rpp(
+      scmodes.benchmark.gof._ash_cdf(x - 1, s=s, fit=unimodal_res),
+      scmodes.benchmark.gof._ash_pmf(x, s=s, fit=unimodal_res))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[33]:
+  :END:
+
+  #+BEGIN_SRC ipython :async t
+    npmle_res = scmodes.ebpm.ebpm_npmle(x, s)
+    rpp['NPMLE'] = scmodes.benchmark.gof._rpp(
+      scmodes.benchmark.gof._ash_cdf(x - 1, s=s, fit=npmle_res),
+      scmodes.benchmark.gof._ash_pmf(x, s=s, fit=npmle_res))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[34]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/figures.org/cytotoxic_t-rpl34-rpp.svg
+    plt.clf()
+    plt.gcf().set_size_inches(3, 3)
+    grid = np.linspace(0, 1, x.shape[0] + 1)[1:]
+    plt.xscale('log')
+    plt.yscale('log')
+    for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+      if k in rpp:
+        plt.plot(grid, np.sort(rpp[k]), color=c, lw=1, marker=None, label=k)
+    plt.plot([1e-5, 1], [1e-5, 1], lw=1, ls=':', c='0.5')
+    plt.legend(frameon=False)
+    plt.xlim(1e-5, 1)
+    plt.ylim(1e-5, 1)
+    plt.xlabel('Theoretical quantiles')
+    plt.ylabel('Randomized quantiles')
+    plt.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[35]:
+  [[file:figure/figures.org/cytotoxic_t-rpl34-rpp.svg]]
+  :END:
+
+  Draw the histogram of GOF test \(p\)-values.
+
+  #+BEGIN_SRC ipython :ipyfile figure/figures.org/gamma-gof-hist.svg
+    gof_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/gof.txt.gz', sep='\t', index_col=0)
+    plt.clf()
+    fig, ax = plt.subplots(1, 6, sharey=True)
+    fig.set_size_inches(8, 2)
+    for a, t, (k, g) in zip(ax.ravel(),
+                            ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC'],
+                            gof_res.groupby('dataset')):
+      a.hist(g.loc[g['method'] == 'gamma', 'p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+      a.axhline(y=1, c='k', ls=':', lw=1)
+      a.set_xlim([0, 1])
+      a.set_title(t)
+    ax[0].set_ylabel('Density')
+    for a in ax:
+      a.set_xlabel('$p$-value')
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[67]:
+  [[file:figure/mlcb.org/gamma-gof-hist.svg]]
+  :END:
+
+  Draw examples of multi-modal gene expression in iPSCs
+
+  #+BEGIN_SRC ipython :async t
+    ipsc_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/deconv-generalization/ipsc-gpu.txt.gz', index_col=0, sep='\t')
+    lrt = st.chi2(1).sf(-2 * (ipsc_res['gamma'] - ipsc_res['point_gamma']))
+    query = list(ipsc_res[lrt < .05 / lrt.shape[0]].index)
+
+    # SKP1: top eQTL
+    query.append('ENSG00000113558')
+    ipsc_counts = scmodes.dataset.ipsc(prefix='/project2/mstephens/aksarkar/projects/singlecell-qtl/data/',
+                                       query=query, return_df=True)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[50]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    annotation = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-annotation.txt', sep='\t')
+    keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', index_col=0, header=None, sep='\t')
+    annotation = annotation.loc[keep_samples.values.ravel()]
+    s = annotation['mol_hs']
+    donor_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/20130606_sample_info.txt', sep='\t')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[51]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    ipsc_log_mu = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-log-mu.txt.gz', sep=' ', index_col=0)
+    ipsc_log_phi = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-log-phi.txt.gz', sep=' ', index_col=0)
+    ipsc_logodds = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/density-estimation/design1/zi2-logodds.txt.gz', sep=' ', index_col=0)
+    del ipsc_log_mu['NA18498']
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[52]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    def point_gamma_cdf(grid, log_mu, log_phi, logodds):
+      res = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).cdf(grid)
+      res *= sp.expit(-logodds)
+      res += sp.expit(logodds)
+      return res
+
+    lam = ipsc_counts.values / s.values.reshape(-1, 1)
+    grid = np.linspace(lam.min(), lam.max(), 1000)
+    cdfs = np.array([[point_gamma_cdf(grid,
+                                      ipsc_log_mu.loc[j, k],
+                                      ipsc_log_phi.loc[j, k],
+                                      ipsc_logodds.loc[j, k])
+                      for k in ipsc_log_mu]
+                     for j in ipsc_counts.columns])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[55]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    colors = {k: 'r' if v == 'male' else 'b' for k, v in
+              donor_info.set_index('Sample')
+              .filter(items=list(ipsc_log_mu.columns), axis=0)
+              ['Gender']
+              .iteritems()}
+
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[56]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/figures.org/ipsc-rps4y1.svg
+    k = 'ENSG00000129824'
+    x = ipsc_counts.loc[:,k].values
+    plt.clf()
+    fig, ax = plt.subplots(2, 1)
+    fig.set_size_inches(4, 4)
+
+    ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+    ax[0].set_title(gene_info.loc[k, 'name'])
+    ax[0].set_xlabel('Number of molecules')
+    ax[0].set_ylabel('Number of cells')
+
+    for f, k in zip(cdfs[2], ipsc_log_mu.columns):
+      ax[1].plot(grid, f, lw=1, alpha=0.2, c=colors.get(k, 'k'))
+    ax[1].set_xlim(0, 2e-4)
+    ax[1].set_xticks(np.linspace(0, 2e-4, 3))
+    dummy = [plt.Line2D([0], [0], c='r'), plt.Line2D([0], [0], c='b')]
+    ax[1].legend(dummy, ['Male', 'Female'], title='Sex', frameon=False)
+    ax[1].set_ylabel('CDF')
+    ax[1].set_xlabel('Latent gene expression')
+
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[57]:
+  [[file:figure/figures.org/ipsc-rps4y1.svg]]
+  :END:
+
+  Include a gene with an eQTL to illustrate how marginally "multi-modal" might
+  not be the correct question to ask.
+
+  #+BEGIN_SRC ipython
+    mean_qtl_stats = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-mapping/zinb/mean.txt.gz', sep=' ', index_col=0)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[5]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    with sqlite3.connect('/project2/mstephens/aksarkar/projects/singlecell-qtl/browser/browser.db') as conn:
+      geno = pd.read_sql('select * from mean_qtl_geno where gene = ?', con=conn, params=('ENSG00000113558',)).set_index('ind')['value']
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[6]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/figures.org/ipsc-skp1.svg
+    cm = plt.get_cmap('Dark2')
+    k = 'ENSG00000113558'
+    x = ipsc_counts.loc[:,k].values
+    plt.clf()
+    fig, ax = plt.subplots(2, 1)
+    fig.set_size_inches(4, 4)
+
+    ax[0].hist(x, bins=np.arange(x.max() + 1), color='k')
+    ax[0].set_title(gene_info.loc[k, 'name'])
+    ax[0].set_xlabel('Number of molecules')
+    ax[0].set_ylabel('Number of cells')
+
+    for f, k in zip(cdfs[1], ipsc_log_mu.columns):
+      ax[1].plot(grid, f, lw=1, alpha=0.3, c=cm(int(geno[k])))
+    dummy = [plt.Line2D([0], [0], c=cm(i)) for i in range(3)]
+    # https://www.ncbi.nlm.nih.gov/snp/?term=rs13356194
+    ax[1].legend(dummy, ['CC', 'CT', 'TT'], title=mean_qtl_stats.loc['ENSG00000113558', 'id'].split('.')[0], frameon=False)
+    ax[1].set_ylabel('CDF')
+    ax[1].set_xlabel('Latent gene expression')
+
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[64]:
+  [[file:figure/figures.org/ipsc-skp1.svg]]
+  :END:
+
+  Draw examples of bimodal genes detected in an in silico mixture.
+
+  #+BEGIN_SRC ipython :async t
+    def _mix_10x(k1, k2, min_detect=0.01, return_y=False):
+      x1 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
+      x2 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
+      x, y = scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)
+      if return_y:
+        return x, y
+      else:
+        return x
+
+    def _cd8_cd19_mix(**kwargs):
+      return _mix_10x('cytotoxic_t', 'b_cells', **kwargs)
+
+    mix_x, mix_y = _cd8_cd19_mix(return_y=True)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[4]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    gof_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/gof.txt.gz', sep='\t', index_col=0)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[5]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    sig0 = gof_res[gof_res['method'] == 'gamma'].groupby('dataset').apply(lambda x: x.loc[x['p'] < 0.05 / x.shape[0]]).reset_index(drop=True)
+    nsig1 = gof_res[gof_res['method'] == 'zig'].groupby('dataset').apply(lambda x: x.loc[x['p'] >= 0.05 / x.shape[0]]).reset_index(drop=True)
+    examples = sig0.merge(nsig1, on=['dataset', 'gene'], suffixes=['_gamma', '_zig'])
+    del examples['method_gamma']
+    del examples['method_zig']
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[6]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/figures.org/cytotoxic_t-b_cells-examples.svg
+    plt.clf()
+    fig, ax = plt.subplots(2, 2)
+    fig.set_size_inches(4, 4)
+    for a, k in zip(ax.ravel(), examples.sort_values('p_gamma')['gene'].head(n=4)):
+      for i, (l, c) in enumerate(zip(['B cell', 'T cell'], ['r', 'k'])):
+        x = mix_x.loc[mix_y == i,k]
+        a.hist(x, bins=np.arange(x.max() + 1), color=c, label=l, alpha=0.5)
+        a.set_title(gene_info.loc[k, 'name'])
+    for a in ax:
+      a[0].set_ylabel('Number of cells')
+    for a in ax.T:
+      a[-1].set_xlabel('Number of molecules')
+    ax[0,0].legend(frameon=False)
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[13]:
+  [[file:figure/figures.org/cytotoxic_t-b_cells-examples.svg]]
+  :END:
+
+* Figure 2
+
+  #+BEGIN_SRC ipython :ipyfile figure/figures.org/imputation-bench.svg
+    data = ['cytotoxic_t', 'b_cells', 'ipsc', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'pbmcs_68k']
+    methods = ['oracle', 'ebpm_point', 'wnmf', 'wglmpca']
+    imputation_res = (pd.concat({(d, m): pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/{d}-{m}.txt.gz', sep='\t', index_col=0)
+                                     for d in data for m in methods if d != 'naive_t'})
+                      .reset_index(level=0)
+                      .reset_index(drop=True)
+                      .rename({'level_0': 'dataset'}, axis=1))
+
+    plt.clf()
+    fig, ax = plt.subplots(2, 3, sharex=True)
+    fig.set_size_inches(5, 4)
+    for a, d, t in zip(ax.ravel(), data, ['T cells', 'B cells', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC']):
+      g = imputation_res[imputation_res['dataset'] == d]
+      base = g.loc[g['method'] == 'ebpm_point']
+      for x, m in enumerate(methods[2:]):
+        y = g.loc[g['method'] == m]
+        a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
+                  1e5 * (base['loss'].values - y['loss'].values), s=2, c='k', zorder=4)
+      a.axhline(y=0, c='r', lw=1, ls=':')
+      a.set_title(t)
+      a.grid(c='0.8', lw=1, axis='x')
+    for a in ax[-1]:
+      a.set_xticks(np.arange(2))
+      a.set_xticklabels([m.upper() for m in methods[2:]], rotation=90)
+      a.set_xlabel('Method')
+    a = fig.add_subplot(111, frameon=False)
+    a.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+    a.set_ylabel('Improvement in log likelihood\nover noiseless rank one assumption')
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[17]:
+  [[file:figure/figures.org/imputation-bench.svg]]
+  :END:
+
+  
