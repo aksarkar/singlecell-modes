@@ -36,7 +36,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 64292707
+  : Submitted batch job 65454125
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -53,18 +53,22 @@
 
   #+BEGIN_SRC ipython
     import anndata
+    import colorcet
     import os
     import rpy2.robjects
+    import rpy2.robjects.packages
     import scipy.io as si
     import scipy.special as sp
     import scipy.stats as st
     import scqtl
     import sqlite3
+
+    ashr = rpy2.robjects.packages.importr('ashr')
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[42]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -879,7 +883,7 @@
 
 ** Browser
    :PROPERTIES:
-   :CUSTOM_ID: examples
+   :CUSTOM_ID: browser
    :END:
 
    Read gene metadata.
@@ -946,8 +950,11 @@
    :END:
 
 ** Real data examples
+   :PROPERTIES:
+   :CUSTOM_ID: examples
+   :END:
 
-   Get examples of genes which significantly depart from the estimated
+   Get examples of genes which significantly depart from the estimated unimodal
    distribution, but are clearly unimodal upon inspection.
 
    #+BEGIN_SRC ipython
@@ -956,7 +963,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[53]:
+   # Out[5]:
    :END:
 
    Write out the data to RDS.
@@ -979,7 +986,7 @@
    : rpy2.rinterface.NULL
    :END:
 
-   /RPS27/ departs from Gamma and point-Gamma.
+   /RPS27/ departs from Gamma, point-Gamma, and unimodal.
 
    #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954.png
      cm = plt.get_cmap('Dark2')
@@ -1006,21 +1013,37 @@
    [[file:figure/gof.org/ENSG00000177954.png]]
    :END:
 
-   Look at the randomized quantiles.
+   Look at the distribution of the MLE \(\hat\lambda_i = x_i / s_i\)
+   (intuitively, the quantity which we will be shrinking).
 
-   #+BEGIN_SRC ipython
-     F = scmodes.benchmark.gof._ash_cdf(x.X[:,0] - 1, res, x.obs['size'])
-     f = scmodes.benchmark.gof._ash_pmf(x.X[:,0], fit=res, s=x.obs['size'])
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-naive.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.hist(dat.X[:,0] / dat.obs['size'], bins=50, color='k')
+     plt.xlabel('Relative expression')
+     plt.ylabel('Number of cells')
+     plt.tight_layout()
    #+END_SRC
 
-   #+BEGIN_SRC ipython
+   #+RESULTS:
+   :RESULTS:
+   # Out[50]:
+   [[file:figure/gof.org/ENSG00000177954-naive.png]]
+   :END:
+
+   Look at the randomized quantiles for the fitted unimodal distribution.
+
+   #+BEGIN_SRC ipython :async t
+     res = scmodes.ebpm.ebpm_unimodal(dat.X[:,0], dat.obs['size'].values)
+     F = scmodes.benchmark.gof._ash_cdf(dat.X[:,0] - 1, fit=res, s=dat.obs['size'])
+     f = scmodes.benchmark.gof._ash_pmf(dat.X[:,0], fit=res, s=dat.obs['size'])
      np.random.seed(0)
      rpp = F + np.random.uniform(size=F.shape[0]) * f
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[50]:
+   # Out[7]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-rpp.png
@@ -1036,7 +1059,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[69]:
+   # Out[8]:
    [[file:figure/gof.org/ENSG00000177954-rpp.png]]
    :END:
 
@@ -1054,8 +1077,126 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[67]:
+   # Out[10]:
    [[file:figure/gof.org/ENSG00000177954-diagnostic.png]]
+   :END:
+
+   Fit models with finer grids.
+
+   #+BEGIN_SRC ipython :async t
+     res = dict()
+     for step in np.log(np.linspace(1, 2, 11)[1:]):
+       res[step] = scmodes.ebpm.ebpm_unimodal(
+         dat.X[:,0],
+         dat.obs['size'],
+         mixsd=np.exp(np.arange(np.log(1e-8), np.log(lam.max()), step=step)))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[29]:
+   :END:
+
+   Report the log likelihood of the fitted models against the (log) stepsize of the grid.
+
+   #+BEGIN_SRC ipython
+     pd.Series({k: np.array(res[k].rx2('loglik'))[0] for k in res})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[30]:
+   #+BEGIN_EXAMPLE
+     0.095310   -27916.693078
+     0.182322   -27916.691828
+     0.262364   -27916.847090
+     0.336472   -27917.009390
+     0.405465   -27916.711257
+     0.470004   -27917.364408
+     0.530628   -27917.541988
+     0.587787   -27917.067727
+     0.641854   -27917.669822
+     0.693147   -27918.161042
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Test the fitted models for goodness of fit, and report the KS test statistic
+   and \(p\)-value.
+
+   #+BEGIN_SRC ipython :async t
+     np.random.seed(1)
+     pd.Series({
+       k: scmodes.benchmark.gof._gof(
+         dat.X[:,0],
+         cdf=scmodes.benchmark.gof._ash_cdf,
+         pmf=scmodes.benchmark.gof._ash_pmf,
+         s=dat.obs['size'],
+         fit=res[k])
+       for k in res})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[33]:
+   #+BEGIN_EXAMPLE
+     0.095310     (0.03343639916233043, 3.219041220233783e-10)
+     0.182322     (0.03349651214950944, 2.968120165176161e-10)
+     0.262364     (0.03281679008032623, 7.367539493197478e-10)
+     0.336472      (0.03312928499093126, 4.86187521991659e-10)
+     0.405465     (0.03260696496636967, 9.717889023225659e-10)
+     0.470004    (0.03257735474891127, 1.0103672529713676e-09)
+     0.530628    (0.033042770023911816, 5.456976614561023e-10)
+     0.587787     (0.03396250448855004, 1.574404486410344e-10)
+     0.641854    (0.03380000822864859, 1.9659431226291915e-10)
+     0.693147    (0.034306982158272215, 9.797409099464328e-11)
+     dtype: object
+   #+END_EXAMPLE
+   :END:
+
+   Look at the fitted distributions.
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-cdf.png
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2)
+     grid = np.linspace(lam.min(), lam.max(), 1000)
+     for k in res:
+       F = ashr.cdf_ash(res[k], grid)
+       plt.plot(grid, np.array(F.rx2('y')).ravel(), c=colorcet.cm['fire'](k), lw=1)
+     plt.xlim(.005, .015)
+     plt.xlabel('Latent gene expression')
+     plt.ylabel('CDF')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[48]:
+   [[file:figure/gof.org/ENSG00000177954-cdf.png]]
+   :END:
+
+   Overlay the estimated density with the empirical density of the naive MLE.
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-fitted-g.png
+     grid = np.linspace(lam.min(), lam.max(), 5000)
+     F = ashr.cdf_ash(res[k], grid)
+     f = np.diff(np.array(F.rx2('y')).ravel()) / np.diff(grid)
+
+     plt.clf()
+     plt.gcf().set_size_inches(4, 3)
+     plt.plot(grid[:-1], np.log(f + 1e-8), c='r', lw=1, label='Shrunk')
+     h = np.histogram(dat.X[:,0] / dat.obs['size'], density=True, bins=50)
+     plt.plot(h[1][:-1], np.log(h[0] + 1e-8), c='k', lw=1, label='Empirical')
+     plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xlabel('Relative expression')
+     plt.ylabel('Log density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[114]:
+   [[file:figure/gof.org/ENSG00000177954-fitted-g.png]]
    :END:
 
    /CXCR4/ departs from Gamma, but not from point-Gamma.

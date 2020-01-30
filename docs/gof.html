@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-27 Fri 19:28 -->
+<!-- 2020-01-30 Thu 14:08 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org541cb49">Test for goodness of fit</a></li>
+<li><a href="#orgad3674a">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -273,8 +273,8 @@ for the JavaScript code in this tag.
 <li><a href="#gof">Test for goodness of fit</a></li>
 <li><a href="#org77d2646">Application to control data sets</a></li>
 <li><a href="#orgf807e8b">Application to biological data sets</a></li>
-<li><a href="#examples">Browser</a></li>
-<li><a href="#org2542000">Real data examples</a></li>
+<li><a href="#browser">Browser</a></li>
+<li><a href="#examples">Real data examples</a></li>
 </ul>
 </li>
 </ul>
@@ -322,13 +322,17 @@ Here, we directly test for the goodness of fit of the estimated distributions
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-keyword">import</span> anndata
+<span class="org-keyword">import</span> colorcet
 <span class="org-keyword">import</span> os
 <span class="org-keyword">import</span> rpy2.robjects
+<span class="org-keyword">import</span> rpy2.robjects.packages
 <span class="org-keyword">import</span> scipy.io <span class="org-keyword">as</span> si
 <span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 <span class="org-keyword">import</span> scqtl
 <span class="org-keyword">import</span> sqlite3
+
+<span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
 </pre>
 </div>
 
@@ -351,9 +355,9 @@ Here, we directly test for the goodness of fit of the estimated distributions
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org541cb49" class="outline-3">
-<h3 id="org541cb49">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org541cb49">
+<div id="outline-container-orgad3674a" class="outline-3">
+<h3 id="orgad3674a">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-orgad3674a">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -783,8 +787,8 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-orga903a24" class="outline-3">
-<h3 id="gof"><a id="orga903a24"></a>Test for goodness of fit</h3>
+<div id="outline-container-org2579560" class="outline-3">
+<h3 id="gof"><a id="org2579560"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -1178,8 +1182,8 @@ marginal distribution is not well-described by a single Gamma distribution.
 </div>
 
 <div id="outline-container-org276689d" class="outline-3">
-<h3 id="examples"><a id="org276689d"></a>Browser</h3>
-<div class="outline-text-3" id="text-examples">
+<h3 id="browser"><a id="org276689d"></a>Browser</h3>
+<div class="outline-text-3" id="text-browser">
 <p>
 Read gene metadata.
 </p>
@@ -1234,10 +1238,10 @@ Populate the database to visualize all of the results.
 </div>
 
 <div id="outline-container-org2542000" class="outline-3">
-<h3 id="org2542000">Real data examples</h3>
-<div class="outline-text-3" id="text-org2542000">
+<h3 id="examples"><a id="org2542000"></a>Real data examples</h3>
+<div class="outline-text-3" id="text-examples">
 <p>
-Get examples of genes which significantly depart from the estimated
+Get examples of genes which significantly depart from the estimated unimodal
 distribution, but are clearly unimodal upon inspection.
 </p>
 
@@ -1269,7 +1273,7 @@ rpy2.rinterface.NULL
 </pre>
 
 <p>
-<i>RPS27</i> departs from Gamma and point-Gamma.
+<i>RPS27</i> departs from Gamma, point-Gamma, and unimodal.
 </p>
 
 <div class="org-src-container">
@@ -1299,17 +1303,35 @@ fig.tight_layout()
 </div>
 
 <p>
-Look at the randomized quantiles.
+Look at the distribution of the MLE \(\hat\lambda_i = x_i / s_i\)
+(intuitively, the quantity which we will be shrinking).
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">F</span> = scmodes.benchmark.gof._ash_cdf(x.X[:,0] - 1, res, x.obs[<span class="org-string">'size'</span>])
-<span class="org-variable-name">f</span> = scmodes.benchmark.gof._ash_pmf(x.X[:,0], fit=res, s=x.obs[<span class="org-string">'size'</span>])
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.hist(dat.X[:,0] / dat.obs[<span class="org-string">'size'</span>], bins=50, color=<span class="org-string">'k'</span>)
+plt.xlabel(<span class="org-string">'Relative expression'</span>)
+plt.ylabel(<span class="org-string">'Number of cells'</span>)
+plt.tight_layout()
 </pre>
 </div>
 
+
+<div class="figure">
+<p><img src="figure/gof.org/ENSG00000177954-naive.png" alt="ENSG00000177954-naive.png">
+</p>
+</div>
+
+<p>
+Look at the randomized quantiles for the fitted unimodal distribution.
+</p>
+
 <div class="org-src-container">
-<pre class="src src-ipython">np.random.seed(0)
+<pre class="src src-ipython"><span class="org-variable-name">res</span> = scmodes.ebpm.ebpm_unimodal(dat.X[:,0], dat.obs[<span class="org-string">'size'</span>].values)
+<span class="org-variable-name">F</span> = scmodes.benchmark.gof._ash_cdf(dat.X[:,0] - 1, fit=res, s=dat.obs[<span class="org-string">'size'</span>])
+<span class="org-variable-name">f</span> = scmodes.benchmark.gof._ash_pmf(dat.X[:,0], fit=res, s=dat.obs[<span class="org-string">'size'</span>])
+np.random.seed(0)
 <span class="org-variable-name">rpp</span> = F + np.random.uniform(size=F.shape[0]) * f
 </pre>
 </div>
@@ -1352,6 +1374,126 @@ plt.tight_layout()
 </div>
 
 <p>
+Fit models with finer grids.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">res</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> step <span class="org-keyword">in</span> np.log(np.linspace(1, 2, 11)[1:]):
+  <span class="org-variable-name">res</span>[step] = scmodes.ebpm.ebpm_unimodal(
+    dat.X[:,0],
+    dat.obs[<span class="org-string">'size'</span>],
+    mixsd=np.exp(np.arange(np.log(1e-8), np.log(lam.<span class="org-builtin">max</span>()), step=step)))
+</pre>
+</div>
+
+<p>
+Report the log likelihood of the fitted models against the (log) stepsize of the grid.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pd.Series({k: np.array(res[k].rx2(<span class="org-string">'loglik'</span>))[0] <span class="org-keyword">for</span> k <span class="org-keyword">in</span> res})
+</pre>
+</div>
+
+<pre class="example">
+0.095310   -27916.693078
+0.182322   -27916.691828
+0.262364   -27916.847090
+0.336472   -27917.009390
+0.405465   -27916.711257
+0.470004   -27917.364408
+0.530628   -27917.541988
+0.587787   -27917.067727
+0.641854   -27917.669822
+0.693147   -27918.161042
+dtype: float64
+</pre>
+
+<p>
+Test the fitted models for goodness of fit, and report the KS test statistic
+and \(p\)-value.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(1)
+pd.Series({
+  k: scmodes.benchmark.gof._gof(
+    dat.X[:,0],
+    cdf=scmodes.benchmark.gof._ash_cdf,
+    pmf=scmodes.benchmark.gof._ash_pmf,
+    s=dat.obs[<span class="org-string">'size'</span>],
+    fit=res[k])
+  <span class="org-keyword">for</span> k <span class="org-keyword">in</span> res})
+</pre>
+</div>
+
+<pre class="example">
+0.095310     (0.03343639916233043, 3.219041220233783e-10)
+0.182322     (0.03349651214950944, 2.968120165176161e-10)
+0.262364     (0.03281679008032623, 7.367539493197478e-10)
+0.336472      (0.03312928499093126, 4.86187521991659e-10)
+0.405465     (0.03260696496636967, 9.717889023225659e-10)
+0.470004    (0.03257735474891127, 1.0103672529713676e-09)
+0.530628    (0.033042770023911816, 5.456976614561023e-10)
+0.587787     (0.03396250448855004, 1.574404486410344e-10)
+0.641854    (0.03380000822864859, 1.9659431226291915e-10)
+0.693147    (0.034306982158272215, 9.797409099464328e-11)
+dtype: object
+</pre>
+
+<p>
+Look at the fitted distributions.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(4, 2)
+<span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000)
+<span class="org-keyword">for</span> k <span class="org-keyword">in</span> res:
+  <span class="org-variable-name">F</span> = ashr.cdf_ash(res[k], grid)
+  plt.plot(grid, np.array(F.rx2(<span class="org-string">'y'</span>)).ravel(), c=colorcet.cm[<span class="org-string">'fire'</span>](k), lw=1)
+plt.xlim(.005, .015)
+plt.xlabel(<span class="org-string">'Latent gene expression'</span>)
+plt.ylabel(<span class="org-string">'CDF'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/ENSG00000177954-cdf.png" alt="ENSG00000177954-cdf.png">
+</p>
+</div>
+
+<p>
+Overlay the estimated density with the empirical density of the naive MLE.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 5000)
+<span class="org-variable-name">F</span> = ashr.cdf_ash(res[k], grid)
+<span class="org-variable-name">f</span> = np.diff(np.array(F.rx2(<span class="org-string">'y'</span>)).ravel()) / np.diff(grid)
+
+plt.clf()
+plt.gcf().set_size_inches(4, 3)
+plt.plot(grid[:-1], np.log(f + 1e-8), c=<span class="org-string">'r'</span>, lw=1, label=<span class="org-string">'Shrunk'</span>)
+<span class="org-variable-name">h</span> = np.histogram(dat.X[:,0] / dat.obs[<span class="org-string">'size'</span>], density=<span class="org-constant">True</span>, bins=50)
+plt.plot(h[1][:-1], np.log(h[0] + 1e-8), c=<span class="org-string">'k'</span>, lw=1, label=<span class="org-string">'Empirical'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+plt.xlabel(<span class="org-string">'Relative expression'</span>)
+plt.ylabel(<span class="org-string">'Log density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/ENSG00000177954-fitted-g.png" alt="ENSG00000177954-fitted-g.png">
+</p>
+</div>
+
+<p>
 <i>CXCR4</i> departs from Gamma, but not from point-Gamma.
 </p>
 
@@ -1386,7 +1528,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-27 Fri 19:28</p>
+<p class="date">Created: 2020-01-30 Thu 14:08</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
