@@ -20,7 +20,9 @@ The minimal specification of the working environment is
   r-descend
   r-devtools
   r-expint
-  r-glmpca
+  r-irlba
+  r-glmpca=0.1.0.dev1
+  r-mixsqp=0.3.17
   r-roxygen2
   r-testthat
   scikit-learn
@@ -30,7 +32,7 @@ The minimal specification of the working environment is
 
 #+BEGIN_SRC shell
   source activate scmodes
-  xargs -L100 pip install <<EOF  
+  xargs -L100 python -m pip install <<EOF
   git+https://github.com/aksarkar/wlra.git#egg=wlra
   git+https://github.com/aksarkar/scqtl.git#egg=scqtl
   h5py==2.9.0
@@ -41,10 +43,10 @@ The minimal specification of the working environment is
 #+END_SRC
 
 #+BEGIN_SRC shell
-  pip install -e /project2/mstephens/aksarkar/projects/scmodes/
+  python -m pip install -e /project2/mstephens/aksarkar/projects/scmodes/
 #+END_SRC
 
 We need to
-[[https://files.pythonhosted.org/packages/57/ae/18217b57ba3e4bb8a44ecbfc161ed065f6d1b90c75d404bd6ba8d6f024e2/numpy_groupies-0.9.10.tar.gz][mix
+[[https://www.anaconda.com/using-pip-in-a-conda-environment/][mix
 pip and conda]] due to incompatibilities in the biopython builds of
 scvi/scanpy.
