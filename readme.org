@@ -7,6 +7,7 @@ The minimal specification of the working environment is
 
 #+BEGIN_SRC shell
   xargs -L100 conda create -n scmodes -c aksarkar <<EOF
+  bokeh
   colorcet
   ipython
   jupyter_console

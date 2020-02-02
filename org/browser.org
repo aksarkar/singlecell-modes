@@ -1,6 +1,5 @@
 #+TITLE: Interactive simulations
 #+SETUPFILE: setup.org
-#+PROPERTY: header-args:sh :eval never-export :results output
 
 * Test environment
 
@@ -15,9 +14,7 @@
   #+RESULTS:
   : 
   : cd /project2/mstephens/aksarkar/projects/singlecell-modes/browser/
-  : cd /project2/mstephens/aksarkar/projects/singlecell-modes/browser/
   : source activate scmodes
-  : echo 'org_babel_sh_eoe'
 
   (Re)start the browser
 
@@ -28,10 +25,8 @@
 
   #+RESULTS:
   : pkill -u aksarkar bokeh
-  : Received signal 15, shutting down
-  : (hostname -i) --allow-websocket-origin=$(hostname -i):5006
   : bokeh serve capture gof markers --address $(hostname -i)  --allow-websocket-origin=$(hostname -i):5006 &
-  : [20] 38545
+  : [1] 26808
 
 * Production environment
 
@@ -58,12 +53,12 @@
    ,* Management:     https://landscape.canonical.com
    ,* Support:        https://ubuntu.com/advantage
 
-    System information as of Fri Dec 13 23:50:23 CST 2019
+    System information as of Sun Feb  2 09:45:49 CST 2020
 
-    System load:                    0.22
+    System load:                    0.5
   of 1.79TB
 
-  Processes:                      202
+  Processes:                      227
     Users logged in:                0
     IP address for enp3s0:          128.135.144.117
     IP address for br-477fc3903e97: 172.21.0.1
@@ -78,12 +73,12 @@
      - Reduce system reboots and improve kernel security. Activate at:
        https://ubuntu.com/livepatch
 
-  229 packages can be updated.
+  230 packages can be updated.
   0 updates are security updates.
 
 
   ,*** System restart required ***
-  Last login: Thu Nov 21 20:59:25 2019 from 128.135.112.68
+  Last login: Wed Jan 22 15:06:42 2020 from 128.135.112.68
   #+end_example
 
   Add the Debian Stretch box using the full URL.
@@ -402,7 +397,7 @@
 
   Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
   permitted by applicable law.
-  Last login: Fri Nov 22 03:01:02 2019 from 10.0.2.2
+  Last login: Mon Dec 23 01:42:26 2019 from 10.0.2.2
   #+end_example
 
   The data are available on the VM under ~/vagrant~. Fake the location of the
@@ -676,4 +671,4 @@
 
   #+RESULTS:
   : 
-  : (scmodes) vagrant@stretch:/vagrant$ [1] 661
+  : (scmodes) vagrant@stretch:/vagrant$ [1] 641

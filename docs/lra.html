@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-06 Fri 00:28 -->
+<!-- 2020-02-02 Sun 09:57 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Low rank approximation</title>
@@ -504,7 +504,7 @@ transformations of the observations.
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;pca&gt;&gt;</span>
-EOF
+<span class="org-sh-heredoc">EOF</span>
 </pre>
 </div>
 
@@ -528,8 +528,8 @@ Run the CPU methods.
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-import os
-&lt;&lt;data&gt;&gt;
+<span class="org-sh-heredoc">import os</span>
+<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
 <span class="org-sh-heredoc">methods = ['glmpca']</span>
 <span class="org-sh-heredoc">tasks = [(d, m) for d in data for m in methods]</span>
 <span class="org-sh-heredoc">d, m = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
@@ -550,8 +550,8 @@ Run the GPU methods.
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-import os
-&lt;&lt;data&gt;&gt;
+<span class="org-sh-heredoc">import os</span>
+<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
 <span class="org-sh-heredoc">d = data.keys()[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
 <span class="org-sh-heredoc">x = data[d]()</span>
 <span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_lra_generalization(x.values, methods=[m], n_trials=10)</span>
@@ -613,7 +613,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-06 Fri 00:28</p>
+<p class="date">Created: 2020-02-02 Sun 09:57</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

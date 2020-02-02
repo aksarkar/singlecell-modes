@@ -36,7 +36,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 65454125
+  : Submitted batch job 65520643
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -68,7 +68,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[42]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -292,9 +292,9 @@
      def _cyto_naive_mix(**kwargs):
        return _mix_10x('cytotoxic_t', 'naive_t', **kwargs)
 
-     def _read_10x(k):
+     def _read_10x(k, return_df=True, min_detect=0.01):
        return scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/',
-                                       return_df=True, min_detect=0.01)
+                                       return_adata=not return_df, return_df=return_df, min_detect=min_detect)
 
      data = {
        'dropseq': read_dropseq,
@@ -308,8 +308,7 @@
        'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', return_df=True),
        'cytotoxic_t-b_cells': _cd8_cd19_mix,
        'cytotoxic_t-naive_t': _cyto_naive_mix,
-       # Important: subsample the cells
-       'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a').sample(n=20000, random_state=1),
+       'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a', return_df=False),
      }
    #+END_SRC
 
@@ -318,8 +317,7 @@
    # Out[5]:
    :END:
 
-   Report the dimensions of each data set. To reduce computational burden,
-   analyze a random subsample of 20K cells in the 68K PBMC data.
+   Report the dimensions of each data set.
 
    #+BEGIN_SRC ipython :async t
      pd.DataFrame([data[k]().shape for k in data],
@@ -329,7 +327,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[41]:
    #+BEGIN_EXAMPLE
      num_cells  num_genes
      dropseq                     84         81
@@ -343,7 +341,7 @@
      ipsc                      5597       9957
      cytotoxic_t-b_cells      20294       6647
      cytotoxic_t-naive_t      20688       6246
-     pbmcs_68k                20000       6502
+     pbmcs_68k                68579       6502
    #+END_EXAMPLE
    :END:
 
@@ -498,7 +496,7 @@
     Run the GPU-based methods.
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=gof --time=24:00:00 -a 11
+      sbatch --partition=gpu2 --gres=gpu:1 --mem=4G --job-name=gof --time=1:00:00 -a 11
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -514,7 +512,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 63768684
+    : Submitted batch job 65510737
 
     Move the results to permanent storage.
 
@@ -547,7 +545,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[13]:
+    # Out[12]:
     :END:
 
     Write out the post-processed results.
@@ -558,7 +556,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[8]:
+    # Out[13]:
     :END:
 
     Read the post-processed results.
@@ -569,7 +567,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[5]:
+    # Out[8]:
     :END:
 
     To reduce computational burden, run ~ashr~ only on genes which
@@ -587,27 +585,34 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[6]:
+    # Out[8]:
     :END:
 
     #+BEGIN_SRC ipython :async t
-      for k in list(data.keys())[6:12]:
+      for k in list(data.keys())[6:]:
         x = data[k]()
-        s = x.sum(axis=1)
-        # Important: we need to keep around the size factors computed using all the
-        # genes
-        t = anndata.AnnData(x.loc[:,sig.loc[k, 'gene']], var=x.columns)
-        t.obs = s.to_frame().rename({0: 'size'}, axis=1)
-        t.write(f'/scratch/midway2/aksarkar/modes/unimodal-data/{k}.h5ad')
+        if k != 'pbmcs_68k':
+          s = x.sum(axis=1)
+          # Important: we need to keep around the size factors computed using all the
+          # genes
+          t = anndata.AnnData(x.loc[:,sig.loc[k, 'gene']].values, var=sig.loc[k, 'gene'].to_frame())
+          t.obs = s.to_frame().rename({0: 'size'}, axis=1)
+          t.write(f'/scratch/midway2/aksarkar/modes/unimodal-data/{k}.h5ad')
+        else:
+          s = x.X.tocsc().sum(axis=1).A.ravel()
+          x.obs['size'] = s
+          x.obs.columns = ['barcode', 'size']
+          x.var.columns = ['gene', 'name']
+          x.var = x.var.set_index('gene')
+          x[:,x.var.index.isin(sig.loc[k, 'gene'])].write(f'/scratch/midway2/aksarkar/modes/unimodal-data/{k}.h5ad')
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[39]:
     :END:
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 8
+      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 11
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -615,6 +620,7 @@
       import anndata
       import multiprocessing as mp
       import os
+      import scipy.sparse as ss
       <<data>>
       tasks = list(data.keys())
       task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
@@ -622,7 +628,11 @@
         # Important: this needs to be done after initializing the pool to avoid
         # memory duplication
         x = anndata.read_h5ad(f'/scratch/midway2/aksarkar/modes/unimodal-data/{task}.h5ad')
-        res = scmodes.benchmark.evaluate_gof(pd.DataFrame(x.X, index=x.obs.index, columns=x.var.index), 
+        if ss.isspmatrix(x.X):
+          y = x.X.A
+        else:
+          y = x.X
+        res = scmodes.benchmark.evaluate_gof(pd.DataFrame(y, index=x.obs.index, columns=x.var.index), 
                                              s=x.obs['size'], 
                                              pool=pool, 
                                              methods=['unimodal'])
@@ -632,7 +642,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 63952963
+    : Submitted batch job 65514573
 
 ** Application to control data sets
 
@@ -755,7 +765,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[16]:
+    # Out[6]:
     :END:
 
     Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
@@ -780,7 +790,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[24]:
+    # Out[9]:
     [[file:figure/gof.org/gamma-gof-hist.png]]
     :END:
 
@@ -806,7 +816,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[26]:
+    # Out[10]:
     [[file:figure/gof.org/zig-gof-hist.png]]
     :END:
 
@@ -824,7 +834,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[17]:
+    # Out[16]:
     #+BEGIN_EXAMPLE
       method               gamma  unimodal  zig
       dataset
@@ -833,7 +843,7 @@
       cytotoxic_t-b_cells     34        23   18
       cytotoxic_t-naive_t     20        10   19
       ipsc                   158         7  155
-      pbmcs_68k               44         0   34
+      pbmcs_68k              363        22  356
     #+END_EXAMPLE
     :END:
 
@@ -852,7 +862,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[11]:
+    # Out[17]:
     #+BEGIN_EXAMPLE
       method                  gamma  unimodal       zig
       dataset
@@ -861,7 +871,7 @@
       cytotoxic_t-b_cells  0.994885  0.323529  0.997292
       cytotoxic_t-naive_t  0.996798  0.500000  0.996958
       ipsc                 0.984132  0.955696  0.984433
-      pbmcs_68k            0.993233  1.000000  0.994771
+      pbmcs_68k            0.944171  0.939394  0.945248
     #+END_EXAMPLE
     :END:
 
@@ -894,7 +904,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[18]:
    :END:
 
    Populate the database to visualize all of the results.
@@ -910,7 +920,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[14]:
+   # Out[19]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -919,7 +929,10 @@
      for k, g in sig.groupby(['dataset']):
        x = data[k]()
        query = g['gene'].unique()
-       counts.append(x[query])
+       if k != 'pbmcs_68k':
+         counts.append(x[query])
+       else:
+         counts.append(pd.DataFrame(x[:,x.var[0].isin(query)].X.A, index=x.obs[0], columns=query))
        keys.append(k)
 
      def _melt(y):
@@ -933,7 +946,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[14]:
+   # Out[42]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -946,7 +959,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[15]:
+   # Out[43]:
    :END:
 
 ** Real data examples
