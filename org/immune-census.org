@@ -38,6 +38,7 @@
     import scanpy
     import scipy.io as sio
     import scipy.sparse as ss
+    import scipy.special as sp
     import scmodes
     import scmodes.benchmark.gof
     import scmodes.ebpm.sgd
@@ -47,7 +48,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[1]:
+  # Out[99]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -331,7 +332,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[46]:
    :END:
 
    Read the metadata.
@@ -343,7 +344,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[47]:
    :END:
 
 * Results
@@ -417,6 +418,17 @@
    # Out[54]:
    :END:
 
+   Read the GOF results.
+
+   #+BEGIN_SRC ipython
+     gamma_gof = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/immune-census-gamma.txt.gz', sep='\t', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[105]:
+   :END:
+
    Plot the histogram of GOF \(p\)-values.
 
    #+BEGIN_SRC ipython :ipyfile figure/immune-census.org/gamma-gof-hist.png
@@ -460,18 +472,52 @@
    [[file:figure/immune-census.org/gamma-gof-hist-by-donor.png]]
    :END:
 
-   Report the fraction of genes which significantly depart from Gamma
-   (Bonferroni-corrected \(p < 0.05\)).
+   Report the number of genes which significantly depart from a Gamma
+   assumption on expression variation (Bonferroni-corrected \(p < 0.05\)).
 
    #+BEGIN_SRC ipython
-     sig = gamma_gof[gamma_gof['p'] < 0.05 / gamma_gof.shape[0]]
-     sig.shape[0] / gamma_gof.shape[0]
+     gamma_gof.groupby('donor').apply(lambda x: (x['p'] < 0.05 / x.shape[0]).sum())
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[65]:
-   : 3.9057617797775274e-06
+   # Out[111]:
+   #+BEGIN_EXAMPLE
+     donor
+     085e737d-adb5-4597-bd54-5ebeda170038    0
+     0a6c46dd-0905-4581-95eb-d89eef8a7213    0
+     0b91cb1f-e2a8-413a-836c-1d38e7af3f2d    1
+     31f89559-2682-4bbc-84c6-826dfe4a4e39    0
+     4a404c91-0dbf-4246-bc23-d13aff961ba7    1
+     4e98f612-15ec-44ab-b5f9-39787f92b01a    0
+     509c507c-4759-452f-994e-d134d90329fd    0
+     53af872d-b838-44d6-ae1b-25b56405483c    1
+     6072d1f5-aa0c-4ab1-a8a6-a00ab479a1ba    0
+     9aaf8a07-924f-456c-86dc-82f5da718246    0
+     af7fe7a6-7d7e-4cdf-9799-909680fa9a3f    0
+     cf514c66-88b2-45e4-a397-7fb362ae9950    0
+     d23515a7-e182-4bc6-89e2-b1635885c0ec    0
+     e4b5115d-3a0d-4c50-aba4-04b5f76810da    1
+     eb8fb36b-6e02-41c4-8760-3eabbde6bacb    0
+     fb30bb83-0278-4117-bd42-e2e8dddfedfe    0
+     dtype: int64
+   #+END_EXAMPLE
+   :END:
+
+   Find the gene which departed from a Gamma assumption.
+
+   #+BEGIN_SRC ipython
+     query = gamma_gof[gamma_gof['donor'] == '0b91cb1f-e2a8-413a-836c-1d38e7af3f2d']
+     query[query['p'] < .05 / query.shape[0]]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[114]:
+   #+BEGIN_EXAMPLE
+     gene                                 donor      stat         p
+     43477  MT-ND3  0b91cb1f-e2a8-413a-836c-1d38e7af3f2d  0.999999  0.000003
+   #+END_EXAMPLE
    :END:
 
 ** Point-Gamma assumption
@@ -564,4 +610,100 @@
    :RESULTS:
    # Out[75]:
    [[file:figure/immune-census.org/point-gamma-got-hist.png]]
+   :END:
+** Examples
+
+   Read the fitted Gamma distributions.
+
+   #+BEGIN_SRC ipython
+     gamma_res = pd.read_csv('/scratch/midway2/aksarkar/modes/immune-cell-census-gamma.txt.gz', sep='\t', header=[0, 1], index_col=0)
+     point_gamma_res = pd.read_csv('/scratch/midway2/aksarkar/modes/immune-cell-census-point-gamma.txt.gz', sep='\t', header=[0, 1], index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[98]:
+   :END:
+
+   Get the highest expressed genes.
+
+   #+BEGIN_SRC ipython
+     (gamma_res
+      .xs('log_mu', level=1, axis=1)
+      .mean(axis=1)
+      .sort_values(ascending=False)
+      .head())
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[83]:
+   #+BEGIN_EXAMPLE
+     Gene
+     MALAT1   -2.718048
+     RPS27    -4.359568
+     RPL10    -4.504897
+     RPL13    -4.565336
+     RPS18    -4.632655
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython
+     y_csc = y_csr.tocsc()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[57]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     yj = y_csc[:,genes.reset_index()[(genes['Gene'] == 'MALAT1').values].index[0]].A.ravel()
+     s = y_csr.sum(axis=1).A.ravel()
+     lam = yj / s
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[87]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/immune-census.org/malat1-ex.png
+     plt.clf()
+     fig, ax = plt.subplots(3, 1)
+     fig.set_size_inches(4, 6)
+
+     ax[0].hist(yj / s, bins=100, color='k')
+     ax[0].set_xlabel('$x_i / s_i$')
+     ax[0].set_ylabel('Number of cells')
+     ax[0].set_title('MALAT1')
+
+     grid = np.linspace(lam.min(), lam.max(), 1000)
+     for k, g in gamma_res.groupby(level=0, axis=1):
+       F = g.loc['MALAT1']
+       log_mu = F.xs('log_mu', level=1)[0]
+       neg_log_phi = F.xs('neg_log_phi', level=1)[0]
+       ax[1].plot(grid, st.gamma(a=np.exp(neg_log_phi), scale=np.exp(log_mu - neg_log_phi)).cdf(grid), c='k', lw=1, alpha=0.25)
+     ax[1].set_xlim(0, 0.3)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('Gamma CDF')
+
+     for k, g in point_gamma_res.groupby(level=0, axis=1):
+       F = g.loc['MALAT1']
+       log_mu = F.xs('log_mu', level=1)[0]
+       neg_log_phi = F.xs('neg_log_phi', level=1)[0]
+       logodds = F.xs('logodds', level=1)[0]
+       ax[2].plot(grid, sp.expit(logodds) + sp.expit(-logodds) * st.gamma(a=np.exp(neg_log_phi), scale=np.exp(log_mu - neg_log_phi)).cdf(grid), c='k', lw=1, alpha=0.25)
+     ax[2].set_xlim(0, 0.3)
+     ax[2].set_xlabel('Latent gene expression')
+     ax[2].set_ylabel('Point-Gamma CDF')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[104]:
+   [[file:figure/immune-census.org/malat1-ex.png]]
    :END:

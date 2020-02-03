@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2019-12-24 Tue 20:13 -->
+<!-- 2020-02-03 Mon 10:18 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Expression variation in Census of Immune Cells</title>
@@ -270,6 +270,7 @@ for the JavaScript code in this tag.
 <ul>
 <li><a href="#org2037b52">Gamma assumption</a></li>
 <li><a href="#org7779776">Point-Gamma assumption</a></li>
+<li><a href="#orgb85e97d">Examples</a></li>
 </ul>
 </li>
 </ul>
@@ -301,6 +302,7 @@ scRNA-seq of 593,844 cells from 16 donors.
 <span class="org-keyword">import</span> scanpy
 <span class="org-keyword">import</span> scipy.io <span class="org-keyword">as</span> sio
 <span class="org-keyword">import</span> scipy.sparse <span class="org-keyword">as</span> ss
+<span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
 <span class="org-keyword">import</span> scmodes
 <span class="org-keyword">import</span> scmodes.benchmark.gof
 <span class="org-keyword">import</span> scmodes.ebpm.sgd
@@ -673,6 +675,15 @@ Write the GOF results.
 </div>
 
 <p>
+Read the GOF results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gamma_gof</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/immune-census-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+</pre>
+</div>
+
+<p>
 Plot the histogram of GOF \(p\)-values.
 </p>
 
@@ -722,19 +733,49 @@ fig.tight_layout()
 </div>
 
 <p>
-Report the fraction of genes which significantly depart from Gamma
-(Bonferroni-corrected \(p < 0.05\)).
+Report the number of genes which significantly depart from a Gamma
+assumption on expression variation (Bonferroni-corrected \(p < 0.05\)).
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">sig</span> = gamma_gof[gamma_gof[<span class="org-string">'p'</span>] &lt; 0.05 / gamma_gof.shape[0]]
-sig.shape[0] / gamma_gof.shape[0]
+<pre class="src src-ipython">gamma_gof.groupby(<span class="org-string">'donor'</span>).<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]).<span class="org-builtin">sum</span>())
 </pre>
 </div>
 
 <pre class="example">
-3.9057617797775274e-06
+donor
+085e737d-adb5-4597-bd54-5ebeda170038    0
+0a6c46dd-0905-4581-95eb-d89eef8a7213    0
+0b91cb1f-e2a8-413a-836c-1d38e7af3f2d    1
+31f89559-2682-4bbc-84c6-826dfe4a4e39    0
+4a404c91-0dbf-4246-bc23-d13aff961ba7    1
+4e98f612-15ec-44ab-b5f9-39787f92b01a    0
+509c507c-4759-452f-994e-d134d90329fd    0
+53af872d-b838-44d6-ae1b-25b56405483c    1
+6072d1f5-aa0c-4ab1-a8a6-a00ab479a1ba    0
+9aaf8a07-924f-456c-86dc-82f5da718246    0
+af7fe7a6-7d7e-4cdf-9799-909680fa9a3f    0
+cf514c66-88b2-45e4-a397-7fb362ae9950    0
+d23515a7-e182-4bc6-89e2-b1635885c0ec    0
+e4b5115d-3a0d-4c50-aba4-04b5f76810da    1
+eb8fb36b-6e02-41c4-8760-3eabbde6bacb    0
+fb30bb83-0278-4117-bd42-e2e8dddfedfe    0
+dtype: int64
+</pre>
 
+<p>
+Find the gene which departed from a Gamma assumption.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">query</span> = gamma_gof[gamma_gof[<span class="org-string">'donor'</span>] == <span class="org-string">'0b91cb1f-e2a8-413a-836c-1d38e7af3f2d'</span>]
+query[query[<span class="org-string">'p'</span>] &lt; .05 / query.shape[0]]
+</pre>
+</div>
+
+<pre class="example">
+gene                                 donor      stat         p
+43477  MT-ND3  0b91cb1f-e2a8-413a-836c-1d38e7af3f2d  0.999999  0.000003
 </pre>
 </div>
 </div>
@@ -826,11 +867,100 @@ plt.tight_layout()
 </div>
 </div>
 </div>
+<div id="outline-container-orgb85e97d" class="outline-3">
+<h3 id="orgb85e97d">Examples</h3>
+<div class="outline-text-3" id="text-orgb85e97d">
+<p>
+Read the fitted Gamma distributions.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gamma_res</span> = pd.read_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/immune-cell-census-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, header=[0, 1], index_col=0)
+<span class="org-variable-name">point_gamma_res</span> = pd.read_csv(<span class="org-string">'/scratch/midway2/aksarkar/modes/immune-cell-census-point-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, header=[0, 1], index_col=0)
+</pre>
+</div>
+
+<p>
+Get the highest expressed genes.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">(gamma_res
+ .xs(<span class="org-string">'log_mu'</span>, level=1, axis=1)
+ .mean(axis=1)
+ .sort_values(ascending=<span class="org-constant">False</span>)
+ .head())
+</pre>
+</div>
+
+<pre class="example">
+Gene
+MALAT1   -2.718048
+RPS27    -4.359568
+RPL10    -4.504897
+RPL13    -4.565336
+RPS18    -4.632655
+dtype: float64
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">y_csc</span> = y_csr.tocsc()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">yj</span> = y_csc[:,genes.reset_index()[(genes[<span class="org-string">'Gene'</span>] == <span class="org-string">'MALAT1'</span>).values].index[0]].A.ravel()
+<span class="org-variable-name">s</span> = y_csr.<span class="org-builtin">sum</span>(axis=1).A.ravel()
+<span class="org-variable-name">lam</span> = yj / s
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 1)
+fig.set_size_inches(4, 6)
+
+ax[0].hist(yj / s, bins=100, color=<span class="org-string">'k'</span>)
+ax[0].set_xlabel(<span class="org-string">'$x_i / s_i$'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+ax[0].set_title(<span class="org-string">'MALAT1'</span>)
+
+<span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 1000)
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> gamma_res.groupby(level=0, axis=1):
+  <span class="org-variable-name">F</span> = g.loc[<span class="org-string">'MALAT1'</span>]
+  <span class="org-variable-name">log_mu</span> = F.xs(<span class="org-string">'log_mu'</span>, level=1)[0]
+  <span class="org-variable-name">neg_log_phi</span> = F.xs(<span class="org-string">'neg_log_phi'</span>, level=1)[0]
+  ax[1].plot(grid, st.gamma(a=np.exp(neg_log_phi), scale=np.exp(log_mu - neg_log_phi)).cdf(grid), c=<span class="org-string">'k'</span>, lw=1, alpha=0.25)
+ax[1].set_xlim(0, 0.3)
+ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
+ax[1].set_ylabel(<span class="org-string">'Gamma CDF'</span>)
+
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> point_gamma_res.groupby(level=0, axis=1):
+  <span class="org-variable-name">F</span> = g.loc[<span class="org-string">'MALAT1'</span>]
+  <span class="org-variable-name">log_mu</span> = F.xs(<span class="org-string">'log_mu'</span>, level=1)[0]
+  <span class="org-variable-name">neg_log_phi</span> = F.xs(<span class="org-string">'neg_log_phi'</span>, level=1)[0]
+  <span class="org-variable-name">logodds</span> = F.xs(<span class="org-string">'logodds'</span>, level=1)[0]
+  ax[2].plot(grid, sp.expit(logodds) + sp.expit(-logodds) * st.gamma(a=np.exp(neg_log_phi), scale=np.exp(log_mu - neg_log_phi)).cdf(grid), c=<span class="org-string">'k'</span>, lw=1, alpha=0.25)
+ax[2].set_xlim(0, 0.3)
+ax[2].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
+ax[2].set_ylabel(<span class="org-string">'Point-Gamma CDF'</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/immune-census.org/malat1-ex.png" alt="malat1-ex.png">
+</p>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2019-12-24 Tue 20:13</p>
+<p class="date">Created: 2020-02-03 Mon 10:18</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
