@@ -36,7 +36,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 65520643
+  : Submitted batch job 65536931
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -567,7 +567,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[8]:
+    # Out[6]:
     :END:
 
     To reduce computational burden, run ~ashr~ only on genes which
@@ -765,7 +765,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[6]:
+    # Out[7]:
     :END:
 
     Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
@@ -852,7 +852,7 @@
     correction at level 0.05).
 
     #+BEGIN_SRC ipython
-      frac = (gof_res.loc[gof_res['dataset'].isin(list(data.keys())[6:])]
+      frac = (gof_res.loc[gof_res['dataset'].isin(non_control)]
               .groupby(['dataset', 'method'])
               .apply(lambda x: (x['p'] >= 0.05 / x.shape[0]).mean())
               .reset_index()
@@ -862,7 +862,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[17]:
+    # Out[8]:
     #+BEGIN_EXAMPLE
       method                  gamma  unimodal       zig
       dataset
@@ -890,6 +890,34 @@
     multiple donors. The differing genetic backgrounds of the donor individuals
     means both the mean and variance of gene expression vary, such that the
     marginal distribution is not well-described by a single Gamma distribution.
+
+    Report the fraction of genes which depart from a Gamma assumption, but not
+    a point-Gamma assumption on expression variation.
+
+    #+BEGIN_SRC ipython
+      query = (gof_res[gof_res['dataset'].isin(non_control)]
+               .pivot_table(index=['dataset', 'gene'], columns=['method'], values=['p', 'stat']))
+      (query
+       .groupby(level=0)
+       .apply(lambda x: np.logical_and(x['p']['gamma'] < .05 / x.shape[0],
+                                       x['p']['zig'] >= .05 / x.shape[0]).sum()
+              / (x['p']['gamma'] < .05 / x.shape[0]).sum()))
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[27]:
+    #+BEGIN_EXAMPLE
+      dataset
+      b_cells                0.222222
+      cytotoxic_t            0.166667
+      cytotoxic_t-b_cells    0.529412
+      cytotoxic_t-naive_t    0.150000
+      ipsc                   0.063291
+      pbmcs_68k              0.079890
+      dtype: float64
+    #+END_EXAMPLE
+    :END:
 
 ** Browser
    :PROPERTIES:
