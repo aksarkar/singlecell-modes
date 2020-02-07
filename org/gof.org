@@ -36,7 +36,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 65536931
+  : Submitted batch job 65670739
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -526,7 +526,7 @@
 
     #+BEGIN_SRC ipython
       gof_res = []
-      for m in ['gpu', 'unimodal']:
+      for m in ['point', 'gpu', 'unimodal']:
         res = dict()
         for k in data:
           f = f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-{m}.txt.gz'
@@ -644,6 +644,28 @@
     #+RESULTS:
     : Submitted batch job 65514573
 
+    Run goodness of fit tests for a point mass assumption on control data sets
+    only.
+
+    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+      sbatch --partition=broadwl --mem=4G --job-name=gof --time=1:00:00 -a 0-4
+      #!/bin/bash
+      source activate scmodes
+      python <<EOF
+      <<imports>>
+      import os
+      <<data>>
+      tasks = list(data.keys())
+      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+      x = data[task]()
+      res = scmodes.benchmark.evaluate_gof(x, methods=['point'])
+      res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-point.txt.gz', compression='gzip', sep='\t')
+      EOF
+    #+END_SRC
+
+    #+RESULTS:
+    : Submitted batch job 65670673
+
 ** Application to control data sets
 
     Report the number of genes which depart from the null that the data for the
@@ -656,7 +678,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[21]:
+    # Out[6]:
     :END:
 
     #+BEGIN_SRC ipython
@@ -669,16 +691,16 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[22]:
+    # Out[15]:
     #+BEGIN_EXAMPLE
       0
-      method    gamma unimodal zig
+      method    gamma point unimodal zig
       dataset
-      chromium1     3        0   3
-      chromium2     0        0   0
-      dropseq       0        0   0
-      gemcode      20        0  21
-      indrops       0        0   0
+      chromium1     3     9        0   3
+      chromium2     0    14        0   0
+      dropseq       0    65        0   0
+      gemcode      20    28        0  21
+      indrops       0     2        0   0
     #+END_EXAMPLE
     :END:
 
