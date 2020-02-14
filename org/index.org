@@ -1,21 +1,39 @@
-#+TITLE: Modeling single cell data
+#+TITLE: Clarifying confusion in scRNA-seq analysis
 #+SETUPFILE: setup.org
+#+OPTIONS: toc:nil
 
-The development of single cell RNA sequencing (scRNA-Seq) technology has
-enabled investigation of heterogeneity between individuals cells, dynamics of
-cellular processes, and the biological pathways underlying cellular
-differentiation. However, a number of features of scRNA-seq data continue to
-cause confusion among practitioners applying published methods to analyze new
-datasets, as well as researchers developing and benchmarking new methods.
+The development of single cell RNA sequencing (scRNA-seq) technologies has
+greatly facilitated investigation of important biological questions that were
+previously difficult or impossible to study. However, how to model and analyze
+scRNA-seq data has been the subject of considerable confusion and debate. We
+develop a simple way of thinking and talking about scRNA-seq data that can
+clarify much of this confusion. We outline a general framework which explicitly
+models, and distinguishes between, the measurement process and variation in
+actual expression levels between cells. Although our simple framework cannot on
+its own address all issues that arise in scRNA-seq data, we show how it can
+help clarify thinking, guide interpretation of existing analysis methods,
+address questions of biological interest, and suggest directions for
+development of new methods and analysis strategies.
 
-- [[file:deconvolution.org][Comparison of distribution deconvolution methods]]
-- [[file:deconv-examples.org][Distribution deconvolution examples]]
+* Empirical results
+
 - [[file:gof.org][Goodness of fit of deconvolved distributions]] ([[http://shiny.stephenslab.uchicago.edu:5009/gof][interactive browser]])
 - [[file:lra.org][Low rank approximation]]
 - [[file:imputation.org][Imputation of count matrices]]
-- [[file:transforms.org][Transformations of deconvolved gene expression distributions]]
+- [[file:mlcb.org][MLCB figures]]
+- [[file:figures.org][Manuscript figures]]
 
-Technical details:
+* Additional results
+
+- [[file:deconvolution.org][Comparison of distribution deconvolution methods]]
+- [[file:deconv-examples.org][Distribution deconvolution examples]]
+- [[file:marker-genes.org][Marker genes in /in silico/ mixtures]]
+  ([[http://shiny.stephenslab.uchicago.edu:5009/markers][interactive browser]])
+- [[file:brain-dronc-seq.org][Expression variation in human brain cells]]
+- [[file:immune-census.org][Expression variation in Census of Immune Cells]]
+- [[file:chromium3.org][Expression variation in 10X v3 PBMC data]]
+
+* Technical details
 
 - [[file:pitfalls.org][Technical zero-generating mechanism in scRNA-seq data]]
 - [[file:modes.org][Estimating the number of modes]]
@@ -31,16 +49,11 @@ Technical details:
 - [[file:ep.org][Posterior approximation for scRNA-seq data]]
 - [[file:link.org][Link functions in Poisson LRA]]
 - [[file:random-effect.org][Distributional assumptions in Poisson LRA]]
-- [[file:mlcb.org][MLCB plots]]
 - [[file:pois-truncnorm.org][Poisson-truncated normal data]]
 - [[file:gamma-mix.org][Poisson-unimodal Gamma mixture model]]
 - [[file:pois-gam-lik.org][Poisson-Gamma log likelihood surface]]
 - [[file:vae.org][Variational autoencoders for scRNA-seq data]]
 - [[file:wnbmf.org][Weighted Negative Binomial Matrix Factorization]]
-- [[file:marker-genes.org][Marker genes in /in silico/ mixtures]]
-  ([[http://shiny.stephenslab.uchicago.edu:5009/markers][interactive browser]])
-- [[file:brain-dronc-seq.org][Expression variation in human brain cells]]
-- [[file:immune-census.org][Expression variation in Census of Immune Cells]]
 - [[file:ash-pois-log-link.org][Log link in Poisson ash]]
-- [[file:chromium3.org][Expression variation in 10X v3 PBMC data]]
-- [[file:figures.org][Manuscript figures]]
+- [[file:transforms.org][Transformations of deconvolved gene expression
+  distributions]]
