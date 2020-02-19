@@ -72,7 +72,7 @@
   #+END_SRC
 
   #+RESULTS:
-  : 1
+  : 3
 
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :dir /scratch/midway2/aksarkar/modes
 
@@ -271,19 +271,24 @@
    Run the GPU methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --mem=16G --time=12:00:00 --job-name=lra-generalization -a 0
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=24:00:00 --job-name=lra-generalization -a 0-5
      #!/bin/bash
      source activate scmodes
      python <<EOF
      <<imports>>
      import os
      <<data>>
-     d = data.keys()[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     methods = ['pvae']
+     tasks = [(d, m) for d in data for m in methods]
+     d, m = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      x = data[d]()
-     res = scmodes.benchmark.evaluate_lra_generalization(x.values, methods=[m], n_trials=10)
-     res.to_csv('/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz', compression='gzip', sep='\t')
+     res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_trials=10)
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 65895666
 
    Move the results to permanent storage.
 
