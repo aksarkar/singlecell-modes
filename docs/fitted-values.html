@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2020-03-03 Tue 11:30 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comparison of fitted values</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Comparison of fitted values</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org082644d">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#orgf782be7">Results</a>
+<ul>
+<li><a href="#org296c455">Datasets</a></li>
+<li><a href="#org6844b70">B cells</a></li>
+<li><a href="#org4075a13">T cells</a></li>
+<li><a href="#org4757b63">iPSCs</a></li>
+<li><a href="#orgfd759d0">T cell/B cell</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org082644d" class="outline-2">
+<h2 id="org082644d">Introduction</h2>
+<div class="outline-text-2" id="text-org082644d">
+<p>
+We previously found that NMF, GLM-PCA, and PVAE all had similar performance
+on a <a href="lra.html">binomial thinning benchmark</a>. A clearer way to
+demonstrate this is to plot the fitted values against each other.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org782386a" class="outline-2">
+<h2 id="setup"><a id="org782386a"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+<span class="org-keyword">import</span> scmodes
+<span class="org-keyword">import</span> torch
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orgf782be7" class="outline-2">
+<h2 id="orgf782be7">Results</h2>
+<div class="outline-text-2" id="text-orgf782be7">
+</div>
+<div id="outline-container-org296c455" class="outline-3">
+<h3 id="org296c455">Datasets</h3>
+<div class="outline-text-3" id="text-org296c455">
+<p>
+Follow the data processing we used for <a href="imputation.html">masked value
+estimation</a>.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="orgfd3cf9c"><span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k, min_detect=0.01, n_cells=1000, seed=1):
+  <span class="org-keyword">return</span> scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/'</span>, min_detect=0.01, return_df=<span class="org-constant">True</span>).sample(n=n_cells, axis=0, random_state=seed)
+
+<span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.01, n_cells=1000, seed=1):
+  <span class="org-variable-name">x1</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
+  <span class="org-variable-name">x2</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
+  <span class="org-keyword">return</span> scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)[0].sample(n=n_cells, axis=0, random_state=seed)
+
+<span class="org-keyword">def</span> <span class="org-function-name">_cd8_cd19_mix</span>(**kwargs):
+  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'b_cells'</span>, **kwargs)
+
+<span class="org-keyword">def</span> <span class="org-function-name">_cyto_naive_mix</span>(**kwargs):
+  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>, **kwargs)
+
+<span class="org-variable-name">data</span> = {
+  <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'cytotoxic_t'</span>),
+  <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'b_cells'</span>),
+  <span class="org-string">'ipsc'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>, return_df=<span class="org-constant">True</span>).sample(n=1000, axis=0, random_state=1),
+  <span class="org-string">'cytotoxic_t-b_cells'</span>: _cd8_cd19_mix,
+  <span class="org-string">'cytotoxic_t-naive_t'</span>: _cyto_naive_mix,
+  <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>),
+}
+</pre>
+</div>
+
+<p>
+Report the data dimensions.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pd.DataFrame([data[k]().shape <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data],
+             columns=[<span class="org-string">'num_cells'</span>, <span class="org-string">'num_genes'</span>],
+             index=data.keys())
+</pre>
+</div>
+
+<pre class="example">
+num_cells  num_genes
+cytotoxic_t               1000       6530
+b_cells                   1000       6417
+ipsc                      1000       9957
+cytotoxic_t-b_cells       1000       6647
+cytotoxic_t-naive_t       1000       6246
+pbmcs_68k                 1000       6502
+</pre>
+</div>
+</div>
+
+<div id="outline-container-org6844b70" class="outline-3">
+<h3 id="org6844b70">B cells</h3>
+<div class="outline-text-3" id="text-org6844b70">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = data[<span class="org-string">'b_cells'</span>]()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nmf(x.values, rank=2, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam0</span> = l @ f.T
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.glmpca(x.values, rank=2, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam1</span> = np.exp(l @ f.T)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">xt</span> = torch.tensor(x.values, dtype=torch.<span class="org-builtin">float</span>)
+<span class="org-variable-name">m</span> = scmodes.lra.PVAE(input_dim=x.shape[1], latent_dim=5).fit(xt, lr=1e-3, max_epochs=2000, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam2</span> = m.denoise(xt)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="orge9352ca">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(4, 2.5)
+
+ax[0].scatter(np.sqrt(lam1.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[0].plot([0, 11], [0, 11], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[0].set_xlabel(r<span class="org-string">'GLMPCA $\sqrt{\hat\lambda}$'</span>)
+ax[0].set_ylabel(r<span class="org-string">'NMF $\sqrt{\hat\lambda}$'</span>)
+
+ax[1].scatter(np.sqrt(lam2.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[1].plot([0, 11], [0, 11], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[1].set_xlabel(r<span class="org-string">'PVAE $\sqrt{\hat\lambda}$'</span>)
+
+<span class="org-variable-name">a</span> = fig.add_subplot(111, frame_on=<span class="org-constant">False</span>, xticks=[], yticks=[])
+a.set_title(<span class="org-string">'B cell'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/fitted-values.org/b_cells.png" alt="b_cells.png">
+</p>
+</div>
+
+<p>
+Look at log likelihood differences in binomial thinning.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">train</span>, <span class="org-variable-name">test</span> = scmodes.benchmark.train_test_split(x)
+<span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nmf(train.values, rank=2, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam0</span> = (l @ f.T) * test.values.<span class="org-builtin">sum</span>(axis=1, keepdims=<span class="org-constant">True</span>) / train.values.<span class="org-builtin">sum</span>(axis=1, keepdims=<span class="org-constant">True</span>)
+<span class="org-variable-name">llik0</span> = st.poisson(mu=lam0).logpmf(test)
+
+<span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.glmpca(train.values, rank=2, atol=1, max_iters=500, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam1</span> = np.exp(l @ f.T) * test.values.<span class="org-builtin">sum</span>(axis=1, keepdims=<span class="org-constant">True</span>) / train.values.<span class="org-builtin">sum</span>(axis=1, keepdims=<span class="org-constant">True</span>)
+<span class="org-variable-name">llik1</span> = st.poisson(mu=lam1).logpmf(test)
+
+<span class="org-variable-name">xt</span> = torch.tensor(x.values, dtype=torch.<span class="org-builtin">float</span>)
+<span class="org-variable-name">m</span> = scmodes.lra.PVAE(input_dim=x.shape[1], latent_dim=5).fit(xt, lr=1e-3, max_epochs=2000, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam2</span> = m.denoise(xt) * test.values.<span class="org-builtin">sum</span>(axis=1, keepdims=<span class="org-constant">True</span>) / train.values.<span class="org-builtin">sum</span>(axis=1, keepdims=<span class="org-constant">True</span>)
+<span class="org-variable-name">llik2</span> = st.poisson(mu=lam2).logpmf(test)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 1, sharex=<span class="org-constant">True</span>)
+fig.set_size_inches(7, 6)
+
+<span class="org-variable-name">grid</span> = np.arange(test.values.<span class="org-builtin">max</span>())
+<span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid:
+  ax[0].boxplot((llik0 - llik1)[test.values == i].ravel(), positions=[i], widths=[0.5], medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 2})
+ax[0].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
+ax[0].set_ylabel(<span class="org-string">'Diff log lik from NMF'</span>)
+ax[0].set_title(<span class="org-string">'GLMPCA'</span>)
+
+<span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid:
+  ax[1].boxplot((llik0 - llik2)[test.values == i].ravel(), positions=[i], widths=[0.5], medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 2})
+ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
+ax[1].set_ylabel(<span class="org-string">'Diff log lik from NMF'</span>)
+ax[1].set_title(<span class="org-string">'PVAE'</span>)
+
+<span class="org-variable-name">h</span>, <span class="org-variable-name">e</span> = np.histogram(test.values.ravel(), bins=np.arange(test.values.<span class="org-builtin">max</span>() + 1), density=<span class="org-constant">True</span>)
+ax[2].bar(e[:-1], h, color=<span class="org-string">'k'</span>)
+ax[2].set_ylabel(<span class="org-string">'Relative frequency'</span>)
+ax[2].set_xticks(grid[::4])
+ax[2].set_xticklabels(grid[::4].astype(<span class="org-builtin">int</span>))
+ax[2].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
+ax[2].set_xlabel(<span class="org-string">'Observation in validation set'</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/fitted-values.org/b_cells-llik-diff.png" alt="b_cells-llik-diff.png">
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org4075a13" class="outline-3">
+<h3 id="org4075a13">T cells</h3>
+<div class="outline-text-3" id="text-org4075a13">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = data[<span class="org-string">'cytotoxic_t'</span>]()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nmf(x.values, rank=3, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam0</span> = l @ f.T
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.glmpca(x.values, rank=3, atol=.1, max_iters=500, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam1</span> = np.exp(l @ f.T)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">xt</span> = torch.tensor(x.values, dtype=torch.<span class="org-builtin">float</span>)
+<span class="org-variable-name">m</span> = scmodes.lra.PVAE(input_dim=x.shape[1], latent_dim=5).fit(xt, lr=1e-3, max_epochs=2000, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam2</span> = m.denoise(xt)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(4, 2.5)
+
+ax[0].scatter(np.sqrt(lam1.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[0].plot([0, 8], [0, 8], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[0].set_xticks([0, 4, 8])
+ax[0].set_yticks([0, 4, 8])
+ax[0].set_xlabel(r<span class="org-string">'GLMPCA $\sqrt{\hat\lambda}$'</span>)
+ax[0].set_ylabel(r<span class="org-string">'NMF $\sqrt{\hat\lambda}$'</span>)
+
+ax[1].scatter(np.sqrt(lam2.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[1].plot([0, 8], [0, 8], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[1].set_xticks([0, 4, 8])
+ax[1].set_yticks([0, 4, 8])
+ax[1].set_xlabel(r<span class="org-string">'PVAE $\sqrt{\hat\lambda}$'</span>)
+
+<span class="org-variable-name">a</span> = fig.add_subplot(111, frame_on=<span class="org-constant">False</span>, xticks=[], yticks=[])
+a.set_title(<span class="org-string">'T cell'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/fitted-values.org/t_cells.png" alt="t_cells.png">
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org4757b63" class="outline-3">
+<h3 id="org4757b63">iPSCs</h3>
+<div class="outline-text-3" id="text-org4757b63">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = data[<span class="org-string">'ipsc'</span>]()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nmf(x.values, rank=2, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam0</span> = l @ f.T
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.glmpca(x.values, rank=2, atol=.1, max_iters=500, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam1</span> = np.exp(l @ f.T)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">xt</span> = torch.tensor(x.values, dtype=torch.<span class="org-builtin">float</span>)
+<span class="org-variable-name">m</span> = scmodes.lra.PVAE(input_dim=x.shape[1], latent_dim=5).fit(xt, lr=1e-3, max_epochs=2000, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam2</span> = m.denoise(xt)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(4, 2.5)
+
+ax[0].scatter(np.sqrt(lam1.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[0].plot([0, 30], [0, 30], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[0].set_xlabel(r<span class="org-string">'GLMPCA $\sqrt{\hat\lambda}$'</span>)
+ax[0].set_ylabel(r<span class="org-string">'NMF $\sqrt{\hat\lambda}$'</span>)
+
+ax[1].scatter(np.sqrt(lam2.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[1].plot([0, 30], [0, 30], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[1].set_xlabel(r<span class="org-string">'PVAE $\sqrt{\hat\lambda}$'</span>)
+
+<span class="org-variable-name">a</span> = fig.add_subplot(111, frame_on=<span class="org-constant">False</span>, xticks=[], yticks=[])
+a.set_title(<span class="org-string">'iPSC'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/fitted-values.org/ipsc.png" alt="ipsc.png">
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-orgfd759d0" class="outline-3">
+<h3 id="orgfd759d0">T cell/B cell</h3>
+<div class="outline-text-3" id="text-orgfd759d0">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = data[<span class="org-string">'cytotoxic_t-b_cells'</span>]()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nmf(x.values, rank=3, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam0</span> = l @ f.T
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.glmpca(x.values, rank=3, atol=.1, max_iters=500, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam1</span> = np.exp(l @ f.T)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-wglmpca'</span>, lam1)
+</pre>
+</div>
+
+<p>
+0 - 805adc4a-e03c-49cc-84a8-194be1441dd2
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">xt</span> = torch.tensor(x.values, dtype=torch.<span class="org-builtin">float</span>)
+<span class="org-variable-name">m</span> = scmodes.lra.PVAE(input_dim=x.shape[1], latent_dim=5).fit(xt, lr=1e-3, max_epochs=2000, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam2</span> = m.denoise(xt)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-pvae'</span>, lam2)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(4, 2.5)
+
+ax[0].scatter(np.sqrt(lam1.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[0].plot([0, 10], [0, 10], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[0].set_xlabel(r<span class="org-string">'GLMPCA $\sqrt{\hat\lambda}$'</span>)
+ax[0].set_ylabel(r<span class="org-string">'NMF $\sqrt{\hat\lambda}$'</span>)
+
+ax[1].scatter(np.sqrt(lam2.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[1].plot([0, 10], [0, 10], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[1].set_xlabel(r<span class="org-string">'PVAE $\sqrt{\hat\lambda}$'</span>)
+
+<span class="org-variable-name">a</span> = fig.add_subplot(111, frame_on=<span class="org-constant">False</span>, xticks=[], yticks=[])
+a.set_title(<span class="org-string">'T cell/B cell'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/fitted-values.org/cytotoxic_t-b_cells.png" alt="cytotoxic_t-b_cells.png">
+</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2020-03-03 Tue 11:30</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>
