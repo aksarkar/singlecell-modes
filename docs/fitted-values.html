@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-03-03 Tue 22:09 -->
+<!-- 2020-03-04 Wed 11:22 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of fitted values</title>
@@ -287,6 +287,11 @@ investigate the per-observation performance of these methods.
 <div id="outline-container-org782386a" class="outline-2">
 <h2 id="setup"><a id="org782386a"></a>Setup</h2>
 <div class="outline-text-2" id="text-setup">
+<pre class="example">
+Submitted batch job 66223701
+
+</pre>
+
 <div class="org-src-container">
 <pre class="src src-ipython" id="org4264c3d"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
@@ -381,23 +386,28 @@ NMF, GLMPCA, and PVAE.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=mstephens -n1 -c8 --mem=8G --time=2:00:00
+<pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Important: this implicitly sets the random seed</span>
+<span class="org-variable-name">x</span> = data[<span class="org-string">'b_cells'</span>]()
+<span class="org-variable-name">train</span>, <span class="org-variable-name">test</span> = scmodes.benchmark.train_test_split(x)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train'</span>, train.values)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test'</span>, test.values)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=mstephens -n1 -c8 --mem=8G --time=60:00
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
-<span class="org-sh-heredoc">x = data['b_cells']()</span>
-<span class="org-sh-heredoc">np.random.seed(0)</span>
-<span class="org-sh-heredoc">train, test = scmodes.benchmark.train_test_split(x)</span>
-<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train', train.values)</span>
-<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test', test.values)</span>
+<span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')</span>
+<span class="org-sh-heredoc">test = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test.npy')</span>
 
-<span class="org-sh-heredoc">l, f, _ = scmodes.lra.nmf(train.values, rank=2, tol=1e-4, max_iters=100000, verbose=True)</span>
+<span class="org-sh-heredoc">l, f, _ = scmodes.lra.nmf(train, rank=2, tol=1e-4, max_iters=100000, verbose=True)</span>
 <span class="org-sh-heredoc">lam0 = l @ f.T</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nmf-lam', lam0)</span>
 
-<span class="org-sh-heredoc">l, f, _ = scmodes.lra.glmpca(train.values, rank=2, tol=1e-4, max_iters=100000, verbose=True)</span>
+<span class="org-sh-heredoc">l, f, _ = scmodes.lra.glmpca(train, rank=2, tol=1e-4, max_iters=100000, verbose=True)</span>
 <span class="org-sh-heredoc">lam1 = np.exp(l @ f.T)</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-glmpca-lam', lam1)</span>
 <span class="org-sh-heredoc">EOF</span>
@@ -410,11 +420,9 @@ python &lt;&lt;EOF
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
-<span class="org-sh-heredoc">x = data['b_cells']()</span>
-<span class="org-sh-heredoc">np.random.seed(0)</span>
-<span class="org-sh-heredoc">train, test = scmodes.benchmark.train_test_split(x)</span>
-<span class="org-sh-heredoc">xt = torch.tensor(train.values, dtype=torch.float)</span>
+<span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')</span>
+<span class="org-sh-heredoc">test = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test.npy')</span>
+<span class="org-sh-heredoc">xt = torch.tensor(train, dtype=torch.float)</span>
 <span class="org-sh-heredoc">m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=10).fit(xt, lr=1e-3, max_epochs=16000, verbose=True)</span>
 <span class="org-sh-heredoc">lam2 = m.denoise(xt, n_samples=100)</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam', lam2)</span>
@@ -436,7 +444,7 @@ Read the results.
 </div>
 
 <p>
-First, compare the fitted values of each method against other.
+Compare the fitted values of each method against other.
 </p>
 
 <div class="org-src-container">
@@ -466,8 +474,7 @@ fig.tight_layout()
 </div>
 
 <p>
-Next, look at the distribution of per-observation training log likelihood
-differences, stratified by observed value.
+Look at the average training log likelihoods.
 </p>
 
 <div class="org-src-container">
@@ -478,6 +485,23 @@ differences, stratified by observed value.
 </div>
 
 <div class="org-src-container">
+<pre class="src src-ipython">pd.Series({<span class="org-string">'NMF'</span>: llik0.mean(), <span class="org-string">'GLMPCA'</span>: llik1.mean(), <span class="org-string">'PVAE'</span>: llik2.mean()})
+</pre>
+</div>
+
+<pre class="example">
+NMF      -0.163096
+GLMPCA   -0.163275
+PVAE     -0.096454
+dtype: float64
+</pre>
+
+<p>
+Look at the distribution of per-observation training log likelihood
+differences, stratified by observed value.
+</p>
+
+<div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 1, sharex=<span class="org-constant">True</span>)
 fig.set_size_inches(7, 6)
@@ -486,13 +510,13 @@ fig.set_size_inches(7, 6)
 <span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid:
   ax[0].boxplot((llik1 - llik0)[train == i].ravel(), positions=[i], widths=[0.5], medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 2})
 ax[0].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
-ax[0].set_ylabel(<span class="org-string">'Improvement val log lik\nover NMF'</span>)
+ax[0].set_ylabel(<span class="org-string">'Improvement train\nlog lik over NMF'</span>)
 ax[0].set_title(<span class="org-string">'GLMPCA'</span>)
 
 <span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid:
   ax[1].boxplot((llik2 - llik0)[train == i].ravel(), positions=[i], widths=[0.5], medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 2})
 ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
-ax[1].set_ylabel(<span class="org-string">'Improvement val log lik\nover NMF'</span>)
+ax[1].set_ylabel(<span class="org-string">'Improvement train\nlog lik over NMF'</span>)
 ax[1].set_title(<span class="org-string">'PVAE'</span>)
 
 <span class="org-variable-name">h</span>, <span class="org-variable-name">e</span> = np.histogram(train.ravel(), bins=grid, density=<span class="org-constant">True</span>)
@@ -526,12 +550,12 @@ fig.set_size_inches(7, 4)
 <span class="org-variable-name">grid</span> = np.arange(train.<span class="org-builtin">max</span>() + 1)
 ax[0].bar(grid, np.array([(llik1 - llik0)[train == i].<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid]), color=<span class="org-string">'k'</span>)
 ax[0].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
-ax[0].set_ylabel(<span class="org-string">'Improvement val log lik\nover NMF'</span>)
+ax[0].set_ylabel(<span class="org-string">'Improvement train\nlog lik over NMF'</span>)
 ax[0].set_title(<span class="org-string">'GLMPCA'</span>)
 
 ax[1].bar(grid, np.array([(llik2 - llik0)[train == i].<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid]), color=<span class="org-string">'k'</span>)
 ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
-ax[1].set_ylabel(<span class="org-string">'Improvement val log lik\nover NMF'</span>)
+ax[1].set_ylabel(<span class="org-string">'Improvement train\nlog lik over NMF'</span>)
 ax[1].set_title(<span class="org-string">'PVAE'</span>)
 ax[1].set_xticks(grid[::5])
 ax[1].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
@@ -560,6 +584,18 @@ Repeat the analysis for the validation data.
 </pre>
 </div>
 
+<div class="org-src-container">
+<pre class="src src-ipython">pd.Series({<span class="org-string">'NMF'</span>: llik0.mean(), <span class="org-string">'GLMPCA'</span>: llik1.mean(), <span class="org-string">'PVAE'</span>: llik2.mean()})
+</pre>
+</div>
+
+<pre class="example">
+NMF      -0.181994
+GLMPCA   -0.166435
+PVAE     -0.382557
+dtype: float64
+</pre>
+
 <p>
 Report observations which are non-zero in the validation set, but the NMF estimate
 \(\hat\lambda_{ij} = 0\).
@@ -571,8 +607,8 @@ Report observations which are non-zero in the validation set, but the NMF estima
 </div>
 
 <pre class="example">
-array([1., 1., 1., 1., 1., 1., 1.])
-
+array([1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+1., 1., 1., 1., 1., 1., 1., 1.])
 </pre>
 
 <p>
@@ -585,8 +621,8 @@ Report the corresponding observations in the training set.
 </div>
 
 <pre class="example">
-array([0, 0, 0, 0, 0, 0, 0])
-
+array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0])
 </pre>
 
 <div class="org-src-container">
@@ -632,12 +668,12 @@ fig.set_size_inches(7, 4)
 
 <span class="org-variable-name">grid</span> = np.arange(test.<span class="org-builtin">max</span>() + 1)
 ax[0].bar(grid, np.array([(llik1 - llik0)[test == i].<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid]), color=<span class="org-string">'k'</span>)
-ax[0].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
+ax[0].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>, zorder=-3)
 ax[0].set_ylabel(<span class="org-string">'Improvement val log lik\nover NMF'</span>)
 ax[0].set_title(<span class="org-string">'GLMPCA'</span>)
 
 ax[1].bar(grid, np.array([(llik2 - llik0)[test == i].<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid]), color=<span class="org-string">'k'</span>)
-ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
+ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>, zorder=-3)
 ax[1].set_ylabel(<span class="org-string">'Improvement val log lik\nover NMF'</span>)
 ax[1].set_title(<span class="org-string">'PVAE'</span>)
 ax[1].set_xticks(grid[::5])
@@ -665,7 +701,7 @@ Count the fraction of observations equal to one in the validation set.
 </div>
 
 <pre class="example">
-0.03300062334424186
+0.033023219573009195
 
 </pre>
 
@@ -680,10 +716,10 @@ distribution of training set values.
 </div>
 
 <pre class="example">
-0    0.785257
-1    0.139390
-2    0.041126
-3    0.017652
+0    0.786306
+1    0.139441
+2    0.040593
+3    0.017644
 dtype: float64
 </pre>
 </div>
@@ -866,7 +902,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-03-03 Tue 22:09</p>
+<p class="date">Created: 2020-03-04 Wed 11:22</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
