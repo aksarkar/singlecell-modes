@@ -483,6 +483,52 @@
    #+END_EXAMPLE
    :END:
 
+   Look at the distribution of (a random sample of) randomized quantiles for
+   each method.
+
+   #+BEGIN_SRC ipython :async t
+     train_qs = []
+     test_qs = []
+     for i, l in enumerate([lam0, lam1, lam2]):
+       F = st.poisson(l)
+       q = np.sort((F.cdf(train - 1) + np.random.uniform(size=train.shape) * F.pmf(train)).ravel()[::10])
+       train_qs.append(q)
+       q = np.sort((F.cdf(test - 1) + np.random.uniform(size=test.shape) * F.pmf(test)).ravel()[::10])
+       test_qs.append(q)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[39]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-rpp.png
+     plt.set_cmap('Dark2')
+     plt.clf()
+     fig, ax = plt.subplots(1, 2, sharey=True)
+     fig.set_size_inches(5.5, 3)
+     for a, qs, t in zip(ax.ravel(), [train_qs, test_qs], ['Training', 'Validation']):
+       a.set_xscale('log')
+       a.set_yscale('log')
+       for i, (q, k) in enumerate(zip(qs, ['NMF', 'GLMPCA', 'PVAE'])):
+         x = np.linspace(0, 1, q.shape[0] + 1)[1:]
+         a.plot(x, np.sort(q), lw=1, c=f'C{i}', label=k)
+         a.plot([1e-6, 1], [1e-6, 1], lw=1, ls=':', c='0.7')
+         a.set_xlim([1e-6, 1])
+         a.set_ylim([1e-6, 1])
+       a.set_xlabel('Theoretical quantile')
+       a.set_title(t)
+     ax[0].set_ylabel('Randomized quantile')
+     ax[1].legend(frameon=False)
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[37]:
+   [[file:figure/fitted-values.org/b_cells-rpp.png]]
+   :END:
+
 ** T cells
 
    #+BEGIN_SRC ipython :async t
