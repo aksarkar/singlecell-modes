@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-03-04 Wed 11:38 -->
+<!-- 2020-03-04 Wed 15:11 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of fitted values</title>
@@ -288,7 +288,7 @@ investigate the per-observation performance of these methods.
 <h2 id="setup"><a id="org782386a"></a>Setup</h2>
 <div class="outline-text-2" id="text-setup">
 <pre class="example">
-Submitted batch job 66223701
+Submitted batch job 66230306
 
 </pre>
 
@@ -401,8 +401,6 @@ np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
 <span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')</span>
-<span class="org-sh-heredoc">test = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test.npy')</span>
-
 <span class="org-sh-heredoc">l, f, _ = scmodes.lra.nmf(train, rank=2, tol=1e-4, max_iters=100000, verbose=True)</span>
 <span class="org-sh-heredoc">lam0 = l @ f.T</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nmf-lam', lam0)</span>
@@ -421,13 +419,39 @@ python &lt;&lt;EOF
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
 <span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')</span>
-<span class="org-sh-heredoc">test = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test.npy')</span>
 <span class="org-sh-heredoc">xt = torch.tensor(train, dtype=torch.float)</span>
-<span class="org-sh-heredoc">m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=10).fit(xt, lr=1e-3, max_epochs=16000, verbose=True)</span>
+<span class="org-sh-heredoc">train_t = xt[:900]</span>
+<span class="org-sh-heredoc">test_t = xt[900:]</span>
+<span class="org-sh-heredoc">m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=10).fit(train_t, y=test_t, lr=1e-3, max_epochs=200, trace=True)</span>
 <span class="org-sh-heredoc">lam2 = m.denoise(xt, n_samples=100)</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam', lam2)</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-trace', np.array(m.trace))</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
+</div>
+
+<p>
+Examine the PVAE optimization trace.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(4, 2)
+<span class="org-variable-name">trace</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-trace.npy'</span>)
+<span class="org-keyword">for</span> i, (t, s, k) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(trace.T, [900, 100], [<span class="org-string">'Training'</span>, <span class="org-string">'Validation'</span>])):
+  plt.plot(np.log(t / s), lw=1, c=cm(i), label=k)
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.xlabel(<span class="org-string">'Epoch'</span>)
+plt.ylabel(<span class="org-string">'Avg log neg ELBO'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/fitted-values.org/b_cells-pvae-trace.png" alt="b_cells-pvae-trace.png">
+</p>
 </div>
 
 <p>
@@ -492,7 +516,7 @@ Look at the average training log likelihoods.
 <pre class="example">
 NMF      -0.163096
 GLMPCA   -0.163275
-PVAE     -0.096454
+PVAE     -0.162025
 dtype: float64
 </pre>
 
@@ -592,7 +616,7 @@ Repeat the analysis for the validation data.
 <pre class="example">
 NMF      -0.181994
 GLMPCA   -0.166435
-PVAE     -0.382557
+PVAE     -0.168989
 dtype: float64
 </pre>
 
@@ -741,19 +765,20 @@ each method.
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython">plt.set_cmap(<span class="org-string">'Dark2'</span>)
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
 plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
 fig.set_size_inches(5.5, 3)
+<span class="org-variable-name">lim</span> = [5e-7, 1]
 <span class="org-keyword">for</span> a, qs, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), [train_qs, test_qs], [<span class="org-string">'Training'</span>, <span class="org-string">'Validation'</span>]):
   a.set_xscale(<span class="org-string">'log'</span>)
   a.set_yscale(<span class="org-string">'log'</span>)
   <span class="org-keyword">for</span> i, (q, k) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(qs, [<span class="org-string">'NMF'</span>, <span class="org-string">'GLMPCA'</span>, <span class="org-string">'PVAE'</span>])):
     <span class="org-variable-name">x</span> = np.linspace(0, 1, q.shape[0] + 1)[1:]
-    a.plot(x, np.sort(q), lw=1, c=f<span class="org-string">'C{i}'</span>, label=k)
-    a.plot([1e-6, 1], [1e-6, 1], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'0.7'</span>)
-    a.set_xlim([1e-6, 1])
-    a.set_ylim([1e-6, 1])
+    a.plot(x, np.sort(q), lw=1, c=cm(i), label=k)
+    a.plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'0.7'</span>)
+    a.set_xlim(lim)
+    a.set_ylim(lim)
   a.set_xlabel(<span class="org-string">'Theoretical quantile'</span>)
   a.set_title(t)
 ax[0].set_ylabel(<span class="org-string">'Randomized quantile'</span>)
@@ -947,7 +972,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-03-04 Wed 11:38</p>
+<p class="date">Created: 2020-03-04 Wed 15:11</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

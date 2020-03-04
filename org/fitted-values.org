@@ -23,10 +23,13 @@
 
   #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
+  #+RESULTS:
+  : Submitted batch job 66224941
+
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 66223701
+  : Submitted batch job 66230306
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -40,11 +43,6 @@
   #+RESULTS: imports
   :RESULTS:
   # Out[1]:
-  :END:
-
-  #+RESULTS:
-  :RESULTS:
-  # Out[68]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -155,8 +153,6 @@
      python <<EOF
      <<imports>>
      train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')
-     test = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test.npy')
-
      l, f, _ = scmodes.lra.nmf(train, rank=2, tol=1e-4, max_iters=100000, verbose=True)
      lam0 = l @ f.T
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nmf-lam', lam0)
@@ -177,16 +173,39 @@
      python <<EOF
      <<imports>>
      train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')
-     test = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test.npy')
      xt = torch.tensor(train, dtype=torch.float)
-     m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=10).fit(xt, lr=1e-3, max_epochs=16000, verbose=True)
+     train_t = xt[:900]
+     test_t = xt[900:]
+     m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=10).fit(train_t, y=test_t, lr=1e-3, max_epochs=200, trace=True)
      lam2 = m.denoise(xt, n_samples=100)
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam', lam2)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-trace', np.array(m.trace))
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66213433
+   : Submitted batch job 66231153
+
+   Examine the PVAE optimization trace.
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-pvae-trace.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2)
+     trace = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-trace.npy')
+     for i, (t, s, k) in enumerate(zip(trace.T, [900, 100], ['Training', 'Validation'])):
+       plt.plot(np.log(t / s), lw=1, c=cm(i), label=k)
+     plt.legend(frameon=False)
+     plt.xlabel('Epoch')
+     plt.ylabel('Avg log neg ELBO')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[40]:
+   [[file:figure/fitted-values.org/b_cells-pvae-trace.png]]
+   :END:
 
    Read the results.
 
@@ -200,7 +219,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[27]:
    :END:
 
    Compare the fitted values of each method against other.
@@ -226,7 +245,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[28]:
    [[file:figure/fitted-values.org/b_cells.png]]
    :END:
 
@@ -240,7 +259,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[29]:
    :END:
 
    #+BEGIN_SRC ipython
@@ -249,11 +268,11 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[30]:
    #+BEGIN_EXAMPLE
      NMF      -0.163096
      GLMPCA   -0.163275
-     PVAE     -0.096454
+     PVAE     -0.162025
      dtype: float64
    #+END_EXAMPLE
    :END:
@@ -292,7 +311,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[9]:
+   # Out[31]:
    [[file:figure/fitted-values.org/b_cells-train-llik-diff.png]]
    :END:
 
@@ -324,7 +343,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[11]:
+   # Out[32]:
    [[file:figure/fitted-values.org/b_cells-train-sum-llik-diff.png]]
    :END:
 
@@ -339,7 +358,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
+   # Out[33]:
    :END:
 
    #+BEGIN_SRC ipython
@@ -348,11 +367,11 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[13]:
+   # Out[34]:
    #+BEGIN_EXAMPLE
      NMF      -0.181994
      GLMPCA   -0.166435
-     PVAE     -0.382557
+     PVAE     -0.168989
      dtype: float64
    #+END_EXAMPLE
    :END:
@@ -366,7 +385,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[14]:
+   # Out[35]:
    #+BEGIN_EXAMPLE
      array([1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
      1., 1., 1., 1., 1., 1., 1., 1.])
@@ -381,7 +400,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[15]:
+   # Out[36]:
    #+BEGIN_EXAMPLE
      array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
      0, 0, 0])
@@ -419,7 +438,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[16]:
+   # Out[37]:
    [[file:figure/fitted-values.org/b_cells-llik-diff.png]]
    :END:
 
@@ -448,7 +467,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[17]:
+   # Out[38]:
    [[file:figure/fitted-values.org/b_cells-sum-llik-diff.png]]
    :END:
 
@@ -503,19 +522,20 @@
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-rpp.png
-     plt.set_cmap('Dark2')
+     cm = plt.get_cmap('Dark2')
      plt.clf()
      fig, ax = plt.subplots(1, 2, sharey=True)
      fig.set_size_inches(5.5, 3)
+     lim = [5e-7, 1]
      for a, qs, t in zip(ax.ravel(), [train_qs, test_qs], ['Training', 'Validation']):
        a.set_xscale('log')
        a.set_yscale('log')
        for i, (q, k) in enumerate(zip(qs, ['NMF', 'GLMPCA', 'PVAE'])):
          x = np.linspace(0, 1, q.shape[0] + 1)[1:]
-         a.plot(x, np.sort(q), lw=1, c=f'C{i}', label=k)
-         a.plot([1e-6, 1], [1e-6, 1], lw=1, ls=':', c='0.7')
-         a.set_xlim([1e-6, 1])
-         a.set_ylim([1e-6, 1])
+         a.plot(x, np.sort(q), lw=1, c=cm(i), label=k)
+         a.plot(lim, lim, lw=1, ls=':', c='0.7')
+         a.set_xlim(lim)
+         a.set_ylim(lim)
        a.set_xlabel('Theoretical quantile')
        a.set_title(t)
      ax[0].set_ylabel('Randomized quantile')
@@ -525,7 +545,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[37]:
+   # Out[42]:
    [[file:figure/fitted-values.org/b_cells-rpp.png]]
    :END:
 
