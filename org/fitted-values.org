@@ -3,9 +3,9 @@
 
 * Introduction
 
-  We previously found that NMF, GLM-PCA, and PVAE all had similar performance
-  on a [[file:lra.org][binomial thinning benchmark]]. A clearer way to
-  demonstrate this is to plot the fitted values against each other.
+  We previously found that NMF, GLM-PCA, and PVAE all had similar average
+  performance on a [[file:lra.org][binomial thinning benchmark]]. Here, we
+  investigate the per-observation performance of these methods.
 
 * Setup
   :PROPERTIES:
@@ -15,6 +15,7 @@
   #+BEGIN_SRC emacs-lisp :exports none
     (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
     (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+    (org-babel-lob-ingest "fitted-values.org")
   #+END_SRC
 
   #+RESULTS:
@@ -23,8 +24,9 @@
   #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 66187437
+  : Submitted batch job 66205282
 
+  #+NAME: imports
   #+BEGIN_SRC ipython
     import numpy as np
     import pandas as pd
@@ -33,9 +35,14 @@
     import torch
   #+END_SRC
 
+  #+RESULTS: imports
+  :RESULTS:
+  # Out[1]:
+  :END:
+
   #+RESULTS:
   :RESULTS:
-  # Out[9]:
+  # Out[68]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -45,7 +52,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -56,7 +63,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[3]:
   :END:
 
 * Results
@@ -119,48 +126,76 @@
    :END:
 
 ** B cells
+   :PROPERTIES:
+   :CUSTOM_ID: b-cells
+   :END:
 
-   #+BEGIN_SRC ipython :async t
+   Split the data into training and validation sets using binomial thinning, then fit
+   NMF, GLMPCA, and PVAE.
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=mstephens -n1 -c8 --mem=8G --time=2:00:00
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     <<data>>
      x = data['b_cells']()
-   #+END_SRC
+     np.random.seed(0)
+     train, test = scmodes.benchmark.train_test_split(x)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train', train.values)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test', test.values)
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[6]:
-   :END:
-
-   #+BEGIN_SRC ipython :async t
-     l, f, _ = scmodes.lra.nmf(x.values, rank=2, verbose=True)
+     l, f, _ = scmodes.lra.nmf(train.values, rank=2, tol=1e-4, max_iters=100000, verbose=True)
      lam0 = l @ f.T
-   #+END_SRC
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nmf-lam', lam0)
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[6]:
-   :END:
-
-   #+BEGIN_SRC ipython :async t
-     l, f, _ = scmodes.lra.glmpca(x.values, rank=2, verbose=True)
+     l, f, _ = scmodes.lra.glmpca(train.values, rank=2, tol=1e-4, max_iters=100000, verbose=True)
      lam1 = np.exp(l @ f.T)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-glmpca-lam', lam1)
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 66211981
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=8G
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     <<data>>
+     x = data['b_cells']()
+     np.random.seed(0)
+     train, test = scmodes.benchmark.train_test_split(x)
+     xt = torch.tensor(train.values, dtype=torch.float)
+     m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=10).fit(xt, lr=1e-3, max_epochs=16000, verbose=True)
+     lam2 = m.denoise(xt, n_samples=100)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam', lam2)
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 66211982
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')
+     test = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test.npy')
+     lam0 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nmf-lam.npy')
+     lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-glmpca-lam.npy')
+     lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam.npy')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[44]:
    :END:
 
-   #+BEGIN_SRC ipython :async t
-     xt = torch.tensor(x.values, dtype=torch.float)
-     m = scmodes.lra.PVAE(input_dim=x.shape[1], latent_dim=5).fit(xt, lr=1e-3, max_epochs=2000, verbose=True)
-     lam2 = m.denoise(xt)
-   #+END_SRC
+   First, compare the fitted values of each method against other.
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[8]:
-   :END:
-
-   #+NAME: plot
    #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells.png
      plt.clf()
      fig, ax = plt.subplots(1, 2, sharey=True)
@@ -182,31 +217,128 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[15]:
+   # Out[87]:
    [[file:figure/fitted-values.org/b_cells.png]]
    :END:
 
-   Look at log likelihood differences in binomial thinning.
+   Next, look at the distribution of per-observation training log likelihood
+   differences, stratified by observed value.
 
-   #+BEGIN_SRC ipython :async t
-     train, test = scmodes.benchmark.train_test_split(x)
-     l, f, _ = scmodes.lra.nmf(train.values, rank=2, verbose=True)
-     lam0 = (l @ f.T) * test.values.sum(axis=1, keepdims=True) / train.values.sum(axis=1, keepdims=True)
-     llik0 = st.poisson(mu=lam0).logpmf(test)
-
-     l, f, _ = scmodes.lra.glmpca(train.values, rank=2, atol=1, max_iters=500, verbose=True)
-     lam1 = np.exp(l @ f.T) * test.values.sum(axis=1, keepdims=True) / train.values.sum(axis=1, keepdims=True)
-     llik1 = st.poisson(mu=lam1).logpmf(test)
-
-     xt = torch.tensor(x.values, dtype=torch.float)
-     m = scmodes.lra.PVAE(input_dim=x.shape[1], latent_dim=5).fit(xt, lr=1e-3, max_epochs=2000, verbose=True)
-     lam2 = m.denoise(xt) * test.values.sum(axis=1, keepdims=True) / train.values.sum(axis=1, keepdims=True)
-     llik2 = st.poisson(mu=lam2).logpmf(test)
+   #+BEGIN_SRC ipython
+     llik0 = st.poisson(lam0).logpmf(train)
+     llik1 = st.poisson(lam1).logpmf(train)
+     llik2 = st.poisson(lam2).logpmf(train)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[10]:
+   # Out[74]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-train-llik-diff.png
+     plt.clf()
+     fig, ax = plt.subplots(3, 1, sharex=True)
+     fig.set_size_inches(7, 6)
+
+     grid = np.arange(train.max() + 1)
+     for i in grid:
+       ax[0].boxplot((llik1 - llik0)[train == i].ravel(), positions=[i], widths=[0.5], medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 2})
+     ax[0].axhline(y=0, ls=':', lw=1, c='r')
+     ax[0].set_ylabel('Improvement val log lik\nover NMF')
+     ax[0].set_title('GLMPCA')
+
+     for i in grid:
+       ax[1].boxplot((llik2 - llik0)[train == i].ravel(), positions=[i], widths=[0.5], medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 2})
+     ax[1].axhline(y=0, ls=':', lw=1, c='r')
+     ax[1].set_ylabel('Improvement val log lik\nover NMF')
+     ax[1].set_title('PVAE')
+
+     h, e = np.histogram(train.ravel(), bins=grid, density=True)
+     ax[2].bar(e[:-1], h, color='k')
+     ax[2].set_ylabel('Relative frequency')
+     ax[2].set_xticks(grid[::5])
+     ax[2].set_xticklabels(grid[::5].astype(int))
+     ax[2].set_xlim(-.5, grid.max() - .5)
+     ax[2].set_xlabel('Observation in training set')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[76]:
+   [[file:figure/fitted-values.org/b_cells-train-llik-diff.png]]
+   :END:
+
+   Look at the total training log likelihood differences, stratified by
+   observed value.
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-train-sum-llik-diff.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 1, sharex=True)
+     fig.set_size_inches(7, 4)
+
+     grid = np.arange(train.max() + 1)
+     ax[0].bar(grid, np.array([(llik1 - llik0)[train == i].sum() for i in grid]), color='k')
+     ax[0].axhline(y=0, ls=':', lw=1, c='r')
+     ax[0].set_ylabel('Improvement val log lik\nover NMF')
+     ax[0].set_title('GLMPCA')
+
+     ax[1].bar(grid, np.array([(llik2 - llik0)[train == i].sum() for i in grid]), color='k')
+     ax[1].axhline(y=0, ls=':', lw=1, c='r')
+     ax[1].set_ylabel('Improvement val log lik\nover NMF')
+     ax[1].set_title('PVAE')
+     ax[1].set_xticks(grid[::5])
+     ax[1].set_xticklabels(grid[::5].astype(int))
+     ax[1].set_xlim(-.5, grid.max() - .5)
+     ax[1].set_xlabel('Observation in training set')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[78]:
+   [[file:figure/fitted-values.org/b_cells-train-sum-llik-diff.png]]
+   :END:
+
+   Repeat the analysis for the validation data.
+
+   #+BEGIN_SRC ipython
+     s = (test.sum(axis=1) / train.sum(axis=1)).reshape(-1, 1)
+     llik0 = np.ma.masked_invalid(st.poisson(s * lam0).logpmf(test))
+     llik1 = st.poisson(s * lam1).logpmf(test)
+     llik2 = st.poisson(s * lam2).logpmf(test)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[79]:
+   :END:
+
+   Report observations which are non-zero in the validation set, but the NMF estimate
+   \(\hat\lambda_{ij} = 0\).
+
+   #+BEGIN_SRC ipython
+     test[np.where(llik0.mask)]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[71]:
+   : array([1., 1., 1., 1., 1., 1., 1.])
+   :END:
+
+   Report the corresponding observations in the training set.
+
+   #+BEGIN_SRC ipython
+     train[np.where(llik0.mask)]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[72]:
+   : array([0, 0, 0, 0, 0, 0, 0])
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-llik-diff.png
@@ -214,24 +346,24 @@
      fig, ax = plt.subplots(3, 1, sharex=True)
      fig.set_size_inches(7, 6)
 
-     grid = np.arange(test.values.max())
+     grid = np.arange(test.max())
      for i in grid:
-       ax[0].boxplot((llik0 - llik1)[test.values == i].ravel(), positions=[i], widths=[0.5], medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 2})
+       ax[0].boxplot((llik1 - llik0)[test == i].ravel(), positions=[i], widths=[0.5], medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 2})
      ax[0].axhline(y=0, ls=':', lw=1, c='r')
-     ax[0].set_ylabel('Diff log lik from NMF')
+     ax[0].set_ylabel('Improvement val log lik\nover NMF')
      ax[0].set_title('GLMPCA')
 
      for i in grid:
-       ax[1].boxplot((llik0 - llik2)[test.values == i].ravel(), positions=[i], widths=[0.5], medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 2})
+       ax[1].boxplot((llik2 - llik0)[test == i].ravel(), positions=[i], widths=[0.5], medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 2})
      ax[1].axhline(y=0, ls=':', lw=1, c='r')
-     ax[1].set_ylabel('Diff log lik from NMF')
+     ax[1].set_ylabel('Improvement val log lik\nover NMF')
      ax[1].set_title('PVAE')
 
-     h, e = np.histogram(test.values.ravel(), bins=np.arange(test.values.max() + 1), density=True)
+     h, e = np.histogram(test.ravel(), bins=np.arange(test.max() + 1), density=True)
      ax[2].bar(e[:-1], h, color='k')
      ax[2].set_ylabel('Relative frequency')
-     ax[2].set_xticks(grid[::4])
-     ax[2].set_xticklabels(grid[::4].astype(int))
+     ax[2].set_xticks(grid[::5])
+     ax[2].set_xticklabels(grid[::5].astype(int))
      ax[2].set_xlim(-.5, grid.max() - .5)
      ax[2].set_xlabel('Observation in validation set')
 
@@ -240,8 +372,68 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[39]:
+   # Out[82]:
    [[file:figure/fitted-values.org/b_cells-llik-diff.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-sum-llik-diff.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 1, sharex=True)
+     fig.set_size_inches(7, 4)
+
+     grid = np.arange(test.max() + 1)
+     ax[0].bar(grid, np.array([(llik1 - llik0)[test == i].sum() for i in grid]), color='k')
+     ax[0].axhline(y=0, ls=':', lw=1, c='r')
+     ax[0].set_ylabel('Improvement val log lik\nover NMF')
+     ax[0].set_title('GLMPCA')
+
+     ax[1].bar(grid, np.array([(llik2 - llik0)[test == i].sum() for i in grid]), color='k')
+     ax[1].axhline(y=0, ls=':', lw=1, c='r')
+     ax[1].set_ylabel('Improvement val log lik\nover NMF')
+     ax[1].set_title('PVAE')
+     ax[1].set_xticks(grid[::5])
+     ax[1].set_xticklabels(grid[::5].astype(int))
+     ax[1].set_xlim(-.5, grid.max() - .5)
+     ax[1].set_xlabel('Observation in validation set')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[83]:
+   [[file:figure/fitted-values.org/b_cells-sum-llik-diff.png]]
+   :END:
+
+   Count the fraction of observations equal to one in the validation set.
+
+   #+BEGIN_SRC ipython
+     (test == 1).sum() / np.prod(test.shape)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[85]:
+   : 0.03300062334424186
+   :END:
+
+   For observations which were equal to one in validation set, look at the
+   distribution of training set values.
+
+   #+BEGIN_SRC ipython
+     pd.Series(dict(enumerate([np.logical_and(train == i, test == 1).sum() / (test == 1).sum() for i in range(4)])))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[86]:
+   #+BEGIN_EXAMPLE
+     0    0.785257
+     1    0.139390
+     2    0.041126
+     3    0.017652
+     dtype: float64
+   #+END_EXAMPLE
    :END:
 
 ** T cells
