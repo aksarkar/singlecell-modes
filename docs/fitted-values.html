@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-03-04 Wed 21:28 -->
+<!-- 2020-03-05 Thu 13:30 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of fitted values</title>
@@ -487,6 +487,109 @@ fig.tight_layout()
 
 <div class="figure">
 <p><img src="figure/fitted-values.org/b_cells.png" alt="b_cells.png">
+</p>
+</div>
+
+<p>
+Compare the fitted values of each method against each other, only for
+observations which were 1 in the validation data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 2)
+fig.set_size_inches(4, 4)
+
+<span class="org-variable-name">query</span> = np.isclose(test, 1)
+<span class="org-variable-name">lim</span> = [-400, 5]
+ax[0][0].scatter(np.log(lam1[query].ravel()), np.log(lam0[query].ravel()), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[0][0].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[0][0].set_xlim(lim)
+ax[0][0].set_ylim(lim)
+ax[0][0].set_ylabel(r<span class="org-string">'NMF $\log\ \hat\lambda$'</span>)
+
+ax[0][1].scatter(np.log(lam2[query].ravel()), np.log(lam0[query].ravel()), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[0][1].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[0][1].set_xlim(lim)
+ax[0][1].set_ylim(lim)
+
+<span class="org-variable-name">lim</span> = [-20, 5]
+ax[0][0].add_patch(plt.Rectangle((lim[0], lim[0]), lim[1] - lim[0], lim[1] - lim[0], fill=<span class="org-constant">False</span>, color=<span class="org-string">'b'</span>))
+ax[0][1].add_patch(plt.Rectangle((lim[0], lim[0]), lim[1] - lim[0], lim[1] - lim[0], fill=<span class="org-constant">False</span>, color=<span class="org-string">'b'</span>))
+
+ax[1][0].scatter(np.log(lam1[query].ravel()), np.log(lam0[query].ravel()), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[1][0].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[1][0].set_xlim(lim)
+ax[1][0].set_ylim(lim)
+ax[1][0].set_xlabel(r<span class="org-string">'GLMPCA $\log\ \hat\lambda$'</span>)
+ax[1][0].set_ylabel(r<span class="org-string">'NMF $\log\ \hat\lambda$'</span>)
+
+ax[1][1].scatter(np.log(lam2[query].ravel()), np.log(lam0[query].ravel()), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[1][1].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[1][1].set_xlim(lim)
+ax[1][1].set_ylim(lim)
+ax[1][1].set_xlabel(r<span class="org-string">'PVAE $\log\ \hat\lambda$'</span>)
+
+<span class="org-variable-name">a</span> = fig.add_subplot(111, frame_on=<span class="org-constant">False</span>, xticks=[], yticks=[])
+a.set_title(<span class="org-string">'B cell validation $x = 1$'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/fitted-values.org/b_cells-val-1.png" alt="b_cells-val-1.png">
+</p>
+</div>
+
+<p>
+Repeat for observations which were 0 in the validation data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 2)
+fig.set_size_inches(4, 4)
+
+<span class="org-variable-name">query</span> = np.isclose(test, 0)
+<span class="org-variable-name">lim</span> = [-400, 5]
+ax[0][0].scatter(np.log(lam1[query].ravel()[::50]), np.log(lam0[query].ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[0][0].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[0][0].set_xlim(lim)
+ax[0][0].set_ylim(lim)
+ax[0][0].set_ylabel(r<span class="org-string">'NMF $\log\ \hat\lambda$'</span>)
+
+ax[0][1].scatter(np.log(lam2[query].ravel()[::50]), np.log(lam0[query].ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[0][1].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[0][1].set_xlim(lim)
+ax[0][1].set_ylim(lim)
+
+<span class="org-variable-name">lim</span> = [-20, 5]
+ax[0][0].add_patch(plt.Rectangle((lim[0], lim[0]), lim[1] - lim[0], lim[1] - lim[0], fill=<span class="org-constant">False</span>, color=<span class="org-string">'b'</span>))
+ax[0][1].add_patch(plt.Rectangle((lim[0], lim[0]), lim[1] - lim[0], lim[1] - lim[0], fill=<span class="org-constant">False</span>, color=<span class="org-string">'b'</span>))
+
+ax[1][0].scatter(np.log(lam1[query].ravel()[::50]), np.log(lam0[query].ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[1][0].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[1][0].set_xlim(lim)
+ax[1][0].set_ylim(lim)
+ax[1][0].set_xlabel(r<span class="org-string">'GLMPCA $\log\ \hat\lambda$'</span>)
+ax[1][0].set_ylabel(r<span class="org-string">'NMF $\log\ \hat\lambda$'</span>)
+
+ax[1][1].scatter(np.log(lam2[query].ravel()[::50]), np.log(lam0[query].ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[1][1].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[1][1].set_xlim(lim)
+ax[1][1].set_ylim(lim)
+ax[1][1].set_xlabel(r<span class="org-string">'PVAE $\log\ \hat\lambda$'</span>)
+
+<span class="org-variable-name">a</span> = fig.add_subplot(111, frame_on=<span class="org-constant">False</span>, xticks=[], yticks=[])
+a.set_title(<span class="org-string">'B cell validation $x = 0$'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/fitted-values.org/b_cells-val-0.png" alt="b_cells-val-0.png">
 </p>
 </div>
 
@@ -1023,7 +1126,6 @@ fig.tight_layout()
 </div>
 
 
-
 <div id="outline-container-org4075a13" class="outline-3">
 <h3 id="org4075a13">T cells</h3>
 <div class="outline-text-3" id="text-org4075a13">
@@ -1201,7 +1303,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-03-04 Wed 21:28</p>
+<p class="date">Created: 2020-03-05 Thu 13:30</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

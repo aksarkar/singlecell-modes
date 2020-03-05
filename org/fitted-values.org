@@ -24,7 +24,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 66240041
+  : Submitted batch job 66244790
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -37,7 +37,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[1]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -47,7 +47,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -58,7 +58,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[4]:
   :END:
 
 * Results
@@ -95,7 +95,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[4]:
+   # Out[5]:
    :END:
 
    Report the data dimensions.
@@ -212,7 +212,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[44]:
+   # Out[6]:
    :END:
 
    Compare the fitted values of each method against other.
@@ -240,6 +240,103 @@
    :RESULTS:
    # Out[45]:
    [[file:figure/fitted-values.org/b_cells.png]]
+   :END:
+
+   Compare the fitted values of each method against each other, only for
+   observations which were 1 in the validation data.
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-val-1.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 2)
+     fig.set_size_inches(4, 4)
+
+     query = np.isclose(test, 1)
+     lim = [-400, 5]
+     ax[0][0].scatter(np.log(lam1[query].ravel()), np.log(lam0[query].ravel()), s=1, c='k', alpha=0.1)
+     ax[0][0].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[0][0].set_xlim(lim)
+     ax[0][0].set_ylim(lim)
+     ax[0][0].set_ylabel(r'NMF $\log\ \hat\lambda$')
+
+     ax[0][1].scatter(np.log(lam2[query].ravel()), np.log(lam0[query].ravel()), s=1, c='k', alpha=0.1)
+     ax[0][1].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[0][1].set_xlim(lim)
+     ax[0][1].set_ylim(lim)
+
+     lim = [-20, 5]
+     ax[0][0].add_patch(plt.Rectangle((lim[0], lim[0]), lim[1] - lim[0], lim[1] - lim[0], fill=False, color='b'))
+     ax[0][1].add_patch(plt.Rectangle((lim[0], lim[0]), lim[1] - lim[0], lim[1] - lim[0], fill=False, color='b'))
+
+     ax[1][0].scatter(np.log(lam1[query].ravel()), np.log(lam0[query].ravel()), s=1, c='k', alpha=0.1)
+     ax[1][0].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[1][0].set_xlim(lim)
+     ax[1][0].set_ylim(lim)
+     ax[1][0].set_xlabel(r'GLMPCA $\log\ \hat\lambda$')
+     ax[1][0].set_ylabel(r'NMF $\log\ \hat\lambda$')
+
+     ax[1][1].scatter(np.log(lam2[query].ravel()), np.log(lam0[query].ravel()), s=1, c='k', alpha=0.1)
+     ax[1][1].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[1][1].set_xlim(lim)
+     ax[1][1].set_ylim(lim)
+     ax[1][1].set_xlabel(r'PVAE $\log\ \hat\lambda$')
+
+     a = fig.add_subplot(111, frame_on=False, xticks=[], yticks=[])
+     a.set_title('B cell validation $x = 1$')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[57]:
+   [[file:figure/fitted-values.org/b_cells-val-1.png]]
+   :END:
+
+   Repeat for observations which were 0 in the validation data.
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-val-0.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 2)
+     fig.set_size_inches(4, 4)
+
+     query = np.isclose(test, 0)
+     lim = [-400, 5]
+     ax[0][0].scatter(np.log(lam1[query].ravel()[::50]), np.log(lam0[query].ravel()[::50]), s=1, c='k', alpha=0.1)
+     ax[0][0].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[0][0].set_xlim(lim)
+     ax[0][0].set_ylim(lim)
+     ax[0][0].set_ylabel(r'NMF $\log\ \hat\lambda$')
+
+     ax[0][1].scatter(np.log(lam2[query].ravel()[::50]), np.log(lam0[query].ravel()[::50]), s=1, c='k', alpha=0.1)
+     ax[0][1].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[0][1].set_xlim(lim)
+     ax[0][1].set_ylim(lim)
+
+     lim = [-20, 5]
+     ax[0][0].add_patch(plt.Rectangle((lim[0], lim[0]), lim[1] - lim[0], lim[1] - lim[0], fill=False, color='b'))
+     ax[0][1].add_patch(plt.Rectangle((lim[0], lim[0]), lim[1] - lim[0], lim[1] - lim[0], fill=False, color='b'))
+
+     ax[1][0].scatter(np.log(lam1[query].ravel()[::50]), np.log(lam0[query].ravel()[::50]), s=1, c='k', alpha=0.1)
+     ax[1][0].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[1][0].set_xlim(lim)
+     ax[1][0].set_ylim(lim)
+     ax[1][0].set_xlabel(r'GLMPCA $\log\ \hat\lambda$')
+     ax[1][0].set_ylabel(r'NMF $\log\ \hat\lambda$')
+
+     ax[1][1].scatter(np.log(lam2[query].ravel()[::50]), np.log(lam0[query].ravel()[::50]), s=1, c='k', alpha=0.1)
+     ax[1][1].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[1][1].set_xlim(lim)
+     ax[1][1].set_ylim(lim)
+     ax[1][1].set_xlabel(r'PVAE $\log\ \hat\lambda$')
+
+     a = fig.add_subplot(111, frame_on=False, xticks=[], yticks=[])
+     a.set_title('B cell validation $x = 0$')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[53]:
+   [[file:figure/fitted-values.org/b_cells-val-0.png]]
    :END:
 
    Look at the average training log likelihoods.
@@ -767,7 +864,6 @@
    # Out[15]:
    [[file:figure/fitted-values.org/b_cells-masked-sum-llik-diff.png]]
    :END:
-
 
 
 ** T cells
