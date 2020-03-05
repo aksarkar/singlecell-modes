@@ -21,15 +21,10 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
-
-  #+RESULTS:
-  : Submitted batch job 66224941
-
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 66230306
+  : Submitted batch job 66240041
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -143,7 +138,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[105]:
+   # Out[63]:
    :END:
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
@@ -174,9 +169,7 @@
      <<imports>>
      train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')
      xt = torch.tensor(train, dtype=torch.float)
-     train_t = xt[:900]
-     test_t = xt[900:]
-     m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=10).fit(train_t, y=test_t, lr=1e-3, max_epochs=200, trace=True)
+     m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=10).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)
      lam2 = m.denoise(xt, n_samples=100)
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam', lam2)
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-trace', np.array(m.trace))
@@ -184,7 +177,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66231153
+   : Submitted batch job 66239199
 
    Examine the PVAE optimization trace.
 
@@ -203,7 +196,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[40]:
+   # Out[43]:
    [[file:figure/fitted-values.org/b_cells-pvae-trace.png]]
    :END:
 
@@ -219,7 +212,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[27]:
+   # Out[44]:
    :END:
 
    Compare the fitted values of each method against other.
@@ -245,7 +238,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[28]:
+   # Out[45]:
    [[file:figure/fitted-values.org/b_cells.png]]
    :END:
 
@@ -255,24 +248,16 @@
      llik0 = st.poisson(lam0).logpmf(train)
      llik1 = st.poisson(lam1).logpmf(train)
      llik2 = st.poisson(lam2).logpmf(train)
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[29]:
-   :END:
-
-   #+BEGIN_SRC ipython
      pd.Series({'NMF': llik0.mean(), 'GLMPCA': llik1.mean(), 'PVAE': llik2.mean()})
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[30]:
+   # Out[47]:
    #+BEGIN_EXAMPLE
      NMF      -0.163096
      GLMPCA   -0.163275
-     PVAE     -0.162025
+     PVAE     -0.161215
      dtype: float64
    #+END_EXAMPLE
    :END:
@@ -311,7 +296,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[31]:
+   # Out[48]:
    [[file:figure/fitted-values.org/b_cells-train-llik-diff.png]]
    :END:
 
@@ -343,7 +328,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[32]:
+   # Out[49]:
    [[file:figure/fitted-values.org/b_cells-train-sum-llik-diff.png]]
    :END:
 
@@ -354,24 +339,16 @@
      llik0 = np.ma.masked_invalid(st.poisson(s * lam0).logpmf(test))
      llik1 = st.poisson(s * lam1).logpmf(test)
      llik2 = st.poisson(s * lam2).logpmf(test)
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[33]:
-   :END:
-
-   #+BEGIN_SRC ipython
      pd.Series({'NMF': llik0.mean(), 'GLMPCA': llik1.mean(), 'PVAE': llik2.mean()})
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[34]:
+   # Out[50]:
    #+BEGIN_EXAMPLE
      NMF      -0.181994
      GLMPCA   -0.166435
-     PVAE     -0.168989
+     PVAE     -0.167921
      dtype: float64
    #+END_EXAMPLE
    :END:
@@ -438,7 +415,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[37]:
+   # Out[51]:
    [[file:figure/fitted-values.org/b_cells-llik-diff.png]]
    :END:
 
@@ -467,7 +444,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[38]:
+   # Out[52]:
    [[file:figure/fitted-values.org/b_cells-sum-llik-diff.png]]
    :END:
 
@@ -518,7 +495,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[39]:
+   # Out[53]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-rpp.png
@@ -526,7 +503,7 @@
      plt.clf()
      fig, ax = plt.subplots(1, 2, sharey=True)
      fig.set_size_inches(5.5, 3)
-     lim = [5e-7, 1]
+     lim = [4e-7, 1]
      for a, qs, t in zip(ax.ravel(), [train_qs, test_qs], ['Training', 'Validation']):
        a.set_xscale('log')
        a.set_yscale('log')
@@ -545,9 +522,253 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[42]:
+   # Out[56]:
    [[file:figure/fitted-values.org/b_cells-rpp.png]]
    :END:
+
+   Randomly mask 10% of the entries.
+
+   #+BEGIN_SRC ipython
+     w = scmodes.benchmark.imputation._mask_entries(x.values, frac=0.1, seed=0)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-w', w)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[64]:
+   :END:
+
+   Fit WNMF, WGLMPCA, and WPVAE.
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=mstephens -n1 -c8 --mem=8G --time=60:00
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     <<data>>
+     train = data['b_cells']().values
+     w = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-w.npy')
+     l, f, _ = scmodes.lra.nmf(train, w=w, rank=2, tol=1e-4, max_iters=100000, verbose=True)
+     lam0 = l @ f.T
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wnmf-lam', lam0)
+
+     l, f, _ = scmodes.lra.glmpca(train, w=w, rank=2, tol=1e-4, max_iters=100000, verbose=True)
+     lam1 = np.exp(l @ f.T)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wglmpca-lam', lam1)
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 66239883
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=8G
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     <<data>>
+     train = data['b_cells']().values
+     w = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-w.npy')
+     xt = torch.tensor(train, dtype=torch.float)
+     wt = torch.tensor(w, dtype=torch.float)
+     m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=10).fit(xt, w=wt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)
+     lam2 = m.denoise(xt, n_samples=100)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wpvae-lam', lam2)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wpvae-trace', np.array(m.trace))
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 66240077
+
+   Examine the PVAE optimization trace.
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-wpvae-trace.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2)
+     trace = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wpvae-trace.npy')
+     for i, (t, s, k) in enumerate(zip(trace.T, [900, 100], ['Training', 'Validation'])):
+       plt.plot(np.log(t / s), lw=1, c=cm(i), label=k)
+     plt.legend(frameon=False)
+     plt.title('Weighted PVAE')
+     plt.xlabel('Epoch')
+     plt.ylabel('Avg log neg ELBO')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   [[file:figure/fitted-values.org/b_cells-wpvae-trace.png]]
+   :END:
+
+   Read the results.
+
+   #+BEGIN_SRC ipython :async t
+     train = data['b_cells']().values
+     w = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-w.npy')
+     lam0 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wnmf-lam.npy')
+     lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wglmpca-lam.npy')
+     lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wpvae-lam.npy')
+     llik0 = st.poisson(lam0).logpmf(train)
+     llik1 = st.poisson(lam1).logpmf(train)
+     llik2 = st.poisson(lam2).logpmf(train)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[10]:
+   :END:
+
+   Report the log likelihood of masked entries.
+
+   #+BEGIN_SRC ipython
+     pd.Series({'NMF': llik0[~w].mean(), 'GLMPCA': llik1[~w].mean(), 'PVAE': llik2[~w].mean()})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[17]:
+   #+BEGIN_EXAMPLE
+     NMF      -0.259506
+     GLMPCA   -0.256485
+     PVAE     -0.262147
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-unmasked-llik-diff.png
+     plt.clf()
+     fig, ax = plt.subplots(3, 1, sharex=True)
+     fig.set_size_inches(7, 6)
+
+     grid = np.arange(train.max() + 1)
+     for i in grid:
+       ax[0].boxplot((llik1 - llik0)[np.logical_and(w, train == i)].ravel(), positions=[i], widths=[0.5], medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 2})
+     ax[0].axhline(y=0, ls=':', lw=1, c='r')
+     ax[0].set_ylabel('Improvement log lik\nover NMF')
+     ax[0].set_title('GLMPCA')
+
+     for i in grid:
+       ax[1].boxplot((llik2 - llik0)[np.logical_and(w, train == i)].ravel(), positions=[i], widths=[0.5], medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 2})
+     ax[1].axhline(y=0, ls=':', lw=1, c='r')
+     ax[1].set_ylabel('Improvement log lik\nover NMF')
+     ax[1].set_title('PVAE')
+
+     h, e = np.histogram(train[w].ravel(), bins=grid, density=True)
+     ax[2].bar(e[:-1], h, color='k')
+     ax[2].set_ylabel('Relative frequency')
+     ax[2].set_xticks(grid[::5])
+     ax[2].set_xticklabels(grid[::5].astype(int))
+     ax[2].set_xlim(-.5, grid.max() - .5)
+     ax[2].set_xlabel('Observation in unmasked data')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[11]:
+   [[file:figure/fitted-values.org/b_cells-unmasked-llik-diff.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-unmasked-sum-llik-diff.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 1, sharex=True)
+     fig.set_size_inches(7, 4)
+
+     grid = np.arange(train.max() + 1)
+     ax[0].bar(grid, np.array([(llik1 - llik0)[np.logical_and(w, train == i)].sum() for i in grid]), color='k')
+     ax[0].axhline(y=0, ls=':', lw=1, c='r', zorder=-3)
+     ax[0].set_ylabel('Improvement log lik\nover NMF')
+     ax[0].set_title('GLMPCA')
+
+     ax[1].bar(grid, np.array([(llik2 - llik0)[np.logical_and(w, train == i)].sum() for i in grid]), color='k')
+     ax[1].axhline(y=0, ls=':', lw=1, c='r', zorder=-3)
+     ax[1].set_ylabel('Improvement log lik\nover NMF')
+     ax[1].set_title('PVAE')
+     ax[1].set_xticks(grid[::5])
+     ax[1].set_xticklabels(grid[::5].astype(int))
+     ax[1].set_xlim(-.5, grid.max() - .5)
+     ax[1].set_xlabel('Observation in unmasked data')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[18]:
+   [[file:figure/fitted-values.org/b_cells-unmasked-sum-llik-diff.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-masked-llik-diff.png
+     plt.clf()
+     fig, ax = plt.subplots(3, 1, sharex=True)
+     fig.set_size_inches(7, 6)
+
+     grid = np.arange(train.max() + 1)
+     for i in grid:
+       ax[0].boxplot((llik1 - llik0)[np.logical_and(~w, train == i)].ravel(), positions=[i], widths=[0.5], medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 2})
+     ax[0].axhline(y=0, ls=':', lw=1, c='r')
+     ax[0].set_ylabel('Improvement log lik\nover NMF')
+     ax[0].set_title('GLMPCA')
+
+     for i in grid:
+       ax[1].boxplot((llik2 - llik0)[np.logical_and(~w, train == i)].ravel(), positions=[i], widths=[0.5], medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 2})
+     ax[1].axhline(y=0, ls=':', lw=1, c='r')
+     ax[1].set_ylabel('Improvement log lik\nover NMF')
+     ax[1].set_title('PVAE')
+
+     h, e = np.histogram(train[~w].ravel(), bins=grid, density=True)
+     ax[2].bar(e[:-1], h, color='k')
+     ax[2].set_ylabel('Relative frequency')
+     ax[2].set_xticks(grid[::5])
+     ax[2].set_xticklabels(grid[::5].astype(int))
+     ax[2].set_xlim(-.5, grid.max() - .5)
+     ax[2].set_xlabel('Observation in masked data')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[13]:
+   [[file:figure/fitted-values.org/b_cells-masked-llik-diff.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-masked-sum-llik-diff.png
+     plt.clf()
+     fig, ax = plt.subplots(2, 1, sharex=True)
+     fig.set_size_inches(7, 4)
+
+     grid = np.arange(train.max() + 1)
+     ax[0].bar(grid, np.array([(llik1 - llik0)[np.logical_and(~w, train == i)].sum() for i in grid]), color='k')
+     ax[0].axhline(y=0, ls=':', lw=1, c='r', zorder=-3)
+     ax[0].set_ylabel('Improvement log lik\nover NMF')
+     ax[0].set_title('GLMPCA')
+
+     ax[1].bar(grid, np.array([(llik2 - llik0)[np.logical_and(~w, train == i)].sum() for i in grid]), color='k')
+     ax[1].axhline(y=0, ls=':', lw=1, c='r', zorder=-3)
+     ax[1].set_ylabel('Improvement log lik\nover NMF')
+     ax[1].set_title('PVAE')
+     ax[1].set_xticks(grid[::5])
+     ax[1].set_xticklabels(grid[::5].astype(int))
+     ax[1].set_xlim(-.5, grid.max() - .5)
+     ax[1].set_xlabel('Observation in masked data')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[15]:
+   [[file:figure/fitted-values.org/b_cells-masked-sum-llik-diff.png]]
+   :END:
+
+
 
 ** T cells
 
