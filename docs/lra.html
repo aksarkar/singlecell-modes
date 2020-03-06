@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-03-05 Thu 22:47 -->
+<!-- 2020-03-05 Thu 23:05 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Low rank approximation</title>
@@ -267,7 +267,6 @@ for the JavaScript code in this tag.
 </li>
 <li><a href="#org77d27ef">Results</a>
 <ul>
-<li><a href="#ipsc">PCA on (log) counts</a></li>
 <li><a href="#orgfa9be3b">Poisson thinning benchmark</a></li>
 </ul>
 </li>
@@ -443,72 +442,6 @@ pbmcs_68k                68579        404
 <h2 id="org77d27ef">Results</h2>
 <div class="outline-text-2" id="text-org77d27ef">
 </div>
-<div id="outline-container-org8391426" class="outline-3">
-<h3 id="ipsc"><a id="org8391426"></a>PCA on (log) counts</h3>
-<div class="outline-text-3" id="text-ipsc">
-<p>
-Investigate whether PCA on counts or log counts gives better log likelihood.
-We can write principal components analysis as a generative model (Tipping
-1999):
-</p>
-
-<p>
-\[ \mathbf{y}_i \sim \mathcal{N}(\mathbf{y}_i; \mathbf{W z}_i, \sigma^2 \mathbf{I}) \]
-</p>
-
-<p>
-Now, suppose \(y_{ij} = \ln(x_{ij} + \epsilon)\). Then, via
-change of variables we have:
-</p>
-
-<p>
-\[ p(\mathbf{x}_i) = \frac{1}{\mathbf{x}_i + \epsilon}
-   \mathcal{N}(\ln(\mathbf{x}_i + \epsilon); \mathbf{W z}_i, \sigma^2
-   \mathbf{I}) \]
-</p>
-
-<p>
-where we abuse notation for element-wise operations. In general, this means
-we can compare the likelihood of the observed data under models of different
-transformations of the observations.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython" id="org73942cb">&lt;&lt;imports&gt;&gt;
-<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
-<span class="org-keyword">import</span> sklearn.decomposition <span class="org-keyword">as</span> skd
-
-<span class="org-variable-name">ipsc</span> = scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>)
-<span class="org-variable-name">res0</span> = skd.PCA(n_components=10).fit(ipsc)
-<span class="org-variable-name">z_0</span> = res0.transform(ipsc)
-<span class="org-variable-name">llik0</span> = st.norm(loc=z_0.dot(res0.components_), scale=np.sqrt(res0.noise_variance_)).logpdf(ipsc).<span class="org-builtin">sum</span>()
-
-<span class="org-variable-name">log_ipsc</span> = np.log(ipsc + 1)
-<span class="org-variable-name">res1</span> = skd.PCA(n_components=10).fit(log_ipsc)
-<span class="org-variable-name">z_1</span> = res1.transform(ipsc)
-<span class="org-variable-name">llik1</span> = (-log_ipsc + st.norm(loc=z_1.dot(res1.components_), scale=np.sqrt(res1.noise_variance_)).logpdf(log_ipsc)).<span class="org-builtin">sum</span>()
-<span class="org-keyword">print</span>(f<span class="org-string">'PCA of untransformed counts: {llik0:.4g}'</span>)
-<span class="org-keyword">print</span>(f<span class="org-string">'PCA of log1p counts: {llik1:.4g}'</span>)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=mstephens --mem=8G
-<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
-<span class="org-builtin">source</span> activate scmodes
-python &lt;&lt;EOF
-<span class="org-sh-heredoc">&lt;&lt;pca&gt;&gt;</span>
-<span class="org-sh-heredoc">EOF</span>
-</pre>
-</div>
-
-<pre class="example">
-PCA of untransformed counts: -4.712e+08
-PCA of log1p counts: -3.57e+09
-</pre>
-</div>
-</div>
-
 <div id="outline-container-orgfa9be3b" class="outline-3">
 <h3 id="orgfa9be3b">Poisson thinning benchmark</h3>
 <div class="outline-text-3" id="text-orgfa9be3b">
@@ -611,7 +544,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-03-05 Thu 22:47</p>
+<p class="date">Created: 2020-03-05 Thu 23:05</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
