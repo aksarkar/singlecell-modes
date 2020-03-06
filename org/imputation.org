@@ -562,7 +562,7 @@
 ** Imputation benchmark
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 --job-name=imputation-benchmark -a 0-5
+     sbatch --partition=broadwl -n1 -c28 --exclusive --time=2:00:00 --job-name=imputation-benchmark -a 0-35
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -570,16 +570,16 @@
      import os
      import sys
      <<data>>
-     tasks = [(k, m) for k in data for m in ('ebpm_point',)]
-     d, m = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     tasks = [(k, m, r) for k in data for m in ('wnmf', 'wglmpca') for r in (1, 2, 5)]
+     d, m, r = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      x = data[d]()
-     res = scmodes.benchmark.evaluate_imputation(x.values, methods=[m], n_trials=10, max_retries=3)
-     res.to_csv(f'/scratch/midway2/aksarkar/modes/imputation/{d}-{m}.txt.gz', compression='gzip', sep='\t')
+     res = scmodes.benchmark.evaluate_imputation(x.values, methods=[m], n_trials=1, rank=r, max_retries=1)
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/imputation/{d}-{m}-{r}.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 64111638
+   : Submitted batch job 66171224
 
    Move the results to permanent storage.
 

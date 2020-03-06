@@ -53,7 +53,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="2G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
-  : Submitted batch job 64257582
+  : Submitted batch job 66260445
 
   #+BEGIN_SRC ipython
     import itertools as it
@@ -65,7 +65,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -75,7 +75,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -86,7 +86,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[4]:
   :END:
 
 * Methods
@@ -226,27 +226,69 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[5]:
    :END:
 
-   Run the methods. For WNBMF, initialize at the oracle value.
+   Zihao Wang previously found that NBMF achieves a worse log likelihood than
+   NMF, even on NB data. Investigate whether this happens in our implementation.
+
+   #+BEGIN_SRC ipython :async t
+     l0, f0, pois_loss = scmodes.lra.nmf(x, rank=3, tol=1e-2, max_iters=10000, verbose=True)
+     l1, f1, _, nb_loss = scmodes.lra.wnbmf.nbmf(x, rank=3, inv_disp=inv_disp, tol=1e-2, max_iters=10000, fix_inv_disp=True, verbose=True)
+     l2, f2, inv_disp_hat, nb_loss2 = scmodes.lra.wnbmf.nbmf(x, rank=3, inv_disp=1, tol=1e-2, max_iters=10000, fix_inv_disp=False, verbose=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[12]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     pd.Series({
+       'NMF': pois_loss,
+       'Oracle': -st.nbinom(n=inv_disp, p=1 / (1 + mu / inv_disp)).logpmf(x).sum(),
+       'NMF (oracle phi)': -st.nbinom(n=inv_disp, p=1 / (1 + l0 @ f0.T / inv_disp)).logpmf(x).sum(),
+       'NBMF (oracle phi)': nb_loss,
+       'NBMF': nb_loss2,
+     })
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[15]:
+   #+BEGIN_EXAMPLE
+     NMF                  349729.653625
+     Oracle                79416.060119
+     NMF (oracle phi)      78215.149392
+     NBMF (oracle phi)     78133.257422
+     NBMF                  78085.164014
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Run the methods.
 
    #+BEGIN_SRC ipython :async t
      imputation_res = []
-     for rank in range(1, 11):
+     for rank in range(1, 5):
        for method in ('oracle', 'ebpm_point', 'wnmf', 'wglmpca', 'wnbmf'):
-         try:
-           loss = getattr(scmodes.benchmark, f'imputation_score_{method}')(x, rank=rank, frac=0.1, seed=0, inv_disp=inv_disp, fix_inv_disp=False)
-         except RuntimeError:
-           # WGLMPCA fails often
-           loss = np.nan
+         print(f'Fitting {method} (rank {rank})')
+         loss = getattr(scmodes.benchmark, f'imputation_score_{method}')(
+           x,
+           rank=rank,
+           frac=0.1,
+           tol=1e-3,
+           max_iters=10000,
+           seed=0,
+           inv_disp=1,
+           fix_inv_disp=False)
          imputation_res.append([method, rank, loss])
      imputation_res = pd.DataFrame(imputation_res, columns=['method', 'rank', 'loss'])
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[11]:
+   # Out[10]:
    :END:
 
    Plot the results.
@@ -259,7 +301,7 @@
        plt.plot(g['rank'], g['loss'], lw=1, marker=None, c=cm(i), label=k.upper())
      plt.axvline(x=3, lw=1, ls=':', c='k')
      plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
-     plt.xticks(np.arange(1, 11), np.arange(1, 11))
+     # plt.xticks(np.arange(1, 11), np.arange(1, 11))
      plt.xlabel('Assumed rank')
      plt.ylabel('Poisson loss')
      plt.tight_layout()
@@ -267,7 +309,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
+   # Out[11]:
    [[file:figure/imputation.org/sim-nb.png]]
    :END:
 
