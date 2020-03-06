@@ -72,12 +72,12 @@
   #+END_SRC
 
   #+RESULTS:
-  : 3
+  : 1
 
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 64164248
+  : Submitted batch job 66251618
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -152,6 +152,11 @@
      }
    #+END_SRC
 
+   #+RESULTS: data
+   :RESULTS:
+   # Out[5]:
+   :END:
+
    Report the data dimensions.
 
    #+BEGIN_SRC ipython :async t
@@ -162,15 +167,15 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[87]:
+   # Out[6]:
    #+BEGIN_EXAMPLE
      num_cells  num_genes
-     b_cells                  10085        375
-     cytotoxic_t              10209        461
-     naive_t                  10479        386
-     cytotoxic_t-b_cells      20294        404
-     cytotoxic_t-naive_t      20688        419
-     pbmcs_68k                68579        404
+     cytotoxic_t               1000       6530
+     b_cells                   1000       6417
+     ipsc                      1000       9957
+     cytotoxic_t-b_cells       1000       6647
+     cytotoxic_t-naive_t       1000       6246
+     pbmcs_68k                 1000       6502
    #+END_EXAMPLE
    :END:
 
