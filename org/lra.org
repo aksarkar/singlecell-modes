@@ -92,14 +92,8 @@
   :END:
 
   #+BEGIN_SRC ipython
-    import rpy2.robjects.packages
-    import rpy2.robjects.pandas2ri
     import sklearn.decomposition as skd
     import scipy.stats as st
-    import wlra
-
-    rpy2.robjects.pandas2ri.activate()
-    glmpca = rpy2.robjects.packages.importr('glmpca')
   #+END_SRC
 
   #+RESULTS:
@@ -134,13 +128,13 @@
 
    #+NAME: data
    #+BEGIN_SRC ipython
-     def _read_10x(k, min_detect=0.25, seed=1):
-       return scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/', min_detect=min_detect, return_df=True)
+     def _read_10x(k, min_detect=0.01, n_cells=1000, seed=1):
+       return scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/', min_detect=0.01, return_df=True).sample(n=n_cells, axis=0, random_state=seed)
 
-     def _mix_10x(k1, k2, min_detect=0.25, seed=1):
+     def _mix_10x(k1, k2, min_detect=0.01, n_cells=1000, seed=1):
        x1 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
        x2 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
-       return scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)[0]
+       return scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)[0].sample(n=n_cells, axis=0, random_state=seed)
 
      def _cd8_cd19_mix(**kwargs):
        return _mix_10x('cytotoxic_t', 'b_cells', **kwargs)
@@ -149,19 +143,14 @@
        return _mix_10x('cytotoxic_t', 'naive_t', **kwargs)
 
      data = {
-       'b_cells': lambda: _read_10x('b_cells'),
        'cytotoxic_t': lambda: _read_10x('cytotoxic_t'),
-       'naive_t': lambda: _read_10x('naive_t'),
+       'b_cells': lambda: _read_10x('b_cells'),
+       'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', return_df=True).sample(n=1000, axis=0, random_state=1),
        'cytotoxic_t-b_cells': _cd8_cd19_mix,
        'cytotoxic_t-naive_t': _cyto_naive_mix,
        'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a'),
      }
    #+END_SRC
-
-   #+RESULTS: data
-   :RESULTS:
-   # Out[5]:
-   :END:
 
    Report the data dimensions.
 
@@ -249,29 +238,30 @@
    Run the CPU methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --time=24:00:00 --job-name=lra-generalization -a 0-5
+     sbatch --partition=mstephens -n1 -c8 --time=3:00:00 --job-name=lra-generalization -a 0-2%1
      #!/bin/bash
      source activate scmodes
      python <<EOF
      <<imports>>
      import os
      <<data>>
-     methods = ['glmpca']
-     tasks = [(d, m) for d in data for m in methods]
-     d, m = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     ranks = [1, 2, 4, 8]
+     methods = ['nmf', 'glmpca']
+     tasks = [(d, m, r) for d in data for m in methods for r in ranks]
+     d, m, r = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      x = data[d]()
-     res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_trials=10)
-     res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz', compression='gzip', sep='\t')
+     res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_components=r, n_trials=1)
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}-{r}.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 64156161
+   : Submitted batch job 66251200
 
    Run the GPU methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=24:00:00 --job-name=lra-generalization -a 0-5
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=10:00 --job-name=lra-generalization -a 0-24
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -279,16 +269,17 @@
      import os
      <<data>>
      methods = ['pvae']
-     tasks = [(d, m) for d in data for m in methods]
-     d, m = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     ranks = [1, 2, 4, 8]
+     tasks = [(d, m, r) for d in data for m in methods for r in ranks]
+     d, m, r = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      x = data[d]()
-     res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_trials=10)
-     res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz', compression='gzip', sep='\t')
+     res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_components=r, n_trials=1)
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}-{r}.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 65895666
+   : Submitted batch job 66251235
 
    Move the results to permanent storage.
 

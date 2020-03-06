@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-02-02 Sun 09:57 -->
+<!-- 2020-03-05 Thu 22:47 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Low rank approximation</title>
@@ -361,14 +361,8 @@ the estimate using the log likelihood of \(\tilde{\my}\).
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> rpy2.robjects.packages
-<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
-<span class="org-keyword">import</span> sklearn.decomposition <span class="org-keyword">as</span> skd
+<pre class="src src-ipython"><span class="org-keyword">import</span> sklearn.decomposition <span class="org-keyword">as</span> skd
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
-<span class="org-keyword">import</span> wlra
-
-rpy2.robjects.pandas2ri.activate()
-<span class="org-variable-name">glmpca</span> = rpy2.robjects.packages.importr(<span class="org-string">'glmpca'</span>)
 </pre>
 </div>
 
@@ -396,13 +390,13 @@ rpy2.robjects.pandas2ri.activate()
 <h3 id="org42bd0a9">Datasets</h3>
 <div class="outline-text-3" id="text-org42bd0a9">
 <div class="org-src-container">
-<pre class="src src-ipython" id="orgbf99fa6"><span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k, min_detect=0.25, seed=1):
-  <span class="org-keyword">return</span> scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/'</span>, min_detect=min_detect, return_df=<span class="org-constant">True</span>)
+<pre class="src src-ipython" id="orgbf99fa6"><span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k, min_detect=0.01, n_cells=1000, seed=1):
+  <span class="org-keyword">return</span> scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/'</span>, min_detect=0.01, return_df=<span class="org-constant">True</span>).sample(n=n_cells, axis=0, random_state=seed)
 
-<span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.25, seed=1):
+<span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.01, n_cells=1000, seed=1):
   <span class="org-variable-name">x1</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
   <span class="org-variable-name">x2</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
-  <span class="org-keyword">return</span> scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)[0]
+  <span class="org-keyword">return</span> scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)[0].sample(n=n_cells, axis=0, random_state=seed)
 
 <span class="org-keyword">def</span> <span class="org-function-name">_cd8_cd19_mix</span>(**kwargs):
   <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'b_cells'</span>, **kwargs)
@@ -411,9 +405,9 @@ rpy2.robjects.pandas2ri.activate()
   <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>, **kwargs)
 
 <span class="org-variable-name">data</span> = {
-  <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'b_cells'</span>),
   <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'cytotoxic_t'</span>),
-  <span class="org-string">'naive_t'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'naive_t'</span>),
+  <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'b_cells'</span>),
+  <span class="org-string">'ipsc'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>, return_df=<span class="org-constant">True</span>).sample(n=1000, axis=0, random_state=1),
   <span class="org-string">'cytotoxic_t-b_cells'</span>: _cd8_cd19_mix,
   <span class="org-string">'cytotoxic_t-naive_t'</span>: _cyto_naive_mix,
   <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>),
@@ -523,19 +517,20 @@ Run the CPU methods.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --time=24:00:00 --job-name=lra-generalization -a 0-5
+<pre class="src src-sh">sbatch --partition=mstephens -n1 -c8 --time=3:00:00 --job-name=lra-generalization -a 0-2%1
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
 <span class="org-sh-heredoc">import os</span>
 <span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
-<span class="org-sh-heredoc">methods = ['glmpca']</span>
-<span class="org-sh-heredoc">tasks = [(d, m) for d in data for m in methods]</span>
-<span class="org-sh-heredoc">d, m = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
+<span class="org-sh-heredoc">ranks = [1, 2, 4, 8]</span>
+<span class="org-sh-heredoc">methods = ['nmf', 'glmpca']</span>
+<span class="org-sh-heredoc">tasks = [(d, m, r) for d in data for m in methods for r in ranks]</span>
+<span class="org-sh-heredoc">d, m, r = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
 <span class="org-sh-heredoc">x = data[d]()</span>
-<span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_trials=10)</span>
-<span class="org-sh-heredoc">res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_components=r, n_trials=1)</span>
+<span class="org-sh-heredoc">res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}-{r}.txt.gz', compression='gzip', sep='\t')</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
 </div>
@@ -545,17 +540,20 @@ Run the GPU methods.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --mem=16G --time=12:00:00 --job-name=lra-generalization -a 0
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=10:00 --job-name=lra-generalization -a 0-24
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
 <span class="org-sh-heredoc">import os</span>
 <span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
-<span class="org-sh-heredoc">d = data.keys()[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
+<span class="org-sh-heredoc">methods = ['pvae']</span>
+<span class="org-sh-heredoc">ranks = [1, 2, 4, 8]</span>
+<span class="org-sh-heredoc">tasks = [(d, m, r) for d in data for m in methods for r in ranks]</span>
+<span class="org-sh-heredoc">d, m, r = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
 <span class="org-sh-heredoc">x = data[d]()</span>
-<span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_lra_generalization(x.values, methods=[m], n_trials=10)</span>
-<span class="org-sh-heredoc">res.to_csv('/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_components=r, n_trials=1)</span>
+<span class="org-sh-heredoc">res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}-{r}.txt.gz', compression='gzip', sep='\t')</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
 </div>
@@ -613,7 +611,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-02-02 Sun 09:57</p>
+<p class="date">Created: 2020-03-05 Thu 22:47</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
