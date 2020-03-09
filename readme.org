@@ -22,7 +22,6 @@ The minimal specification of the working environment is
   r-devtools
   r-expint
   r-irlba
-  r-glmpca=0.1.0.dev1
   r-mixsqp=0.3.17
   r-roxygen2
   r-testthat
