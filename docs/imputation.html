@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-03-03 Tue 11:30 -->
+<!-- 2020-03-09 Mon 19:14 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Imputation of count matrices</title>
@@ -609,71 +609,10 @@ works, and that a tighter bound can be achieved using importance sampling
 <div id="outline-container-orgdb67a90" class="outline-3">
 <h3 id="datasets"><a id="orgdb67a90"></a>Datasets</h3>
 <div class="outline-text-3" id="text-datasets">
-<div class="org-src-container">
-<pre class="src src-ipython" id="org2a19ee0"><span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k, min_detect=0.01, n_cells=1000, seed=1):
-  <span class="org-keyword">return</span> scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/'</span>, min_detect=0.01, return_df=<span class="org-constant">True</span>).sample(n=n_cells, axis=0, random_state=seed)
-
-<span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.01, n_cells=1000, seed=1):
-  <span class="org-variable-name">x1</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
-  <span class="org-variable-name">x2</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
-  <span class="org-keyword">return</span> scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)[0].sample(n=n_cells, axis=0, random_state=seed)
-
-<span class="org-keyword">def</span> <span class="org-function-name">_cd8_cd19_mix</span>(**kwargs):
-  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'b_cells'</span>, **kwargs)
-
-<span class="org-keyword">def</span> <span class="org-function-name">_cyto_naive_mix</span>(**kwargs):
-  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>, **kwargs)
-
-<span class="org-variable-name">data</span> = {
-  <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'cytotoxic_t'</span>),
-  <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'b_cells'</span>),
-  <span class="org-string">'ipsc'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>, return_df=<span class="org-constant">True</span>).sample(n=1000, axis=0, random_state=1),
-  <span class="org-string">'cytotoxic_t-b_cells'</span>: _cd8_cd19_mix,
-  <span class="org-string">'cytotoxic_t-naive_t'</span>: _cyto_naive_mix,
-  <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>),
-}
-</pre>
-</div>
-
 <p>
-Report the data dimensions.
+Follow the data processing for the <a href="lra.html#org42bd0a9">Poisson
+thinning analysis</a>.
 </p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">pd.DataFrame([data[k]().shape <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data],
-             columns=[<span class="org-string">'num_cells'</span>, <span class="org-string">'num_genes'</span>],
-             index=data.keys())
-</pre>
-</div>
-
-<pre class="example">
-num_cells  num_genes
-cytotoxic_t               1000       6530
-b_cells                   1000       6417
-ipsc                      1000       9957
-cytotoxic_t-b_cells       1000       6647
-cytotoxic_t-naive_t       1000       6246
-pbmcs_68k                 1000       6502
-</pre>
-
-<p>
-Report the proportion of zeros.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">pd.Series({k: (data[k]() == 0).values.mean() <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data})
-</pre>
-</div>
-
-<pre class="example">
-cytotoxic_t            0.914572
-b_cells                0.921772
-ipsc                   0.291596
-cytotoxic_t-b_cells    0.920908
-cytotoxic_t-naive_t    0.917528
-pbmcs_68k              0.920052
-dtype: float64
-</pre>
 </div>
 </div>
 </div>
@@ -864,8 +803,12 @@ plt.tight_layout()
 <div id="outline-container-orgfd4d399" class="outline-3">
 <h3 id="orgfd4d399">Imputation benchmark</h3>
 <div class="outline-text-3" id="text-orgfd4d399">
+<p>
+Run the CPU methods.
+</p>
+
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --time=2:00:00 --job-name=imputation-benchmark -a 0-35
+<pre class="src src-sh">sbatch --partition=broadwl -n1 --mem=8G --time=12:00:00 --job-name=imputation -a 35
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -873,21 +816,55 @@ python &lt;&lt;EOF
 <span class="org-sh-heredoc">import os</span>
 <span class="org-sh-heredoc">import sys</span>
 <span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
-<span class="org-sh-heredoc">tasks = [(k, m, r) for k in data for m in ('wnmf', 'wglmpca') for r in (1, 2, 5)]</span>
+<span class="org-sh-heredoc">methods = ['ebpm_point', 'nmf', 'glmpca']</span>
+<span class="org-sh-heredoc">ranks = [1, 2, 4, 8]</span>
+<span class="org-sh-heredoc">tasks = [(d, m, r) for d in data for m in methods for r in ranks]</span>
 <span class="org-sh-heredoc">d, m, r = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
 <span class="org-sh-heredoc">x = data[d]()</span>
-<span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_imputation(x.values, methods=[m], n_trials=1, rank=r, max_retries=1)</span>
+<span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_imputation(x.values, methods=[m], rank=r, tol=1e-2, n_trials=5)</span>
 <span class="org-sh-heredoc">res.to_csv(f'/scratch/midway2/aksarkar/modes/imputation/{d}-{m}-{r}.txt.gz', compression='gzip', sep='\t')</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
 </div>
 
 <p>
-Move the results to permanent storage.
+Run the GPU methods.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">rsync -au /scratch/midway2/aksarkar/modes/imputation/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=60:00 --job-name=imputation -a 0-23
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+<span class="org-sh-heredoc">import os</span>
+<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
+<span class="org-sh-heredoc">methods = ['pvae']</span>
+<span class="org-sh-heredoc">ranks = [1, 2, 4, 8]</span>
+<span class="org-sh-heredoc">tasks = [(d, m, r) for d in data for m in methods for r in ranks]</span>
+<span class="org-sh-heredoc">d, m, r = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
+<span class="org-sh-heredoc">x = data[d]()</span>
+<span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_imputation(x.values, methods=[m], rank=r, n_trials=5)</span>
+<span class="org-sh-heredoc">res.to_csv(f'/scratch/midway2/aksarkar/modes/imputation/{d}-{m}-{r}.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<p>
+Collect the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> os.path
+<span class="org-variable-name">methods</span> = [<span class="org-string">'ebpm_point'</span>, <span class="org-string">'nmf'</span>, <span class="org-string">'glmpca'</span>, <span class="org-string">'pvae'</span>]
+<span class="org-variable-name">ranks</span> = [1, 2, 4, 8]
+<span class="org-variable-name">imputation_res</span> = (pd.concat({(d, m, r): pd.read_csv(f<span class="org-string">'/scratch/midway2/aksarkar/modes/imputation/{d}-{m}-{r}.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+                            <span class="org-keyword">for</span> d <span class="org-keyword">in</span> data <span class="org-keyword">for</span> m <span class="org-keyword">in</span> methods <span class="org-keyword">for</span> r <span class="org-keyword">in</span> ranks
+                            <span class="org-keyword">if</span> os.path.exists(f<span class="org-string">'/scratch/midway2/aksarkar/modes/imputation/{d}-{m}-{r}.txt.gz'</span>)})
+                  .reset_index(level=1, drop=<span class="org-constant">True</span>)
+                  .reset_index()
+                  .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'data'</span>, <span class="org-string">'level_1'</span>: <span class="org-string">'rank'</span>, <span class="org-string">'level_2'</span>: <span class="org-string">'trial'</span>}, axis=1))
+imputation_res.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/imputation.txt.gz'</span>, sep=<span class="org-string">'\t'</span>)
 </pre>
 </div>
 
@@ -896,12 +873,7 @@ Read the results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">methods</span> = [<span class="org-string">'oracle'</span>, <span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnmf'</span>, <span class="org-string">'wglmpca'</span>]
-<span class="org-variable-name">imputation_res</span> = (pd.concat({(d, m): pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/{d}-{m}.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
-                            <span class="org-keyword">for</span> d <span class="org-keyword">in</span> data <span class="org-keyword">for</span> m <span class="org-keyword">in</span> methods})
-                  .reset_index(level=0)
-                  .reset_index(drop=<span class="org-constant">True</span>)
-                  .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1))
+<pre class="src src-ipython"><span class="org-variable-name">imputation_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/imputation.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
 </pre>
 </div>
 
@@ -910,29 +882,115 @@ Plot the results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">labels</span> = [<span class="org-string">'Oracle'</span>, <span class="org-string">'EBPM-Point'</span>, <span class="org-string">'WNMF'</span>, <span class="org-string">'WGLMPCA'</span>]
-plt.clf()
+<pre class="src src-ipython"><span class="org-variable-name">methods</span> = [<span class="org-string">'ebpm_point'</span>, <span class="org-string">'glmpca'</span>, <span class="org-string">'nmf'</span>, <span class="org-string">'pvae'</span>]
+<span class="org-variable-name">labels</span> = [<span class="org-string">'EBPM'</span>, <span class="org-string">'GLMPCA'</span>, <span class="org-string">'NMF'</span>, <span class="org-string">'PVAE'</span>]
+<span class="org-variable-name">titles</span> = [<span class="org-string">'T cell'</span>, <span class="org-string">'B cell'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cytotoxic/naive T'</span>, <span class="org-string">'PBMC'</span>]
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, <span class="org-builtin">len</span>(data), sharey=<span class="org-constant">True</span>)
 fig.set_size_inches(8, 2.5)
-<span class="org-keyword">for</span> a, d, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, data, [<span class="org-string">'T cells'</span>, <span class="org-string">'B cells'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cytotoxic/naive T'</span>, <span class="org-string">'PBMC'</span>]):
-  <span class="org-variable-name">g</span> = imputation_res[imputation_res[<span class="org-string">'dataset'</span>] == d]
-  a.set_yscale(<span class="org-string">'log'</span>)
+<span class="org-keyword">for</span> a, d, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, data, titles):
+  <span class="org-variable-name">g</span> = imputation_res[np.logical_and(imputation_res[<span class="org-string">'data'</span>] == d, imputation_res[<span class="org-string">'rank'</span>] == 1)]
   <span class="org-keyword">for</span> x, (m, k) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(methods, labels)):
     <span class="org-variable-name">y</span> = g.loc[g[<span class="org-string">'method'</span>] == m]
-    a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1), y[<span class="org-string">'loss'</span>], s=2, c=<span class="org-string">'k'</span>, zorder=4)
+    a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1), -y[<span class="org-string">'loss'</span>], s=4, c=<span class="org-string">'k'</span>, zorder=4)
   a.set_title(t)
   a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
   a.set_xticks(np.arange(4))
   a.set_xticklabels(labels, rotation=90)
+  a.set_xlim(-.5, 3.5)
   a.set_xlabel(<span class="org-string">'Method'</span>)
-ax[0].set_ylabel(<span class="org-string">'Poisson loss'</span>)
+ax[0].set_ylabel(<span class="org-string">'Log likelihood of\n masked observations'</span>)
 fig.tight_layout()
 </pre>
 </div>
 
 
 <div class="figure">
-<p><img src="figure/imputation.org/pois-loss.png" alt="pois-loss.png">
+<p><img src="figure/imputation.org/pois-loss-1.png" alt="pois-loss-1.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, <span class="org-builtin">len</span>(data), sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2.5)
+<span class="org-keyword">for</span> a, d, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, data, titles):
+  <span class="org-variable-name">g</span> = imputation_res[np.logical_and(imputation_res[<span class="org-string">'data'</span>] == d, imputation_res[<span class="org-string">'rank'</span>] == 2)]
+  <span class="org-keyword">for</span> x, (m, k) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(methods, labels)):
+    <span class="org-variable-name">y</span> = g.loc[g[<span class="org-string">'method'</span>] == m]
+    a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1), -y[<span class="org-string">'loss'</span>], s=4, c=<span class="org-string">'k'</span>, zorder=4)
+  a.set_title(t)
+  a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
+  a.set_xticks(np.arange(4))
+  a.set_xticklabels(labels, rotation=90)
+  a.set_xlim(-.5, 3.5)
+  a.set_xlabel(<span class="org-string">'Method'</span>)
+ax[0].set_ylabel(<span class="org-string">'Log likelihood of\n masked observations'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/imputation.org/pois-loss-2.png" alt="pois-loss-2.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, <span class="org-builtin">len</span>(data), sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2.5)
+<span class="org-keyword">for</span> a, d, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, data, titles):
+  <span class="org-variable-name">g</span> = imputation_res[np.logical_and(imputation_res[<span class="org-string">'data'</span>] == d, imputation_res[<span class="org-string">'rank'</span>] == 4)]
+  <span class="org-keyword">for</span> x, (m, k) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(methods, labels)):
+    <span class="org-variable-name">y</span> = g.loc[g[<span class="org-string">'method'</span>] == m]
+    a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1), -y[<span class="org-string">'loss'</span>], s=4, c=<span class="org-string">'k'</span>, zorder=4)
+  a.set_title(t)
+  a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
+  a.set_xticks(np.arange(4))
+  a.set_xticklabels(labels, rotation=90)
+  a.set_xlim(-.5, 3.5)
+  a.set_ylim(-.25, 0)
+  a.set_xlabel(<span class="org-string">'Method'</span>)
+ax[0].set_ylabel(<span class="org-string">'Log likelihood of\n masked observations'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/imputation.org/pois-loss-4.png" alt="pois-loss-4.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, <span class="org-builtin">len</span>(data), sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2.5)
+<span class="org-keyword">for</span> a, d, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, data, titles):
+  <span class="org-variable-name">g</span> = imputation_res[np.logical_and(imputation_res[<span class="org-string">'data'</span>] == d, imputation_res[<span class="org-string">'rank'</span>] == 8)]
+  <span class="org-keyword">for</span> x, (m, k) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(methods, labels)):
+    <span class="org-variable-name">y</span> = g.loc[g[<span class="org-string">'method'</span>] == m]
+    a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1), -y[<span class="org-string">'loss'</span>], s=4, c=<span class="org-string">'k'</span>, zorder=4)
+  a.set_title(t)
+  a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
+  a.set_xticks(np.arange(4))
+  a.set_xticklabels(labels, rotation=90)
+  a.set_xlim(-.5, 3.5)
+  a.set_ylim(-.25, 0)
+  a.set_xlabel(<span class="org-string">'Method'</span>)
+ax[0].set_ylabel(<span class="org-string">'Log likelihood of\n masked observations'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/imputation.org/pois-loss-8.png" alt="pois-loss-8.png">
 </p>
 </div>
 
@@ -942,32 +1000,124 @@ Plot the improvement over mean imputation.
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>)
-fig.set_size_inches(5, 4)
-<span class="org-keyword">for</span> a, d, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), data, [<span class="org-string">'T cells'</span>, <span class="org-string">'B cells'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cytotoxic/naive T'</span>, <span class="org-string">'PBMC'</span>]):
-  <span class="org-variable-name">g</span> = imputation_res[imputation_res[<span class="org-string">'dataset'</span>] == d]
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2.5)
+<span class="org-keyword">for</span> a, d, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), data, titles):
+  <span class="org-variable-name">g</span> = imputation_res[np.logical_and(imputation_res[<span class="org-string">'data'</span>] == d, imputation_res[<span class="org-string">'rank'</span>] == 1)]
   <span class="org-variable-name">base</span> = g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'ebpm_point'</span>]
-  <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(methods[2:]):
+  <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(methods[1:]):
     <span class="org-variable-name">y</span> = g.loc[g[<span class="org-string">'method'</span>] == m]
-    a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
-              1e5 * (base[<span class="org-string">'loss'</span>].values - y[<span class="org-string">'loss'</span>].values), s=2, c=<span class="org-string">'k'</span>, zorder=4)
+    <span class="org-keyword">if</span> <span class="org-keyword">not</span> y.empty:
+      a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
+              (base[<span class="org-string">'loss'</span>].values - y[<span class="org-string">'loss'</span>].values), s=4, c=<span class="org-string">'k'</span>, zorder=4)
   a.axhline(y=0, c=<span class="org-string">'r'</span>, lw=1, ls=<span class="org-string">':'</span>)
   a.set_title(t)
   a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
-<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax[-1]:
-  a.set_xticks(np.arange(2))
-  a.set_xticklabels([m.upper() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> methods[2:]], rotation=90)
+  a.set_xticks(np.arange(3))
+  a.set_xticklabels(labels[1:], rotation=90)
+  a.set_xlim(-.5, 2.5)
   a.set_xlabel(<span class="org-string">'Method'</span>)
-<span class="org-variable-name">a</span> = fig.add_subplot(111, frameon=<span class="org-constant">False</span>)
-a.tick_params(labelcolor=<span class="org-string">'none'</span>, top=<span class="org-string">'off'</span>, bottom=<span class="org-string">'off'</span>, left=<span class="org-string">'off'</span>, right=<span class="org-string">'off'</span>)
-a.set_ylabel(<span class="org-string">'Improvement in Poisson loss\nover mean imputation'</span>)
+ax[0].set_ylabel(<span class="org-string">'Improvement log lik\non masked entries'</span>)
 fig.tight_layout()
 </pre>
 </div>
 
 
 <div class="figure">
-<p><img src="figure/imputation.org/pois-loss-improvement.png" alt="pois-loss-improvement.png">
+<p><img src="figure/imputation.org/pois-loss-improvement-1.png" alt="pois-loss-improvement-1.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2.5)
+<span class="org-keyword">for</span> a, d, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), data, titles):
+  <span class="org-variable-name">g</span> = imputation_res[np.logical_and(imputation_res[<span class="org-string">'data'</span>] == d, imputation_res[<span class="org-string">'rank'</span>] == 2)]
+  <span class="org-variable-name">base</span> = g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'ebpm_point'</span>]
+  <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(methods[1:]):
+    <span class="org-variable-name">y</span> = g.loc[g[<span class="org-string">'method'</span>] == m]
+    <span class="org-keyword">if</span> <span class="org-keyword">not</span> y.empty:
+      a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
+              (base[<span class="org-string">'loss'</span>].values - y[<span class="org-string">'loss'</span>].values), s=4, c=<span class="org-string">'k'</span>, zorder=4)
+  a.axhline(y=0, c=<span class="org-string">'r'</span>, lw=1, ls=<span class="org-string">':'</span>)
+  a.set_title(t)
+  a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
+  a.set_xticks(np.arange(3))
+  a.set_xticklabels(labels[1:], rotation=90)
+  a.set_xlim(-.5, 2.5)
+  a.set_ylim(-.005, .015)
+  a.set_xlabel(<span class="org-string">'Method'</span>)
+ax[0].set_ylabel(<span class="org-string">'Improvement log lik\non masked entries'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/imputation.org/pois-loss-improvement-2.png" alt="pois-loss-improvement-2.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2.5)
+<span class="org-keyword">for</span> a, d, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), data, titles):
+  <span class="org-variable-name">g</span> = imputation_res[np.logical_and(imputation_res[<span class="org-string">'data'</span>] == d, imputation_res[<span class="org-string">'rank'</span>] == 4)]
+  <span class="org-variable-name">base</span> = g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'ebpm_point'</span>]
+  <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(methods[1:]):
+    <span class="org-variable-name">y</span> = g.loc[g[<span class="org-string">'method'</span>] == m]
+    <span class="org-keyword">if</span> <span class="org-keyword">not</span> y.empty:
+      a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
+              (base[<span class="org-string">'loss'</span>].values - y[<span class="org-string">'loss'</span>].values), s=4, c=<span class="org-string">'k'</span>, zorder=4)
+  a.axhline(y=0, c=<span class="org-string">'r'</span>, lw=1, ls=<span class="org-string">':'</span>)
+  a.set_title(t)
+  a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
+  a.set_xticks(np.arange(3))
+  a.set_xticklabels(labels[1:], rotation=90)
+  a.set_xlim(-.5, 2.5)
+  a.set_ylim(-.025, .025)
+  a.set_xlabel(<span class="org-string">'Method'</span>)
+ax[0].set_ylabel(<span class="org-string">'Improvement log lik\non masked entries'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/imputation.org/pois-loss-improvement-4.png" alt="pois-loss-improvement-4.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2.5)
+<span class="org-keyword">for</span> a, d, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), data, titles):
+  <span class="org-variable-name">g</span> = imputation_res[np.logical_and(imputation_res[<span class="org-string">'data'</span>] == d, imputation_res[<span class="org-string">'rank'</span>] == 8)]
+  <span class="org-variable-name">base</span> = g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'ebpm_point'</span>]
+  <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(methods[1:]):
+    <span class="org-variable-name">y</span> = g.loc[g[<span class="org-string">'method'</span>] == m]
+    <span class="org-keyword">if</span> <span class="org-keyword">not</span> y.empty:
+      a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
+              (base[<span class="org-string">'loss'</span>].values - y[<span class="org-string">'loss'</span>].values), s=4, c=<span class="org-string">'k'</span>, zorder=4)
+  a.axhline(y=0, c=<span class="org-string">'r'</span>, lw=1, ls=<span class="org-string">':'</span>)
+  a.set_title(t)
+  a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
+  a.set_xticks(np.arange(3))
+  a.set_xticklabels(labels[1:], rotation=90)
+  a.set_xlim(-.5, 2.5)
+  a.set_ylim(-.025, .025)
+  a.set_xlabel(<span class="org-string">'Method'</span>)
+ax[0].set_ylabel(<span class="org-string">'Improvement log lik\non masked entries'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/imputation.org/pois-loss-improvement-8.png" alt="pois-loss-improvement-8.png">
 </p>
 </div>
 </div>
@@ -976,7 +1126,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-03-03 Tue 11:30</p>
+<p class="date">Created: 2020-03-09 Mon 19:14</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

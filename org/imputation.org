@@ -67,15 +67,16 @@
   #+BEGIN_SRC emacs-lisp :exports none
     (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
     (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+    (org-babel-lob-ingest "lra-generalization.org")
   #+END_SRC
 
   #+RESULTS:
-  : 1
+  : 0
 
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 64230390
+  : Submitted batch job 66296981
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -299,77 +300,14 @@
    :CUSTOM_ID: datasets
    :END:
 
-   #+NAME: data
-   #+BEGIN_SRC ipython
-     def _read_10x(k, min_detect=0.01, n_cells=1000, seed=1):
-       return scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/', min_detect=0.01, return_df=True).sample(n=n_cells, axis=0, random_state=seed)
+   Follow the data processing for the [[file:lra.org::*Datasets][Poisson
+   thinning analysis]].
 
-     def _mix_10x(k1, k2, min_detect=0.01, n_cells=1000, seed=1):
-       x1 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
-       x2 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
-       return scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)[0].sample(n=n_cells, axis=0, random_state=seed)
+   #+CALL: data()
 
-     def _cd8_cd19_mix(**kwargs):
-       return _mix_10x('cytotoxic_t', 'b_cells', **kwargs)
-
-     def _cyto_naive_mix(**kwargs):
-       return _mix_10x('cytotoxic_t', 'naive_t', **kwargs)
-
-     data = {
-       'cytotoxic_t': lambda: _read_10x('cytotoxic_t'),
-       'b_cells': lambda: _read_10x('b_cells'),
-       'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', return_df=True).sample(n=1000, axis=0, random_state=1),
-       'cytotoxic_t-b_cells': _cd8_cd19_mix,
-       'cytotoxic_t-naive_t': _cyto_naive_mix,
-       'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a'),
-     }
-   #+END_SRC
-
-   #+RESULTS: data
+   #+RESULTS:
    :RESULTS:
    # Out[5]:
-   :END:
-
-   Report the data dimensions.
-
-   #+BEGIN_SRC ipython :async t
-     pd.DataFrame([data[k]().shape for k in data],
-                  columns=['num_cells', 'num_genes'],
-                  index=data.keys())
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[11]:
-   #+BEGIN_EXAMPLE
-     num_cells  num_genes
-     cytotoxic_t               1000       6530
-     b_cells                   1000       6417
-     ipsc                      1000       9957
-     cytotoxic_t-b_cells       1000       6647
-     cytotoxic_t-naive_t       1000       6246
-     pbmcs_68k                 1000       6502
-   #+END_EXAMPLE
-   :END:
-
-   Report the proportion of zeros.
-
-   #+BEGIN_SRC ipython :async t
-     pd.Series({k: (data[k]() == 0).values.mean() for k in data})
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[6]:
-   #+BEGIN_EXAMPLE
-     cytotoxic_t            0.914572
-     b_cells                0.921772
-     ipsc                   0.291596
-     cytotoxic_t-b_cells    0.920908
-     cytotoxic_t-naive_t    0.917528
-     pbmcs_68k              0.920052
-     dtype: float64
-   #+END_EXAMPLE
    :END:
 
 * Results
@@ -561,8 +499,10 @@
 
 ** Imputation benchmark
 
+   Run the CPU methods.
+
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --time=2:00:00 --job-name=imputation-benchmark -a 0-35
+     sbatch --partition=broadwl -n1 --mem=8G --time=12:00:00 --job-name=imputation -a 35
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -570,97 +510,305 @@
      import os
      import sys
      <<data>>
-     tasks = [(k, m, r) for k in data for m in ('wnmf', 'wglmpca') for r in (1, 2, 5)]
+     methods = ['ebpm_point', 'nmf', 'glmpca']
+     ranks = [1, 2, 4, 8]
+     tasks = [(d, m, r) for d in data for m in methods for r in ranks]
      d, m, r = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      x = data[d]()
-     res = scmodes.benchmark.evaluate_imputation(x.values, methods=[m], n_trials=1, rank=r, max_retries=1)
+     res = scmodes.benchmark.evaluate_imputation(x.values, methods=[m], rank=r, tol=1e-2, n_trials=5)
      res.to_csv(f'/scratch/midway2/aksarkar/modes/imputation/{d}-{m}-{r}.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66171224
+   : Submitted batch job 66297483
 
-   Move the results to permanent storage.
+   Run the GPU methods.
 
-   #+BEGIN_SRC sh
-     rsync -au /scratch/midway2/aksarkar/modes/imputation/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=60:00 --job-name=imputation -a 0-23
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     import os
+     <<data>>
+     methods = ['pvae']
+     ranks = [1, 2, 4, 8]
+     tasks = [(d, m, r) for d in data for m in methods for r in ranks]
+     d, m, r = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     x = data[d]()
+     res = scmodes.benchmark.evaluate_imputation(x.values, methods=[m], rank=r, n_trials=5)
+     res.to_csv(f'/scratch/midway2/aksarkar/modes/imputation/{d}-{m}-{r}.txt.gz', compression='gzip', sep='\t')
+     EOF
    #+END_SRC
 
    #+RESULTS:
+   : Submitted batch job 66290648
+
+   Collect the results.
+
+   #+BEGIN_SRC ipython :async t
+     import os.path
+     methods = ['ebpm_point', 'nmf', 'glmpca', 'pvae']
+     ranks = [1, 2, 4, 8]
+     imputation_res = (pd.concat({(d, m, r): pd.read_csv(f'/scratch/midway2/aksarkar/modes/imputation/{d}-{m}-{r}.txt.gz', sep='\t', index_col=0)
+                                 for d in data for m in methods for r in ranks
+                                 if os.path.exists(f'/scratch/midway2/aksarkar/modes/imputation/{d}-{m}-{r}.txt.gz')})
+                       .reset_index(level=1, drop=True)
+                       .reset_index()
+                       .rename({'level_0': 'data', 'level_1': 'rank', 'level_2': 'trial'}, axis=1))
+     imputation_res.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/imputation.txt.gz', sep='\t')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[105]:
+   :END:
 
    Read the results.
 
    #+BEGIN_SRC ipython
-     methods = ['oracle', 'ebpm_point', 'wnmf', 'wglmpca']
-     imputation_res = (pd.concat({(d, m): pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/{d}-{m}.txt.gz', sep='\t', index_col=0)
-                                 for d in data for m in methods})
-                       .reset_index(level=0)
-                       .reset_index(drop=True)
-                       .rename({'level_0': 'dataset'}, axis=1))
+     imputation_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/imputation.txt.gz', sep='\t', index_col=0)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[109]:
    :END:
 
    Plot the results.
 
-   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/pois-loss.png
-     labels = ['Oracle', 'EBPM-Point', 'WNMF', 'WGLMPCA']
+   #+BEGIN_SRC ipython
+     methods = ['ebpm_point', 'glmpca', 'nmf', 'pvae']
+     labels = ['EBPM', 'GLMPCA', 'NMF', 'PVAE']
+     titles = ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC']
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[110]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/pois-loss-1.png
      plt.clf()
      fig, ax = plt.subplots(1, len(data), sharey=True)
      fig.set_size_inches(8, 2.5)
-     for a, d, t in zip(ax, data, ['T cells', 'B cells', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC']):
-       g = imputation_res[imputation_res['dataset'] == d]
-       a.set_yscale('log')
+     for a, d, t in zip(ax, data, titles):
+       g = imputation_res[np.logical_and(imputation_res['data'] == d, imputation_res['rank'] == 1)]
        for x, (m, k) in enumerate(zip(methods, labels)):
          y = g.loc[g['method'] == m]
-         a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1), y['loss'], s=2, c='k', zorder=4)
+         a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1), -y['loss'], s=4, c='k', zorder=4)
        a.set_title(t)
        a.grid(c='0.8', lw=1, axis='x')
        a.set_xticks(np.arange(4))
        a.set_xticklabels(labels, rotation=90)
+       a.set_xlim(-.5, 3.5)
        a.set_xlabel('Method')
-     ax[0].set_ylabel('Poisson loss')
+     ax[0].set_ylabel('Log likelihood of\n masked observations')
      fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[66]:
-   [[file:figure/imputation.org/pois-loss.png]]
+   # Out[111]:
+   [[file:figure/imputation.org/pois-loss-1.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/pois-loss-2.png
+     plt.clf()
+     fig, ax = plt.subplots(1, len(data), sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, d, t in zip(ax, data, titles):
+       g = imputation_res[np.logical_and(imputation_res['data'] == d, imputation_res['rank'] == 2)]
+       for x, (m, k) in enumerate(zip(methods, labels)):
+         y = g.loc[g['method'] == m]
+         a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1), -y['loss'], s=4, c='k', zorder=4)
+       a.set_title(t)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xticks(np.arange(4))
+       a.set_xticklabels(labels, rotation=90)
+       a.set_xlim(-.5, 3.5)
+       a.set_xlabel('Method')
+     ax[0].set_ylabel('Log likelihood of\n masked observations')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[125]:
+   [[file:figure/imputation.org/pois-loss-2.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/pois-loss-4.png
+     plt.clf()
+     fig, ax = plt.subplots(1, len(data), sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, d, t in zip(ax, data, titles):
+       g = imputation_res[np.logical_and(imputation_res['data'] == d, imputation_res['rank'] == 4)]
+       for x, (m, k) in enumerate(zip(methods, labels)):
+         y = g.loc[g['method'] == m]
+         a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1), -y['loss'], s=4, c='k', zorder=4)
+       a.set_title(t)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xticks(np.arange(4))
+       a.set_xticklabels(labels, rotation=90)
+       a.set_xlim(-.5, 3.5)
+       a.set_ylim(-.25, 0)
+       a.set_xlabel('Method')
+     ax[0].set_ylabel('Log likelihood of\n masked observations')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[119]:
+   [[file:figure/imputation.org/pois-loss-4.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/pois-loss-8.png
+     plt.clf()
+     fig, ax = plt.subplots(1, len(data), sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, d, t in zip(ax, data, titles):
+       g = imputation_res[np.logical_and(imputation_res['data'] == d, imputation_res['rank'] == 8)]
+       for x, (m, k) in enumerate(zip(methods, labels)):
+         y = g.loc[g['method'] == m]
+         a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1), -y['loss'], s=4, c='k', zorder=4)
+       a.set_title(t)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xticks(np.arange(4))
+       a.set_xticklabels(labels, rotation=90)
+       a.set_xlim(-.5, 3.5)
+       a.set_ylim(-.25, 0)
+       a.set_xlabel('Method')
+     ax[0].set_ylabel('Log likelihood of\n masked observations')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[120]:
+   [[file:figure/imputation.org/pois-loss-8.png]]
    :END:
 
    Plot the improvement over mean imputation.
 
-   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/pois-loss-improvement.png
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/pois-loss-improvement-1.png
      plt.clf()
-     fig, ax = plt.subplots(2, 3, sharex=True)
-     fig.set_size_inches(5, 4)
-     for a, d, t in zip(ax.ravel(), data, ['T cells', 'B cells', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC']):
-       g = imputation_res[imputation_res['dataset'] == d]
+     fig, ax = plt.subplots(1, 6, sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, d, t in zip(ax.ravel(), data, titles):
+       g = imputation_res[np.logical_and(imputation_res['data'] == d, imputation_res['rank'] == 1)]
        base = g.loc[g['method'] == 'ebpm_point']
-       for x, m in enumerate(methods[2:]):
+       for x, m in enumerate(methods[1:]):
          y = g.loc[g['method'] == m]
-         a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
-                   1e5 * (base['loss'].values - y['loss'].values), s=2, c='k', zorder=4)
+         if not y.empty:
+           a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
+                   (base['loss'].values - y['loss'].values), s=4, c='k', zorder=4)
        a.axhline(y=0, c='r', lw=1, ls=':')
        a.set_title(t)
        a.grid(c='0.8', lw=1, axis='x')
-     for a in ax[-1]:
-       a.set_xticks(np.arange(2))
-       a.set_xticklabels([m.upper() for m in methods[2:]], rotation=90)
+       a.set_xticks(np.arange(3))
+       a.set_xticklabels(labels[1:], rotation=90)
+       a.set_xlim(-.5, 2.5)
        a.set_xlabel('Method')
-     a = fig.add_subplot(111, frameon=False)
-     a.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
-     a.set_ylabel('Improvement in Poisson loss\nover mean imputation')
+     ax[0].set_ylabel('Improvement log lik\non masked entries')
      fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[67]:
-   [[file:figure/imputation.org/pois-loss-improvement.png]]
+   # Out[115]:
+   [[file:figure/imputation.org/pois-loss-improvement-1.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/pois-loss-improvement-2.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 6, sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, d, t in zip(ax.ravel(), data, titles):
+       g = imputation_res[np.logical_and(imputation_res['data'] == d, imputation_res['rank'] == 2)]
+       base = g.loc[g['method'] == 'ebpm_point']
+       for x, m in enumerate(methods[1:]):
+         y = g.loc[g['method'] == m]
+         if not y.empty:
+           a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
+                   (base['loss'].values - y['loss'].values), s=4, c='k', zorder=4)
+       a.axhline(y=0, c='r', lw=1, ls=':')
+       a.set_title(t)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xticks(np.arange(3))
+       a.set_xticklabels(labels[1:], rotation=90)
+       a.set_xlim(-.5, 2.5)
+       a.set_ylim(-.005, .015)
+       a.set_xlabel('Method')
+     ax[0].set_ylabel('Improvement log lik\non masked entries')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[126]:
+   [[file:figure/imputation.org/pois-loss-improvement-2.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/pois-loss-improvement-4.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 6, sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, d, t in zip(ax.ravel(), data, titles):
+       g = imputation_res[np.logical_and(imputation_res['data'] == d, imputation_res['rank'] == 4)]
+       base = g.loc[g['method'] == 'ebpm_point']
+       for x, m in enumerate(methods[1:]):
+         y = g.loc[g['method'] == m]
+         if not y.empty:
+           a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
+                   (base['loss'].values - y['loss'].values), s=4, c='k', zorder=4)
+       a.axhline(y=0, c='r', lw=1, ls=':')
+       a.set_title(t)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xticks(np.arange(3))
+       a.set_xticklabels(labels[1:], rotation=90)
+       a.set_xlim(-.5, 2.5)
+       a.set_ylim(-.025, .025)
+       a.set_xlabel('Method')
+     ax[0].set_ylabel('Improvement log lik\non masked entries')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[117]:
+   [[file:figure/imputation.org/pois-loss-improvement-4.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/imputation.org/pois-loss-improvement-8.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 6, sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, d, t in zip(ax.ravel(), data, titles):
+       g = imputation_res[np.logical_and(imputation_res['data'] == d, imputation_res['rank'] == 8)]
+       base = g.loc[g['method'] == 'ebpm_point']
+       for x, m in enumerate(methods[1:]):
+         y = g.loc[g['method'] == m]
+         if not y.empty:
+           a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
+                   (base['loss'].values - y['loss'].values), s=4, c='k', zorder=4)
+       a.axhline(y=0, c='r', lw=1, ls=':')
+       a.set_title(t)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xticks(np.arange(3))
+       a.set_xticklabels(labels[1:], rotation=90)
+       a.set_xlim(-.5, 2.5)
+       a.set_ylim(-.025, .025)
+       a.set_xlabel('Method')
+     ax[0].set_ylabel('Improvement log lik\non masked entries')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[118]:
+   [[file:figure/imputation.org/pois-loss-improvement-8.png]]
    :END:
