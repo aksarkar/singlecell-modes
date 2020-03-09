@@ -182,14 +182,14 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[17]:
    #+BEGIN_EXAMPLE
-     cytotoxic_t            0.914572
-     b_cells                0.921772
-     ipsc                   0.291596
-     cytotoxic_t-b_cells    0.920908
-     cytotoxic_t-naive_t    0.917528
-     pbmcs_68k              0.920052
+     cytotoxic_t            0.437247
+     b_cells                0.416360
+     ipsc                   0.301654
+     cytotoxic_t-b_cells    0.430270
+     cytotoxic_t-naive_t    0.437422
+     pbmcs_68k              0.444396
      dtype: float64
    #+END_EXAMPLE
    :END:
