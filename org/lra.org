@@ -77,11 +77,13 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 66251618
+  : Submitted batch job 66289771
 
   #+NAME: imports
   #+BEGIN_SRC ipython
+    import collections
     import numpy as np
+    import os.path
     import pandas as pd
     import scmodes
   #+END_SRC
@@ -92,23 +94,13 @@
   :END:
 
   #+BEGIN_SRC ipython
-    import sklearn.decomposition as skd
-    import scipy.stats as st
-  #+END_SRC
-
-  #+RESULTS:
-  :RESULTS:
-  # Out[2]:
-  :END:
-
-  #+BEGIN_SRC ipython
     %matplotlib inline
     %config InlineBackend.figure_formats = set(['retina'])
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -120,18 +112,21 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[3]:
   :END:
 
-* Methods
+* Results
 ** Datasets
+
+   Take genes with non-zero counts present in at least 25% of cells. In the
+   iPSC data, this is all 9,957 genes, so take a random sample of 500 genes.
 
    #+NAME: data
    #+BEGIN_SRC ipython
-     def _read_10x(k, min_detect=0.01, n_cells=1000, seed=1):
-       return scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/', min_detect=0.01, return_df=True).sample(n=n_cells, axis=0, random_state=seed)
+     def _read_10x(k, min_detect=0.25, n_cells=1000, seed=1):
+       return scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/', min_detect=0.25, return_df=True).sample(n=n_cells, axis=0, random_state=seed)
 
-     def _mix_10x(k1, k2, min_detect=0.01, n_cells=1000, seed=1):
+     def _mix_10x(k1, k2, min_detect=0.25, n_cells=1000, seed=1):
        x1 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
        x2 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
        return scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)[0].sample(n=n_cells, axis=0, random_state=seed)
@@ -145,7 +140,7 @@
      data = {
        'cytotoxic_t': lambda: _read_10x('cytotoxic_t'),
        'b_cells': lambda: _read_10x('b_cells'),
-       'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', return_df=True).sample(n=1000, axis=0, random_state=1),
+       'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', return_df=True).sample(n=1000, axis=0, random_state=1).sample(n=500, axis=1, random_state=2),
        'cytotoxic_t-b_cells': _cd8_cd19_mix,
        'cytotoxic_t-naive_t': _cyto_naive_mix,
        'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a'),
@@ -154,7 +149,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[5]:
+   # Out[4]:
    :END:
 
    Report the data dimensions.
@@ -167,25 +162,44 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[8]:
    #+BEGIN_EXAMPLE
      num_cells  num_genes
-     cytotoxic_t               1000       6530
-     b_cells                   1000       6417
-     ipsc                      1000       9957
-     cytotoxic_t-b_cells       1000       6647
-     cytotoxic_t-naive_t       1000       6246
-     pbmcs_68k                 1000       6502
+     cytotoxic_t               1000        461
+     b_cells                   1000        375
+     ipsc                      1000        500
+     cytotoxic_t-b_cells       1000        404
+     cytotoxic_t-naive_t       1000        419
+     pbmcs_68k                 1000        404
    #+END_EXAMPLE
    :END:
 
-* Results
+   Report the proportion of zeros.
+
+   #+BEGIN_SRC ipython :async t
+     pd.Series({k: (data[k]() == 0).values.mean() for k in data})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   #+BEGIN_EXAMPLE
+     cytotoxic_t            0.914572
+     b_cells                0.921772
+     ipsc                   0.291596
+     cytotoxic_t-b_cells    0.920908
+     cytotoxic_t-naive_t    0.917528
+     pbmcs_68k              0.920052
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
 ** Poisson thinning benchmark
 
    Run the CPU methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=mstephens -n1 -c8 --time=3:00:00 --job-name=lra-generalization -a 0-2%1
+     sbatch --partition=broadwl -n1 --mem=10G --time=24:00:00 --job-name=lra-generalization -a 31,39
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -197,18 +211,18 @@
      tasks = [(d, m, r) for d in data for m in methods for r in ranks]
      d, m, r = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      x = data[d]()
-     res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_components=r, n_trials=1)
+     res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_components=r, tol=1e-2, n_trials=5)
      res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}-{r}.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66251200
+   : Submitted batch job 66282546
 
    Run the GPU methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=10:00 --job-name=lra-generalization -a 0-24
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=60:00 --job-name=lra-generalization -a 0-23
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -220,58 +234,144 @@
      tasks = [(d, m, r) for d in data for m in methods for r in ranks]
      d, m, r = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      x = data[d]()
-     res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_components=r, n_trials=1)
+     res = scmodes.benchmark.evaluate_lra_generalization(x, methods=[m], n_components=r, n_trials=5)
      res.to_csv(f'/scratch/midway2/aksarkar/modes/lra-generalization/{d}-{m}-{r}.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66251235
+   : Submitted batch job 66269438
 
-   Move the results to permanent storage.
+   Collect the results.
 
-   #+BEGIN_SRC sh
-     rsync -au /scratch/midway2/aksarkar/modes/lra-generalization/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/
-   #+END_SRC
-
-   #+RESULTS:
-
-   Read the results.
-
-   #+BEGIN_SRC ipython
-     methods = ['nmf', 'wglmpca', 'pvae']
-     titles = ['B cell', 'Cytotoxic T', 'Naive T', 'B cell/T cell', 'Naive/cytotoxic T', 'PBMC']
-     poisthin_res = pd.concat(
-       {k: pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/{k}-{m}.txt.gz', header=[0, 1], index_col=0, sep='\t') for m in methods if not (k == 'pbmcs_68k' and m == 'wglmpca')], axis=1) for k in data})
+   #+BEGIN_SRC ipython :async t
+     pois_thin_res = collections.defaultdict(list)
+     for k in data:
+       for m in ('nmf', 'glmpca', 'pvae'):
+         for r in (1, 2, 4, 8):
+           f = f'/scratch/midway2/aksarkar/modes/lra-generalization/{k}-{m}-{r}.txt.gz'
+           if os.path.exists(f):
+             pois_thin_res[(k, r)].append(pd.read_csv(f, header=[0, 1], index_col=0, sep='\t'))
+     pois_thin_res = pd.concat({k: pd.concat(pois_thin_res[k], axis=1) for k in pois_thin_res}, axis=0)
+     pois_thin_res.index.names = ['data', 'rank', 'trial']
+     pois_thin_res.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/lra-generalization.txt.gz', sep='\t')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[44]:
+   # Out[5]:
    :END:
 
-   #+BEGIN_SRC ipython :ipyfile figure/lra.org/lra-bench.png
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     pois_thin_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/lra-generalization.txt.gz', sep='\t', header=[0, 1], index_col=[0, 1, 2])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[111]:
+   :END:
+
+   Plot the results.
+
+   #+BEGIN_SRC ipython
+     titles = ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC']
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/lra.org/lra-bench-1.png
      plt.clf()
-     fig, ax = plt.subplots(2, 3, sharex=True)
-     fig.set_size_inches(5, 4)
-     for a, k, t in zip(ax.ravel(), data, titles):
-       llik = poisthin_res.loc[k]['validation']
-       for x, m in enumerate(llik):
-         a.scatter(x + np.random.normal(scale=0.1, size=llik.shape[0]), llik[m].values, s=1, c='k', zorder=3)
+     fig, ax = plt.subplots(1, 6, sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, (k, g), t in zip(ax.ravel(), pois_thin_res.xs(1, level=1)['validation'].groupby(level=0), titles):
+       for x, m in enumerate(g.columns):
+         a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c='k', zorder=3)
        a.grid(c='0.8', lw=1, axis='x')
        a.set_xlim(-0.5, 2.5)
        a.set_xticks(np.arange(3))
-       a.set_title(t)
-     for a in ax[-1]:
+       a.set_xticklabels([m.upper() for m in g.columns], rotation=90)
        a.set_xlabel('Method')
-       a.set_xticklabels([m.upper() for m in llik.columns], rotation=90)
-     for a in ax:
-       a[0].set_ylabel('Validation log lik')
+       a.set_title(t)
+     ax[0].set_ylabel('Log likelihood of\nheld-out molecules')
      fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[60]:
-   [[file:figure/lra.org/lra-bench.png]]
+   # Out[13]:
+   [[file:figure/lra.org/lra-bench-1.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/lra.org/lra-bench-2.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 6, sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, (k, g), t in zip(ax.ravel(), pois_thin_res.xs(2, level=1)['validation'].groupby(level=0), titles):
+       for x, m in enumerate(g.columns):
+         a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c='k', zorder=3)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xlim(-0.5, 2.5)
+       a.set_xticks(np.arange(3))
+       a.set_xticklabels([m.upper() for m in g.columns], rotation=90)
+       a.set_xlabel('Method')
+       a.set_title(t)
+     ax[0].set_ylabel('Log likelihood of\nheld-out molecules')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[14]:
+   [[file:figure/lra.org/lra-bench-2.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/lra.org/lra-bench-4.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 6, sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, (k, g), t in zip(ax.ravel(), pois_thin_res.xs(4, level=1)['validation'].groupby(level=0), titles):
+       for x, m in enumerate(g.columns):
+         a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c='k', zorder=3)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xlim(-0.5, 2.5)
+       a.set_xticks(np.arange(3))
+       a.set_xticklabels([m.upper() for m in g.columns], rotation=90)
+       a.set_xlabel('Method')
+       a.set_title(t)
+     ax[0].set_ylabel('Log likelihood of\nheld-out molecules')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[15]:
+   [[file:figure/lra.org/lra-bench-4.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/lra.org/lra-bench-8.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 6, sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, (k, g), t in zip(ax.ravel(), pois_thin_res.xs(8, level=1)['validation'].groupby(level=0), titles):
+       for x, m in enumerate(g.columns):
+         a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c='k', zorder=3)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xlim(-0.5, 2.5)
+       a.set_xticks(np.arange(3))
+       a.set_xticklabels([m.upper() for m in g.columns], rotation=90)
+       a.set_xlabel('Method')
+       a.set_title(t)
+     ax[0].set_ylabel('Log likelihood of\nheld-out molecules')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[16]:
+   [[file:figure/lra.org/lra-bench-8.png]]
    :END:
