@@ -476,7 +476,7 @@
    Run the CPU methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 --mem=8G --time=12:00:00 --job-name=imputation -a 35
+     sbatch --partition=broadwl -n1 --mem=8G --time=12:00:00 --job-name=imputation -a 20
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -495,7 +495,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66297483
+   : Submitted batch job 66305039
 
    Run the GPU methods.
 

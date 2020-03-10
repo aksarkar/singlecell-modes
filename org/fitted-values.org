@@ -15,6 +15,7 @@
   #+BEGIN_SRC emacs-lisp :exports none
     (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
     (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+    (org-babel-lob-ingest "lra.org")
     (org-babel-lob-ingest "fitted-values.org")
   #+END_SRC
 
@@ -64,61 +65,10 @@
 * Results
 ** Datasets
 
-   Follow the data processing we used for [[file:imputation.org][masked value
-   estimation]].
+   Follow the data processing for the [[file:lra.org::*Datasets][Poisson
+   thinning analysis]].
 
-   #+NAME: data
-   #+BEGIN_SRC ipython
-     def _read_10x(k, min_detect=0.01, n_cells=1000, seed=1):
-       return scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/', min_detect=0.01, return_df=True).sample(n=n_cells, axis=0, random_state=seed)
-
-     def _mix_10x(k1, k2, min_detect=0.01, n_cells=1000, seed=1):
-       x1 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
-       x2 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
-       return scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)[0].sample(n=n_cells, axis=0, random_state=seed)
-
-     def _cd8_cd19_mix(**kwargs):
-       return _mix_10x('cytotoxic_t', 'b_cells', **kwargs)
-
-     def _cyto_naive_mix(**kwargs):
-       return _mix_10x('cytotoxic_t', 'naive_t', **kwargs)
-
-     data = {
-       'cytotoxic_t': lambda: _read_10x('cytotoxic_t'),
-       'b_cells': lambda: _read_10x('b_cells'),
-       'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', return_df=True).sample(n=1000, axis=0, random_state=1),
-       'cytotoxic_t-b_cells': _cd8_cd19_mix,
-       'cytotoxic_t-naive_t': _cyto_naive_mix,
-       'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a'),
-     }
-   #+END_SRC
-
-   #+RESULTS: data
-   :RESULTS:
-   # Out[5]:
-   :END:
-
-   Report the data dimensions.
-
-   #+BEGIN_SRC ipython :async t
-     pd.DataFrame([data[k]().shape for k in data],
-                  columns=['num_cells', 'num_genes'],
-                  index=data.keys())
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[5]:
-   #+BEGIN_EXAMPLE
-     num_cells  num_genes
-     cytotoxic_t               1000       6530
-     b_cells                   1000       6417
-     ipsc                      1000       9957
-     cytotoxic_t-b_cells       1000       6647
-     cytotoxic_t-naive_t       1000       6246
-     pbmcs_68k                 1000       6502
-   #+END_EXAMPLE
-   :END:
+   #+CALL: data()
 
 ** B cells
    :PROPERTIES:
@@ -865,6 +815,114 @@
    [[file:figure/fitted-values.org/b_cells-masked-sum-llik-diff.png]]
    :END:
 
+   Examine the case where GLM-PCA appears to fail.
+
+   #+BEGIN_SRC ipython :async t
+     train = data['b_cells']().values
+     w = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-w.npy')
+     l, f, _ = scmodes.lra.glmpca(train, w=w, rank=4, tol=1e-2, max_iters=10000, verbose=True)
+     lam = np.exp(l @ f.T)
+   #+END_SRC
+
+   #+BEGIN_SRC ipython
+     -np.where(w, st.poisson(mu=lam).logpmf(train), 0).sum()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[108]:
+   : 469460.7112869973
+   :END:
+
+   #+BEGIN_SRC ipython
+     -np.where(~w, st.poisson(mu=lam).logpmf(train), 0).mean()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[97]:
+   : 1.5974443522458214e+50
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-wglmpca-4.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     plt.scatter(train[~w].ravel(), lam[~w].ravel(), s=1, alpha=0.1, c='k')
+     plt.xlabel('Masked value')
+     plt.ylabel('Fitted value')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[99]:
+   [[file:figure/fitted-values.org/b_cells-wglmpca-4.png]]
+   :END:
+
+   Find the outlier.
+
+   #+BEGIN_SRC ipython
+     np.where(lam == lam.max()), train[np.where(lam == lam.max())]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[140]:
+   : ((array([895]), array([353])), array([1.]))
+   :END:
+
+   #+BEGIN_SRC ipython
+     l[895], f[353]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[141]:
+   #+BEGIN_EXAMPLE
+     (array([ 0.40541451,  0.54979576,  0.95922746, -1.09842433]),
+     array([ -3.27497815, 235.22646683,   5.0478365 ,   4.01345086]))
+   #+END_EXAMPLE
+   :END:
+
+   Look at the remainder of the fitted values.
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-wglmpca-4-inset.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     lim = [0, 97]
+     plt.scatter(train[~w].ravel(), lam[~w].ravel(), s=1, alpha=0.1, c='k')
+     plt.plot(lim, lim, c='r', lw=1, ls=':')
+     plt.xlim(lim)
+     plt.ylim(lim)
+     plt.xlabel('Masked value')
+     plt.ylabel('Fitted value')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[128]:
+   [[file:figure/fitted-values.org/b_cells-wglmpca-4-inset.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     l1, f1, loss1 = scmodes.lra.glmpca(train, w=w, rank=4, tol=5e-2, max_iters=10000, verbose=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[142]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     -np.where(~w, st.poisson(mu=np.exp(l1 @ f1.T)).logpmf(train), 0).mean()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[145]:
+   : 6.651556782196484e+18
+   :END:
 
 ** T cells
 

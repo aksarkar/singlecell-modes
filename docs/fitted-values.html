@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-03-05 Thu 13:30 -->
+<!-- 2020-03-10 Tue 00:07 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of fitted values</title>
@@ -319,56 +319,9 @@ investigate the per-observation performance of these methods.
 <h3 id="org296c455">Datasets</h3>
 <div class="outline-text-3" id="text-org296c455">
 <p>
-Follow the data processing we used for <a href="imputation.html">masked value
-estimation</a>.
+Follow the data processing for the <a href="lra.html#org42bd0a9">Poisson
+thinning analysis</a>.
 </p>
-
-<div class="org-src-container">
-<pre class="src src-ipython" id="orgfd3cf9c"><span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k, min_detect=0.01, n_cells=1000, seed=1):
-  <span class="org-keyword">return</span> scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/'</span>, min_detect=0.01, return_df=<span class="org-constant">True</span>).sample(n=n_cells, axis=0, random_state=seed)
-
-<span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.01, n_cells=1000, seed=1):
-  <span class="org-variable-name">x1</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
-  <span class="org-variable-name">x2</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
-  <span class="org-keyword">return</span> scmodes.dataset.synthetic_mix(x1, x2, min_detect=min_detect)[0].sample(n=n_cells, axis=0, random_state=seed)
-
-<span class="org-keyword">def</span> <span class="org-function-name">_cd8_cd19_mix</span>(**kwargs):
-  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'b_cells'</span>, **kwargs)
-
-<span class="org-keyword">def</span> <span class="org-function-name">_cyto_naive_mix</span>(**kwargs):
-  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>, **kwargs)
-
-<span class="org-variable-name">data</span> = {
-  <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'cytotoxic_t'</span>),
-  <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'b_cells'</span>),
-  <span class="org-string">'ipsc'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>, return_df=<span class="org-constant">True</span>).sample(n=1000, axis=0, random_state=1),
-  <span class="org-string">'cytotoxic_t-b_cells'</span>: _cd8_cd19_mix,
-  <span class="org-string">'cytotoxic_t-naive_t'</span>: _cyto_naive_mix,
-  <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>),
-}
-</pre>
-</div>
-
-<p>
-Report the data dimensions.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">pd.DataFrame([data[k]().shape <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data],
-             columns=[<span class="org-string">'num_cells'</span>, <span class="org-string">'num_genes'</span>],
-             index=data.keys())
-</pre>
-</div>
-
-<pre class="example">
-num_cells  num_genes
-cytotoxic_t               1000       6530
-b_cells                   1000       6417
-ipsc                      1000       9957
-cytotoxic_t-b_cells       1000       6647
-cytotoxic_t-naive_t       1000       6246
-pbmcs_68k                 1000       6502
-</pre>
 </div>
 </div>
 
@@ -1122,9 +1075,119 @@ fig.tight_layout()
 <p><img src="figure/fitted-values.org/b_cells-masked-sum-llik-diff.png" alt="b_cells-masked-sum-llik-diff.png">
 </p>
 </div>
-</div>
+
+<p>
+Examine the case where GLM-PCA appears to fail.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">train</span> = data[<span class="org-string">'b_cells'</span>]().values
+<span class="org-variable-name">w</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-w.npy'</span>)
+<span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.glmpca(train, w=w, rank=4, tol=1e-2, max_iters=10000, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">lam</span> = np.exp(l @ f.T)
+</pre>
 </div>
 
+<div class="org-src-container">
+<pre class="src src-ipython">-np.where(w, st.poisson(mu=lam).logpmf(train), 0).<span class="org-builtin">sum</span>()
+</pre>
+</div>
+
+<pre class="example">
+469460.7112869973
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">-np.where(~w, st.poisson(mu=lam).logpmf(train), 0).mean()
+</pre>
+</div>
+
+<pre class="example">
+1.5974443522458214e+50
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.scatter(train[~w].ravel(), lam[~w].ravel(), s=1, alpha=0.1, c=<span class="org-string">'k'</span>)
+plt.xlabel(<span class="org-string">'Masked value'</span>)
+plt.ylabel(<span class="org-string">'Fitted value'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/fitted-values.org/b_cells-wglmpca-4.png" alt="b_cells-wglmpca-4.png">
+</p>
+</div>
+
+<p>
+Find the outlier.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.where(lam == lam.<span class="org-builtin">max</span>()), train[np.where(lam == lam.<span class="org-builtin">max</span>())]
+</pre>
+</div>
+
+<pre class="example">
+((array([895]), array([353])), array([1.]))
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">l[895], f[353]
+</pre>
+</div>
+
+<pre class="example">
+(array([ 0.40541451,  0.54979576,  0.95922746, -1.09842433]),
+array([ -3.27497815, 235.22646683,   5.0478365 ,   4.01345086]))
+</pre>
+
+<p>
+Look at the remainder of the fitted values.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 3)
+<span class="org-variable-name">lim</span> = [0, 97]
+plt.scatter(train[~w].ravel(), lam[~w].ravel(), s=1, alpha=0.1, c=<span class="org-string">'k'</span>)
+plt.plot(lim, lim, c=<span class="org-string">'r'</span>, lw=1, ls=<span class="org-string">':'</span>)
+plt.xlim(lim)
+plt.ylim(lim)
+plt.xlabel(<span class="org-string">'Masked value'</span>)
+plt.ylabel(<span class="org-string">'Fitted value'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/fitted-values.org/b_cells-wglmpca-4-inset.png" alt="b_cells-wglmpca-4-inset.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">l1</span>, <span class="org-variable-name">f1</span>, <span class="org-variable-name">loss1</span> = scmodes.lra.glmpca(train, w=w, rank=4, tol=5e-2, max_iters=10000, verbose=<span class="org-constant">True</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">-np.where(~w, st.poisson(mu=np.exp(l1 @ f1.T)).logpmf(train), 0).mean()
+</pre>
+</div>
+
+<pre class="example">
+6.651556782196484e+18
+
+</pre>
+</div>
+</div>
 
 <div id="outline-container-org4075a13" class="outline-3">
 <h3 id="org4075a13">T cells</h3>
@@ -1303,7 +1366,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-03-05 Thu 13:30</p>
+<p class="date">Created: 2020-03-10 Tue 00:07</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
