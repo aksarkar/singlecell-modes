@@ -462,7 +462,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[51]:
+   # Out[18]:
    [[file:figure/fitted-values.org/b_cells-llik-diff.png]]
    :END:
 

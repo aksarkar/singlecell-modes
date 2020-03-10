@@ -17,7 +17,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 65718793
+  : Submitted batch job 66310303
 
   #+BEGIN_SRC ipython
     import numpy as np
@@ -30,7 +30,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[69]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -40,7 +40,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[70]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -485,42 +485,149 @@
 
 * Figure 2
 
-  #+BEGIN_SRC ipython :ipyfile figure/figures.org/imputation-bench.svg
-    data = ['cytotoxic_t', 'b_cells', 'ipsc', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'pbmcs_68k']
-    methods = ['oracle', 'ebpm_point', 'wnmf', 'wglmpca']
-    imputation_res = (pd.concat({(d, m): pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/{d}-{m}.txt.gz', sep='\t', index_col=0)
-                                     for d in data for m in methods if d != 'naive_t'})
-                      .reset_index(level=0)
-                      .reset_index(drop=True)
-                      .rename({'level_0': 'dataset'}, axis=1))
+  Plot the Poisson thinning benchmark.
 
+  #+BEGIN_SRC ipython
+    pois_thin_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/lra-generalization.txt.gz', sep='\t', header=[0, 1], index_col=[0, 1, 2])
+    titles = ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC']
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[6]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/figures.org/lra-bench-8.svg
     plt.clf()
-    fig, ax = plt.subplots(2, 3, sharex=True)
-    fig.set_size_inches(5, 4)
-    for a, d, t in zip(ax.ravel(), data, ['T cells', 'B cells', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC']):
-      g = imputation_res[imputation_res['dataset'] == d]
-      base = g.loc[g['method'] == 'ebpm_point']
-      for x, m in enumerate(methods[2:]):
-        y = g.loc[g['method'] == m]
-        a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
-                  1e5 * (base['loss'].values - y['loss'].values), s=2, c='k', zorder=4)
-      a.axhline(y=0, c='r', lw=1, ls=':')
-      a.set_title(t)
+    fig, ax = plt.subplots(1, 6, sharey=True)
+    fig.set_size_inches(8, 2.5)
+    for a, (k, g), t in zip(ax.ravel(), pois_thin_res.xs(8, level=1)['validation'].groupby(level=0), titles):
+      for x, m in enumerate(g.columns):
+        a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c='k', zorder=3)
       a.grid(c='0.8', lw=1, axis='x')
-    for a in ax[-1]:
-      a.set_xticks(np.arange(2))
-      a.set_xticklabels([m.upper() for m in methods[2:]], rotation=90)
+      a.set_xlim(-0.5, 2.5)
+      a.set_xticks(np.arange(3))
+      a.set_xticklabels([m.upper() for m in g.columns], rotation=90)
       a.set_xlabel('Method')
-    a = fig.add_subplot(111, frameon=False)
-    a.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
-    a.set_ylabel('Improvement in log likelihood\nover noiseless rank one assumption')
+      a.set_title(t)
+    ax[0].set_ylabel('Log likelihood of\nheld-out molecules')
     fig.tight_layout()
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[17]:
-  [[file:figure/figures.org/imputation-bench.svg]]
+  # Out[10]:
+  [[file:figure/figures.org/lra-bench-8.svg]]
+  :END:
+  
+  Plot the distribution of log likelihood differences.
+
+  #+BEGIN_SRC ipython
+    train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')
+    test = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test.npy')
+    lam0 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nmf-lam.npy')
+    lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-glmpca-lam.npy')
+    lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam.npy')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[8]:
   :END:
 
-  
+   #+BEGIN_SRC ipython
+     s = (test.sum(axis=1) / train.sum(axis=1)).reshape(-1, 1)
+     llik0 = np.ma.masked_invalid(st.poisson(s * lam0).logpmf(test))
+     llik1 = st.poisson(s * lam1).logpmf(test)
+     llik2 = st.poisson(s * lam2).logpmf(test)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[11]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     plt.clf()
+     fig, ax = plt.subplots(1, 2, sharex=True, sharey=True)
+     fig.set_size_inches(8, 2)
+
+     grid = np.arange(test.max())
+     for i in grid:
+       ax[0].boxplot((llik1 - llik0)[test == i].ravel(), positions=[i], widths=[0.5], medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 2})
+     ax[0].axhline(y=0, ls=':', lw=1, c='r')
+     ax[0].set_xlabel('Observation in validation set')
+     ax[0].set_ylabel('Improvement log lik\nover NMF')
+     ax[0].set_title('GLMPCA')
+
+     for i in grid:
+       ax[1].boxplot((llik2 - llik0)[test == i].ravel(), positions=[i], widths=[0.5], medianprops={'color': 'k'}, flierprops={'marker': '.', 'markersize': 2})
+     ax[1].axhline(y=0, ls=':', lw=1, c='r')
+     ax[1].set_title('PVAE')
+     ax[1].set_xticks(grid[::5])
+     ax[1].set_xticklabels(grid[::5].astype(int))
+     ax[1].set_xlim(-.5, grid.max() - .5)
+     ax[1].set_xlabel('Observation in validation set')
+
+     fig.tight_layout()
+     plt.savefig('/project2/mstephens/aksarkar/projects/singlecell-modes/org/figure/figures.org/b_cells-llik-diff.png', dpi=300, format='png')
+     fig
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[26]:
+   :END:
+
+   Plot the imputation benchmark.
+
+   #+BEGIN_SRC ipython
+     imputation_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/imputation.txt.gz', sep='\t', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     methods = ['ebpm_point', 'glmpca', 'nmf', 'pvae']
+     labels = ['EBPM', 'GLMPCA', 'NMF', 'PVAE']
+     data = ['b_cells', 'cytotoxic_t', 'ipsc', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'pbmcs_68k']
+     titles = ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC']
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/figures.org/pois-loss-improvement-8.svg
+     plt.clf()
+     fig, ax = plt.subplots(1, 6, sharey=True)
+     fig.set_size_inches(8, 2.5)
+     for a, d, t in zip(ax.ravel(), data, titles):
+       g = imputation_res[np.logical_and(imputation_res['data'] == d, imputation_res['rank'] == 8)]
+       base = g.loc[g['method'] == 'ebpm_point']
+       for x, m in enumerate(methods[1:]):
+         y = g.loc[g['method'] == m]
+         if not y.empty:
+           a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
+                   (base['loss'].values - y['loss'].values), s=4, c='k', zorder=4)
+       a.axhline(y=0, c='r', lw=1, ls=':')
+       a.set_title(t)
+       a.grid(c='0.8', lw=1, axis='x')
+       a.set_xticks(np.arange(3))
+       a.set_xticklabels(labels[1:], rotation=90)
+       a.set_xlim(-.5, 2.5)
+       a.set_ylim(-.025, .025)
+       a.set_xlabel('Method')
+     ax[0].set_ylabel('Improvement log lik\non masked entries')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   [[file:figure/figures.org/pois-loss-improvement-8.svg]]
+   :END:

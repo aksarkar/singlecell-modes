@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-02-09 Sun 23:00 -->
+<!-- 2020-03-10 Tue 12:38 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Manuscript figures</title>
@@ -674,42 +674,135 @@ Sorry, your browser does not support SVG.</object>
 <div id="outline-container-orgc60948c" class="outline-2">
 <h2 id="orgc60948c">Figure 2</h2>
 <div class="outline-text-2" id="text-orgc60948c">
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">data</span> = [<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'b_cells'</span>, <span class="org-string">'ipsc'</span>, <span class="org-string">'cytotoxic_t-b_cells'</span>, <span class="org-string">'cytotoxic_t-naive_t'</span>, <span class="org-string">'pbmcs_68k'</span>]
-<span class="org-variable-name">methods</span> = [<span class="org-string">'oracle'</span>, <span class="org-string">'ebpm_point'</span>, <span class="org-string">'wnmf'</span>, <span class="org-string">'wglmpca'</span>]
-<span class="org-variable-name">imputation_res</span> = (pd.concat({(d, m): pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/{d}-{m}.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
-                                 <span class="org-keyword">for</span> d <span class="org-keyword">in</span> data <span class="org-keyword">for</span> m <span class="org-keyword">in</span> methods <span class="org-keyword">if</span> d != <span class="org-string">'naive_t'</span>})
-                  .reset_index(level=0)
-                  .reset_index(drop=<span class="org-constant">True</span>)
-                  .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1))
+<p>
+Plot the Poisson thinning benchmark.
+</p>
 
-plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 3, sharex=<span class="org-constant">True</span>)
-fig.set_size_inches(5, 4)
-<span class="org-keyword">for</span> a, d, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), data, [<span class="org-string">'T cells'</span>, <span class="org-string">'B cells'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cytotoxic/naive T'</span>, <span class="org-string">'PBMC'</span>]):
-  <span class="org-variable-name">g</span> = imputation_res[imputation_res[<span class="org-string">'dataset'</span>] == d]
-  <span class="org-variable-name">base</span> = g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'ebpm_point'</span>]
-  <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(methods[2:]):
-    <span class="org-variable-name">y</span> = g.loc[g[<span class="org-string">'method'</span>] == m]
-    a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
-              1e5 * (base[<span class="org-string">'loss'</span>].values - y[<span class="org-string">'loss'</span>].values), s=2, c=<span class="org-string">'k'</span>, zorder=4)
-  a.axhline(y=0, c=<span class="org-string">'r'</span>, lw=1, ls=<span class="org-string">':'</span>)
-  a.set_title(t)
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">pois_thin_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/lra-generalization/lra-generalization.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, header=[0, 1], index_col=[0, 1, 2])
+<span class="org-variable-name">titles</span> = [<span class="org-string">'T cell'</span>, <span class="org-string">'B cell'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cytotoxic/naive T'</span>, <span class="org-string">'PBMC'</span>]
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2.5)
+<span class="org-keyword">for</span> a, (k, g), t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), pois_thin_res.xs(8, level=1)[<span class="org-string">'validation'</span>].groupby(level=0), titles):
+  <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(g.columns):
+    a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c=<span class="org-string">'k'</span>, zorder=3)
   a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
-<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax[-1]:
-  a.set_xticks(np.arange(2))
-  a.set_xticklabels([m.upper() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> methods[2:]], rotation=90)
+  a.set_xlim(-0.5, 2.5)
+  a.set_xticks(np.arange(3))
+  a.set_xticklabels([m.upper() <span class="org-keyword">for</span> m <span class="org-keyword">in</span> g.columns], rotation=90)
   a.set_xlabel(<span class="org-string">'Method'</span>)
-<span class="org-variable-name">a</span> = fig.add_subplot(111, frameon=<span class="org-constant">False</span>)
-a.tick_params(labelcolor=<span class="org-string">'none'</span>, top=<span class="org-constant">False</span>, bottom=<span class="org-constant">False</span>, left=<span class="org-constant">False</span>, right=<span class="org-constant">False</span>)
-a.set_ylabel(<span class="org-string">'Improvement in log likelihood\nover noiseless rank one assumption'</span>)
+  a.set_title(t)
+ax[0].set_ylabel(<span class="org-string">'Log likelihood of\nheld-out molecules'</span>)
 fig.tight_layout()
 </pre>
 </div>
 
 
 <div class="figure">
-<p><object type="image/svg+xml" data="figure/figures.org/imputation-bench.svg" class="org-svg">
+<p><object type="image/svg+xml" data="figure/figures.org/lra-bench-8.svg" class="org-svg">
+Sorry, your browser does not support SVG.</object>
+</p>
+</div>
+
+<p>
+Plot the distribution of log likelihood differences.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">train</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy'</span>)
+<span class="org-variable-name">test</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test.npy'</span>)
+<span class="org-variable-name">lam0</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nmf-lam.npy'</span>)
+<span class="org-variable-name">lam1</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-glmpca-lam.npy'</span>)
+<span class="org-variable-name">lam2</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam.npy'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">s</span> = (test.<span class="org-builtin">sum</span>(axis=1) / train.<span class="org-builtin">sum</span>(axis=1)).reshape(-1, 1)
+<span class="org-variable-name">llik0</span> = np.ma.masked_invalid(st.poisson(s * lam0).logpmf(test))
+<span class="org-variable-name">llik1</span> = st.poisson(s * lam1).logpmf(test)
+<span class="org-variable-name">llik2</span> = st.poisson(s * lam2).logpmf(test)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharex=<span class="org-constant">True</span>, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2)
+
+<span class="org-variable-name">grid</span> = np.arange(test.<span class="org-builtin">max</span>())
+<span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid:
+  ax[0].boxplot((llik1 - llik0)[test == i].ravel(), positions=[i], widths=[0.5], medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 2})
+ax[0].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
+ax[0].set_xlabel(<span class="org-string">'Observation in validation set'</span>)
+ax[0].set_ylabel(<span class="org-string">'Improvement log lik\nover NMF'</span>)
+ax[0].set_title(<span class="org-string">'GLMPCA'</span>)
+
+<span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid:
+  ax[1].boxplot((llik2 - llik0)[test == i].ravel(), positions=[i], widths=[0.5], medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 2})
+ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
+ax[1].set_title(<span class="org-string">'PVAE'</span>)
+ax[1].set_xticks(grid[::5])
+ax[1].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
+ax[1].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
+ax[1].set_xlabel(<span class="org-string">'Observation in validation set'</span>)
+
+fig.tight_layout()
+plt.savefig(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/org/figure/figures.org/b_cells-llik-diff.png'</span>, dpi=300, <span class="org-builtin">format</span>=<span class="org-string">'png'</span>)
+fig
+</pre>
+</div>
+
+<p>
+Plot the imputation benchmark.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">imputation_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/imputation.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">methods</span> = [<span class="org-string">'ebpm_point'</span>, <span class="org-string">'glmpca'</span>, <span class="org-string">'nmf'</span>, <span class="org-string">'pvae'</span>]
+<span class="org-variable-name">labels</span> = [<span class="org-string">'EBPM'</span>, <span class="org-string">'GLMPCA'</span>, <span class="org-string">'NMF'</span>, <span class="org-string">'PVAE'</span>]
+<span class="org-variable-name">data</span> = [<span class="org-string">'b_cells'</span>, <span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'ipsc'</span>, <span class="org-string">'cytotoxic_t-b_cells'</span>, <span class="org-string">'cytotoxic_t-naive_t'</span>, <span class="org-string">'pbmcs_68k'</span>]
+<span class="org-variable-name">titles</span> = [<span class="org-string">'T cell'</span>, <span class="org-string">'B cell'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cytotoxic/naive T'</span>, <span class="org-string">'PBMC'</span>]
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2.5)
+<span class="org-keyword">for</span> a, d, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), data, titles):
+  <span class="org-variable-name">g</span> = imputation_res[np.logical_and(imputation_res[<span class="org-string">'data'</span>] == d, imputation_res[<span class="org-string">'rank'</span>] == 8)]
+  <span class="org-variable-name">base</span> = g.loc[g[<span class="org-string">'method'</span>] == <span class="org-string">'ebpm_point'</span>]
+  <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(methods[1:]):
+    <span class="org-variable-name">y</span> = g.loc[g[<span class="org-string">'method'</span>] == m]
+    <span class="org-keyword">if</span> <span class="org-keyword">not</span> y.empty:
+      a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
+              (base[<span class="org-string">'loss'</span>].values - y[<span class="org-string">'loss'</span>].values), s=4, c=<span class="org-string">'k'</span>, zorder=4)
+  a.axhline(y=0, c=<span class="org-string">'r'</span>, lw=1, ls=<span class="org-string">':'</span>)
+  a.set_title(t)
+  a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
+  a.set_xticks(np.arange(3))
+  a.set_xticklabels(labels[1:], rotation=90)
+  a.set_xlim(-.5, 2.5)
+  a.set_ylim(-.025, .025)
+  a.set_xlabel(<span class="org-string">'Method'</span>)
+ax[0].set_ylabel(<span class="org-string">'Improvement log lik\non masked entries'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><object type="image/svg+xml" data="figure/figures.org/pois-loss-improvement-8.svg" class="org-svg">
 Sorry, your browser does not support SVG.</object>
 </p>
 </div>
@@ -718,7 +811,7 @@ Sorry, your browser does not support SVG.</object>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-02-09 Sun 23:00</p>
+<p class="date">Created: 2020-03-10 Tue 12:38</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
