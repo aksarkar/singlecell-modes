@@ -20,7 +20,6 @@ development of new methods and analysis strategies.
 - [[file:gof.org][Goodness of fit of deconvolved distributions]] ([[http://shiny.stephenslab.uchicago.edu:5009/gof][interactive browser]])
 - [[file:lra.org][Low rank approximation]]
 - [[file:fitted-values.org][Comparison of fitted values]]
-- [[file:imputation.org][Imputation of count matrices]]
 - [[file:mlcb.org][MLCB figures]]
 - [[file:figures.org][Manuscript figures]]
 
@@ -33,6 +32,7 @@ development of new methods and analysis strategies.
 - [[file:brain-dronc-seq.org][Expression variation in human brain cells]]
 - [[file:immune-census.org][Expression variation in Census of Immune Cells]]
 - [[file:chromium3.org][Expression variation in 10X v3 PBMC data]]
+- [[file:imputation.org][Imputation of count matrices]]
 
 * Technical details
 

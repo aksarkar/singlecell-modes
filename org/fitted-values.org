@@ -25,7 +25,7 @@
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
-  : Submitted batch job 66244790
+  : Submitted batch job 66423771
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -38,7 +38,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[2]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -48,7 +48,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -59,7 +59,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[3]:
   :END:
 
 * Results
@@ -69,6 +69,11 @@
    thinning analysis]].
 
    #+CALL: data()
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   :END:
 
 ** B cells
    :PROPERTIES:
@@ -92,24 +97,24 @@
    :END:
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=mstephens -n1 -c8 --mem=8G --time=60:00
+     sbatch --partition=mstephens -n1 --mem=8G --time=24:00:00
      #!/bin/bash
      source activate scmodes
      python <<EOF
      <<imports>>
      train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')
-     l, f, _ = scmodes.lra.nmf(train, rank=2, tol=1e-4, max_iters=100000, verbose=True)
+     l, f, _ = scmodes.lra.nmf(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)
      lam0 = l @ f.T
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nmf-lam', lam0)
 
-     l, f, _ = scmodes.lra.glmpca(train, rank=2, tol=1e-4, max_iters=100000, verbose=True)
+     l, f, _ = scmodes.lra.glmpca(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)
      lam1 = np.exp(l @ f.T)
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-glmpca-lam', lam1)
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66213427
+   : Submitted batch job 66423763
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
      sbatch --partition=gpu2 --gres=gpu:1 --mem=8G
@@ -119,7 +124,7 @@
      <<imports>>
      train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')
      xt = torch.tensor(train, dtype=torch.float)
-     m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=10).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)
+     m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=8).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)
      lam2 = m.denoise(xt, n_samples=100)
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam', lam2)
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-trace', np.array(m.trace))
@@ -127,7 +132,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66239199
+   : Submitted batch job 66423756
 
    Examine the PVAE optimization trace.
 
@@ -146,7 +151,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[43]:
+   # Out[4]:
    [[file:figure/fitted-values.org/b_cells-pvae-trace.png]]
    :END:
 
@@ -596,11 +601,11 @@
      <<data>>
      train = data['b_cells']().values
      w = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-w.npy')
-     l, f, _ = scmodes.lra.nmf(train, w=w, rank=2, tol=1e-4, max_iters=100000, verbose=True)
+     l, f, _ = scmodes.lra.nmf(train, w=w, rank=8, tol=1e-4, max_iters=100000, verbose=True)
      lam0 = l @ f.T
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wnmf-lam', lam0)
 
-     l, f, _ = scmodes.lra.glmpca(train, w=w, rank=2, tol=1e-4, max_iters=100000, verbose=True)
+     l, f, _ = scmodes.lra.glmpca(train, w=w, rank=8, tol=1e-4, max_iters=100000, verbose=True)
      lam1 = np.exp(l @ f.T)
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wglmpca-lam', lam1)
      EOF
@@ -1061,49 +1066,62 @@
    # Out[22]:
    [[file:figure/fitted-values.org/ipsc.png]]
    :END:
+
 ** T cell/B cell
 
+   Split the data into training and validation sets using binomial thinning, then fit
+   NMF, GLMPCA, and PVAE.
+
    #+BEGIN_SRC ipython :async t
+     # Important: this implicitly sets the random seed
      x = data['cytotoxic_t-b_cells']()
+     train, test = scmodes.benchmark.train_test_split(x)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-train', train.values)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-test', test.values)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[23]:
+   # Out[7]:
    :END:
 
-   #+BEGIN_SRC ipython :async t
-     l, f, _ = scmodes.lra.nmf(x.values, rank=3, verbose=True)
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -n1 --mem=8G --time=24:00:00
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-train.npy')
+     l, f, _ = scmodes.lra.nmf(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)
      lam0 = l @ f.T
-   #+END_SRC
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-nmf-lam', lam0)
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[31]:
-   :END:
-
-   #+BEGIN_SRC ipython :async t
-     l, f, _ = scmodes.lra.glmpca(x.values, rank=3, atol=.1, max_iters=500, verbose=True)
+     l, f, _ = scmodes.lra.glmpca(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)
      lam1 = np.exp(l @ f.T)
-     np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-wglmpca', lam1)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-glmpca-lam', lam1)
+     EOF
    #+END_SRC
 
    #+RESULTS:
-   :RESULTS:
-   0 - 805adc4a-e03c-49cc-84a8-194be1441dd2
-   :END:
+   : Submitted batch job 66424054
 
-   #+BEGIN_SRC ipython :async t
-     xt = torch.tensor(x.values, dtype=torch.float)
-     m = scmodes.lra.PVAE(input_dim=x.shape[1], latent_dim=5).fit(xt, lr=1e-3, max_epochs=2000, verbose=True)
-     lam2 = m.denoise(xt)
-     np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-pvae', lam2)
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=8G
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-train.npy')
+     xt = torch.tensor(train, dtype=torch.float)
+     m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=8).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)
+     lam2 = m.denoise(xt, n_samples=100)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-pvae-lam', lam2)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-pvae-trace', np.array(m.trace))
+     EOF
    #+END_SRC
 
    #+RESULTS:
-   :RESULTS:
-   # Out[27]:
-   :END:
+   : Submitted batch job 66424053
 
    #+BEGIN_SRC ipython :async t :ipyfile figure/fitted-values.org/cytotoxic_t-b_cells.png
      plt.clf()
@@ -1128,4 +1146,84 @@
    :RESULTS:
    # Out[30]:
    [[file:figure/fitted-values.org/cytotoxic_t-b_cells.png]]
+   :END:
+** PBMC
+
+   Split the data into training and validation sets using binomial thinning, then fit
+   NMF, GLMPCA, and PVAE.
+
+   #+BEGIN_SRC ipython :async t
+     # Important: this implicitly sets the random seed
+     x = data['pbmcs_68k']()
+     train, test = scmodes.benchmark.train_test_split(x)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-train', train.values)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-test', test.values)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   :END:
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -n1 --mem=8G --time=24:00:00
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-train.npy')
+     l, f, _ = scmodes.lra.nmf(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)
+     lam0 = l @ f.T
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-nmf-lam', lam0)
+
+     l, f, _ = scmodes.lra.glmpca(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)
+     lam1 = np.exp(l @ f.T)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-glmpca-lam', lam1)
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 66424128
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=8G
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-train.npy')
+     xt = torch.tensor(train, dtype=torch.float)
+     m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=8).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)
+     lam2 = m.denoise(xt, n_samples=100)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-pvae-lam', lam2)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-pvae-trace', np.array(m.trace))
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 66424075
+
+   #+BEGIN_SRC ipython :async t :ipyfile figure/fitted-values.org/pbmcs_68k.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 2, sharey=True)
+     fig.set_size_inches(4, 2.5)
+
+     ax[0].scatter(np.sqrt(lam1.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c='k', alpha=0.1)
+     ax[0].plot([0, 10], [0, 10], lw=1, ls=':', c='r')
+     ax[0].set_xlabel(r'GLMPCA $\sqrt{\hat\lambda}$')
+     ax[0].set_ylabel(r'NMF $\sqrt{\hat\lambda}$')
+
+     ax[1].scatter(np.sqrt(lam2.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c='k', alpha=0.1)
+     ax[1].plot([0, 10], [0, 10], lw=1, ls=':', c='r')
+     ax[1].set_xlabel(r'PVAE $\sqrt{\hat\lambda}$')
+
+     a = fig.add_subplot(111, frame_on=False, xticks=[], yticks=[])
+     a.set_title('T cell/B cell')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[30]:
+   [[file:figure/fitted-values.org/pbmcs_68k.png]]
    :END:

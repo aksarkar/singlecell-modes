@@ -40,7 +40,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[9]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -548,6 +548,7 @@
    :END:
 
    #+BEGIN_SRC ipython
+     %matplotlib agg
      plt.clf()
      fig, ax = plt.subplots(1, 2, sharex=True, sharey=True)
      fig.set_size_inches(8, 2)
@@ -571,7 +572,6 @@
 
      fig.tight_layout()
      plt.savefig('/project2/mstephens/aksarkar/projects/singlecell-modes/org/figure/figures.org/b_cells-llik-diff.png', dpi=300, format='png')
-     fig
    #+END_SRC
 
    #+RESULTS:
@@ -579,55 +579,63 @@
    # Out[26]:
    :END:
 
-   Plot the imputation benchmark.
+   Plot the fitted values against each other.
 
    #+BEGIN_SRC ipython
-     imputation_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/imputation/imputation.txt.gz', sep='\t', index_col=0)
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[4]:
-   :END:
-
-   #+BEGIN_SRC ipython
-     methods = ['ebpm_point', 'glmpca', 'nmf', 'pvae']
-     labels = ['EBPM', 'GLMPCA', 'NMF', 'PVAE']
-     data = ['b_cells', 'cytotoxic_t', 'ipsc', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'pbmcs_68k']
-     titles = ['T cell', 'B cell', 'iPSC', 'T cell/B cell', 'Cytotoxic/naive T', 'PBMC']
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[7]:
-   :END:
-
-   #+BEGIN_SRC ipython :ipyfile figure/figures.org/pois-loss-improvement-8.svg
+     %matplotlib agg
      plt.clf()
      fig, ax = plt.subplots(1, 6, sharey=True)
-     fig.set_size_inches(8, 2.5)
-     for a, d, t in zip(ax.ravel(), data, titles):
-       g = imputation_res[np.logical_and(imputation_res['data'] == d, imputation_res['rank'] == 8)]
-       base = g.loc[g['method'] == 'ebpm_point']
-       for x, m in enumerate(methods[1:]):
-         y = g.loc[g['method'] == m]
-         if not y.empty:
-           a.scatter(x + np.random.normal(size=y.shape[0], scale=0.1),
-                   (base['loss'].values - y['loss'].values), s=4, c='k', zorder=4)
-       a.axhline(y=0, c='r', lw=1, ls=':')
-       a.set_title(t)
-       a.grid(c='0.8', lw=1, axis='x')
-       a.set_xticks(np.arange(3))
-       a.set_xticklabels(labels[1:], rotation=90)
-       a.set_xlim(-.5, 2.5)
-       a.set_ylim(-.025, .025)
-       a.set_xlabel('Method')
-     ax[0].set_ylabel('Improvement log lik\non masked entries')
+     fig.set_size_inches(8, 2)
+
+     lim = [0, 7]
+     lam0 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nmf-lam.npy')
+     lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-glmpca-lam.npy')
+     lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam.npy')
+
+     ax[0].scatter(np.sqrt(lam1.ravel()), np.sqrt(lam0.ravel()), s=1, c='k', alpha=0.1)
+     ax[0].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[0].set_xlabel(r'GLMPCA $\sqrt{\hat\lambda}$')
+     ax[0].set_ylabel(r'NMF $\sqrt{\hat\lambda}$')
+     ax[0].set_title('B cell')
+
+     ax[1].scatter(np.sqrt(lam2.ravel()), np.sqrt(lam0.ravel()), s=1, c='k', alpha=0.1)
+     ax[1].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[1].set_xlabel(r'PVAE $\sqrt{\hat\lambda}$')
+     ax[1].set_title('B cell')
+
+     lam0 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-nmf-lam.npy')
+     lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-glmpca-lam.npy')
+     lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-pvae-lam.npy')
+
+     ax[2].scatter(np.sqrt(lam1.ravel()), np.sqrt(lam0.ravel()), s=1, c='k', alpha=0.1)
+     ax[2].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[2].set_xlabel(r'GLMPCA $\sqrt{\hat\lambda}$')
+     ax[2].set_title('T cell/B cell')
+
+     ax[3].scatter(np.sqrt(lam2.ravel()), np.sqrt(lam0.ravel()), s=1, c='k', alpha=0.1)
+     ax[3].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[3].set_xlabel(r'PVAE $\sqrt{\hat\lambda}$')
+     ax[3].set_title('T cell/B cell')
+
+     lam0 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-nmf-lam.npy')
+     lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-glmpca-lam.npy')
+     lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-pvae-lam.npy')
+
+     ax[4].scatter(np.sqrt(lam1.ravel()), np.sqrt(lam0.ravel()), s=1, c='k', alpha=0.1)
+     ax[4].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[4].set_xlabel(r'GLMPCA $\sqrt{\hat\lambda}$')
+     ax[4].set_title('PBMC')
+
+     ax[5].scatter(np.sqrt(lam2.ravel()), np.sqrt(lam0.ravel()), s=1, c='k', alpha=0.1)
+     ax[5].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[5].set_xlabel(r'PVAE $\sqrt{\hat\lambda}$')
+     ax[5].set_title('PBMC')
+2
      fig.tight_layout()
+     plt.savefig('/project2/mstephens/aksarkar/projects/singlecell-modes/org/figure/figures.org/fitted-values.png', dpi=300, format='png')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
-   [[file:figure/figures.org/pois-loss-improvement-8.svg]]
+   # Out[32]:
    :END:

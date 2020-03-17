@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-03-10 Tue 12:39 -->
+<!-- 2020-03-16 Mon 19:49 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of fitted values</title>
@@ -267,6 +267,7 @@ for the JavaScript code in this tag.
 <li><a href="#org4075a13">T cells</a></li>
 <li><a href="#org4757b63">iPSCs</a></li>
 <li><a href="#orgfd759d0">T cell/B cell</a></li>
+<li><a href="#orga214153">PBMC</a></li>
 </ul>
 </li>
 </ul>
@@ -343,17 +344,17 @@ np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=mstephens -n1 -c8 --mem=8G --time=60:00
+<pre class="src src-sh">sbatch --partition=mstephens -n1 --mem=8G --time=24:00:00
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
 <span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')</span>
-<span class="org-sh-heredoc">l, f, _ = scmodes.lra.nmf(train, rank=2, tol=1e-4, max_iters=100000, verbose=True)</span>
+<span class="org-sh-heredoc">l, f, _ = scmodes.lra.nmf(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)</span>
 <span class="org-sh-heredoc">lam0 = l @ f.T</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nmf-lam', lam0)</span>
 
-<span class="org-sh-heredoc">l, f, _ = scmodes.lra.glmpca(train, rank=2, tol=1e-4, max_iters=100000, verbose=True)</span>
+<span class="org-sh-heredoc">l, f, _ = scmodes.lra.glmpca(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)</span>
 <span class="org-sh-heredoc">lam1 = np.exp(l @ f.T)</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-glmpca-lam', lam1)</span>
 <span class="org-sh-heredoc">EOF</span>
@@ -368,7 +369,7 @@ python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
 <span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')</span>
 <span class="org-sh-heredoc">xt = torch.tensor(train, dtype=torch.float)</span>
-<span class="org-sh-heredoc">m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=10).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)</span>
+<span class="org-sh-heredoc">m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=8).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)</span>
 <span class="org-sh-heredoc">lam2 = m.denoise(xt, n_samples=100)</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam', lam2)</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-trace', np.array(m.trace))</span>
@@ -857,11 +858,11 @@ python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
 <span class="org-sh-heredoc">train = data['b_cells']().values</span>
 <span class="org-sh-heredoc">w = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-w.npy')</span>
-<span class="org-sh-heredoc">l, f, _ = scmodes.lra.nmf(train, w=w, rank=2, tol=1e-4, max_iters=100000, verbose=True)</span>
+<span class="org-sh-heredoc">l, f, _ = scmodes.lra.nmf(train, w=w, rank=8, tol=1e-4, max_iters=100000, verbose=True)</span>
 <span class="org-sh-heredoc">lam0 = l @ f.T</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wnmf-lam', lam0)</span>
 
-<span class="org-sh-heredoc">l, f, _ = scmodes.lra.glmpca(train, w=w, rank=2, tol=1e-4, max_iters=100000, verbose=True)</span>
+<span class="org-sh-heredoc">l, f, _ = scmodes.lra.glmpca(train, w=w, rank=8, tol=1e-4, max_iters=100000, verbose=True)</span>
 <span class="org-sh-heredoc">lam1 = np.exp(l @ f.T)</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wglmpca-lam', lam1)</span>
 <span class="org-sh-heredoc">EOF</span>
@@ -1302,36 +1303,55 @@ fig.tight_layout()
 </div>
 </div>
 </div>
+
 <div id="outline-container-orgfd759d0" class="outline-3">
 <h3 id="orgfd759d0">T cell/B cell</h3>
 <div class="outline-text-3" id="text-orgfd759d0">
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">x</span> = data[<span class="org-string">'cytotoxic_t-b_cells'</span>]()
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nmf(x.values, rank=3, verbose=<span class="org-constant">True</span>)
-<span class="org-variable-name">lam0</span> = l @ f.T
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.glmpca(x.values, rank=3, atol=.1, max_iters=500, verbose=<span class="org-constant">True</span>)
-<span class="org-variable-name">lam1</span> = np.exp(l @ f.T)
-np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-wglmpca'</span>, lam1)
-</pre>
-</div>
-
 <p>
-0 - 805adc4a-e03c-49cc-84a8-194be1441dd2
+Split the data into training and validation sets using binomial thinning, then fit
+NMF, GLMPCA, and PVAE.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">xt</span> = torch.tensor(x.values, dtype=torch.<span class="org-builtin">float</span>)
-<span class="org-variable-name">m</span> = scmodes.lra.PVAE(input_dim=x.shape[1], latent_dim=5).fit(xt, lr=1e-3, max_epochs=2000, verbose=<span class="org-constant">True</span>)
-<span class="org-variable-name">lam2</span> = m.denoise(xt)
-np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-pvae'</span>, lam2)
+<pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Important: this implicitly sets the random seed</span>
+<span class="org-variable-name">x</span> = data[<span class="org-string">'cytotoxic_t-b_cells'</span>]()
+<span class="org-variable-name">train</span>, <span class="org-variable-name">test</span> = scmodes.benchmark.train_test_split(x)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-train'</span>, train.values)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-test'</span>, test.values)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=broadwl -n1 --mem=8G --time=24:00:00
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+<span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-train.npy')</span>
+<span class="org-sh-heredoc">l, f, _ = scmodes.lra.nmf(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)</span>
+<span class="org-sh-heredoc">lam0 = l @ f.T</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-nmf-lam', lam0)</span>
+
+<span class="org-sh-heredoc">l, f, _ = scmodes.lra.glmpca(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)</span>
+<span class="org-sh-heredoc">lam1 = np.exp(l @ f.T)</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-glmpca-lam', lam1)</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=8G
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+<span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-train.npy')</span>
+<span class="org-sh-heredoc">xt = torch.tensor(train, dtype=torch.float)</span>
+<span class="org-sh-heredoc">m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=8).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)</span>
+<span class="org-sh-heredoc">lam2 = m.denoise(xt, n_samples=100)</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-pvae-lam', lam2)</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-pvae-trace', np.array(m.trace))</span>
+<span class="org-sh-heredoc">EOF</span>
 </pre>
 </div>
 
@@ -1362,11 +1382,89 @@ fig.tight_layout()
 </div>
 </div>
 </div>
+<div id="outline-container-orga214153" class="outline-3">
+<h3 id="orga214153">PBMC</h3>
+<div class="outline-text-3" id="text-orga214153">
+<p>
+Split the data into training and validation sets using binomial thinning, then fit
+NMF, GLMPCA, and PVAE.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Important: this implicitly sets the random seed</span>
+<span class="org-variable-name">x</span> = data[<span class="org-string">'pbmcs_68k'</span>]()
+<span class="org-variable-name">train</span>, <span class="org-variable-name">test</span> = scmodes.benchmark.train_test_split(x)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-train'</span>, train.values)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-test'</span>, test.values)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=broadwl -n1 --mem=8G --time=24:00:00
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+<span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-train.npy')</span>
+<span class="org-sh-heredoc">l, f, _ = scmodes.lra.nmf(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)</span>
+<span class="org-sh-heredoc">lam0 = l @ f.T</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-nmf-lam', lam0)</span>
+
+<span class="org-sh-heredoc">l, f, _ = scmodes.lra.glmpca(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)</span>
+<span class="org-sh-heredoc">lam1 = np.exp(l @ f.T)</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-glmpca-lam', lam1)</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=8G
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+<span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-train.npy')</span>
+<span class="org-sh-heredoc">xt = torch.tensor(train, dtype=torch.float)</span>
+<span class="org-sh-heredoc">m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=8).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)</span>
+<span class="org-sh-heredoc">lam2 = m.denoise(xt, n_samples=100)</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-pvae-lam', lam2)</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-pvae-trace', np.array(m.trace))</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(4, 2.5)
+
+ax[0].scatter(np.sqrt(lam1.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[0].plot([0, 10], [0, 10], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[0].set_xlabel(r<span class="org-string">'GLMPCA $\sqrt{\hat\lambda}$'</span>)
+ax[0].set_ylabel(r<span class="org-string">'NMF $\sqrt{\hat\lambda}$'</span>)
+
+ax[1].scatter(np.sqrt(lam2.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[1].plot([0, 10], [0, 10], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[1].set_xlabel(r<span class="org-string">'PVAE $\sqrt{\hat\lambda}$'</span>)
+
+<span class="org-variable-name">a</span> = fig.add_subplot(111, frame_on=<span class="org-constant">False</span>, xticks=[], yticks=[])
+a.set_title(<span class="org-string">'T cell/B cell'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/fitted-values.org/pbmcs_68k.png" alt="pbmcs_68k.png">
+</p>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-03-10 Tue 12:39</p>
+<p class="date">Created: 2020-03-16 Mon 19:49</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
