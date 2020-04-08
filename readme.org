@@ -1,7 +1,9 @@
 This repository contains analysis code accompanying the paper
 
-Sarkar and Stephens. "A general statistical framework clarifies confusion in
-scRNA-seq data analysis" (working title)
+Sarkar, AK and Stephens,
+M. "[[https://dx.doi.org/10.1101/2020.04.07.030007][Separating measurement and
+expression models clarifies confusion in single cell RNA-seq analysis.]]"
+bioRxiv (2020).
 
 The minimal specification of the working environment is
 
