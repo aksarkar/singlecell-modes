@@ -1,6 +1,6 @@
 #+AUTHOR: Abhishek Sarkar
 #+EMAIL: aksarkar@uchicago.edu
-#+OPTIONS: num:nil toc:2
+#+OPTIONS: num:nil toc:2 ':t
 #+HTML_DOCTYPE: html5
 #+HTML_HEAD: <link href="css/bootstrap.min.css" rel="stylesheet" />
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="css/htmlize.css"/>

@@ -15,6 +15,11 @@ help clarify thinking, guide interpretation of existing analysis methods,
 address questions of biological interest, and suggest directions for
 development of new methods and analysis strategies.
 
+Sarkar and Stephens,
+[[https://dx.doi.org/10.1101/2020.04.07.030007]["Separating measurement and
+expression models clarifies confusion in single cell RNA-seq analysis."]]
+/BioRxiv/ 2020.
+
 * Empirical results
 
 - [[file:gof.org][Goodness of fit of deconvolved distributions]] ([[http://shiny.stephenslab.uchicago.edu:5009/gof][interactive browser]])
@@ -59,3 +64,4 @@ development of new methods and analysis strategies.
 - [[file:transforms.org][Transformations of deconvolved gene expression
   distributions]]
 - [[file:gaussian.org][Gaussian methods]]
+- [[file:quantiles.org][Randomized quantiles]]
