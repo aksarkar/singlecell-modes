@@ -24,9 +24,6 @@
 
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="4G") :exports none :dir /scratch/midway2/aksarkar/modes
 
-  #+RESULTS:
-  : Submitted batch job 64561038
-
   #+NAME: imports
   #+BEGIN_SRC ipython
     import anndata

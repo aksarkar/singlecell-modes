@@ -26,9 +26,6 @@
 
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="4G") :exports none :dir /scratch/midway2/aksarkar/modes
 
-  #+RESULTS:
-  : Submitted batch job 64561038
-
   #+NAME: imports
   #+BEGIN_SRC ipython
     import anndata
@@ -86,9 +83,11 @@
 
    #+RESULTS:
    :RESULTS:
+   #+BEGIN_EXAMPLE
      AnnData object with n_obs × n_vars = 41350 × 11446
      obs: 0
      var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species', 'n_cells'
+   #+END_EXAMPLE
    :END:
 
    Write the ~h5ad~ out.
