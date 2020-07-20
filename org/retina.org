@@ -1,0 +1,358 @@
+#+TITLE: Expression variation in human retina cells
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  [[https://www.embopress.org/doi/abs/10.15252/embj.2018100811][Lukowski et
+  al. 2019]] generated a
+  [[https://data.humancellatlas.org/explore/projects/8185730f-4113-40d3-9cc3-929271784c2b][cell
+  atlas of the human retina]]. Here, we study the prevalence of multi-modal
+  expression variation in this data.
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="4G") :exports none :dir /scratch/midway2/aksarkar/modes
+
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="4G") :exports none :dir /scratch/midway2/aksarkar/modes
+
+  #+RESULTS:
+  : Submitted batch job 64561038
+
+  #+NAME: imports
+  #+BEGIN_SRC ipython
+    import anndata
+    import numpy as np
+    import pandas as pd
+    import scanpy as sc
+    import scipy.io as si
+    import scipy.sparse as ss
+    import scmodes
+    import scmodes.ebpm.sgd
+    import torch
+  #+END_SRC
+
+  #+RESULTS: imports
+  :RESULTS:
+  # Out[7]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+* Data
+
+   Read the data, and retain genes which have non-zero observations in at least
+   1% of cells.
+
+   #+BEGIN_SRC ipython :async t
+     prefix = '/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/adult-retina/7f5e7a85-a45c-4535-90bf-0ef930a0040b.mtx'
+     counts = si.mmread(f'{prefix}/matrix.mtx.gz').tocsr()
+     # Important: the HCA metadata has a header, which breaks scmodes.dataset.read_10x
+     samples = pd.read_csv(f'{prefix}/cells.tsv.gz', sep='\t')
+     genes = pd.read_csv(f'{prefix}/genes.tsv.gz', sep='\t')
+     x = anndata.AnnData(counts.T, obs=samples, var=genes)
+     sc.pp.filter_genes(x, min_cells=.01 * x.shape[0])
+     x
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+     AnnData object with n_obs × n_vars = 41350 × 11446
+     obs: 0
+     var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species', 'n_cells'
+   :END:
+
+   Write the ~h5ad~ out.
+
+   #+BEGIN_SRC ipython
+     x.write('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/adult-retina/adult-retina.h5ad')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[25]:
+   :END:
+
+   Report the number of samples per donor.
+
+   #+BEGIN_SRC ipython
+     x.obs['donor_organism.provenance.document_id'].value_counts()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[28]:
+   #+BEGIN_EXAMPLE
+     427c0a62-9baf-42ab-a3a3-f48d10544280    21285
+     b8049daa-7458-47bf-8ec2-3f5c56d2cb34    16164
+     66b7152c-8e94-412b-b0e4-f8fbf554df5a     3901
+     Name: donor_organism.provenance.document_id, dtype: int64
+   #+END_EXAMPLE
+   :END:
+
+   Read the ~h5ad~.
+
+   #+BEGIN_SRC ipython
+     x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/adult-retina/adult-retina.h5ad')
+   #+END_SRC
+
+* Results
+** Gamma assumption
+
+   Fit a Gamma distribution to expression variation at each gene within the
+   donor with maximum number of cells assayed.
+
+   #+BEGIN_SRC ipython
+     query = x.obs['donor_organism.provenance.document_id'] == '427c0a62-9baf-42ab-a3a3-f48d10544280'
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[29]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     res = scmodes.ebpm.sgd.ebpm_gamma(x[query].X, batch_size=64, max_epochs=20, verbose=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[31]:
+   :END:
+
+   Test GOF at each gene.
+
+   #+BEGIN_SRC ipython :async t
+     import scmodes.benchmark.gof
+
+     s = x.X.sum(axis=1).A.ravel()
+     gof_res = []
+     for j, (log_mu, neg_log_phi) in enumerate(np.vstack(res[:-1]).T):
+       d, p = scmodes.benchmark.gof._gof(x=x.X[:,j].A.ravel(),
+                                         cdf=scmodes.benchmark.gof._zig_cdf,
+                                         pmf=scmodes.benchmark.gof._zig_pmf,
+                                         size=s,
+                                         log_mu=log_mu,
+                                         log_phi=-neg_log_phi)
+       gof_res.append([d, p])
+     gof_res = pd.DataFrame(gof_res, columns=['stat', 'p'], index=x.var['featurename']).reset_index()
+     gof_res.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/adult-retina-gamma.txt.gz', sep='\t', compression='gzip')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   :END:
+
+   Plot the histogram of GOF \(p\)-values.
+
+   #+BEGIN_SRC ipython :ipyfile figure/retina.org/gamma-gof-hist.png
+     plt.clf()
+     plt.gcf().set_size_inches(2, 2)
+     plt.hist(gof_res['p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+     plt.axhline(y=1, lw=1, ls=':', c='k')
+     plt.xlim(0, 1)
+     plt.xlabel('$p$-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[39]:
+   [[file:figure/retina.org/gamma-gof-hist.png]]
+   :END:
+
+   Report the fraction of genes which significantly depart from point-Gamma
+   (Bonferroni-corrected \(p < 0.05\)).
+
+   #+BEGIN_SRC ipython
+     sig = gof_res.loc[gof_res['p'] < 0.05 / gof_res.shape[0]]
+     sig.shape[0] / gof_res.shape[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[40]:
+   : 0.22706622400838722
+   :END:
+
+** Point-Gamma assumption
+
+   Fit a point-Gamma distribution to expression variation at each gene.
+
+   #+BEGIN_SRC ipython :async t
+     res = scmodes.ebpm.sgd.ebpm_point_gamma(x[query].X, max_epochs=20, verbose=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[41]:
+   :END:
+
+   Test GOF at each gene.
+
+   #+BEGIN_SRC ipython :async t
+     import scmodes.benchmark.gof
+
+     s = x.X.sum(axis=1).A.ravel()
+     result = []
+     for j, (log_mu, log_phi, logodds) in enumerate(np.vstack(res[:3]).T):
+       d, p = scmodes.benchmark.gof._gof(x=x.X[:,j].A.ravel(),
+                                         cdf=scmodes.benchmark.gof._zig_cdf,
+                                         pmf=scmodes.benchmark.gof._zig_pmf,
+                                         size=s,
+                                         log_mu=log_mu,
+                                         log_phi=-log_phi,
+                                         logodds=logodds)
+       result.append([d, p])
+     result = pd.DataFrame(result, columns=['stat', 'p'], index=x.var['featurename']).reset_index()
+     result.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/retina-point-gamma.txt.gz', sep='\t', compression='gzip')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[42]:
+   :END:
+
+   Plot the histogram of GOF \(p\)-values.
+
+   #+BEGIN_SRC ipython :ipyfile figure/retina.org/point-gamma-gof-hist.png
+     plt.clf()
+     plt.gcf().set_size_inches(2, 2)
+     plt.hist(result['p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+     plt.axhline(y=1, lw=1, ls=':', c='k')
+     plt.xlim(0, 1)
+     plt.xlabel('$p$-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[43]:
+   [[file:figure/retina.org/point-gamma-gof-hist.png]]
+   :END:
+
+   Report the fraction of genes which significantly depart from point-Gamma
+   (Bonferroni-corrected \(p < 0.05\)).
+
+   #+BEGIN_SRC ipython
+     sig = result.loc[result['p'] < 0.05 / result.shape[0]]
+     sig.shape[0] / result.shape[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[44]:
+   : 0.2254936222261052
+   :END:
+
+   Write out the significant genes.
+
+   #+BEGIN_SRC ipython
+     x[:,sig.index].write('/scratch/midway2/aksarkar/modes/unimodal-data/retina.h5ad')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[45]:
+   :END:
+
+** Unimodal assumption
+
+   Fit a unimodal distribution to expression variation at each gene which
+   departed significantly from a point-Gamma assumption.
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 --job-name=gof
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     import anndata
+     import multiprocessing as mp
+     import pandas as pd
+     import scmodes
+     with mp.Pool(maxtasksperchild=20) as pool:
+       x = anndata.read('/scratch/midway2/aksarkar/modes/unimodal-data/retina.h5ad')
+       res = scmodes.benchmark.evaluate_gof(pd.DataFrame(x.X.A), s=x.obs['size'], pool=pool, 
+                                            methods=['unimodal'])
+       res.index = x.var['featurename']
+       res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/retina-unimodal.txt.gz', compression='gzip', sep='\t')
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 3124804
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     unimodal_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/retina-unimodal.txt.gz', sep='\t', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   Plot the histogram of GOF \(p\)-values.
+
+   #+BEGIN_SRC ipython :ipyfile figure/retina.org/unimodal-gof-hist.png
+     plt.clf()
+     plt.gcf().set_size_inches(2, 2)
+     plt.hist(unimodal_res['p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+     plt.axhline(y=1, lw=1, ls=':', c='k')
+     plt.xlim(0, 1)
+     plt.xlabel('$p$-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   [[file:figure/brain-dronc-seq.org/unimodal-gof-hist.png]]
+   :END:
+
+   Report the number and fraction of genes which depart from a unimodal
+   assumption.
+
+   #+BEGIN_SRC ipython
+     sig = unimodal_res.loc[unimodal_res['p'] < .05 / unimodal_res.shape[0]]
+     sig.shape[0], sig.shape[0] / x.shape[1]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   : (62, 0.005279291553133515)
+   :END:
