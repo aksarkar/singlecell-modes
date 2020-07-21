@@ -1,4 +1,4 @@
-#+TITLE: Expression variation in human retina cells
+#+TITLE: Expression variation in human liver
 #+SETUPFILE: setup.org
 
 * Introduction
@@ -130,7 +130,18 @@
 
   #+BEGIN_SRC ipython
     x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/liver-caudate-lobe.h5ad')
+    x
   #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[5]:
+  #+BEGIN_EXAMPLE
+    AnnData object with n_obs × n_vars = 8444 × 12170
+    obs: 'donor', 'barcode'
+    var: 'gene', 'n_cells'
+  #+END_EXAMPLE
+  :END:
 
 * Results
 ** Gamma assumption
@@ -312,18 +323,18 @@
        x = anndata.read('/scratch/midway2/aksarkar/modes/unimodal-data/liver.h5ad')
        res = scmodes.benchmark.evaluate_gof(pd.DataFrame(x.X.A), s=x.obs['size'], pool=pool, 
                                             methods=['unimodal'])
-       res.index = x.var['featurename']
+       res.index = x.var['gene']
        res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/liver-unimodal.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 3129930
+   : Submitted batch job 3145233
 
    Read the results.
 
    #+BEGIN_SRC ipython
-     unimodal_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/retina-unimodal.txt.gz', sep='\t', index_col=0)
+     unimodal_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/liver-unimodal.txt.gz', sep='\t', index_col=0)
    #+END_SRC
 
    #+RESULTS:

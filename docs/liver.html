@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-07-21 Tue 00:38 -->
+<!-- 2020-07-21 Tue 16:46 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Expression variation in human retina cells</title>
+<title>Expression variation in human liver</title>
 <meta name="generator" content="Org mode">
 <meta name="author" content="Abhishek Sarkar">
 <style type="text/css">
@@ -253,7 +253,7 @@ for the JavaScript code in this tag.
 </head>
 <body>
 <div id="content">
-<h1 class="title">Expression variation in human retina cells</h1>
+<h1 class="title">Expression variation in human liver</h1>
 <div id="table-of-contents">
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
@@ -376,8 +376,15 @@ Read the <code>h5ad</code>.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/liver-caudate-lobe.h5ad'</span>)
+x
 </pre>
 </div>
+
+<pre class="example">
+AnnData object with n_obs × n_vars = 8444 × 12170
+obs: 'donor', 'barcode'
+var: 'gene', 'n_cells'
+</pre>
 </div>
 </div>
 
@@ -569,7 +576,7 @@ python &lt;&lt;EOF
 <span class="org-sh-heredoc">  x = anndata.read('/scratch/midway2/aksarkar/modes/unimodal-data/liver.h5ad')</span>
 <span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_gof(pd.DataFrame(x.X.A), s=x.obs['size'], pool=pool, </span>
 <span class="org-sh-heredoc">                                       methods=['unimodal'])</span>
-<span class="org-sh-heredoc">  res.index = x.var['featurename']</span>
+<span class="org-sh-heredoc">  res.index = x.var['gene']</span>
 <span class="org-sh-heredoc">  res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/liver-unimodal.txt.gz', compression='gzip', sep='\t')</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
@@ -580,7 +587,7 @@ Read the results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">unimodal_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/retina-unimodal.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<pre class="src src-ipython"><span class="org-variable-name">unimodal_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/liver-unimodal.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
 </pre>
 </div>
 
@@ -627,7 +634,7 @@ sig.shape[0], sig.shape[0] / x.shape[1]
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-07-21 Tue 00:38</p>
+<p class="date">Created: 2020-07-21 Tue 16:46</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
