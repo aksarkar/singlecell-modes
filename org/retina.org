@@ -20,11 +20,9 @@
   #+END_SRC
 
   #+RESULTS:
-  : 1
+  : 2
 
   #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="4G") :exports none :dir /scratch/midway2/aksarkar/modes
-
-  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="4G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+NAME: imports
   #+BEGIN_SRC ipython
@@ -35,13 +33,14 @@
     import scipy.io as si
     import scipy.sparse as ss
     import scmodes
+    import scmodes.benchmark.gof
     import scmodes.ebpm.sgd
     import torch
   #+END_SRC
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[7]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -67,62 +66,63 @@
 
 * Data
 
-   Read the data, and retain genes which have non-zero observations in at least
-   1% of cells.
+  Read the data, and retain genes which have non-zero observations in at least
+  1% of cells.
 
-   #+BEGIN_SRC ipython :async t
-     prefix = '/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/adult-retina/7f5e7a85-a45c-4535-90bf-0ef930a0040b.mtx'
-     counts = si.mmread(f'{prefix}/matrix.mtx.gz').tocsr()
-     # Important: the HCA metadata has a header, which breaks scmodes.dataset.read_10x
-     samples = pd.read_csv(f'{prefix}/cells.tsv.gz', sep='\t')
-     genes = pd.read_csv(f'{prefix}/genes.tsv.gz', sep='\t')
-     x = anndata.AnnData(counts.T, obs=samples, var=genes)
-     sc.pp.filter_genes(x, min_cells=.01 * x.shape[0])
-     x
-   #+END_SRC
+  #+BEGIN_SRC ipython :async t
+    prefix = '/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/adult-retina/7f5e7a85-a45c-4535-90bf-0ef930a0040b.mtx'
+    counts = si.mmread(f'{prefix}/matrix.mtx.gz').tocsr()
+    # Important: the HCA metadata has a header, which breaks scmodes.dataset.read_10x
+    samples = pd.read_csv(f'{prefix}/cells.tsv.gz', sep='\t')
+    genes = pd.read_csv(f'{prefix}/genes.tsv.gz', sep='\t')
+    x = anndata.AnnData(counts.T, obs=samples, var=genes)
+    sc.pp.filter_genes(x, min_cells=.01 * x.shape[0])
+    x
+  #+END_SRC
 
-   #+RESULTS:
-   :RESULTS:
-   #+BEGIN_EXAMPLE
-     AnnData object with n_obs × n_vars = 41350 × 11446
-     obs: 0
-     var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species', 'n_cells'
-   #+END_EXAMPLE
-   :END:
+  #+RESULTS:
+  :RESULTS:
+  # Out[4]:
+  #+BEGIN_EXAMPLE
+    AnnData object with n_obs × n_vars = 41350 × 11446
+    obs: 'cellkey', 'genes_detected', 'file_uuid', 'file_version', 'total_umis', 'emptydrops_is_cell', 'barcode', 'cell_suspension.provenance.document_id', 'specimen_from_organism.provenance.document_id', 'derived_organ_ontology', 'derived_organ_label', 'derived_organ_parts_ontology', 'derived_organ_parts_label', 'cell_suspension.genus_species.ontology', 'cell_suspension.genus_species.ontology_label', 'donor_organism.provenance.document_id', 'donor_organism.human_specific.ethnicity.ontology', 'donor_organism.human_specific.ethnicity.ontology_label', 'donor_organism.diseases.ontology', 'donor_organism.diseases.ontology_label', 'donor_organism.development_stage.ontology', 'donor_organism.development_stage.ontology_label', 'donor_organism.sex', 'donor_organism.is_living', 'specimen_from_organism.organ.ontology', 'specimen_from_organism.organ.ontology_label', 'specimen_from_organism.organ_parts.ontology', 'specimen_from_organism.organ_parts.ontology_label', 'library_preparation_protocol.provenance.document_id', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology_label', 'library_preparation_protocol.library_construction_method.ontology', 'library_preparation_protocol.library_construction_method.ontology_label', 'library_preparation_protocol.end_bias', 'library_preparation_protocol.strand', 'project.provenance.document_id', 'project.project_core.project_short_name', 'project.project_core.project_title', 'analysis_protocol.provenance.document_id', 'dss_bundle_fqid', 'bundle_uuid', 'bundle_version', 'analysis_protocol.protocol_core.protocol_id', 'analysis_working_group_approval_status'
+    var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species', 'n_cells'
+  #+END_EXAMPLE
+  :END:
 
-   Write the ~h5ad~ out.
+  Write the ~h5ad~ out.
 
-   #+BEGIN_SRC ipython
-     x.write('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/adult-retina/adult-retina.h5ad')
-   #+END_SRC
+  #+BEGIN_SRC ipython
+    x.write('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/adult-retina/adult-retina.h5ad')
+  #+END_SRC
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[25]:
-   :END:
+  #+RESULTS:
+  :RESULTS:
+  # Out[5]:
+  :END:
 
-   Report the number of samples per donor.
+  Report the number of samples per donor.
 
-   #+BEGIN_SRC ipython
-     x.obs['donor_organism.provenance.document_id'].value_counts()
-   #+END_SRC
+  #+BEGIN_SRC ipython
+    x.obs['donor_organism.provenance.document_id'].value_counts()
+  #+END_SRC
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[28]:
-   #+BEGIN_EXAMPLE
-     427c0a62-9baf-42ab-a3a3-f48d10544280    21285
-     b8049daa-7458-47bf-8ec2-3f5c56d2cb34    16164
-     66b7152c-8e94-412b-b0e4-f8fbf554df5a     3901
-     Name: donor_organism.provenance.document_id, dtype: int64
-   #+END_EXAMPLE
-   :END:
+  #+RESULTS:
+  :RESULTS:
+  # Out[6]:
+  #+BEGIN_EXAMPLE
+    427c0a62-9baf-42ab-a3a3-f48d10544280    21285
+    b8049daa-7458-47bf-8ec2-3f5c56d2cb34    16164
+    66b7152c-8e94-412b-b0e4-f8fbf554df5a     3901
+    Name: donor_organism.provenance.document_id, dtype: int64
+  #+END_EXAMPLE
+  :END:
 
-   Read the ~h5ad~.
+  Read the ~h5ad~.
 
-   #+BEGIN_SRC ipython
-     x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/adult-retina/adult-retina.h5ad')
-   #+END_SRC
+  #+BEGIN_SRC ipython
+    x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/adult-retina/adult-retina.h5ad')
+  #+END_SRC
 
 * Results
 ** Gamma assumption
@@ -136,7 +136,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[29]:
+   # Out[7]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -145,18 +145,16 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[31]:
+   # Out[8]:
    :END:
 
    Test GOF at each gene.
 
    #+BEGIN_SRC ipython :async t
-     import scmodes.benchmark.gof
-
-     s = x.X.sum(axis=1).A.ravel()
+     s = x[query].X.sum(axis=1).A.ravel()
      gof_res = []
      for j, (log_mu, neg_log_phi) in enumerate(np.vstack(res[:-1]).T):
-       d, p = scmodes.benchmark.gof._gof(x=x.X[:,j].A.ravel(),
+       d, p = scmodes.benchmark.gof._gof(x=x[query,j].X.A.ravel(),
                                          cdf=scmodes.benchmark.gof._zig_cdf,
                                          pmf=scmodes.benchmark.gof._zig_pmf,
                                          size=s,
@@ -169,6 +167,7 @@
 
    #+RESULTS:
    :RESULTS:
+   # Out[10]:
    :END:
 
    Plot the histogram of GOF \(p\)-values.
@@ -186,11 +185,11 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[39]:
+   # Out[11]:
    [[file:figure/retina.org/gamma-gof-hist.png]]
    :END:
 
-   Report the fraction of genes which significantly depart from point-Gamma
+   Report the fraction of genes which significantly depart from Gamma
    (Bonferroni-corrected \(p < 0.05\)).
 
    #+BEGIN_SRC ipython
@@ -200,8 +199,8 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[40]:
-   : 0.22706622400838722
+   # Out[12]:
+   : 0.020094356106936922
    :END:
 
 ** Point-Gamma assumption
@@ -214,23 +213,21 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[41]:
+   # Out[13]:
    :END:
 
    Test GOF at each gene.
 
    #+BEGIN_SRC ipython :async t
-     import scmodes.benchmark.gof
-
-     s = x.X.sum(axis=1).A.ravel()
+     s = x[query].X.sum(axis=1).A.ravel()
      result = []
-     for j, (log_mu, log_phi, logodds) in enumerate(np.vstack(res[:3]).T):
-       d, p = scmodes.benchmark.gof._gof(x=x.X[:,j].A.ravel(),
+     for j, (log_mu, neg_log_phi, logodds) in enumerate(np.vstack(res[:3]).T):
+       d, p = scmodes.benchmark.gof._gof(x=x[query,j].X.A.ravel(),
                                          cdf=scmodes.benchmark.gof._zig_cdf,
                                          pmf=scmodes.benchmark.gof._zig_pmf,
                                          size=s,
                                          log_mu=log_mu,
-                                         log_phi=-log_phi,
+                                         log_phi=-neg_log_phi,
                                          logodds=logodds)
        result.append([d, p])
      result = pd.DataFrame(result, columns=['stat', 'p'], index=x.var['featurename']).reset_index()
@@ -239,7 +236,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[42]:
+   # Out[20]:
    :END:
 
    Plot the histogram of GOF \(p\)-values.
@@ -257,7 +254,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[43]:
+   # Out[21]:
    [[file:figure/retina.org/point-gamma-gof-hist.png]]
    :END:
 
@@ -271,19 +268,20 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[44]:
-   : 0.2254936222261052
+   # Out[22]:
+   : 0.01712388607373755
    :END:
 
    Write out the significant genes.
 
    #+BEGIN_SRC ipython
-     x[:,sig.index].write('/scratch/midway2/aksarkar/modes/unimodal-data/retina.h5ad')
+     x.obs['size'] = x.X.sum(axis=1)
+     x[query,sig.index].write('/scratch/midway2/aksarkar/modes/unimodal-data/retina.h5ad')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[45]:
+   # Out[23]:
    :END:
 
 ** Unimodal assumption
@@ -310,7 +308,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 3124804
+   : Submitted batch job 3134371
 
    Read the results.
 

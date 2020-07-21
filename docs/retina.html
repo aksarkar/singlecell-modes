@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-07-20 Mon 13:08 -->
+<!-- 2020-07-21 Tue 00:22 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Expression variation in human retina cells</title>
@@ -296,6 +296,7 @@ expression variation in this data.
 <span class="org-keyword">import</span> scipy.io <span class="org-keyword">as</span> si
 <span class="org-keyword">import</span> scipy.sparse <span class="org-keyword">as</span> ss
 <span class="org-keyword">import</span> scmodes
+<span class="org-keyword">import</span> scmodes.benchmark.gof
 <span class="org-keyword">import</span> scmodes.ebpm.sgd
 <span class="org-keyword">import</span> torch
 </pre>
@@ -338,7 +339,7 @@ x
 
 <pre class="example">
 AnnData object with n_obs × n_vars = 41350 × 11446
-obs: 0
+obs: 'cellkey', 'genes_detected', 'file_uuid', 'file_version', 'total_umis', 'emptydrops_is_cell', 'barcode', 'cell_suspension.provenance.document_id', 'specimen_from_organism.provenance.document_id', 'derived_organ_ontology', 'derived_organ_label', 'derived_organ_parts_ontology', 'derived_organ_parts_label', 'cell_suspension.genus_species.ontology', 'cell_suspension.genus_species.ontology_label', 'donor_organism.provenance.document_id', 'donor_organism.human_specific.ethnicity.ontology', 'donor_organism.human_specific.ethnicity.ontology_label', 'donor_organism.diseases.ontology', 'donor_organism.diseases.ontology_label', 'donor_organism.development_stage.ontology', 'donor_organism.development_stage.ontology_label', 'donor_organism.sex', 'donor_organism.is_living', 'specimen_from_organism.organ.ontology', 'specimen_from_organism.organ.ontology_label', 'specimen_from_organism.organ_parts.ontology', 'specimen_from_organism.organ_parts.ontology_label', 'library_preparation_protocol.provenance.document_id', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology_label', 'library_preparation_protocol.library_construction_method.ontology', 'library_preparation_protocol.library_construction_method.ontology_label', 'library_preparation_protocol.end_bias', 'library_preparation_protocol.strand', 'project.provenance.document_id', 'project.project_core.project_short_name', 'project.project_core.project_title', 'analysis_protocol.provenance.document_id', 'dss_bundle_fqid', 'bundle_uuid', 'bundle_version', 'analysis_protocol.protocol_core.protocol_id', 'analysis_working_group_approval_status'
 var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species', 'n_cells'
 </pre>
 
@@ -405,12 +406,10 @@ Test GOF at each gene.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> scmodes.benchmark.gof
-
-<span class="org-variable-name">s</span> = x.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
+<pre class="src src-ipython"><span class="org-variable-name">s</span> = x[query].X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
 <span class="org-variable-name">gof_res</span> = []
 <span class="org-keyword">for</span> j, (log_mu, neg_log_phi) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(np.vstack(res[:-1]).T):
-  <span class="org-variable-name">d</span>, <span class="org-variable-name">p</span> = scmodes.benchmark.gof._gof(x=x.X[:,j].A.ravel(),
+  <span class="org-variable-name">d</span>, <span class="org-variable-name">p</span> = scmodes.benchmark.gof._gof(x=x[query,j].X.A.ravel(),
                                     cdf=scmodes.benchmark.gof._zig_cdf,
                                     pmf=scmodes.benchmark.gof._zig_pmf,
                                     size=s,
@@ -445,7 +444,7 @@ plt.tight_layout()
 </div>
 
 <p>
-Report the fraction of genes which significantly depart from point-Gamma
+Report the fraction of genes which significantly depart from Gamma
 (Bonferroni-corrected \(p < 0.05\)).
 </p>
 
@@ -456,7 +455,7 @@ sig.shape[0] / gof_res.shape[0]
 </div>
 
 <pre class="example">
-0.22706622400838722
+0.020094356106936922
 
 </pre>
 </div>
@@ -479,17 +478,15 @@ Test GOF at each gene.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> scmodes.benchmark.gof
-
-<span class="org-variable-name">s</span> = x.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
+<pre class="src src-ipython"><span class="org-variable-name">s</span> = x[query].X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
 <span class="org-variable-name">result</span> = []
-<span class="org-keyword">for</span> j, (log_mu, log_phi, logodds) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(np.vstack(res[:3]).T):
-  <span class="org-variable-name">d</span>, <span class="org-variable-name">p</span> = scmodes.benchmark.gof._gof(x=x.X[:,j].A.ravel(),
+<span class="org-keyword">for</span> j, (log_mu, neg_log_phi, logodds) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(np.vstack(res[:3]).T):
+  <span class="org-variable-name">d</span>, <span class="org-variable-name">p</span> = scmodes.benchmark.gof._gof(x=x[query,j].X.A.ravel(),
                                     cdf=scmodes.benchmark.gof._zig_cdf,
                                     pmf=scmodes.benchmark.gof._zig_pmf,
                                     size=s,
                                     log_mu=log_mu,
-                                    log_phi=-log_phi,
+                                    log_phi=-neg_log_phi,
                                     logodds=logodds)
   result.append([d, p])
 <span class="org-variable-name">result</span> = pd.DataFrame(result, columns=[<span class="org-string">'stat'</span>, <span class="org-string">'p'</span>], index=x.var[<span class="org-string">'featurename'</span>]).reset_index()
@@ -531,7 +528,7 @@ sig.shape[0] / result.shape[0]
 </div>
 
 <pre class="example">
-0.2254936222261052
+0.01712388607373755
 
 </pre>
 
@@ -540,7 +537,8 @@ Write out the significant genes.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">x[:,sig.index].write(<span class="org-string">'/scratch/midway2/aksarkar/modes/unimodal-data/retina.h5ad'</span>)
+<pre class="src src-ipython"><span class="org-variable-name">x.obs</span>[<span class="org-string">'size'</span>] = x.X.<span class="org-builtin">sum</span>(axis=1)
+x[query,sig.index].write(<span class="org-string">'/scratch/midway2/aksarkar/modes/unimodal-data/retina.h5ad'</span>)
 </pre>
 </div>
 </div>
@@ -625,7 +623,7 @@ sig.shape[0], sig.shape[0] / x.shape[1]
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-07-20 Mon 13:08</p>
+<p class="date">Created: 2020-07-21 Tue 00:22</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
