@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-07-20 Mon 23:43 -->
+<!-- 2020-07-21 Tue 11:26 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Randomized quantiles</title>
@@ -625,12 +625,13 @@ the \(k\)th order statistic
 </p>
 
 \begin{equation}
-  u_(k) \sim \operatorname{Beta}(k, n - k + 1).
+  u_{(k)} \sim \operatorname{Beta}(k, n - k + 1).
 \end{equation}
 
 <p>
-Plot the expected randomized quantile, and 95% confidence interval for the
-randomized quantiles.
+Plot the expected randomized quantiles against Uniform quantiles. Superimpose
+the \((0.025, 0.975)\) quantiles of the distribution of Uniform order
+statistics.
 </p>
 
 <div class="org-src-container">
@@ -773,7 +774,7 @@ array([265.32446831])
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-07-20 Mon 23:43</p>
+<p class="date">Created: 2020-07-21 Tue 11:26</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

@@ -361,11 +361,12 @@
   the \(k\)th order statistic
 
   \begin{equation}
-    u_(k) \sim \operatorname{Beta}(k, n - k + 1).
+    u_{(k)} \sim \operatorname{Beta}(k, n - k + 1).
   \end{equation}
 
-  Plot the expected randomized quantile, and 95% confidence interval for the
-  randomized quantiles.
+  Plot the expected randomized quantiles against Uniform quantiles. Superimpose
+  the \((0.025, 0.975)\) quantiles of the distribution of Uniform order
+  statistics.
 
   #+BEGIN_SRC ipython :async t
     erpp = dict()
