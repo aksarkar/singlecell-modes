@@ -1,0 +1,340 @@
+#+TITLE: Expression variation in human kidney
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  [[https://science.sciencemag.org/content/365/6460/1461][Stewart et al. 2019]]
+  generated a
+  [[https://data.humancellatlas.org/explore/projects/abe1a013-af7a-45ed-8c26-f3793c24a1f4][cell
+  atlas of the human kidney]]. Here, we study the prevalence of multi-modal
+  expression variation in this data.
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
+
+  #+NAME: imports
+  #+BEGIN_SRC ipython
+    import anndata
+    import numpy as np
+    import pandas as pd
+    import scanpy as sc
+    import scipy.io as si
+    import scipy.sparse as ss
+    import scmodes
+    import scmodes.benchmark.gof
+    import scmodes.ebpm.sgd
+    import torch
+  #+END_SRC
+
+  #+RESULTS: imports
+  :RESULTS:
+  # Out[1]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+* Data
+
+  Download the data.
+
+  #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
+    curl -L "https://cellgeni.cog.sanger.ac.uk/BenKidney_v2.1/Mature_Full_v2.1.h5ad" -o kidney.h5ad
+  #+END_SRC
+
+  #+RESULTS:
+
+  #+BEGIN_SRC ipython
+    x = anndata.read_h5ad('/scratch/midway2/aksarkar/modes/kidney.h5ad')
+    x
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[4]:
+  #+BEGIN_EXAMPLE
+    AnnData object with n_obs × n_vars = 40268 × 33694
+    obs: 'celltype', 'compartment', 'broad_celltype', 'Experiment', 'Project'
+    var: 'ID'
+    obsm: 'X_umap'
+  #+END_EXAMPLE
+  :END:
+
+  The donor information is available in
+  [[https://science.sciencemag.org/highwire/filestream/732130/field_highwire_adjunct_files/0/aat5031-Stewart-SM.pdf][Supplementary
+  Table 2]], and the biospy information is available in Supplementary Table
+  3. Donor "Teen Tx left" had the most samples assayed.
+
+  #+BEGIN_SRC ipython
+    donor_pass = set([
+      '4602STDY6949184',
+      '4602STDY6949185',
+      '4602STDY6949187',
+      '4602STDY6949188',
+    ])
+    query = np.array([t.split('_')[0] in donor_pass for t in x.obs.index])
+    y = x[query]
+    sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
+    y
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[14]:
+  #+BEGIN_EXAMPLE
+    AnnData object with n_obs × n_vars = 12136 × 8592
+    obs: 'celltype', 'compartment', 'broad_celltype', 'Experiment', 'Project', 'donor'
+    var: 'ID', 'n_cells'
+    obsm: 'X_umap'
+  #+END_EXAMPLE
+  :END:
+
+* Results
+** Gamma assumption
+
+   Fit a Gamma distribution to expression variation at each gene within the
+   donor with maximum number of cells assayed.
+
+   #+BEGIN_SRC ipython :async t
+     res = scmodes.ebpm.sgd.ebpm_gamma(y.X, batch_size=64, max_epochs=40, verbose=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[24]:
+   :END:
+
+   Test GOF at each gene.
+
+   #+BEGIN_SRC ipython :async t
+     s = y.X.sum(axis=1).A.ravel()
+     gof_res = []
+     for j, (log_mu, neg_log_phi) in enumerate(np.vstack(res[:-1]).T):
+       d, p = scmodes.benchmark.gof._gof(x=y[:,j].X.A.ravel(),
+                                         cdf=scmodes.benchmark.gof._zig_cdf,
+                                         pmf=scmodes.benchmark.gof._zig_pmf,
+                                         size=s,
+                                         log_mu=log_mu,
+                                         log_phi=-neg_log_phi)
+       gof_res.append([d, p])
+     gof_res = pd.DataFrame(gof_res, columns=['stat', 'p'], index=y.var['ID']).reset_index()
+     gof_res.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/kidney-gamma.txt.gz', sep='\t', compression='gzip')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[31]:
+   :END:
+
+   Plot the histogram of GOF \(p\)-values.
+
+   #+BEGIN_SRC ipython :ipyfile figure/kidney.org/gamma-gof-hist.png
+     plt.clf()
+     plt.gcf().set_size_inches(2, 2)
+     plt.hist(gof_res['p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+     plt.axhline(y=1, lw=1, ls=':', c='k')
+     plt.xlim(0, 1)
+     plt.xlabel('$p$-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[32]:
+   [[file:figure/kidney.org/gamma-gof-hist.png]]
+   :END:
+
+   Report the fraction of genes which significantly depart from a Gamma
+   (Bonferroni-corrected \(p < 0.05\)).
+
+   #+BEGIN_SRC ipython
+     sig = gof_res.loc[gof_res['p'] < 0.05 / gof_res.shape[0]]
+     sig.shape[0] / gof_res.shape[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[33]:
+   : 0.5421322160148976
+   :END:
+
+** Point-Gamma assumption
+
+   Fit a point-Gamma distribution to expression variation at each gene.
+
+   #+BEGIN_SRC ipython :async t
+     res = scmodes.ebpm.sgd.ebpm_point_gamma(y.X, max_epochs=40, verbose=True)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[34]:
+   :END:
+
+   Test GOF at each gene.
+
+   #+BEGIN_SRC ipython :async t
+     s = y.X.sum(axis=1).A.ravel()
+     result = []
+     for j, (log_mu, log_phi, logodds) in enumerate(np.vstack(res[:3]).T):
+       d, p = scmodes.benchmark.gof._gof(x=y[:,j].X.A.ravel(),
+                                         cdf=scmodes.benchmark.gof._zig_cdf,
+                                         pmf=scmodes.benchmark.gof._zig_pmf,
+                                         size=s,
+                                         log_mu=log_mu,
+                                         log_phi=-log_phi,
+                                         logodds=logodds)
+       result.append([d, p])
+     result = pd.DataFrame(result, columns=['stat', 'p'], index=y.var['ID']).reset_index()
+     result.to_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/kidney-point-gamma.txt.gz', sep='\t', compression='gzip')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   :END:
+
+   Plot the histogram of GOF \(p\)-values.
+
+   #+BEGIN_SRC ipython :ipyfile figure/kidney.org/point-gamma-gof-hist.png
+     plt.clf()
+     plt.gcf().set_size_inches(2, 2)
+     plt.hist(result['p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+     plt.axhline(y=1, lw=1, ls=':', c='k')
+     plt.xlim(0, 1)
+     plt.xlabel('$p$-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[42]:
+   [[file:figure/kidney.org/point-gamma-gof-hist.png]]
+   :END:
+
+   Report the fraction of genes which significantly depart from point-Gamma
+   (Bonferroni-corrected \(p < 0.05\)).
+
+   #+BEGIN_SRC ipython
+     sig = result.loc[result['p'] < 0.05 / result.shape[0]]
+     sig.shape[0] / result.shape[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[43]:
+   : 0.45332867783985104
+   :END:
+
+   Write out the significant genes.
+
+   #+BEGIN_SRC ipython
+     y.obs['size'] = y.X.sum(axis=1)
+     y[:,sig.index].write('/scratch/midway2/aksarkar/modes/unimodal-data/kidney.h5ad')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[39]:
+   :END:
+
+** Unimodal assumption
+
+   Fit a unimodal distribution to expression variation at each gene which
+   departed significantly from a point-Gamma assumption.
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 --job-name=gof
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     import anndata
+     import multiprocessing as mp
+     import pandas as pd
+     import scmodes
+     with mp.Pool(maxtasksperchild=20) as pool:
+       x = anndata.read('/scratch/midway2/aksarkar/modes/unimodal-data/kidney.h5ad')
+       res = scmodes.benchmark.evaluate_gof(pd.DataFrame(x.X.A), s=x.obs['size'], pool=pool, 
+                                            methods=['unimodal'])
+       res.index = x.var['ID']
+       res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/kidney-unimodal.txt.gz', compression='gzip', sep='\t')
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 3145883
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     unimodal_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/kidney-unimodal.txt.gz', sep='\t', index_col=0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   Plot the histogram of GOF \(p\)-values.
+
+   #+BEGIN_SRC ipython :ipyfile figure/kidney.org/unimodal-gof-hist.png
+     plt.clf()
+     plt.gcf().set_size_inches(2, 2)
+     plt.hist(unimodal_res['p'], bins=np.linspace(0, 1, 11), color='0.7', density=True)
+     plt.axhline(y=1, lw=1, ls=':', c='k')
+     plt.xlim(0, 1)
+     plt.xlabel('$p$-value')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   [[file:figure/brain-dronc-seq.org/unimodal-gof-hist.png]]
+   :END:
+
+   Report the number and fraction of genes which depart from a unimodal
+   assumption.
+
+   #+BEGIN_SRC ipython
+     sig = unimodal_res.loc[unimodal_res['p'] < .05 / unimodal_res.shape[0]]
+     sig.shape[0], sig.shape[0] / x.shape[1]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   : (62, 0.005279291553133515)
+   :END:
