@@ -124,6 +124,11 @@
     x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/adult-retina/adult-retina.h5ad')
   #+END_SRC
 
+  #+RESULTS:
+  :RESULTS:
+  # Out[7]:
+  :END:
+
 * Results
 ** Gamma assumption
 
@@ -336,8 +341,8 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
-   [[file:figure/brain-dronc-seq.org/unimodal-gof-hist.png]]
+   # Out[5]:
+   [[file:figure/retina.org/unimodal-gof-hist.png]]
    :END:
 
    Report the number and fraction of genes which depart from a unimodal
@@ -350,6 +355,6 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[9]:
-   : (62, 0.005279291553133515)
+   # Out[8]:
+   : (124, 0.010833478944609471)
    :END:
