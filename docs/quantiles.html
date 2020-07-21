@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-07-16 Thu 20:17 -->
+<!-- 2020-07-20 Mon 23:43 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Randomized quantiles</title>
@@ -228,6 +228,28 @@ for the JavaScript code in this tag.
  }
 /*]]>*///-->
 </script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
 </head>
 <body>
 <div id="content">
@@ -242,6 +264,7 @@ for the JavaScript code in this tag.
 <li><a href="#org2d022c3">Seed 2</a></li>
 <li><a href="#org1bd4b37">Seed 3</a></li>
 <li><a href="#orge2dbfd5">Seed 10</a></li>
+<li><a href="#org3eb8905">Expected randomized quantiles</a></li>
 <li><a href="#org2f258ae">Gamma model</a></li>
 </ul>
 </div>
@@ -577,6 +600,94 @@ plt.tight_layout()
 </div>
 </div>
 
+<div id="outline-container-org3eb8905" class="outline-2">
+<h2 id="org3eb8905">Expected randomized quantiles</h2>
+<div class="outline-text-2" id="text-org3eb8905">
+<p>
+The randomized quantiles are
+</p>
+
+\begin{equation}
+  u_i \mid x_i \sim \operatorname{Uniform}(\hat{F}(x - 1), \hat{F}(x))
+\end{equation}
+
+<p>
+for \(i = 1, \ldots, n\); therefore, their expected value is
+</p>
+
+\begin{equation}
+  \operatorname{E}[u_i \mid x_i] = \frac{\hat{F}(x - 1) + \hat{F}(x)}{2} = \hat{F}(x - 1) + \frac{1}{2}\hat{f}(x).
+\end{equation}
+
+<p>
+Assuming \(x \sim \hat{F}\), \(u_i \sim \operatorname{Uniform}(0, 1)\) and
+the \(k\)th order statistic
+</p>
+
+\begin{equation}
+  u_(k) \sim \operatorname{Beta}(k, n - k + 1).
+\end{equation}
+
+<p>
+Plot the expected randomized quantile, and 95% confidence interval for the
+randomized quantiles.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">erpp</span> = <span class="org-builtin">dict</span>()
+<span class="org-variable-name">gamma_res</span> = scmodes.ebpm.ebpm_gamma(x, s)
+<span class="org-variable-name">erpp</span>[<span class="org-string">'Gamma'</span>] = (scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]) +
+                 .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]))
+
+<span class="org-variable-name">point_gamma_res</span> = scmodes.ebpm.ebpm_point_gamma(x, s)
+<span class="org-variable-name">erpp</span>[<span class="org-string">'ZIG'</span>] = (scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]) +
+               .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]))
+
+<span class="org-variable-name">zief_res</span> = scmodes.ebpm.ebpm_point_expfam(x, s)
+<span class="org-variable-name">erpp</span>[<span class="org-string">'ZIEF'</span>] = (scmodes.benchmark.gof._point_expfam_cdf(x.values.ravel() - 1, size=s, res=zief_res) +
+                .5 * scmodes.benchmark.gof._point_expfam_pmf(x.values.ravel(), size=s, res=zief_res))
+
+<span class="org-variable-name">unimodal_res</span> = scmodes.ebpm.ebpm_unimodal(x, s)
+<span class="org-variable-name">erpp</span>[<span class="org-string">'Unimodal'</span>] = (scmodes.benchmark.gof._ash_cdf(x - 1, s=s, fit=unimodal_res) +
+                    .5 * scmodes.benchmark.gof._ash_pmf(x, s=s, fit=unimodal_res))
+
+<span class="org-variable-name">npmle_res</span> = scmodes.ebpm.ebpm_npmle(x, s)
+<span class="org-variable-name">erpp</span>[<span class="org-string">'NPMLE'</span>] = (scmodes.benchmark.gof._ash_cdf(x - 1, s=s, fit=npmle_res) +
+                 .5 * scmodes.benchmark.gof._ash_pmf(x, s=s, fit=npmle_res))
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">grid</span> = np.linspace(0, 1, x.shape[0] + 1)[1:]
+<span class="org-variable-name">F</span> = st.beta(np.arange(1, 1 + x.shape[0]), 1 + x.shape[0] - np.arange(1, 1 + x.shape[0]))
+
+plt.clf()
+plt.gcf().set_size_inches(3, 3)
+plt.xscale(<span class="org-string">'log'</span>)
+plt.yscale(<span class="org-string">'log'</span>)
+<span class="org-keyword">for</span> c, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(plt.get_cmap(<span class="org-string">'Dark2'</span>).colors, [<span class="org-string">'Gamma'</span>, <span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>]):
+  <span class="org-keyword">if</span> k <span class="org-keyword">in</span> erpp:
+    plt.plot(grid, np.sort(erpp[k]), color=c, lw=1, marker=<span class="org-constant">None</span>, label=k)
+plt.fill_between(grid, F.ppf(.025), F.ppf(.975), color=<span class="org-string">'0.85'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>, handletextpad=0.25)
+<span class="org-variable-name">lim</span> = [1e-5, 1]
+plt.plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'0.5'</span>)
+plt.xlim(lim)
+plt.ylim(lim)
+plt.xlabel(<span class="org-string">'Theoretical quantiles'</span>)
+plt.ylabel(<span class="org-string">'Expected randomized quantiles'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/quantiles.org/erpp.png" alt="erpp.png">
+</p>
+</div>
+</div>
+</div>
+
 <div id="outline-container-org2f258ae" class="outline-2">
 <h2 id="org2f258ae">Gamma model</h2>
 <div class="outline-text-2" id="text-org2f258ae">
@@ -662,7 +773,7 @@ array([265.32446831])
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-07-16 Thu 20:17</p>
+<p class="date">Created: 2020-07-20 Mon 23:43</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

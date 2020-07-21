@@ -67,7 +67,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[5]:
+  # Out[4]:
   :END:
 
   #+BEGIN_SRC ipython :async t
@@ -76,7 +76,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[6]:
+  # Out[5]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -88,7 +88,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[7]:
+  # Out[6]:
   :END:
 
 * Seed 2
@@ -341,6 +341,86 @@
   :RESULTS:
   # Out[9]:
   [[file:figure/quantiles.org/cytotoxic_t-rpl34-rpp-4.png]]
+  :END:
+
+* Expected randomized quantiles
+
+  The randomized quantiles are
+
+  \begin{equation}
+    u_i \mid x_i \sim \operatorname{Uniform}(\hat{F}(x - 1), \hat{F}(x))
+  \end{equation}
+
+  for \(i = 1, \ldots, n\); therefore, their expected value is
+
+  \begin{equation}
+    \operatorname{E}[u_i \mid x_i] = \frac{\hat{F}(x - 1) + \hat{F}(x)}{2} = \hat{F}(x - 1) + \frac{1}{2}\hat{f}(x).
+  \end{equation}
+
+  Assuming \(x \sim \hat{F}\), \(u_i \sim \operatorname{Uniform}(0, 1)\) and
+  the \(k\)th order statistic
+
+  \begin{equation}
+    u_(k) \sim \operatorname{Beta}(k, n - k + 1).
+  \end{equation}
+
+  Plot the expected randomized quantile, and 95% confidence interval for the
+  randomized quantiles.
+
+  #+BEGIN_SRC ipython :async t
+    erpp = dict()
+    gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
+    erpp['Gamma'] = (scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]) +
+                     .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]))
+
+    point_gamma_res = scmodes.ebpm.ebpm_point_gamma(x, s)
+    erpp['ZIG'] = (scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]) +
+                   .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]))
+
+    zief_res = scmodes.ebpm.ebpm_point_expfam(x, s)
+    erpp['ZIEF'] = (scmodes.benchmark.gof._point_expfam_cdf(x.values.ravel() - 1, size=s, res=zief_res) +
+                    .5 * scmodes.benchmark.gof._point_expfam_pmf(x.values.ravel(), size=s, res=zief_res))
+
+    unimodal_res = scmodes.ebpm.ebpm_unimodal(x, s)
+    erpp['Unimodal'] = (scmodes.benchmark.gof._ash_cdf(x - 1, s=s, fit=unimodal_res) +
+                        .5 * scmodes.benchmark.gof._ash_pmf(x, s=s, fit=unimodal_res))
+
+    npmle_res = scmodes.ebpm.ebpm_npmle(x, s)
+    erpp['NPMLE'] = (scmodes.benchmark.gof._ash_cdf(x - 1, s=s, fit=npmle_res) +
+                     .5 * scmodes.benchmark.gof._ash_pmf(x, s=s, fit=npmle_res))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[7]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/quantiles.org/erpp.png
+    grid = np.linspace(0, 1, x.shape[0] + 1)[1:]
+    F = st.beta(np.arange(1, 1 + x.shape[0]), 1 + x.shape[0] - np.arange(1, 1 + x.shape[0]))
+
+    plt.clf()
+    plt.gcf().set_size_inches(3, 3)
+    plt.xscale('log')
+    plt.yscale('log')
+    for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+      if k in erpp:
+        plt.plot(grid, np.sort(erpp[k]), color=c, lw=1, marker=None, label=k)
+    plt.fill_between(grid, F.ppf(.025), F.ppf(.975), color='0.85')
+    plt.legend(frameon=False, handletextpad=0.25)
+    lim = [1e-5, 1]
+    plt.plot(lim, lim, lw=1, ls=':', c='0.5')
+    plt.xlim(lim)
+    plt.ylim(lim)
+    plt.xlabel('Theoretical quantiles')
+    plt.ylabel('Expected randomized quantiles')
+    plt.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[41]:
+  [[file:figure/quantiles.org/erpp.png]]
   :END:
 
 * Gamma model
