@@ -33,7 +33,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[10]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -61,25 +61,9 @@
 
   Read the data.
 
-  #+BEGIN_SRC ipython
-    gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
-  #+END_SRC
-
-  #+RESULTS:
-  :RESULTS:
-  # Out[4]:
-  :END:
-
   #+BEGIN_SRC ipython :async t
+    gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
     cytotoxic_t = scmodes.dataset.read_10x('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/cytotoxic_t/filtered_matrices_mex/hg19/', return_df=True)
-  #+END_SRC
-
-  #+RESULTS:
-  :RESULTS:
-  # Out[5]:
-  :END:
-
-  #+BEGIN_SRC ipython
     gene = 'ENSG00000109475'
     x = cytotoxic_t.loc[:,gene]
     s = cytotoxic_t.sum(axis=1)
@@ -88,7 +72,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[6]:
+  # Out[13]:
   :END:
 
 * Seed 2
@@ -393,7 +377,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[7]:
+  # Out[14]:
   :END:
 
   #+BEGIN_SRC ipython :ipyfile figure/quantiles.org/erpp.png
@@ -422,6 +406,35 @@
   :RESULTS:
   # Out[41]:
   [[file:figure/quantiles.org/erpp.png]]
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/quantiles.org/erpp-linear.png
+    grid = np.linspace(0, 1, x.shape[0] + 1)[1:]
+    F = st.beta(np.arange(1, 1 + x.shape[0]), 1 + x.shape[0] - np.arange(1, 1 + x.shape[0]))
+
+    plt.clf()
+    plt.gcf().set_size_inches(3, 3)
+    for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+      if k == 'ZIG':
+        ls = (0, (4, 4))
+      else:
+        ls = '-'
+      if k in erpp:
+        plt.plot(grid, np.sort(erpp[k]), color=c, lw=1, ls=ls, marker=None, label=k)
+    plt.legend(frameon=False, handletextpad=0.25)
+    lim = [0, 1]
+    plt.plot(lim, lim, lw=1, ls=':', c='0.5')
+    plt.xlim(lim)
+    plt.ylim(lim)
+    plt.xlabel('Theoretical quantiles')
+    plt.ylabel('Expected randomized quantiles')
+    plt.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[22]:
+  [[file:figure/quantiles.org/erpp-linear.png]]
   :END:
 
 * Gamma model
