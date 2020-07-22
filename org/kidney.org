@@ -321,8 +321,8 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
-   [[file:figure/brain-dronc-seq.org/unimodal-gof-hist.png]]
+   # Out[5]:
+   [[file:figure/kidney.org/unimodal-gof-hist.png]]
    :END:
 
    Report the number and fraction of genes which depart from a unimodal
@@ -330,11 +330,11 @@
 
    #+BEGIN_SRC ipython
      sig = unimodal_res.loc[unimodal_res['p'] < .05 / unimodal_res.shape[0]]
-     sig.shape[0], sig.shape[0] / x.shape[1]
+     sig.shape[0], sig.shape[0] / unimodal_res.shape[0]
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[9]:
-   : (62, 0.005279291553133515)
+   # Out[6]:
+   : (2600, 0.6675224646983312)
    :END:
