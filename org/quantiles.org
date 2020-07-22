@@ -408,6 +408,8 @@
   [[file:figure/quantiles.org/erpp.png]]
   :END:
 
+  Plot the expected randomized quantiles on a linear scale.
+
   #+BEGIN_SRC ipython :ipyfile figure/quantiles.org/erpp-linear.png
     grid = np.linspace(0, 1, x.shape[0] + 1)[1:]
     F = st.beta(np.arange(1, 1 + x.shape[0]), 1 + x.shape[0] - np.arange(1, 1 + x.shape[0]))

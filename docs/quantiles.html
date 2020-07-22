@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-07-21 Tue 13:29 -->
+<!-- 2020-07-21 Tue 21:55 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Randomized quantiles</title>
@@ -679,6 +679,10 @@ plt.tight_layout()
 </p>
 </div>
 
+<p>
+Plot the expected randomized quantiles on a linear scale.
+</p>
+
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">grid</span> = np.linspace(0, 1, x.shape[0] + 1)[1:]
 <span class="org-variable-name">F</span> = st.beta(np.arange(1, 1 + x.shape[0]), 1 + x.shape[0] - np.arange(1, 1 + x.shape[0]))
@@ -796,7 +800,7 @@ array([265.32446831])
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-07-21 Tue 13:29</p>
+<p class="date">Created: 2020-07-21 Tue 21:55</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
