@@ -40,9 +40,10 @@
 
   #+NAME: imports
   #+BEGIN_SRC ipython
+    import anndata
     import numpy as np
     import pandas as pd
-    import scanpy
+    import scanpy as sc
     import scmodes
   #+END_SRC
 
@@ -52,7 +53,6 @@
   :END:
 
   #+BEGIN_SRC ipython
-    import anndata
     import colorcet
     import os
     import rpy2.robjects
@@ -248,27 +248,27 @@
    #+NAME: data
    #+BEGIN_SRC ipython
      def read_chromium(sample):
-       x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/svensson_chromium_control.h5ad')
+       x = sc.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/svensson_chromium_control.h5ad')
        x = x[x.obs['sample'] == sample]
-       scanpy.pp.filter_genes(x, min_counts=1)
+       sc.pp.filter_genes(x, min_cells=1)
        x = x[:,x.var.filter(like='ERCC', axis='index').index]
        return pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
 
      def read_dropseq():
-       x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/macosko_dropseq_control.h5ad')
-       scanpy.pp.filter_genes(x, min_counts=1)
+       x = sc.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/macosko_dropseq_control.h5ad')
+       sc.pp.filter_genes(x, min_cells=1)
        x = x[:,x.var.filter(like='ERCC', axis='index').index]
        return pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
 
      def read_indrops():
-       x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/klein_indrops_control.h5ad')
-       scanpy.pp.filter_genes(x, min_counts=1)
+       x = sc.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/klein_indrops_control.h5ad')
+       sc.pp.filter_genes(x, min_cells=1)
        x = x[:,x.var.filter(like='ERCC', axis='index').index]
        return pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
 
      def read_gemcode():
-       x = scanpy.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/zheng_gemcode_control.h5ad')
-       scanpy.pp.filter_genes(x, min_counts=1)
+       x = sc.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/zheng_gemcode_control.h5ad')
+       sc.pp.filter_genes(x, min_cells=1)
        return pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
 
      def read_c1(min_detect=1000):
@@ -296,6 +296,32 @@
        return scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/',
                                        return_adata=not return_df, return_df=return_df, min_detect=min_detect)
 
+     def read_liver():
+       x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/liver-caudate-lobe.h5ad')
+       query = x.obs['donor'] == 'P3TLH'
+       y = x[query]
+       sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
+       return y
+
+     def read_kidney():
+       x = anndata.read_h5ad('/scratch/midway2/aksarkar/modes/kidney.h5ad')
+       # Supp Table 2+3 lists donor+biopsy information
+       donor_pass = set([
+         # '4602STDY6949184',
+         '4602STDY6949185',
+         # '4602STDY6949187',
+         # '4602STDY6949188',
+       ])
+       query = np.array([t.split('_')[0] in donor_pass for t in x.obs.index])
+       y = x[query]
+       sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
+       return y
+
+     def read_brain():
+       x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/gtex-droncseq.h5ad')
+       sc.pp.filter_genes(x, min_counts=.01 * x.shape[0])
+       return x
+
      data = {
        'dropseq': read_dropseq,
        'indrops': read_indrops,
@@ -309,12 +335,15 @@
        'cytotoxic_t-b_cells': _cd8_cd19_mix,
        'cytotoxic_t-naive_t': _cyto_naive_mix,
        'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a', return_df=False),
+       'liver-caudate-lobe': lambda: read_liver(),
+       'kidney': lambda: read_kidney(),
+       'brain': lambda: read_brain(),
      }
    #+END_SRC
 
    #+RESULTS: data
    :RESULTS:
-   # Out[5]:
+   # Out[6]:
    :END:
 
    Report the dimensions of each data set.
@@ -327,7 +356,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[41]:
+   # Out[76]:
    #+BEGIN_EXAMPLE
      num_cells  num_genes
      dropseq                     84         81
@@ -342,6 +371,9 @@
      cytotoxic_t-b_cells      20294       6647
      cytotoxic_t-naive_t      20688       6246
      pbmcs_68k                68579       6502
+     liver-caudate-lobe        3127      10646
+     kidney                    4876       8463
+     brain                    14963      11744
    #+END_EXAMPLE
    :END:
 
@@ -496,7 +528,7 @@
     Run the GPU-based methods.
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=gpu2 --gres=gpu:1 --mem=4G --job-name=gof --time=1:00:00 -a 11
+      sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=gof --time=1:00:00 -a 9-10
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -512,7 +544,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 65510737
+    : Submitted batch job 3162138
 
     Move the results to permanent storage.
 
@@ -524,15 +556,20 @@
 
     Read the results.
 
-    #+BEGIN_SRC ipython
+    #+BEGIN_SRC ipython :async t
       gof_res = []
-      for m in ['point', 'gpu', 'unimodal']:
+      for m in ['gpu', 'unimodal']:
         res = dict()
         for k in data:
           f = f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-{m}.txt.gz'
           if os.path.exists(f):
             # Hacks
             res[k] = pd.read_csv(f, sep='\t', index_col=0)
+            if 'ID' in res[k].columns:
+              res[k] = res[k].rename({'ID': 'gene'}, axis=1)
+            if res[k].index.name == 'ID':
+              del res[k]['gene']
+              res[k].index.name = 'gene'
             if 'gene.1' in res[k].columns:
               del res[k]['gene.1']
             if m == 'unimodal':
@@ -545,7 +582,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[12]:
+    # Out[40]:
     :END:
 
     Write out the post-processed results.
@@ -556,7 +593,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[13]:
+    # Out[43]:
     :END:
 
     Read the post-processed results.
@@ -567,7 +604,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[6]:
+    # Out[8]:
     :END:
 
     To reduce computational burden, run ~ashr~ only on genes which
@@ -585,23 +622,24 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[8]:
+    # Out[9]:
     :END:
 
     #+BEGIN_SRC ipython :async t
-      for k in list(data.keys())[6:]:
+      for k in list(data.keys())[:6]:
         x = data[k]()
-        if k != 'pbmcs_68k':
-          s = x.sum(axis=1)
-          # Important: we need to keep around the size factors computed using all the
-          # genes
-          t = anndata.AnnData(x.loc[:,sig.loc[k, 'gene']].values, var=sig.loc[k, 'gene'].to_frame())
-          t.obs = s.to_frame().rename({0: 'size'}, axis=1)
-          t.write(f'/scratch/midway2/aksarkar/modes/unimodal-data/{k}.h5ad')
+        if not isinstance(x, anndata.AnnData):
+          if k in sig.index:
+            s = x.sum(axis=1)
+            # Important: we need to keep around the size factors computed using all the
+            # genes
+            t = anndata.AnnData(x.loc[:,sig.loc[k, 'gene']].values, var=sig.loc[k, 'gene'].to_frame())
+            t.obs = s.to_frame().rename({0: 'size'}, axis=1)
+            t.write(f'/scratch/midway2/aksarkar/modes/unimodal-data/{k}.h5ad')
         else:
           s = x.X.tocsc().sum(axis=1).A.ravel()
           x.obs['size'] = s
-          x.obs.columns = ['barcode', 'size']
+          x.obs = x.obs.rename({0: 'barcode'}, axis=1)
           x.var.columns = ['gene', 'name']
           x.var = x.var.set_index('gene')
           x[:,x.var.index.isin(sig.loc[k, 'gene'])].write(f'/scratch/midway2/aksarkar/modes/unimodal-data/{k}.h5ad')
@@ -609,10 +647,11 @@
 
     #+RESULTS:
     :RESULTS:
+    # Out[22]:
     :END:
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 11
+      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 0-5
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -642,7 +681,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 65514573
+    : Submitted batch job 3171606
 
     Run goodness of fit tests for a point mass assumption on control data sets
     only.
@@ -782,12 +821,12 @@
 ** Application to biological data sets
 
     #+BEGIN_SRC ipython
-      non_control = list(data.keys())[6:12]
+      non_control = list(data.keys())[6:]
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[7]:
+    # Out[18]:
     :END:
 
     Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
@@ -856,16 +895,17 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[16]:
+    # Out[19]:
     #+BEGIN_EXAMPLE
-      method               gamma  unimodal  zig
+      method               gamma  unimodal    zig
       dataset
-      b_cells                  9         7    8
-      cytotoxic_t              6         0    6
-      cytotoxic_t-b_cells     34        23   18
-      cytotoxic_t-naive_t     20        10   19
-      ipsc                   158         7  155
-      pbmcs_68k              363        22  356
+      b_cells                9.0       7.0    8.0
+      cytotoxic_t            6.0       0.0    6.0
+      cytotoxic_t-b_cells   34.0      23.0   18.0
+      cytotoxic_t-naive_t   20.0      10.0   19.0
+      ipsc                 158.0       7.0  155.0
+      kidney                 NaN    2600.0    NaN
+      pbmcs_68k            363.0      22.0  356.0
     #+END_EXAMPLE
     :END:
 
