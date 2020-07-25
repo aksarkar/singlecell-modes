@@ -38,7 +38,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[1]:
+  # Out[26]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -48,7 +48,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[27]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -59,7 +59,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[28]:
   :END:
 
 * Results
@@ -72,7 +72,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[29]:
    :END:
 
 ** B cells
@@ -93,11 +93,11 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[63]:
+   # Out[30]:
    :END:
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=mstephens -n1 --mem=8G --time=24:00:00
+     sbatch --partition=broadwl -n1 --mem=8G --time=24:00:00
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -114,7 +114,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66423763
+   : Submitted batch job 3204066
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
      sbatch --partition=gpu2 --gres=gpu:1 --mem=8G
@@ -128,21 +128,29 @@
      lam2 = m.denoise(xt, n_samples=100)
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam', lam2)
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-trace', np.array(m.trace))
+
+     m = scmodes.lra.NBVAE(input_dim=train.shape[1], latent_dim=8, disp_by_gene=True).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)
+     lam3 = m.denoise(xt, n_samples=100)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-lam', lam3)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-trace', np.array(m.trace))
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66423756
+   : Submitted batch job 3204056
 
-   Examine the PVAE optimization trace.
+   Examine the VAE optimization traces.
 
    #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-pvae-trace.png
-     cm = plt.get_cmap('Dark2')
+     cm = plt.get_cmap('Paired')
      plt.clf()
      plt.gcf().set_size_inches(4, 2)
      trace = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-trace.npy')
-     for i, (t, s, k) in enumerate(zip(trace.T, [900, 100], ['Training', 'Validation'])):
+     trace2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-trace.npy')
+     for i, (t, s, k) in enumerate(zip(trace.T, [900, 100], ['PVAE train', 'PVAE val'])):
        plt.plot(np.log(t / s), lw=1, c=cm(i), label=k)
+     for i, (t, s, k) in enumerate(zip(trace2.T, [900, 100], ['NBVAE train', 'NBVAE val'])):
+       plt.plot(np.log(t / s), lw=1, c=cm(i + 2), label=k)
      plt.legend(frameon=False)
      plt.xlabel('Epoch')
      plt.ylabel('Avg log neg ELBO')
@@ -151,7 +159,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[31]:
    [[file:figure/fitted-values.org/b_cells-pvae-trace.png]]
    :END:
 
@@ -163,19 +171,20 @@
      lam0 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nmf-lam.npy')
      lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-glmpca-lam.npy')
      lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam.npy')
+     lam3 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-lam.npy')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[32]:
    :END:
 
    Compare the fitted values of each method against other.
 
    #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells.png
      plt.clf()
-     fig, ax = plt.subplots(1, 2, sharey=True)
-     fig.set_size_inches(4, 2.5)
+     fig, ax = plt.subplots(1, 3, sharey=True)
+     fig.set_size_inches(5.5, 2.5)
 
      ax[0].scatter(np.sqrt(lam1.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c='k', alpha=0.1)
      ax[0].plot([0, 11], [0, 11], lw=1, ls=':', c='r')
@@ -185,6 +194,10 @@
      ax[1].scatter(np.sqrt(lam2.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c='k', alpha=0.1)
      ax[1].plot([0, 11], [0, 11], lw=1, ls=':', c='r')
      ax[1].set_xlabel(r'PVAE $\sqrt{\hat\lambda}$')
+
+     ax[2].scatter(np.sqrt(lam3.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c='k', alpha=0.1)
+     ax[2].plot([0, 11], [0, 11], lw=1, ls=':', c='r')
+     ax[2].set_xlabel(r'NBVAE $\sqrt{\hat\lambda}$')
 
      a = fig.add_subplot(111, frame_on=False, xticks=[], yticks=[])
      a.set_title('B cell')
