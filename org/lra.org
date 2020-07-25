@@ -90,7 +90,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[1]:
+  # Out[16]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -222,14 +222,14 @@
    Run the GPU methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=60:00 --job-name=lra-generalization -a 0-23
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=60:00 --job-name=lra-generalization -a 0-47%4
      #!/bin/bash
      source activate scmodes
      python <<EOF
      <<imports>>
      import os
      <<data>>
-     methods = ['pvae']
+     methods = ['pvae', 'nbvae']
      ranks = [1, 2, 4, 8]
      tasks = [(d, m, r) for d in data for m in methods for r in ranks]
      d, m, r = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
@@ -240,14 +240,14 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66269438
+   : Submitted batch job 3202675
 
    Collect the results.
 
    #+BEGIN_SRC ipython :async t
      pois_thin_res = collections.defaultdict(list)
      for k in data:
-       for m in ('nmf', 'glmpca', 'pvae'):
+       for m in ('nmf', 'glmpca', 'pvae', 'nbvae'):
          for r in (1, 2, 4, 8):
            f = f'/scratch/midway2/aksarkar/modes/lra-generalization/{k}-{m}-{r}.txt.gz'
            if os.path.exists(f):
@@ -259,7 +259,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[17]:
    :END:
 
    Read the results.
@@ -281,7 +281,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[18]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/lra.org/lra-bench-1.png
@@ -292,8 +292,8 @@
        for x, m in enumerate(g.columns):
          a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c='k', zorder=3)
        a.grid(c='0.8', lw=1, axis='x')
-       a.set_xlim(-0.5, 2.5)
-       a.set_xticks(np.arange(3))
+       a.set_xlim(-0.5, g.shape[1] - 0.5)
+       a.set_xticks(np.arange(g.shape[1]))
        a.set_xticklabels([m.upper() for m in g.columns], rotation=90)
        a.set_xlabel('Method')
        a.set_title(t)
@@ -303,7 +303,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[13]:
+   # Out[22]:
    [[file:figure/lra.org/lra-bench-1.png]]
    :END:
 
@@ -315,8 +315,8 @@
        for x, m in enumerate(g.columns):
          a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c='k', zorder=3)
        a.grid(c='0.8', lw=1, axis='x')
-       a.set_xlim(-0.5, 2.5)
-       a.set_xticks(np.arange(3))
+       a.set_xlim(-0.5, g.shape[1] - 0.5)
+       a.set_xticks(np.arange(g.shape[1]))
        a.set_xticklabels([m.upper() for m in g.columns], rotation=90)
        a.set_xlabel('Method')
        a.set_title(t)
@@ -326,7 +326,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[14]:
+   # Out[23]:
    [[file:figure/lra.org/lra-bench-2.png]]
    :END:
 
@@ -338,8 +338,8 @@
        for x, m in enumerate(g.columns):
          a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c='k', zorder=3)
        a.grid(c='0.8', lw=1, axis='x')
-       a.set_xlim(-0.5, 2.5)
-       a.set_xticks(np.arange(3))
+       a.set_xlim(-0.5, g.shape[1] - 0.5)
+       a.set_xticks(np.arange(g.shape[1]))
        a.set_xticklabels([m.upper() for m in g.columns], rotation=90)
        a.set_xlabel('Method')
        a.set_title(t)
@@ -349,7 +349,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[15]:
+   # Out[24]:
    [[file:figure/lra.org/lra-bench-4.png]]
    :END:
 
@@ -361,8 +361,8 @@
        for x, m in enumerate(g.columns):
          a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c='k', zorder=3)
        a.grid(c='0.8', lw=1, axis='x')
-       a.set_xlim(-0.5, 2.5)
-       a.set_xticks(np.arange(3))
+       a.set_xlim(-0.5, g.shape[1] - 0.5)
+       a.set_xticks(np.arange(g.shape[1]))
        a.set_xticklabels([m.upper() for m in g.columns], rotation=90)
        a.set_xlabel('Method')
        a.set_title(t)
@@ -372,6 +372,6 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[16]:
+   # Out[25]:
    [[file:figure/lra.org/lra-bench-8.png]]
    :END:
