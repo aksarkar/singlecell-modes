@@ -38,7 +38,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[26]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -48,7 +48,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[27]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -59,7 +59,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[28]:
+  # Out[3]:
   :END:
 
 * Results
@@ -137,7 +137,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 3204056
+   : Submitted batch job 3210687
 
    Examine the VAE optimization traces.
 
@@ -159,7 +159,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[31]:
+   # Out[8]:
    [[file:figure/fitted-values.org/b_cells-pvae-trace.png]]
    :END:
 
@@ -176,7 +176,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[32]:
+   # Out[6]:
    :END:
 
    Compare the fitted values of each method against other.
@@ -206,7 +206,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[45]:
+   # Out[7]:
    [[file:figure/fitted-values.org/b_cells.png]]
    :END:
 

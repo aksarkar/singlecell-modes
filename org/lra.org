@@ -90,7 +90,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[16]:
+  # Out[9]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -149,7 +149,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[4]:
+   # Out[10]:
    :END:
 
    Report the data dimensions.
@@ -240,7 +240,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 3202675
+   : Submitted batch job 3210904
 
    Collect the results.
 
@@ -259,7 +259,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[17]:
+   # Out[11]:
    :END:
 
    Read the results.
@@ -270,7 +270,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[111]:
+   # Out[12]:
    :END:
 
    Plot the results.
@@ -281,7 +281,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[18]:
+   # Out[13]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/lra.org/lra-bench-1.png
@@ -303,7 +303,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[22]:
+   # Out[14]:
    [[file:figure/lra.org/lra-bench-1.png]]
    :END:
 
@@ -326,7 +326,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[23]:
+   # Out[15]:
    [[file:figure/lra.org/lra-bench-2.png]]
    :END:
 
@@ -349,7 +349,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[24]:
+   # Out[16]:
    [[file:figure/lra.org/lra-bench-4.png]]
    :END:
 
@@ -372,6 +372,6 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[25]:
+   # Out[17]:
    [[file:figure/lra.org/lra-bench-8.png]]
    :END:
