@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-07-26 Sun 12:20 -->
+<!-- 2020-07-27 Mon 10:06 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of fitted values</title>
@@ -374,7 +374,7 @@ python &lt;&lt;EOF
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam', lam2)</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-trace', np.array(m.trace))</span>
 
-<span class="org-sh-heredoc">m = scmodes.lra.NBVAE(input_dim=train.shape[1], latent_dim=8, disp_by_gene=True).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)</span>
+<span class="org-sh-heredoc">m = scmodes.lra.NBVAE(input_dim=train.shape[1], latent_dim=8, disp_by_gene=True).fit(xt, test_size=0.1, lr=1e-3, max_epochs=400, trace=True)</span>
 <span class="org-sh-heredoc">lam3 = m.denoise(xt, n_samples=100)</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-lam', lam3)</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-trace', np.array(m.trace))</span>
@@ -568,14 +568,16 @@ Look at the average training log likelihoods.
 <pre class="src src-ipython"><span class="org-variable-name">llik0</span> = st.poisson(lam0).logpmf(train)
 <span class="org-variable-name">llik1</span> = st.poisson(lam1).logpmf(train)
 <span class="org-variable-name">llik2</span> = st.poisson(lam2).logpmf(train)
-pd.Series({<span class="org-string">'NMF'</span>: llik0.mean(), <span class="org-string">'GLMPCA'</span>: llik1.mean(), <span class="org-string">'PVAE'</span>: llik2.mean()})
+<span class="org-variable-name">llik3</span> = st.poisson(lam3).logpmf(train)
+pd.Series({<span class="org-string">'NMF'</span>: llik0.mean(), <span class="org-string">'GLMPCA'</span>: llik1.mean(), <span class="org-string">'PVAE'</span>: llik2.mean(), <span class="org-string">'NBVAE'</span>: llik3.mean()})
 </pre>
 </div>
 
 <pre class="example">
-NMF      -0.163096
-GLMPCA   -0.163275
-PVAE     -0.161215
+NMF      -1.038635
+GLMPCA   -1.035292
+PVAE     -1.055085
+NBVAE    -0.829223
 dtype: float64
 </pre>
 
@@ -586,7 +588,7 @@ differences, stratified by observed value.
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 1, sharex=<span class="org-constant">True</span>)
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 1, sharex=<span class="org-constant">True</span>)
 fig.set_size_inches(7, 6)
 
 <span class="org-variable-name">grid</span> = np.arange(train.<span class="org-builtin">max</span>() + 1)
@@ -602,13 +604,19 @@ ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="
 ax[1].set_ylabel(<span class="org-string">'Improvement train\nlog lik over NMF'</span>)
 ax[1].set_title(<span class="org-string">'PVAE'</span>)
 
+<span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid:
+  ax[2].boxplot((llik3 - llik0)[train == i].ravel(), positions=[i], widths=[0.5], medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 2})
+ax[2].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
+ax[2].set_ylabel(<span class="org-string">'Improvement train\nlog lik over NMF'</span>)
+ax[2].set_title(<span class="org-string">'NBVAE'</span>)
+
 <span class="org-variable-name">h</span>, <span class="org-variable-name">e</span> = np.histogram(train.ravel(), bins=grid, density=<span class="org-constant">True</span>)
-ax[2].bar(e[:-1], h, color=<span class="org-string">'k'</span>)
-ax[2].set_ylabel(<span class="org-string">'Relative frequency'</span>)
-ax[2].set_xticks(grid[::5])
-ax[2].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
-ax[2].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
-ax[2].set_xlabel(<span class="org-string">'Observation in training set'</span>)
+ax[3].bar(e[:-1], h, color=<span class="org-string">'k'</span>)
+ax[3].set_ylabel(<span class="org-string">'Relative frequency'</span>)
+ax[3].set_xticks(grid[::5])
+ax[3].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
+ax[3].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
+ax[3].set_xlabel(<span class="org-string">'Observation in training set'</span>)
 
 fig.tight_layout()
 </pre>
@@ -627,7 +635,7 @@ observed value.
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1, sharex=<span class="org-constant">True</span>)
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 1, sharex=<span class="org-constant">True</span>)
 fig.set_size_inches(7, 4)
 
 <span class="org-variable-name">grid</span> = np.arange(train.<span class="org-builtin">max</span>() + 1)
@@ -640,10 +648,15 @@ ax[1].bar(grid, np.array([(llik2 - llik0)[train == i].<span class="org-builtin">
 ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
 ax[1].set_ylabel(<span class="org-string">'Improvement train\nlog lik over NMF'</span>)
 ax[1].set_title(<span class="org-string">'PVAE'</span>)
-ax[1].set_xticks(grid[::5])
-ax[1].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
-ax[1].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
-ax[1].set_xlabel(<span class="org-string">'Observation in training set'</span>)
+
+ax[2].bar(grid, np.array([(llik3 - llik0)[train == i].<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid]), color=<span class="org-string">'k'</span>)
+ax[2].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
+ax[2].set_ylabel(<span class="org-string">'Improvement train\nlog lik over NMF'</span>)
+ax[2].set_title(<span class="org-string">'NBVAE'</span>)
+ax[2].set_xticks(grid[::5])
+ax[2].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
+ax[2].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
+ax[2].set_xlabel(<span class="org-string">'Observation in training set'</span>)
 
 fig.tight_layout()
 </pre>
@@ -664,14 +677,16 @@ Repeat the analysis for the validation data.
 <span class="org-variable-name">llik0</span> = np.ma.masked_invalid(st.poisson(s * lam0).logpmf(test))
 <span class="org-variable-name">llik1</span> = st.poisson(s * lam1).logpmf(test)
 <span class="org-variable-name">llik2</span> = st.poisson(s * lam2).logpmf(test)
-pd.Series({<span class="org-string">'NMF'</span>: llik0.mean(), <span class="org-string">'GLMPCA'</span>: llik1.mean(), <span class="org-string">'PVAE'</span>: llik2.mean()})
+<span class="org-variable-name">llik3</span> = st.poisson(s * lam3).logpmf(test)
+pd.Series({<span class="org-string">'NMF'</span>: llik0.mean(), <span class="org-string">'GLMPCA'</span>: llik1.mean(), <span class="org-string">'PVAE'</span>: llik2.mean(), <span class="org-string">'NBVAE'</span>: llik3.mean()})
 </pre>
 </div>
 
 <pre class="example">
-NMF      -0.181994
-GLMPCA   -0.166435
-PVAE     -0.167921
+NMF      -1.190322
+GLMPCA   -1.089458
+PVAE     -1.070860
+NBVAE    -1.129492
 dtype: float64
 </pre>
 
@@ -706,7 +721,7 @@ array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 1, sharex=<span class="org-constant">True</span>)
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(4, 1, sharex=<span class="org-constant">True</span>)
 fig.set_size_inches(7, 6)
 
 <span class="org-variable-name">grid</span> = np.arange(test.<span class="org-builtin">max</span>())
@@ -722,13 +737,19 @@ ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="
 ax[1].set_ylabel(<span class="org-string">'Improvement val log lik\nover NMF'</span>)
 ax[1].set_title(<span class="org-string">'PVAE'</span>)
 
+<span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid:
+  ax[2].boxplot((llik3 - llik0)[test == i].ravel(), positions=[i], widths=[0.5], medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 2})
+ax[2].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
+ax[2].set_ylabel(<span class="org-string">'Improvement val log lik\nover NMF'</span>)
+ax[2].set_title(<span class="org-string">'NBVAE'</span>)
+
 <span class="org-variable-name">h</span>, <span class="org-variable-name">e</span> = np.histogram(test.ravel(), bins=np.arange(test.<span class="org-builtin">max</span>() + 1), density=<span class="org-constant">True</span>)
-ax[2].bar(e[:-1], h, color=<span class="org-string">'k'</span>)
-ax[2].set_ylabel(<span class="org-string">'Relative frequency'</span>)
-ax[2].set_xticks(grid[::5])
-ax[2].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
-ax[2].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
-ax[2].set_xlabel(<span class="org-string">'Observation in validation set'</span>)
+ax[3].bar(e[:-1], h, color=<span class="org-string">'k'</span>)
+ax[3].set_ylabel(<span class="org-string">'Relative frequency'</span>)
+ax[3].set_xticks(grid[::5])
+ax[3].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
+ax[3].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
+ax[3].set_xlabel(<span class="org-string">'Observation in validation set'</span>)
 
 fig.tight_layout()
 </pre>
@@ -742,7 +763,7 @@ fig.tight_layout()
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1, sharex=<span class="org-constant">True</span>)
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 1, sharex=<span class="org-constant">True</span>)
 fig.set_size_inches(7, 4)
 
 <span class="org-variable-name">grid</span> = np.arange(test.<span class="org-builtin">max</span>() + 1)
@@ -755,10 +776,15 @@ ax[1].bar(grid, np.array([(llik2 - llik0)[test == i].<span class="org-builtin">s
 ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>, zorder=-3)
 ax[1].set_ylabel(<span class="org-string">'Improvement val log lik\nover NMF'</span>)
 ax[1].set_title(<span class="org-string">'PVAE'</span>)
-ax[1].set_xticks(grid[::5])
-ax[1].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
-ax[1].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
-ax[1].set_xlabel(<span class="org-string">'Observation in validation set'</span>)
+
+ax[2].bar(grid, np.array([(llik3 - llik0)[test == i].<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid]), color=<span class="org-string">'k'</span>)
+ax[2].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>, zorder=-3)
+ax[2].set_ylabel(<span class="org-string">'Improvement val log lik\nover NMF'</span>)
+ax[2].set_title(<span class="org-string">'NBPVAE'</span>)
+ax[2].set_xticks(grid[::5])
+ax[2].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
+ax[2].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
+ax[2].set_xlabel(<span class="org-string">'Observation in validation set'</span>)
 
 fig.tight_layout()
 </pre>
@@ -780,7 +806,7 @@ Count the fraction of observations equal to one in the validation set.
 </div>
 
 <pre class="example">
-0.033023219573009195
+0.18916266666666667
 
 </pre>
 
@@ -795,10 +821,10 @@ distribution of training set values.
 </div>
 
 <pre class="example">
-0    0.786306
-1    0.139441
-2    0.040593
-3    0.017644
+0    0.540092
+1    0.252876
+2    0.108506
+3    0.050398
 dtype: float64
 </pre>
 
@@ -1477,7 +1503,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-07-26 Sun 12:20</p>
+<p class="date">Created: 2020-07-27 Mon 10:06</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
