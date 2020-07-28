@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-07-25 Sat 12:06 -->
+<!-- 2020-07-28 Tue 15:44 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org53f4e0a">Test for goodness of fit</a></li>
+<li><a href="#org9465c85">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -355,9 +355,9 @@ Here, we directly test for the goodness of fit of the estimated distributions
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org53f4e0a" class="outline-3">
-<h3 id="org53f4e0a">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org53f4e0a">
+<div id="outline-container-org9465c85" class="outline-3">
+<h3 id="org9465c85">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-org9465c85">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -825,8 +825,8 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-org9465c85" class="outline-3">
-<h3 id="gof"><a id="org9465c85"></a>Test for goodness of fit</h3>
+<div id="outline-container-org288e017" class="outline-3">
+<h3 id="gof"><a id="org288e017"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -1406,18 +1406,23 @@ rpy2.rinterface.NULL
 </p>
 
 <div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">query</span> = <span class="org-builtin">list</span>(dat.var.index).index(sig.loc[sig[<span class="org-string">'dataset'</span>] == <span class="org-string">'b_cells'</span>, <span class="org-string">'gene'</span>].head(n=1)[0])
+</pre>
+</div>
+
+<div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
 plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
 fig.set_size_inches(6, 4)
 
-ax[0].hist(dat.X[:,0], bins=np.arange(dat.X[:,0].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
+ax[0].hist(dat.X[:,query], bins=np.arange(dat.X[:,query].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>)
 ax[0].set_xlabel(<span class="org-string">'Number of molecules'</span>)
 ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
-ax[0].set_title(gene_info.loc[dat.var.index[0], <span class="org-string">'name'</span>])
+ax[0].set_title(gene_info.loc[dat.var.index[query], <span class="org-string">'name'</span>])
 
 <span class="org-keyword">for</span> i, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>((<span class="org-string">'gamma'</span>, <span class="org-string">'unimodal'</span>)):
-  ax[1].plot(*<span class="org-builtin">getattr</span>(scmodes.deconvolve, f<span class="org-string">'fit_{m}'</span>)(dat.X[:,0], dat.obs[<span class="org-string">'size'</span>]), c=cm(i), label=m.capitalize())
+  ax[1].plot(*<span class="org-builtin">getattr</span>(scmodes.deconvolve, f<span class="org-string">'fit_{m}'</span>)(dat.X[:,query], dat.obs[<span class="org-string">'size'</span>]), c=cm(i), label=m.capitalize())
 ax[1].legend(frameon=<span class="org-constant">False</span>)
 ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
 ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
@@ -1439,7 +1444,7 @@ Look at the distribution of the MLE \(\hat\lambda_i = x_i / s_i\)
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
 plt.gcf().set_size_inches(3, 3)
-plt.hist(dat.X[:,0] / dat.obs[<span class="org-string">'size'</span>], bins=50, color=<span class="org-string">'k'</span>)
+plt.hist(dat.X[:,query] / dat.obs[<span class="org-string">'size'</span>], bins=50, color=<span class="org-string">'k'</span>)
 plt.xlabel(<span class="org-string">'Relative expression'</span>)
 plt.ylabel(<span class="org-string">'Number of cells'</span>)
 plt.tight_layout()
@@ -1453,45 +1458,38 @@ plt.tight_layout()
 </div>
 
 <p>
-Look at the randomized quantiles for the fitted unimodal distribution.
+Repeat the test for goodness of fit for the fitted unimodal distribution.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">res</span> = scmodes.ebpm.ebpm_unimodal(dat.X[:,0], dat.obs[<span class="org-string">'size'</span>].values)
-<span class="org-variable-name">F</span> = scmodes.benchmark.gof._ash_cdf(dat.X[:,0] - 1, fit=res, s=dat.obs[<span class="org-string">'size'</span>])
-<span class="org-variable-name">f</span> = scmodes.benchmark.gof._ash_pmf(dat.X[:,0], fit=res, s=dat.obs[<span class="org-string">'size'</span>])
+<pre class="src src-ipython"><span class="org-variable-name">res</span> = scmodes.ebpm.ebpm_unimodal(dat.X[:,query], dat.obs[<span class="org-string">'size'</span>].values)
+<span class="org-variable-name">F</span> = scmodes.benchmark.gof._ash_cdf(dat.X[:,query] - 1, fit=res, s=dat.obs[<span class="org-string">'size'</span>])
+<span class="org-variable-name">f</span> = scmodes.benchmark.gof._ash_pmf(dat.X[:,query], fit=res, s=dat.obs[<span class="org-string">'size'</span>])
 np.random.seed(0)
-<span class="org-variable-name">rpp</span> = F + np.random.uniform(size=F.shape[0]) * f
+<span class="org-variable-name">rpp</span> = F + np.random.uniform(size=f.shape) * f
+st.kstest(rpp, <span class="org-string">'uniform'</span>)
 </pre>
 </div>
 
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(3, 3)
-plt.hist(rpp, bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
-plt.axhline(y=1, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'k'</span>)
-plt.xlim(0, 1)
-plt.xlabel(<span class="org-string">'$p$-value'</span>)
-plt.ylabel(<span class="org-string">'Density'</span>)
-plt.tight_layout()
+<pre class="example">
+KstestResult(statistic=0.03257412894279588, pvalue=1.0146593403454815e-09)
+
 </pre>
-</div>
 
-
-<div class="figure">
-<p><img src="figure/gof.org/ENSG00000177954-rpp.png" alt="ENSG00000177954-rpp.png">
+<p>
+Look at the expected randomized quantiles.
 </p>
-</div>
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
 plt.gcf().set_size_inches(3, 3)
-plt.xscale(<span class="org-string">'log'</span>)
-plt.yscale(<span class="org-string">'log'</span>)
-plt.scatter(np.linspace(0, 1, rpp.shape[0] + 2)[1:-1], np.sort(rpp), s=1, c=<span class="org-string">'k'</span>)
-plt.plot([1e-5, 1], [1e-5, 1], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+plt.plot(np.linspace(0, 1, rpp.shape[0] + 2)[1:-1], np.sort(F + .5 * f), lw=1, c=<span class="org-string">'k'</span>)
+<span class="org-variable-name">lim</span> = [0, 1]
+plt.plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+plt.xlim(lim)
+plt.ylim(lim)
 plt.xlabel(<span class="org-string">'Theoretical quantile'</span>)
-plt.ylabel(<span class="org-string">'Randomized quantile'</span>)
+plt.ylabel(<span class="org-string">'Expected randomized quantile'</span>)
 plt.tight_layout()
 </pre>
 </div>
@@ -1499,6 +1497,47 @@ plt.tight_layout()
 
 <div class="figure">
 <p><img src="figure/gof.org/ENSG00000177954-diagnostic.png" alt="ENSG00000177954-diagnostic.png">
+</p>
+</div>
+
+<p>
+Look at the mode search subproblem.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">lam</span> = dat.X[:,query] / dat.obs[<span class="org-string">'size'</span>]
+<span class="org-variable-name">res0</span> = scmodes.ebpm.ebpm_unimodal(dat.X[:,query], dat.obs[<span class="org-string">'size'</span>].values)
+<span class="org-variable-name">mode</span> = np.array(res0.rx2(<span class="org-string">'fitted_g'</span>).rx2(<span class="org-string">'a'</span>))[0]
+<span class="org-variable-name">grid</span> = np.linspace(mode - 1e-3, mode + 1e-3, 100)
+<span class="org-variable-name">res</span> = pd.DataFrame.from_dict(
+  {m: np.array(scmodes.ebpm.ebpm_unimodal(dat.X[:,query], dat.obs[<span class="org-string">'size'</span>], mode=m).rx2(<span class="org-string">'loglik'</span>))
+   <span class="org-keyword">for</span> m <span class="org-keyword">in</span> grid},
+  orient=<span class="org-string">'index'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2)
+fig.set_size_inches(5.5, 2.5)
+ax[0].plot(grid, res[0], lw=1, c=<span class="org-string">'k'</span>)
+ax[0].set_ylabel(<span class="org-string">'Log likelihood'</span>)
+
+ax[1].set_xlim(mode - 1e-3, mode + 1e-3)
+ax[1].set_yscale(<span class="org-string">'symlog'</span>)
+ax[1].plot(grid[:-1], np.diff(res[0]) / np.diff(grid), marker=<span class="org-string">'x'</span>, ms=4, lw=1, c=<span class="org-string">'k'</span>)
+ax[1].axhline(y=0, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'0.5'</span>)
+ax[1].set_ylabel(<span class="org-string">'Deriv log lik'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a.axvline(x=mode, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+  a.set_xlabel(<span class="org-string">'Mode'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/ENSG00000177954-mode.png" alt="ENSG00000177954-mode.png">
 </p>
 </div>
 
@@ -1601,14 +1640,14 @@ Overlay the estimated density with the empirical density of the naive MLE.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">grid</span> = np.linspace(lam.<span class="org-builtin">min</span>(), lam.<span class="org-builtin">max</span>(), 5000)
-<span class="org-variable-name">F</span> = ashr.cdf_ash(res[k], grid)
+<span class="org-variable-name">F</span> = ashr.cdf_ash(res0, grid)
 <span class="org-variable-name">f</span> = np.diff(np.array(F.rx2(<span class="org-string">'y'</span>)).ravel()) / np.diff(grid)
 
 plt.clf()
 plt.gcf().set_size_inches(4, 3)
-plt.plot(grid[:-1], np.log(f + 1e-8), c=<span class="org-string">'r'</span>, lw=1, label=<span class="org-string">'Shrunk'</span>)
-<span class="org-variable-name">h</span> = np.histogram(dat.X[:,0] / dat.obs[<span class="org-string">'size'</span>], density=<span class="org-constant">True</span>, bins=50)
-plt.plot(h[1][:-1], np.log(h[0] + 1e-8), c=<span class="org-string">'k'</span>, lw=1, label=<span class="org-string">'Empirical'</span>)
+plt.plot(grid[:-1], np.log(f), c=<span class="org-string">'r'</span>, lw=1, label=<span class="org-string">'Shrunk'</span>)
+<span class="org-variable-name">h</span> = np.histogram(dat.X[:,query] / dat.obs[<span class="org-string">'size'</span>], density=<span class="org-constant">True</span>, bins=50)
+plt.plot(h[1][:-1], np.log(h[0]), c=<span class="org-string">'k'</span>, lw=1, label=<span class="org-string">'Empirical'</span>)
 plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
 plt.xlabel(<span class="org-string">'Relative expression'</span>)
 plt.ylabel(<span class="org-string">'Log density'</span>)
@@ -1657,7 +1696,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-07-25 Sat 12:06</p>
+<p class="date">Created: 2020-07-28 Tue 15:44</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

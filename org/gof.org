@@ -31,7 +31,7 @@
   #+END_SRC
 
   #+RESULTS:
-  : 1
+  : 2
 
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
@@ -612,7 +612,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[8]:
+    # Out[30]:
     :END:
 
     To reduce computational burden, run ~ashr~ only on genes which
@@ -1018,7 +1018,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[25]:
    :END:
 
    Populate the database with the top 100 genes departing from each fitted
@@ -1036,7 +1036,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[10]:
+   # Out[31]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -1118,19 +1118,28 @@
 
    /RPS27/ departs from Gamma, point-Gamma, and unimodal.
 
+   #+BEGIN_SRC ipython
+     query = list(dat.var.index).index(sig.loc[sig['dataset'] == 'b_cells', 'gene'].head(n=1)[0])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[23]:
+   :END:
+
    #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954.png
      cm = plt.get_cmap('Dark2')
      plt.clf()
      fig, ax = plt.subplots(2, 1)
      fig.set_size_inches(6, 4)
 
-     ax[0].hist(dat.X[:,0], bins=np.arange(dat.X[:,0].max() + 1), color='k')
+     ax[0].hist(dat.X[:,query], bins=np.arange(dat.X[:,query].max() + 1), color='k')
      ax[0].set_xlabel('Number of molecules')
      ax[0].set_ylabel('Number of cells')
-     ax[0].set_title(gene_info.loc[dat.var.index[0], 'name'])
+     ax[0].set_title(gene_info.loc[dat.var.index[query], 'name'])
 
      for i, m in enumerate(('gamma', 'unimodal')):
-       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{m}')(dat.X[:,0], dat.obs['size']), c=cm(i), label=m.capitalize())
+       ax[1].plot(*getattr(scmodes.deconvolve, f'fit_{m}')(dat.X[:,query], dat.obs['size']), c=cm(i), label=m.capitalize())
      ax[1].legend(frameon=False)
      ax[1].set_xlabel('Latent gene expression')
      ax[1].set_ylabel('CDF')
@@ -1139,7 +1148,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[54]:
+   # Out[38]:
    [[file:figure/gof.org/ENSG00000177954.png]]
    :END:
 
@@ -1149,7 +1158,7 @@
    #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-naive.png
      plt.clf()
      plt.gcf().set_size_inches(3, 3)
-     plt.hist(dat.X[:,0] / dat.obs['size'], bins=50, color='k')
+     plt.hist(dat.X[:,query] / dat.obs['size'], bins=50, color='k')
      plt.xlabel('Relative expression')
      plt.ylabel('Number of cells')
      plt.tight_layout()
@@ -1157,58 +1166,88 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[50]:
+   # Out[39]:
    [[file:figure/gof.org/ENSG00000177954-naive.png]]
    :END:
 
-   Look at the randomized quantiles for the fitted unimodal distribution.
+   Repeat the test for goodness of fit for the fitted unimodal distribution.
 
    #+BEGIN_SRC ipython :async t
-     res = scmodes.ebpm.ebpm_unimodal(dat.X[:,0], dat.obs['size'].values)
-     F = scmodes.benchmark.gof._ash_cdf(dat.X[:,0] - 1, fit=res, s=dat.obs['size'])
-     f = scmodes.benchmark.gof._ash_pmf(dat.X[:,0], fit=res, s=dat.obs['size'])
+     res = scmodes.ebpm.ebpm_unimodal(dat.X[:,query], dat.obs['size'].values)
+     F = scmodes.benchmark.gof._ash_cdf(dat.X[:,query] - 1, fit=res, s=dat.obs['size'])
+     f = scmodes.benchmark.gof._ash_pmf(dat.X[:,query], fit=res, s=dat.obs['size'])
      np.random.seed(0)
-     rpp = F + np.random.uniform(size=F.shape[0]) * f
+     rpp = F + np.random.uniform(size=f.shape) * f
+     st.kstest(rpp, 'uniform')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[40]:
+   : KstestResult(statistic=0.03257412894279588, pvalue=1.0146593403454815e-09)
    :END:
 
-   #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-rpp.png
-     plt.clf()
-     plt.gcf().set_size_inches(3, 3)
-     plt.hist(rpp, bins=np.linspace(0, 1, 11), color='0.7', density=True)
-     plt.axhline(y=1, ls=':', lw=1, c='k')
-     plt.xlim(0, 1)
-     plt.xlabel('$p$-value')
-     plt.ylabel('Density')
-     plt.tight_layout()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[8]:
-   [[file:figure/gof.org/ENSG00000177954-rpp.png]]
-   :END:
+   Look at the expected randomized quantiles.
 
    #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-diagnostic.png
      plt.clf()
      plt.gcf().set_size_inches(3, 3)
-     plt.xscale('log')
-     plt.yscale('log')
-     plt.scatter(np.linspace(0, 1, rpp.shape[0] + 2)[1:-1], np.sort(rpp), s=1, c='k')
-     plt.plot([1e-5, 1], [1e-5, 1], lw=1, ls=':', c='r')
+     plt.plot(np.linspace(0, 1, rpp.shape[0] + 2)[1:-1], np.sort(F + .5 * f), lw=1, c='k')
+     lim = [0, 1]
+     plt.plot(lim, lim, lw=1, ls=':', c='r')
+     plt.xlim(lim)
+     plt.ylim(lim)
      plt.xlabel('Theoretical quantile')
-     plt.ylabel('Randomized quantile')
+     plt.ylabel('Expected randomized quantile')
      plt.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[10]:
+   # Out[43]:
    [[file:figure/gof.org/ENSG00000177954-diagnostic.png]]
+   :END:
+
+   Look at the mode search subproblem.
+
+   #+BEGIN_SRC ipython :async t
+     lam = dat.X[:,query] / dat.obs['size']
+     res0 = scmodes.ebpm.ebpm_unimodal(dat.X[:,query], dat.obs['size'].values)
+     mode = np.array(res0.rx2('fitted_g').rx2('a'))[0]
+     grid = np.linspace(mode - 1e-3, mode + 1e-3, 100)
+     res = pd.DataFrame.from_dict(
+       {m: np.array(scmodes.ebpm.ebpm_unimodal(dat.X[:,query], dat.obs['size'], mode=m).rx2('loglik'))
+        for m in grid},
+       orient='index')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[78]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-mode.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 2)
+     fig.set_size_inches(5.5, 2.5)
+     ax[0].plot(grid, res[0], lw=1, c='k')
+     ax[0].set_ylabel('Log likelihood')
+
+     ax[1].set_xlim(mode - 1e-3, mode + 1e-3)
+     ax[1].set_yscale('symlog')
+     ax[1].plot(grid[:-1], np.diff(res[0]) / np.diff(grid), marker='x', ms=4, lw=1, c='k')
+     ax[1].axhline(y=0, lw=1, ls=':', c='0.5')
+     ax[1].set_ylabel('Deriv log lik')
+     for a in ax:
+       a.axvline(x=mode, lw=1, ls=':', c='r')
+       a.set_xlabel('Mode')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[82]:
+   [[file:figure/gof.org/ENSG00000177954-mode.png]]
    :END:
 
    Fit models with finer grids.
@@ -1309,14 +1348,14 @@
 
    #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-fitted-g.png
      grid = np.linspace(lam.min(), lam.max(), 5000)
-     F = ashr.cdf_ash(res[k], grid)
+     F = ashr.cdf_ash(res0, grid)
      f = np.diff(np.array(F.rx2('y')).ravel()) / np.diff(grid)
 
      plt.clf()
      plt.gcf().set_size_inches(4, 3)
-     plt.plot(grid[:-1], np.log(f + 1e-8), c='r', lw=1, label='Shrunk')
-     h = np.histogram(dat.X[:,0] / dat.obs['size'], density=True, bins=50)
-     plt.plot(h[1][:-1], np.log(h[0] + 1e-8), c='k', lw=1, label='Empirical')
+     plt.plot(grid[:-1], np.log(f), c='r', lw=1, label='Shrunk')
+     h = np.histogram(dat.X[:,query] / dat.obs['size'], density=True, bins=50)
+     plt.plot(h[1][:-1], np.log(h[0]), c='k', lw=1, label='Empirical')
      plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
      plt.xlabel('Relative expression')
      plt.ylabel('Log density')
@@ -1325,7 +1364,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[114]:
+   # Out[85]:
    [[file:figure/gof.org/ENSG00000177954-fitted-g.png]]
    :END:
 
