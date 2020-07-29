@@ -1100,7 +1100,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
+   # Out[5]:
    :END:
 
    Get examples of genes which significantly depart from the estimated unimodal
@@ -1112,7 +1112,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[10]:
+   # Out[6]:
    :END:
 
    Write out the data to RDS.
@@ -1143,7 +1143,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[13]:
+   # Out[7]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954.png
@@ -1192,9 +1192,9 @@
    Repeat the test for goodness of fit for the fitted unimodal distribution.
 
    #+BEGIN_SRC ipython :async t
-     res = scmodes.ebpm.ebpm_unimodal(dat.X[:,query], dat.obs['size'].values)
-     F = scmodes.benchmark.gof._ash_cdf(dat.X[:,query] - 1, fit=res, s=dat.obs['size'])
-     f = scmodes.benchmark.gof._ash_pmf(dat.X[:,query], fit=res, s=dat.obs['size'])
+     unimodal_res = scmodes.ebpm.ebpm_unimodal(dat.X[:,query], dat.obs['size'].values)
+     F = scmodes.benchmark.gof._ash_cdf(dat.X[:,query] - 1, fit=unimodal_res, s=dat.obs['size'])
+     f = scmodes.benchmark.gof._ash_pmf(dat.X[:,query], fit=unimodal_res, s=dat.obs['size'])
      np.random.seed(0)
      rpp = F + np.random.uniform(size=f.shape) * f
      st.kstest(rpp, 'uniform')
@@ -1202,7 +1202,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[15]:
+   # Out[9]:
    : KstestResult(statistic=0.03257412894279588, pvalue=1.0146593403454815e-09)
    :END:
 
@@ -1389,6 +1389,11 @@
 
    Plot the (average) marginal density over the observed data.
 
+   \begin{align}
+     \Pr(x = k) &= E_{x_{i+} \sim \hat{p}(x_{i+})}[\Pr(x = k \mid x_{i+})]\\
+     &= \frac{1}{n} \sum_i \int_0^{\infty} \operatorname{Poisson}(k; x_{i+} \lambda\)\, dg(\lambda)
+   \end{align}
+
    #+BEGIN_SRC ipython :async t
      pmf = dict()
      gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
@@ -1428,6 +1433,113 @@
    :RESULTS:
    # Out[67]:
    [[file:figure/gof.org/ENSG00000177954-fit.png]]
+   :END:
+
+   One possibility is that the departure from the fitted distribution is caused
+   by the assumption that \(g\) does not depend on \(x_{i+}\). First, fit a
+   fully non-parametric model and test for goodness of fit.
+
+   #+BEGIN_SRC ipython :async t
+     npmle_res = scmodes.ebpm.ebpm_npmle(dat.X[:,query], dat.obs['size'].values)
+     F = scmodes.benchmark.gof._ash_cdf(dat.X[:,query] - 1, fit=npmle_res, s=dat.obs['size'])
+     f = scmodes.benchmark.gof._ash_pmf(dat.X[:,query], fit=npmle_res, s=dat.obs['size'])
+     np.random.seed(0)
+     rpp = F + np.random.uniform(size=f.shape) * f
+     st.kstest(rpp, 'uniform')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[10]:
+   : KstestResult(statistic=0.03233198676384014, pvalue=1.3931326313216651e-09)
+   :END:
+
+   Compare the log likelihoods of the fit.
+
+   #+BEGIN_SRC ipython
+     (np.array(npmle_res.rx2('loglik')) - np.array(unimodal_res.rx2('loglik')))[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[11]:
+   : 1.0301746905533946
+   :END:
+
+   Plot the average density.
+
+   #+BEGIN_SRC ipython :async t
+     pmf = dict()
+     x = dat.X[:,query]
+     s = dat.obs['size']
+     y = np.arange(x.max() + 1)
+
+     gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
+     pmf[f'Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean(axis=0) for k in y])
+
+     g = np.array(unimodal_res.rx2('fitted_g'))
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     comp_dens_conv[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+     pmf[f'Unimodal'] = comp_dens_conv @ g[0]
+
+     g = np.array(npmle_res.rx2('fitted_g'))
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     comp_dens_conv[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+     pmf[f'NPMLE'] = comp_dens_conv @ g[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[13]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-fit2.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2)
+     plt.hist(dat.X[:,query], bins=np.arange(dat.X[:,query].max() + 1), color='k', density=True)
+     for i, (k, ls) in enumerate(zip(pmf, ['-', '--', '-.'])):
+       plt.plot(y, pmf[k], c=cm(i), lw=1, ls=ls, label=k)
+     plt.legend(frameon=False)
+     plt.xlabel('Number of molecules')
+     plt.ylabel('Density')
+     plt.title(gene_info.loc[dat.var.index[query], 'name'])
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[19]:
+   [[file:figure/gof.org/ENSG00000177954-fit2.png]]
+   :END:
+
+   Fit two expression models, one to the 10% of samples with smallest
+   \(x_{i+}\), and one to the 10% of samples with largest \(x_{i+}\), then
+   compare the fitted models.
+
+   #+BEGIN_SRC ipython :async t :ipyfile figure/gof.org/ENSG00000177954-prior-by-size.png
+     cm = plt.get_cmap('Dark2')
+     order = np.argsort(s.values)
+     low_pass = order[:1000]
+     high_pass = order[-1000:]
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2)
+     plt.plot(*getattr(scmodes.deconvolve, f'fit_unimodal')(x[low_pass], s.values[low_pass]), c=cm(0), lw=1, label='Bottom 10% $s_i$')
+     plt.plot(*getattr(scmodes.deconvolve, f'fit_unimodal')(x[high_pass], s.values[high_pass]), c=cm(1), lw=1, label='Top 10% $s_i$')
+     plt.legend(frameon=False)
+     plt.xlabel('Latent gene expression')
+     plt.ylabel('CDF')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[30]:
+   [[file:figure/gof.org/ENSG00000177954-prior-by-size.png]]
    :END:
 
    /CXCR4/ departs from Gamma, but not from point-Gamma.

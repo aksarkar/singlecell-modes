@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-07-29 Wed 13:23 -->
+<!-- 2020-07-29 Wed 17:28 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org288e017">Test for goodness of fit</a></li>
+<li><a href="#orga37d71a">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -355,9 +355,9 @@ Here, we directly test for the goodness of fit of the estimated distributions
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org288e017" class="outline-3">
-<h3 id="org288e017">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org288e017">
+<div id="outline-container-orga37d71a" class="outline-3">
+<h3 id="orga37d71a">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-orga37d71a">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -825,8 +825,8 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-orge69a5b4" class="outline-3">
-<h3 id="gof"><a id="orge69a5b4"></a>Test for goodness of fit</h3>
+<div id="outline-container-org396b911" class="outline-3">
+<h3 id="gof"><a id="org396b911"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
@@ -1479,9 +1479,9 @@ Repeat the test for goodness of fit for the fitted unimodal distribution.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">res</span> = scmodes.ebpm.ebpm_unimodal(dat.X[:,query], dat.obs[<span class="org-string">'size'</span>].values)
-<span class="org-variable-name">F</span> = scmodes.benchmark.gof._ash_cdf(dat.X[:,query] - 1, fit=res, s=dat.obs[<span class="org-string">'size'</span>])
-<span class="org-variable-name">f</span> = scmodes.benchmark.gof._ash_pmf(dat.X[:,query], fit=res, s=dat.obs[<span class="org-string">'size'</span>])
+<pre class="src src-ipython"><span class="org-variable-name">unimodal_res</span> = scmodes.ebpm.ebpm_unimodal(dat.X[:,query], dat.obs[<span class="org-string">'size'</span>].values)
+<span class="org-variable-name">F</span> = scmodes.benchmark.gof._ash_cdf(dat.X[:,query] - 1, fit=unimodal_res, s=dat.obs[<span class="org-string">'size'</span>])
+<span class="org-variable-name">f</span> = scmodes.benchmark.gof._ash_pmf(dat.X[:,query], fit=unimodal_res, s=dat.obs[<span class="org-string">'size'</span>])
 np.random.seed(0)
 <span class="org-variable-name">rpp</span> = F + np.random.uniform(size=f.shape) * f
 st.kstest(rpp, <span class="org-string">'uniform'</span>)
@@ -1682,6 +1682,11 @@ plt.tight_layout()
 Plot the (average) marginal density over the observed data.
 </p>
 
+\begin{align}
+  \Pr(x = k) &= E_{x_{i+} \sim \hat{p}(x_{i+})}[\Pr(x = k \mid x_{i+})]\\
+  &= \frac{1}{n} \sum_i \int_0^{\infty} \operatorname{Poisson}(k; x_{i+} \lambda\)\, dg(\lambda)
+\end{align}
+
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
 <span class="org-variable-name">gamma_res</span> = scmodes.ebpm.ebpm_gamma(x, s)
@@ -1721,6 +1726,119 @@ plt.tight_layout()
 </div>
 
 <p>
+One possibility is that the departure from the fitted distribution is caused
+by the assumption that \(g\) does not depend on \(x_{i+}\). First, fit a
+fully non-parametric model and test for goodness of fit.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">npmle_res</span> = scmodes.ebpm.ebpm_npmle(dat.X[:,query], dat.obs[<span class="org-string">'size'</span>].values)
+<span class="org-variable-name">F</span> = scmodes.benchmark.gof._ash_cdf(dat.X[:,query] - 1, fit=npmle_res, s=dat.obs[<span class="org-string">'size'</span>])
+<span class="org-variable-name">f</span> = scmodes.benchmark.gof._ash_pmf(dat.X[:,query], fit=npmle_res, s=dat.obs[<span class="org-string">'size'</span>])
+np.random.seed(0)
+<span class="org-variable-name">rpp</span> = F + np.random.uniform(size=f.shape) * f
+st.kstest(rpp, <span class="org-string">'uniform'</span>)
+</pre>
+</div>
+
+<pre class="example">
+KstestResult(statistic=0.03233198676384014, pvalue=1.3931326313216651e-09)
+
+</pre>
+
+<p>
+Compare the log likelihoods of the fit.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">(np.array(npmle_res.rx2(<span class="org-string">'loglik'</span>)) - np.array(unimodal_res.rx2(<span class="org-string">'loglik'</span>)))[0]
+</pre>
+</div>
+
+<pre class="example">
+1.0301746905533946
+
+</pre>
+
+<p>
+Plot the average density.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
+<span class="org-variable-name">x</span> = dat.X[:,query]
+<span class="org-variable-name">s</span> = dat.obs[<span class="org-string">'size'</span>]
+<span class="org-variable-name">y</span> = np.arange(x.<span class="org-builtin">max</span>() + 1)
+
+<span class="org-variable-name">gamma_res</span> = scmodes.ebpm.ebpm_gamma(x, s)
+<span class="org-variable-name">pmf</span>[f<span class="org-string">'Gamma'</span>] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean(axis=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+
+<span class="org-variable-name">g</span> = np.array(unimodal_res.rx2(<span class="org-string">'fitted_g'</span>))
+<span class="org-variable-name">a</span> = np.fmin(g[1], g[2])
+<span class="org-variable-name">b</span> = np.fmax(g[1], g[2])
+<span class="org-variable-name">comp_dens_conv</span> = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-variable-name">comp_dens_conv</span>[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+<span class="org-variable-name">pmf</span>[f<span class="org-string">'Unimodal'</span>] = comp_dens_conv @ g[0]
+
+<span class="org-variable-name">g</span> = np.array(npmle_res.rx2(<span class="org-string">'fitted_g'</span>))
+<span class="org-variable-name">a</span> = np.fmin(g[1], g[2])
+<span class="org-variable-name">b</span> = np.fmax(g[1], g[2])
+<span class="org-variable-name">comp_dens_conv</span> = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-variable-name">comp_dens_conv</span>[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+<span class="org-variable-name">pmf</span>[f<span class="org-string">'NPMLE'</span>] = comp_dens_conv @ g[0]
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(4, 2)
+plt.hist(dat.X[:,query], bins=np.arange(dat.X[:,query].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>, density=<span class="org-constant">True</span>)
+<span class="org-keyword">for</span> i, (k, ls) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(pmf, [<span class="org-string">'-'</span>, <span class="org-string">'--'</span>, <span class="org-string">'-.'</span>])):
+  plt.plot(y, pmf[k], c=cm(i), lw=1, ls=ls, label=k)
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.xlabel(<span class="org-string">'Number of molecules'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.title(gene_info.loc[dat.var.index[query], <span class="org-string">'name'</span>])
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/ENSG00000177954-fit2.png" alt="ENSG00000177954-fit2.png">
+</p>
+</div>
+
+<p>
+Fit two expression models, one to the 10% of samples with smallest
+\(x_{i+}\), and one to the 10% of samples with largest \(x_{i+}\), then
+compare the fitted models.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+<span class="org-variable-name">order</span> = np.argsort(s.values)
+<span class="org-variable-name">low_pass</span> = order[:1000]
+<span class="org-variable-name">high_pass</span> = order[-1000:]
+plt.clf()
+plt.gcf().set_size_inches(4, 2)
+plt.plot(*<span class="org-builtin">getattr</span>(scmodes.deconvolve, f<span class="org-string">'fit_unimodal'</span>)(x[low_pass], s.values[low_pass]), c=cm(0), lw=1, label=<span class="org-string">'Bottom 10% $s_i$'</span>)
+plt.plot(*<span class="org-builtin">getattr</span>(scmodes.deconvolve, f<span class="org-string">'fit_unimodal'</span>)(x[high_pass], s.values[high_pass]), c=cm(1), lw=1, label=<span class="org-string">'Top 10% $s_i$'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.xlabel(<span class="org-string">'Latent gene expression'</span>)
+plt.ylabel(<span class="org-string">'CDF'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/ENSG00000177954-prior-by-size.png" alt="ENSG00000177954-prior-by-size.png">
+</p>
+</div>
+
+<p>
 <i>CXCR4</i> departs from Gamma, but not from point-Gamma.
 </p>
 
@@ -1755,7 +1873,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-07-29 Wed 13:23</p>
+<p class="date">Created: 2020-07-29 Wed 17:28</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
