@@ -612,7 +612,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[30]:
+    # Out[7]:
     :END:
 
     To reduce computational burden, run ~ashr~ only on genes which
@@ -1018,7 +1018,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[25]:
+   # Out[5]:
    :END:
 
    Populate the database with the top 100 genes departing from each fitted
@@ -1084,6 +1084,25 @@
    :CUSTOM_ID: examples
    :END:
 
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     gene_info = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz', sep='\t', index_col=0)
+     gof_res = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/gof.txt.gz', sep='\t', index_col=0)
+     sig = (gof_res
+            .loc[gof_res['method'] == 'unimodal']
+            .groupby('dataset')
+            .apply(lambda x: x.loc[x['p'] < 0.05 / x.shape[0]].sort_values('p').head(n=100))
+            .reset_index(drop=True)
+            .merge(gene_info, on='gene', how='left')
+            [['dataset', 'gene', 'name', 'method', 'stat', 'p']])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[12]:
+   :END:
+
    Get examples of genes which significantly depart from the estimated unimodal
    distribution, but are clearly unimodal upon inspection.
 
@@ -1093,7 +1112,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[10]:
    :END:
 
    Write out the data to RDS.
@@ -1124,7 +1143,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[23]:
+   # Out[13]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954.png
@@ -1183,7 +1202,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[40]:
+   # Out[15]:
    : KstestResult(statistic=0.03257412894279588, pvalue=1.0146593403454815e-09)
    :END:
 
@@ -1191,7 +1210,7 @@
 
    #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-diagnostic.png
      plt.clf()
-     plt.gcf().set_size_inches(3, 3)
+     plt.gcf().set_size_inches(2.5, 2.5)
      plt.plot(np.linspace(0, 1, rpp.shape[0] + 2)[1:-1], np.sort(F + .5 * f), lw=1, c='k')
      lim = [0, 1]
      plt.plot(lim, lim, lw=1, ls=':', c='r')
@@ -1204,7 +1223,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[43]:
+   # Out[20]:
    [[file:figure/gof.org/ENSG00000177954-diagnostic.png]]
    :END:
 
@@ -1366,6 +1385,49 @@
    :RESULTS:
    # Out[85]:
    [[file:figure/gof.org/ENSG00000177954-fitted-g.png]]
+   :END:
+
+   Plot the (average) marginal density over the observed data.
+
+   #+BEGIN_SRC ipython :async t
+     pmf = dict()
+     gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
+     x = dat.X[:,query]
+     s = dat.obs['size']
+     y = np.arange(x.max() + 1)
+     g = np.array(res.rx2('fitted_g'))
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     for q in (.1, .25, .5, .75, .9):
+       pmf[f'Gamma ($q$={q})'] = np.array([np.percentile(scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]), 100 * q) for k in y])
+       comp_dens_conv = np.array([np.percentile(((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)), 100 * q, axis=0) for k in y])
+       comp_dens_conv[:,0] = np.percentile(st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y), 100 * q, axis=0)
+       pmf[f'Unimodal ($q$={q})'] = comp_dens_conv @ g[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[61]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000177954-fit.png
+     cm = plt.get_cmap('Paired')
+     plt.clf()
+     plt.gcf().set_size_inches(7.5, 2.5)
+     plt.hist(dat.X[:,query], bins=np.arange(dat.X[:,query].max() + 1), color='k', density=True)
+     for i, k in enumerate(pmf):
+       plt.plot(y, pmf[k], c=cm(i), lw=1, label=k)
+     plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5), ncol=2)
+     plt.xlabel('Number of molecules')
+     plt.ylabel('Density')
+     plt.title(gene_info.loc[dat.var.index[query], 'name'])
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[67]:
+   [[file:figure/gof.org/ENSG00000177954-fit.png]]
    :END:
 
    /CXCR4/ departs from Gamma, but not from point-Gamma.
