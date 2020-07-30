@@ -33,7 +33,7 @@
   #+RESULTS:
   : 2
 
-  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
+  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
   : Submitted batch job 65670739
@@ -566,7 +566,7 @@
 
     #+BEGIN_SRC ipython :async t
       gof_res = []
-      for m in ['point', 'gpu', 'unimodal']:
+      for m in ['point', 'gpu', 'unimodal', 'npmle']:
         res = dict()
         for k in data:
           f = f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-{m}.txt.gz'
@@ -580,7 +580,7 @@
               res[k].index.name = 'gene'
             if 'gene.1' in res[k].columns:
               del res[k]['gene.1']
-            if m == 'unimodal':
+            if m in ('unimodal', 'npmle'):
               res[k] = res[k].reset_index(drop=(res[k].index.name != 'gene'))
         gof_res.append(pd.concat(res, sort=True)
                        .reset_index(level=0)
@@ -590,7 +590,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[6]:
+    # Out[41]:
     :END:
 
     Write out the post-processed results.
@@ -601,7 +601,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[7]:
+    # Out[42]:
     :END:
 
     Read the post-processed results.
@@ -617,10 +617,17 @@
 
     To reduce computational burden, run ~ashr~ only on genes which
     significantly departed from a Gamma assumption on expression variation in
-    each dataset. (This is implicitly assuming that ~ashr~ will fit data which
-    did not depart from a Gamma assumption, because the Gamma distribution is
-    unimodal; however, in practice this can sometimes fail due to a yet to be
-    tracked down bug.)
+    each dataset. There are several reasons why a gene might depart from the
+    fitted Gamma expression model:
+
+    1. The variance is larger than predicted by a Gamma
+    2. The proportion of zeros is larger than predicted by a Gamma
+    3. The true gene expression is multi-modal
+    4. The true gene expression is not independent of the size factor.
+
+    Under (2), a point-Gamma model will fit better. Under (3), a unimodal model
+    will not fit the data better. Under (4), a non-parametric model will not
+    fit the data better.
 
     #+BEGIN_SRC ipython
       sig = (gof_res[gof_res['method'] == 'gamma']
@@ -662,7 +669,7 @@
     :END:
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 10
+      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 22
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -672,12 +679,12 @@
       import os
       import scipy.sparse as ss
       <<data>>
-      tasks = list(data.keys())
-      task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+      tasks = [(m, d) for m in ('unimodal', 'npmle') for d in data]
+      m, d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
       with mp.Pool(maxtasksperchild=20) as pool:
         # Important: this needs to be done after initializing the pool to avoid
         # memory duplication
-        x = anndata.read_h5ad(f'/scratch/midway2/aksarkar/modes/unimodal-data/{task}.h5ad')
+        x = anndata.read_h5ad(f'/scratch/midway2/aksarkar/modes/unimodal-data/{d}.h5ad')
         if ss.isspmatrix(x.X):
           y = x.X.A
         else:
@@ -685,14 +692,14 @@
         res = scmodes.benchmark.evaluate_gof(pd.DataFrame(y, index=x.obs.index, columns=x.var.index), 
                                              s=x.obs['size'], 
                                              pool=pool, 
-                                             methods=['unimodal'])
+                                             methods=[m])
         res.index = x.var.index
-        res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{task}-unimodal.txt.gz', compression='gzip', sep='\t')
+        res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{d}-{m}.txt.gz', compression='gzip', sep='\t')
       EOF
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 3200367
+    : Submitted batch job 3264061
 
     Run goodness of fit tests for a point mass assumption on control data sets
     only.
@@ -839,7 +846,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[8]:
+    # Out[9]:
     :END:
 
     Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
@@ -908,20 +915,20 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[9]:
+    # Out[10]:
     #+BEGIN_EXAMPLE
-      method               gamma  unimodal   zig
+      method               gamma  npmle  unimodal   zig
       dataset
-      b_cells                 53        10    45
-      brain                  399        63   400
-      cytotoxic_t             35         0    34
-      cytotoxic_t-b_cells   1077        19  1070
-      cytotoxic_t-naive_t    945        20   951
-      ipsc                  2251         6  2244
-      kidney                3487      1815  2934
-      liver-caudate-lobe    5365      4796  4559
-      pbmcs_68k              422        22   409
-      retina                 226       133   202
+      b_cells                 53     10        10    45
+      brain                  399     74        63   400
+      cytotoxic_t             35      1         0    34
+      cytotoxic_t-b_cells   1077     31        19  1070
+      cytotoxic_t-naive_t    945     24        17   951
+      ipsc                  2251     11         6  2244
+      kidney                3487   2104      1815  2934
+      liver-caudate-lobe    5365   4831      4796  4559
+      pbmcs_68k              422     48        22   409
+      retina                 226    125       133   202
     #+END_EXAMPLE
     :END:
 
@@ -940,20 +947,20 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[10]:
+    # Out[11]:
     #+BEGIN_EXAMPLE
-      method                  gamma  unimodal       zig
+      method                  gamma     npmle  unimodal       zig
       dataset
-      b_cells              0.991741  0.811321  0.992987
-      brain                0.966025  0.842105  0.965940
-      cytotoxic_t          0.994640  1.000000  0.994793
-      cytotoxic_t-b_cells  0.837972  0.982358  0.839025
-      cytotoxic_t-naive_t  0.848703  0.978836  0.847743
-      ipsc                 0.773928  0.997335  0.774631
-      kidney               0.587971  0.479495  0.653314
-      liver-caudate-lobe   0.496055  0.106058  0.571764
-      pbmcs_68k            0.935097  0.947867  0.937096
-      retina               0.977506  0.411504  0.979894
+      b_cells              0.991741  0.811321  0.811321  0.992987
+      brain                0.966025  0.814536  0.842105  0.965940
+      cytotoxic_t          0.994640  0.971429  1.000000  0.994793
+      cytotoxic_t-b_cells  0.837972  0.971216  0.982358  0.839025
+      cytotoxic_t-naive_t  0.848703  0.974603  0.982011  0.847743
+      ipsc                 0.773928  0.995113  0.997335  0.774631
+      kidney               0.587971  0.396616  0.479495  0.653314
+      liver-caudate-lobe   0.496055  0.099534  0.106058  0.571764
+      pbmcs_68k            0.935097  0.886256  0.947867  0.937096
+      retina               0.977506  0.446903  0.411504  0.979894
     #+END_EXAMPLE
     :END:
 
@@ -1001,6 +1008,38 @@
       liver-caudate-lobe     0.155079
       pbmcs_68k              0.099526
       retina                 0.230088
+      dtype: float64
+    #+END_EXAMPLE
+    :END:
+
+    Report the fraction of genes which depart from a unimodal assumption, but not
+    a fully non-parametric assumption on expression variation.
+
+    #+BEGIN_SRC ipython
+      query = (gof_res[(gof_res['dataset'].isin(non_control)) & (gof_res['method'].isin(['unimodal', 'npmle']))]
+               .pivot_table(index=['dataset', 'gene'], columns=['method'], values=['p', 'stat']))
+      (query
+       .groupby(level=0)
+       .apply(lambda x: np.logical_and(x['p']['unimodal'] < .05 / x.shape[0],
+                                       x['p']['npmle'] >= .05 / x.shape[0]).sum()
+              / (x['p']['unimodal'] < .05 / x.shape[0]).sum()))
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[45]:
+    #+BEGIN_EXAMPLE
+      dataset
+      b_cells                0.200000
+      brain                  0.111111
+      cytotoxic_t                 NaN
+      cytotoxic_t-b_cells    0.684211
+      cytotoxic_t-naive_t    0.235294
+      ipsc                   0.333333
+      kidney                 0.012121
+      liver-caudate-lobe     0.049833
+      pbmcs_68k              0.045455
+      retina                 0.150376
       dtype: float64
     #+END_EXAMPLE
     :END:
