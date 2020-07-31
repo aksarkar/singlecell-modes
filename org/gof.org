@@ -33,7 +33,7 @@
   #+RESULTS:
   : 2
 
-  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
   : Submitted batch job 65670739
@@ -626,8 +626,8 @@
     4. The true gene expression is not independent of the size factor.
 
     Under (2), a point-Gamma model will fit better. Under (3), a unimodal model
-    will not fit the data better. Under (4), a non-parametric model will not
-    fit the data better.
+    will not fit the data. Under (4), even a fully non-parametric model will
+    not fit the data.
 
     #+BEGIN_SRC ipython
       sig = (gof_res[gof_res['method'] == 'gamma']
@@ -637,7 +637,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[73]:
+    # Out[8]:
     :END:
 
     #+BEGIN_SRC ipython :async t
@@ -722,6 +722,42 @@
 
     #+RESULTS:
     : Submitted batch job 65670673
+
+    Evaluate the log likelihood ratio between the unimodal and non-parametric
+    expression models.
+
+    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 7-15
+      #!/bin/bash
+      source activate scmodes
+      python <<EOF
+      <<imports>>
+      import anndata
+      import multiprocessing as mp
+      import os
+      import scipy.sparse as ss
+      <<data>>
+      tasks = list(data.keys())
+      d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+      with mp.Pool(maxtasksperchild=20) as pool:
+        # Important: this needs to be done after initializing the pool to avoid
+        # memory duplication
+        x = anndata.read_h5ad(f'/scratch/midway2/aksarkar/modes/unimodal-data/{d}.h5ad')
+        if ss.isspmatrix(x.X):
+          y = x.X.A
+        else:
+          y = x.X
+        res = scmodes.benchmark.evaluate_lr(pd.DataFrame(y, index=x.obs.index, columns=x.var.index), 
+                                            s=x.obs['size'], 
+                                            pool=pool)
+        res.index = x.var.index
+        res.to_csv(f'/scratch/midway2/aksarkar/modes/gof/{d}-llr.txt.gz', compression='gzip', sep='\t')
+      EOF
+
+    #+END_SRC
+
+    #+RESULTS:
+    : Submitted batch job 3267625
 
 ** Application to control data sets
 
@@ -846,7 +882,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[9]:
+    # Out[6]:
     :END:
 
     Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
@@ -1041,6 +1077,48 @@
       pbmcs_68k              0.045455
       retina                 0.150376
       dtype: float64
+    #+END_EXAMPLE
+    :END:
+
+    Report the number of genes where the log likelihood difference between the
+    non-parametric expression model and unimodal model exceeds \(t \in (1, 10,
+    100, 1000)\), for genes which did not depart from a non-parametric
+    assumption on expression variation.
+
+    #+BEGIN_SRC ipython
+      llr = pd.concat({k: pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-llr.txt.gz', sep='\t', index_col=0) for k in non_control}).reset_index()
+      query = (gof_res[(gof_res['dataset'].isin(non_control)) & (gof_res['method'] == 'npmle')]
+               .pivot_table(index=['dataset', 'gene'], columns=['method'], values=['p'])
+               .groupby(level=0)
+               .apply(lambda x: x.loc[x['p']['npmle'] > .05 / x.shape[0]])
+               .reset_index(level=0, drop=True)
+               .reset_index())
+      (llr
+       .merge(query, left_on=['level_0', 'gene'], right_on=['dataset', 'gene'])
+       .groupby('level_0')
+       ['llr']
+       .apply(lambda x: pd.Series({t: (x > t).mean() for t in (1, 10, 100, 1000)}))
+       .reset_index()
+       .pivot_table(index='level_0', columns='level_1'))
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[87]:
+    #+BEGIN_EXAMPLE
+      llr
+      level_1                  1         10        100       1000
+      level_0
+      b_cells              0.069767  0.023256  0.000000  0.000000
+      brain                0.092308  0.003077  0.000000  0.000000
+      cytotoxic_t          0.352941  0.000000  0.000000  0.000000
+      cytotoxic_t-b_cells  0.043977  0.014340  0.004780  0.000956
+      cytotoxic_t-naive_t  0.027144  0.000000  0.000000  0.000000
+      ipsc                 0.241964  0.005357  0.000893  0.000000
+      kidney               0.000000  0.000000  0.000000  0.000000
+      liver-caudate-lobe   0.005618  0.001873  0.000000  0.000000
+      pbmcs_68k            0.155080  0.029412  0.000000  0.000000
+      retina               0.257426  0.108911  0.049505  0.000000
     #+END_EXAMPLE
     :END:
 
