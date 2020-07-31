@@ -33,7 +33,7 @@
   #+RESULTS:
   : 2
 
-  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
+  #+CALL: ipython3(venv="scmodes",partition="broadwl",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+RESULTS:
   : Submitted batch job 65670739
@@ -612,7 +612,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[7]:
+    # Out[6]:
     :END:
 
     To reduce computational burden, run ~ashr~ only on genes which
@@ -637,7 +637,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[8]:
+    # Out[14]:
     :END:
 
     #+BEGIN_SRC ipython :async t
@@ -1217,7 +1217,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[27]:
    :END:
 
    Get examples of genes which significantly depart from the estimated unimodal
@@ -1229,7 +1229,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[36]:
    :END:
 
    Write out the data to RDS.
@@ -1685,3 +1685,77 @@
    # Out[55]:
    [[file:figure/gof.org/ENSG00000121966.png]]
    :END:
+
+   /RPL21/ departed from NPMLE, but not unimodal.
+
+   #+BEGIN_SRC ipython
+     query = (gof_res
+              .groupby(["dataset", "method"])
+              .apply(lambda x: x.loc[x['p'] < 0.05 / x.shape[0]])
+              .reset_index(drop=True)
+              .pivot_table(index=['dataset', 'gene'], columns='method', values='p'))
+     query = (query
+              .loc[np.isfinite(query['npmle']) & ~np.isfinite(query['unimodal'])]
+              .reset_index()
+              .head(n=1)
+              ['gene'][0])
+     query = list(dat.var.index).index(query)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[39]:
+   : 29
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     pmf = dict()
+     x = dat.X[:,query]
+     s = dat.obs['size']
+     y = np.arange(x.max() + 1)
+
+     gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
+     pmf[f'Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean(axis=0) for k in y])
+
+     unimodal_res = scmodes.ebpm.ebpm_unimodal(dat.X[:,query], dat.obs['size'].values)
+     g = np.array(unimodal_res.rx2('fitted_g'))
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     comp_dens_conv[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+     pmf[f'Unimodal'] = comp_dens_conv @ g[0]
+
+     npmle_res = scmodes.ebpm.ebpm_npmle(dat.X[:,query], dat.obs['size'].values)
+     g = np.array(npmle_res.rx2('fitted_g'))
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     comp_dens_conv[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+     pmf[f'NPMLE'] = comp_dens_conv @ g[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[41]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/gof.org/ENSG00000122026-fit.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2)
+     plt.hist(dat.X[:,query], bins=np.arange(dat.X[:,query].max() + 1), color='k', density=True)
+     for i, (k, ls) in enumerate(zip(pmf, ['-', '--', '-.'])):
+       plt.plot(y, pmf[k], c=cm(i), lw=1, ls=ls, label=k)
+     plt.legend(frameon=False)
+     plt.xlabel('Number of molecules')
+     plt.ylabel('Density')
+     plt.title(gene_info.loc[dat.var.index[query], 'name'])
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[43]:
+   [[file:figure/gof.org/ENSG00000122026-fit.png]]
+   :END:
+
