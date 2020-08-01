@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2020-08-01 Sat 19:39 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relaxing the independence assumption on expression models</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Relaxing the independence assumption on expression models</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org54bf8f2">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#org6ae8c28">Results</a>
+<ul>
+<li><a href="#orga4c93af">Example gene</a></li>
+</ul>
+</li>
+<li><a href="#org2145229">Related work</a></li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org54bf8f2" class="outline-2">
+<h2 id="org54bf8f2">Introduction</h2>
+<div class="outline-text-2" id="text-org54bf8f2">
+<p>
+\[
+  \DeclareMathOperator\Pois{Poisson}
+  \newcommand\xiplus{x_{i+}}
+  \newcommand\Gfam{\mathcal{G}}
+  \]
+</p>
+
+<p>
+We <a href="gof.html#examples">previously found</a> genes at which observed
+counts depart from the fitted fully non-parametric expression model. These
+genes appear to depart from the fitted model because the expression model
+assumes that the latent gene expression levels \(\lambda_{ij}\) are
+independent of the size factors \(\xiplus\). Inspired by Stephens 2016, let
+\(\tilde{\lambda}_{ij} = \xiplus^{\alpha} \lambda_{ij}\) for some \(\alpha
+  \in [0, 1]\), and suppose instead
+</p>
+
+\begin{align}
+  x_{ij} \mid \xiplus, \tilde{\lambda}_{ij} &\sim \Pois(\xiplus^{1 - \alpha} \tilde{\lambda}_{ij})\\
+  \tilde{\lambda}_{ij} &\sim g_j(\cdot) \in \Gfam.
+\end{align}
+
+<p>
+Then, applying Poisson ash to observed counts \(x_{1j}, \ldots, x_{nj}\) and
+size factors \(x_{1+}^{1 - \alpha}, \ldots, x_{n+}^{1 - \alpha}\) yields
+\(\hat{g}_j\), which can be transformed to compute the prior/posterior over
+\(\lambda_{ij}\).
+</p>
+</div>
+</div>
+
+<div id="outline-container-orgbc86b6f" class="outline-2">
+<h2 id="setup"><a id="orgbc86b6f"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> anndata
+<span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org6ae8c28" class="outline-2">
+<h2 id="org6ae8c28">Results</h2>
+<div class="outline-text-2" id="text-org6ae8c28">
+</div>
+<div id="outline-container-orga4c93af" class="outline-3">
+<h3 id="orga4c93af">Example gene</h3>
+<div class="outline-text-3" id="text-orga4c93af">
+<p>
+<i>RPS27</i> departs from all candidate expression models we previously
+considered.
+</p>
+
+
+<div class="figure">
+<p><img src="figure/gof.org/ENSG00000177954-fit2.png" alt="ENSG00000177954-fit2.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">dat</span> = anndata.read_h5ad(<span class="org-string">'/scratch/midway2/aksarkar/modes/unimodal-data/b_cells.h5ad'</span>)
+<span class="org-variable-name">gene_info</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/scqtl-genes.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<span class="org-variable-name">gof_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/gof.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
+<span class="org-variable-name">sig</span> = (gof_res
+       .loc[gof_res[<span class="org-string">'method'</span>] == <span class="org-string">'unimodal'</span>]
+       .groupby(<span class="org-string">'dataset'</span>)
+       .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: x.loc[x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]].sort_values(<span class="org-string">'p'</span>).head(n=100))
+       .reset_index(drop=<span class="org-constant">True</span>)
+       .merge(gene_info, on=<span class="org-string">'gene'</span>, how=<span class="org-string">'left'</span>)
+       [[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>, <span class="org-string">'name'</span>, <span class="org-string">'method'</span>, <span class="org-string">'stat'</span>, <span class="org-string">'p'</span>]])
+<span class="org-variable-name">query</span> = <span class="org-builtin">list</span>(dat.var.index).index(sig.loc[sig[<span class="org-string">'dataset'</span>] == <span class="org-string">'b_cells'</span>, <span class="org-string">'gene'</span>].head(n=1)[0])
+</pre>
+</div>
+
+<p>
+Try fitting a unimodal model with different choices of \(\alpha\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">x</span> = dat.X[:,query]
+<span class="org-variable-name">s</span> = dat.obs[<span class="org-string">'size'</span>]
+<span class="org-variable-name">y</span> = np.arange(x.<span class="org-builtin">max</span>() + 1)
+<span class="org-variable-name">grid</span> = np.linspace(0, .5, 11)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">res</span> = {alpha: scmodes.ebpm.ebpm_unimodal(x, np.exp((1 - alpha) * np.log(s)), mixcompdist=<span class="org-string">'halfuniform'</span>)
+       <span class="org-keyword">for</span> alpha <span class="org-keyword">in</span> grid}
+</pre>
+</div>
+
+<p>
+Plot the log likelihood as a function of \(\alpha\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik</span> = np.array([np.array(res[k].rx2(<span class="org-string">'loglik'</span>))[0] <span class="org-keyword">for</span> k <span class="org-keyword">in</span> res])
+plt.clf()
+plt.gcf().set_size_inches(2.5, 2.5)
+plt.plot(grid, llik, lw=1, c=<span class="org-string">'k'</span>)
+plt.xlabel(r<span class="org-string">'$\alpha$'</span>)
+plt.ylabel(<span class="org-string">'Log likelihood'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/independence.org/ENSG00000177954-alpha.png" alt="ENSG00000177954-alpha.png">
+</p>
+</div>
+
+<p>
+The log likelihood is improved by order 100 units by finding a suitable
+choice for \(\alpha\). Find the \(\alpha^*\) that maximizes the marginal log
+likelihood using Brent&rsquo;s method.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_f</span>(alpha, x, s):
+  <span class="org-keyword">return</span> -np.array(scmodes.ebpm.ebpm_unimodal(x, np.exp((1 - alpha) * np.log(s)), mixcompdist=<span class="org-string">'halfuniform'</span>).rx2(<span class="org-string">'loglik'</span>))[0]
+
+<span class="org-variable-name">opt</span> = so.minimize_scalar(_f, bracket=[0, 1], method=<span class="org-string">'brent'</span>, args=(x, s))
+<span class="org-keyword">assert</span> opt.success
+opt.x
+</pre>
+</div>
+
+<pre class="example">
+0.22711558742350224
+
+</pre>
+
+<p>
+Take the estimated expression models for \(\alpha \in \{0, \alpha^*\}\), and
+plot the average marginal density for each, superimposed on the original
+data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">res</span>[opt.x] = scmodes.ebpm.ebpm_unimodal(x, np.exp((1 - opt.x) * np.log(s)), mixcompdist=<span class="org-string">'halfuniform'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> alpha <span class="org-keyword">in</span> (0, opt.x):
+  <span class="org-variable-name">g</span> = np.array(res[alpha].rx2(<span class="org-string">'fitted_g'</span>))
+  <span class="org-variable-name">a</span> = np.fmin(g[1], g[2])
+  <span class="org-variable-name">b</span> = np.fmax(g[1], g[2])
+  <span class="org-variable-name">sa</span> = np.exp((1 - alpha) * np.log(s))
+  <span class="org-variable-name">comp_dens_conv</span> = np.array([((st.gamma(a=k + 1, scale=1 / sa.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / sa.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(sa, b - a)).mean(axis=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+  <span class="org-variable-name">comp_dens_conv</span>[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+  <span class="org-variable-name">pmf</span>[alpha] = comp_dens_conv @ g[0]
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(4, 2)
+plt.hist(dat.X[:,query], bins=np.arange(dat.X[:,query].<span class="org-builtin">max</span>() + 1), color=<span class="org-string">'k'</span>, density=<span class="org-constant">True</span>)
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(pmf):
+  plt.plot(y, pmf[k], c=cm(i), lw=1, label=rf<span class="org-string">'$\alpha$ = {k:.3g}'</span>)
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.xlabel(<span class="org-string">'Number of molecules'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.title(gene_info.loc[dat.var.index[query], <span class="org-string">'name'</span>])
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/independence.org/ENSG00000177954-alpha-fit.png" alt="ENSG00000177954-alpha-fit.png">
+</p>
+</div>
+
+<p>
+Compare the log likelihood of the model \(\alpha = \alpha^*\) against
+\(\alpha = 0\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">res[opt.x].rx2(<span class="org-string">'loglik'</span>) - res[0].rx2(<span class="org-string">'loglik'</span>)
+</pre>
+</div>
+
+<pre class="example">
+array([617.77478881])
+
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org2145229" class="outline-2">
+<h2 id="org2145229">Related work</h2>
+<div class="outline-text-2" id="text-org2145229">
+<p>
+<a href="https://www.pnas.org/content/115/28/E6437">Wang et al. 2018</a> include a
+&ldquo;log-linear form&rdquo; for the size factor in the method <i>DESCEND</i>, which has
+exactly the same form proposed here (they cite
+<a href="https://www.nature.com/articles/nmeth.4263">Bacher et al. 2017</a> for
+inspiration). However, they did not consider the impact of changing the size
+factor on the interpretation of the latent gene expression levels.
+</p>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2020-08-01 Sat 19:39</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>
