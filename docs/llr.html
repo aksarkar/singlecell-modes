@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- 2020-08-03 Mon 04:13 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marginal log likelihood comparison of expression models</title>
+<meta name="generator" content="Org mode">
+<meta name="author" content="Abhishek Sarkar">
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<link href="css/bootstrap.min.css" rel="stylesheet" />
+<link rel="stylesheet" type="text/css" href="css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="css/supp.css"/>
+<style type="text/css">body {width: 60em; margin:auto} pre.src {overflow:auto}</style>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2017 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Marginal log likelihood comparison of expression models</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org0f03d8f">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#orge99efa2">Results</a>
+<ul>
+<li><a href="#org4e37009">Data</a></li>
+<li><a href="#orge0340e9">Estimate marginal log likelihood</a></li>
+<li><a href="#org2483eb2">Application to control data sets</a></li>
+<li><a href="#orgfb7d234">Application to biological data sets</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org0f03d8f" class="outline-2">
+<h2 id="org0f03d8f">Introduction</h2>
+<div class="outline-text-2" id="text-org0f03d8f">
+<p>
+We previously used a <a href="gof.html">goodness of fit test</a> and
+<a href="deconvolution.html">out-of-sample (marginal) log likelihood</a> to assess
+whether the data were adequately described by a given expression model. Here,
+we compute the in-sample marginal log likelihood, in order to make direct
+comparisons between expression models.
+</p>
+</div>
+</div>
+
+<div id="outline-container-orgb8f7cf6" class="outline-2">
+<h2 id="setup"><a id="orgb8f7cf6"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> anndata
+<span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> os
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scanpy <span class="org-keyword">as</span> sc
+<span class="org-keyword">import</span> scmodes
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orge99efa2" class="outline-2">
+<h2 id="orge99efa2">Results</h2>
+<div class="outline-text-2" id="text-orge99efa2">
+</div>
+<div id="outline-container-org4e37009" class="outline-3">
+<h3 id="org4e37009">Data</h3>
+<div class="outline-text-3" id="text-org4e37009">
+<p>
+Prepare the data in <code>h5ad</code>.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="orga462cce"><span class="org-keyword">def</span> <span class="org-function-name">read_chromium</span>(sample):
+  <span class="org-variable-name">x</span> = sc.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/svensson_chromium_control.h5ad'</span>)
+  <span class="org-variable-name">x</span> = x[x.obs[<span class="org-string">'sample'</span>] == sample,x.var.<span class="org-builtin">filter</span>(like=<span class="org-string">'ERCC'</span>, axis=<span class="org-string">'index'</span>).index]
+  sc.pp.filter_genes(x, min_cells=1)
+  <span class="org-variable-name">x.var</span> = x.var.reset_index()
+  <span class="org-keyword">return</span> x
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_dropseq</span>():
+  <span class="org-variable-name">x</span> = sc.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/macosko_dropseq_control.h5ad'</span>)
+  <span class="org-variable-name">x</span> = x[:,x.var.<span class="org-builtin">filter</span>(like=<span class="org-string">'ERCC'</span>, axis=<span class="org-string">'index'</span>).index]
+  sc.pp.filter_genes(x, min_cells=1)
+  <span class="org-variable-name">x.var</span> = x.var.reset_index()
+  <span class="org-keyword">return</span> x
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_indrops</span>():
+  <span class="org-variable-name">x</span> = sc.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/klein_indrops_control.h5ad'</span>)
+  <span class="org-variable-name">x</span> = x[:,x.var.<span class="org-builtin">filter</span>(like=<span class="org-string">'ERCC'</span>, axis=<span class="org-string">'index'</span>).index]
+  sc.pp.filter_genes(x, min_cells=1)
+  <span class="org-variable-name">x.var</span> = x.var.reset_index()
+  <span class="org-keyword">return</span> x
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_gemcode</span>():
+  <span class="org-variable-name">x</span> = sc.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/zheng_gemcode_control.h5ad'</span>)
+  <span class="org-variable-name">x</span> = x[:,x.var.<span class="org-builtin">filter</span>(like=<span class="org-string">'ERCC'</span>, axis=<span class="org-string">'index'</span>).index]
+  sc.pp.filter_genes(x, min_cells=1)
+  <span class="org-variable-name">x.var</span> = x.var.reset_index()
+  <span class="org-keyword">return</span> x
+
+<span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k, return_df=<span class="org-constant">False</span>, min_detect=0.01):
+  <span class="org-keyword">return</span> scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/'</span>,
+                                  return_adata=<span class="org-keyword">not</span> return_df, return_df=return_df, min_detect=min_detect)
+
+<span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.01, return_y=<span class="org-constant">False</span>):
+  <span class="org-variable-name">x1</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/'</span>, return_adata=<span class="org-constant">True</span>, return_df=<span class="org-constant">False</span>, min_detect=0)
+  <span class="org-variable-name">x2</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/'</span>, return_adata=<span class="org-constant">True</span>, return_df=<span class="org-constant">False</span>, min_detect=0)
+  <span class="org-variable-name">x</span> = x1.concatenate(x2)
+  sc.pp.filter_genes(x, min_cells=min_detect * x.shape[0])
+  <span class="org-keyword">return</span> x
+
+<span class="org-keyword">def</span> <span class="org-function-name">_cd8_cd19_mix</span>(**kwargs):
+  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'b_cells'</span>, **kwargs)
+
+<span class="org-keyword">def</span> <span class="org-function-name">_cyto_naive_mix</span>(**kwargs):
+  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>, **kwargs)
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_ipsc</span>(chunk=<span class="org-constant">None</span>, chunksize=500):
+  <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/ipsc/ipsc.h5ad'</span>)
+  <span class="org-keyword">if</span> chunk <span class="org-keyword">is</span> <span class="org-constant">None</span>:
+    <span class="org-keyword">return</span> x
+  <span class="org-keyword">else</span>:
+    <span class="org-keyword">return</span> x[:,chunk * chunksize:(chunk + 1) * chunksize]
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_liver</span>():
+  <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/liver-caudate-lobe.h5ad'</span>)
+  <span class="org-variable-name">query</span> = x.obs[<span class="org-string">'donor'</span>] == <span class="org-string">'P3TLH'</span>
+  <span class="org-variable-name">y</span> = x[query]
+  sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
+  <span class="org-keyword">return</span> y
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_kidney</span>():
+  <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/scratch/midway2/aksarkar/modes/kidney.h5ad'</span>)
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Supp Table 2+3 lists donor+biopsy information</span>
+  <span class="org-variable-name">donor_pass</span> = <span class="org-builtin">set</span>([
+    <span class="org-comment-delimiter"># </span><span class="org-comment">'4602STDY6949184',</span>
+    <span class="org-string">'4602STDY6949185'</span>,
+    <span class="org-comment-delimiter"># </span><span class="org-comment">'4602STDY6949187',</span>
+    <span class="org-comment-delimiter"># </span><span class="org-comment">'4602STDY6949188',</span>
+  ])
+  <span class="org-variable-name">query</span> = np.array([t.split(<span class="org-string">'_'</span>)[0] <span class="org-keyword">in</span> donor_pass <span class="org-keyword">for</span> t <span class="org-keyword">in</span> x.obs.index])
+  <span class="org-variable-name">y</span> = x[query]
+  sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
+  <span class="org-keyword">return</span> y
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_brain</span>(chunk=<span class="org-constant">None</span>, chunksize=500):
+  <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/gtex-droncseq.h5ad'</span>)
+  sc.pp.filter_genes(x, min_counts=.01 * x.shape[0])
+  <span class="org-keyword">if</span> chunk <span class="org-keyword">is</span> <span class="org-constant">None</span>:
+    <span class="org-keyword">return</span> x
+  <span class="org-keyword">else</span>:
+    <span class="org-keyword">return</span> x[:,chunk * chunksize:(chunk + 1) * chunksize]
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_retina</span>(chunk=<span class="org-constant">None</span>, chunksize=500):
+  <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/adult-retina/adult-retina.h5ad'</span>)
+  <span class="org-variable-name">query</span> = x.obs[<span class="org-string">'donor_organism.provenance.document_id'</span>] == <span class="org-string">'427c0a62-9baf-42ab-a3a3-f48d10544280'</span>
+  <span class="org-variable-name">y</span> = x[query]
+  sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
+  <span class="org-keyword">if</span> chunk <span class="org-keyword">is</span> <span class="org-constant">None</span>:
+    <span class="org-keyword">return</span> y
+  <span class="org-keyword">else</span>:
+    <span class="org-keyword">return</span> y[:,chunk * chunksize:(chunk + 1) * chunksize]
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_pbmcs_68k</span>(chunk=<span class="org-constant">None</span>, chunksize=500):
+  <span class="org-variable-name">x</span> = _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>, return_df=<span class="org-constant">False</span>)
+  <span class="org-keyword">if</span> chunk <span class="org-keyword">is</span> <span class="org-constant">None</span>:
+    <span class="org-keyword">return</span> x
+  <span class="org-keyword">else</span>:
+    <span class="org-keyword">return</span> x[:,chunk * chunksize:(chunk + 1) * chunksize]
+
+<span class="org-variable-name">data</span> = {
+  <span class="org-string">'dropseq'</span>: read_dropseq,
+  <span class="org-string">'indrops'</span>: read_indrops,
+  <span class="org-string">'chromium1'</span>: <span class="org-keyword">lambda</span>: read_chromium(<span class="org-string">'20311'</span>),
+  <span class="org-string">'chromium2'</span>: <span class="org-keyword">lambda</span>: read_chromium(<span class="org-string">'20312'</span>),
+  <span class="org-string">'gemcode'</span>: read_gemcode,
+  <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'cytotoxic_t'</span>),
+  <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'b_cells'</span>),
+  <span class="org-string">'ipsc'</span>: read_ipsc,
+  <span class="org-string">'cytotoxic_t-b_cells'</span>: _cd8_cd19_mix,
+  <span class="org-string">'cytotoxic_t-naive_t'</span>: _cyto_naive_mix,
+  <span class="org-string">'pbmcs_68k'</span>: read_pbmcs_68k,
+  <span class="org-string">'liver-caudate-lobe'</span>: read_liver,
+  <span class="org-string">'kidney'</span>: read_kidney,
+  <span class="org-string">'brain'</span>: read_brain,
+  <span class="org-string">'retina'</span>: read_retina,
+}
+
+<span class="org-variable-name">chunks</span> = {
+  <span class="org-string">'liver-caudate-lobe'</span>: 12170 // 500,
+  <span class="org-string">'pbmcs_68k'</span>: 6502 // 500,
+  <span class="org-string">'retina'</span>: 11446 // 500,
+}
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orge0340e9" class="outline-3">
+<h3 id="orge0340e9">Estimate marginal log likelihood</h3>
+<div class="outline-text-3" id="text-orge0340e9">
+<p>
+Run the GPU-based methods.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=llik --time=1:00:00 -a 11-12%4
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+<span class="org-sh-heredoc">import os</span>
+<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
+<span class="org-sh-heredoc">tasks = list(data.keys())</span>
+<span class="org-sh-heredoc">task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
+<span class="org-sh-heredoc">x = data[task]()</span>
+<span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_llik(x, methods=['gamma', 'point_gamma'])</span>
+<span class="org-sh-heredoc">res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{task}-gpu.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<p>
+Run the CPU-based methods.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik-npmle --time=24:00:00 -a 30-44
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+<span class="org-sh-heredoc">import anndata</span>
+<span class="org-sh-heredoc">import multiprocessing as mp</span>
+<span class="org-sh-heredoc">import os</span>
+<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
+<span class="org-sh-heredoc">tasks = [(m, d) for m in ('point', 'unimodal', 'npmle') for d in data]</span>
+<span class="org-sh-heredoc">m, d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
+<span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=20) as pool:</span>
+<span class="org-sh-heredoc">  x = data[d]()</span>
+<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_llik(x, pool=pool, methods=[m])</span>
+<span class="org-sh-heredoc">  res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-{m}.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<p>
+Shard data sets to fit unimodal expression models within the <code>midway2</code> time
+limits.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=24:00:00 -a 0
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+<span class="org-sh-heredoc">import multiprocessing as mp</span>
+<span class="org-sh-heredoc">import os</span>
+<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
+<span class="org-sh-heredoc">tasks = [(d, c) for d in chunks for c in range(chunks[d])]</span>
+<span class="org-sh-heredoc">m, d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
+<span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=20) as pool:</span>
+<span class="org-sh-heredoc">  x = data[d](chunk=c)</span>
+<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_llik(x, pool=pool, methods=[m])</span>
+<span class="org-sh-heredoc">  res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-unimodal-{c}.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<p>
+Move the results to permanent storage.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">rsync -au /scratch/midway2/aksarkar/modes/llik/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/
+</pre>
+</div>
+
+<p>
+Read the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">llik</span> = (pd.concat(
+  {
+    k: pd.concat([
+      pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-{m}.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
+      <span class="org-keyword">for</span> m <span class="org-keyword">in</span> (<span class="org-string">'point'</span>, <span class="org-string">'gpu'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>)
+      <span class="org-keyword">if</span> os.path.exists(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-{m}.txt.gz'</span>)])
+    <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data
+  })
+        .reset_index(level=0)
+        .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1))
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org2483eb2" class="outline-3">
+<h3 id="org2483eb2">Application to control data sets</h3>
+<div class="outline-text-3" id="text-org2483eb2">
+<p>
+For each control data set, for each expression model, report the number of
+genes which have improvement in marginal log likelihood above some threshold
+over the point mass expression model.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
+<span class="org-variable-name">res</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(control)].groupby(<span class="org-string">'dataset'</span>):
+  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
+  <span class="org-variable-name">res</span>[k] = (query.sub(query[<span class="org-string">'point'</span>], axis=0) &gt; thresh).<span class="org-builtin">sum</span>(axis=0)
+<span class="org-variable-name">res</span> = (pd.concat(res)
+       .reset_index()
+       .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
+       .pivot_table(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
+       [0])
+<span class="org-keyword">del</span> res[<span class="org-string">'point'</span>]
+res[[<span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]]
+</pre>
+</div>
+
+<pre class="example">
+method     gamma  point_gamma  unimodal  npmle
+dataset
+chromium1     14           14        17     17
+chromium2     49           49        51     48
+dropseq       77           77        78     78
+gemcode       53           53        56     56
+indrops        4            4         4      4
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
+<span class="org-variable-name">res</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(control)].groupby(<span class="org-string">'dataset'</span>):
+  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
+  <span class="org-variable-name">res</span>[k] = (query.sub(query[<span class="org-string">'gamma'</span>], axis=0) &gt; thresh).<span class="org-builtin">sum</span>(axis=0)
+<span class="org-variable-name">res</span> = (pd.concat(res)
+       .reset_index()
+       .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
+       .pivot_table(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
+       [0])
+<span class="org-keyword">del</span> res[<span class="org-string">'gamma'</span>]
+res[[<span class="org-string">'point'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]]
+</pre>
+</div>
+
+<pre class="example">
+method     point  point_gamma  unimodal  npmle
+dataset
+chromium1      1            0        10     10
+chromium2      0            0         9      9
+dropseq        0            2         6     17
+gemcode        0            0        52     51
+indrops        0            0         1      1
+</pre>
+</div>
+</div>
+
+<div id="outline-container-orgfb7d234" class="outline-3">
+<h3 id="orgfb7d234">Application to biological data sets</h3>
+<div class="outline-text-3" id="text-orgfb7d234">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">non_control</span> = <span class="org-builtin">list</span>(data.keys())[5:]
+<span class="org-variable-name">thresh</span> = 10
+<span class="org-variable-name">res</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)].groupby(<span class="org-string">'dataset'</span>):
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Hack</span>
+  <span class="org-variable-name">g</span>[<span class="org-string">'gene'</span>] = g[<span class="org-string">'gene'</span>].fillna(g[<span class="org-string">'level_1'</span>])
+  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
+  <span class="org-variable-name">res</span>[k] = (query.sub(query[<span class="org-string">'gamma'</span>], axis=0) &gt; thresh).<span class="org-builtin">sum</span>(axis=0)
+<span class="org-variable-name">res</span> = (pd.concat(res)
+       .reset_index()
+       .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
+       .pivot_table(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
+       [0])
+<span class="org-keyword">del</span> res[<span class="org-string">'gamma'</span>]
+res[[<span class="org-string">'point'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]]
+</pre>
+</div>
+
+<pre class="example">
+method               point  point_gamma  unimodal    npmle
+dataset
+b_cells               18.0          8.0     546.0    426.0
+brain                  7.0          8.0       NaN   1441.0
+cytotoxic_t           10.0         10.0     632.0    556.0
+cytotoxic_t-b_cells    NaN       1575.0       NaN      NaN
+cytotoxic_t-naive_t    NaN       1460.0       NaN      NaN
+ipsc                   NaN          9.0       NaN      NaN
+kidney                 0.0          0.0    8463.0   8463.0
+liver-caudate-lobe     0.0          0.0   10646.0  10646.0
+pbmcs_68k             44.0         76.0       NaN   1979.0
+retina                 9.0        135.0       NaN    649.0
+</pre>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Abhishek Sarkar</p>
+<p class="date">Created: 2020-08-03 Mon 04:13</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>
