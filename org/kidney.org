@@ -66,6 +66,97 @@
 
 * Data
 
+  Read the HCA data.
+
+  #+BEGIN_SRC ipython :async t
+    prefix = '/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/kidney/416e82bc-04a2-4ddb-a2d1-68eaf69382d2.mtx'
+    counts = si.mmread(f'{prefix}/matrix.mtx.gz').tocsr()
+    # Important: the HCA metadata has a header, which breaks scmodes.dataset.read_10x
+    samples = pd.read_csv(f'{prefix}/cells.tsv.gz', sep='\t')
+    genes = pd.read_csv(f'{prefix}/genes.tsv.gz', sep='\t')
+    x = anndata.AnnData(counts.T, obs=samples, var=genes)
+    x
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[129]:
+  #+BEGIN_EXAMPLE
+    AnnData object with n_obs × n_vars = 341079 × 58347
+    obs: 'cellkey', 'genes_detected', 'file_uuid', 'file_version', 'total_umis', 'emptydrops_is_cell', 'barcode', 'cell_suspension.provenance.document_id', 'specimen_from_organism.provenance.document_id', 'derived_organ_ontology', 'derived_organ_label', 'derived_organ_parts_ontology', 'derived_organ_parts_label', 'cell_suspension.genus_species.ontology', 'cell_suspension.genus_species.ontology_label', 'donor_organism.provenance.document_id', 'donor_organism.human_specific.ethnicity.ontology', 'donor_organism.human_specific.ethnicity.ontology_label', 'donor_organism.diseases.ontology', 'donor_organism.diseases.ontology_label', 'donor_organism.development_stage.ontology', 'donor_organism.development_stage.ontology_label', 'donor_organism.sex', 'donor_organism.is_living', 'specimen_from_organism.organ.ontology', 'specimen_from_organism.organ.ontology_label', 'specimen_from_organism.organ_parts.ontology', 'specimen_from_organism.organ_parts.ontology_label', 'library_preparation_protocol.provenance.document_id', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology_label', 'library_preparation_protocol.library_construction_method.ontology', 'library_preparation_protocol.library_construction_method.ontology_label', 'library_preparation_protocol.end_bias', 'library_preparation_protocol.strand', 'project.provenance.document_id', 'project.project_core.project_short_name', 'project.project_core.project_title', 'analysis_protocol.provenance.document_id', 'dss_bundle_fqid', 'bundle_uuid', 'bundle_version', 'analysis_protocol.protocol_core.protocol_id', 'analysis_working_group_approval_status'
+    var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species'
+  #+END_EXAMPLE
+  :END:
+
+  Replicate the
+  [[https://github.com/bjstewart1/kidney_sc_immune/blob/master/SC_analysis_pipeline.R#L48][initial
+  QC]].
+  
+  #+BEGIN_SRC ipython
+    emptydrops_pass = x.obs['emptydrops_is_cell'] == 't'
+    mt_pass = x[:,(x.var['chromosome'] == 'chrM') & (x.var['featuretype'] == 'protein_coding')].X.sum(axis=1).A.ravel() / x.obs['total_umis'] < 0.7
+    y = x[emptydrops_pass & mt_pass]
+    sc.pp.filter_cells(y, min_genes=200)
+    y
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[144]:
+  #+BEGIN_EXAMPLE
+    AnnData object with n_obs × n_vars = 61819 × 58347
+    obs: 'cellkey', 'genes_detected', 'file_uuid', 'file_version', 'total_umis', 'emptydrops_is_cell', 'barcode', 'cell_suspension.provenance.document_id', 'specimen_from_organism.provenance.document_id', 'derived_organ_ontology', 'derived_organ_label', 'derived_organ_parts_ontology', 'derived_organ_parts_label', 'cell_suspension.genus_species.ontology', 'cell_suspension.genus_species.ontology_label', 'donor_organism.provenance.document_id', 'donor_organism.human_specific.ethnicity.ontology', 'donor_organism.human_specific.ethnicity.ontology_label', 'donor_organism.diseases.ontology', 'donor_organism.diseases.ontology_label', 'donor_organism.development_stage.ontology', 'donor_organism.development_stage.ontology_label', 'donor_organism.sex', 'donor_organism.is_living', 'specimen_from_organism.organ.ontology', 'specimen_from_organism.organ.ontology_label', 'specimen_from_organism.organ_parts.ontology', 'specimen_from_organism.organ_parts.ontology_label', 'library_preparation_protocol.provenance.document_id', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology_label', 'library_preparation_protocol.library_construction_method.ontology', 'library_preparation_protocol.library_construction_method.ontology_label', 'library_preparation_protocol.end_bias', 'library_preparation_protocol.strand', 'project.provenance.document_id', 'project.project_core.project_short_name', 'project.project_core.project_title', 'analysis_protocol.provenance.document_id', 'dss_bundle_fqid', 'bundle_uuid', 'bundle_version', 'analysis_protocol.protocol_core.protocol_id', 'analysis_working_group_approval_status', 'n_genes'
+    var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species'
+  #+END_EXAMPLE
+  :END:
+
+  #+BEGIN_SRC ipython
+    y.obs['donor_organism.provenance.document_id'].value_counts()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[147]:
+  #+BEGIN_EXAMPLE
+    56a5a34b-1362-4d3c-ae6f-b5f01d4eabc0    19177
+    9fde0deb-9630-4007-aea6-e7a7b1e68c2a    11233
+    91f51e13-dc56-4526-9e39-92a6c6778e16     6661
+    125a0c93-3187-463f-990b-1166aeb26e84     6497
+    05617ca5-c033-40aa-b865-45b34a14bc27     5971
+    b736af42-04c7-4845-a410-310f8f912eeb     5250
+    8ef48580-339e-4c23-b5bd-04c8692cab5f     4842
+    a6116756-3aeb-48f2-8952-caccbfd3f57b     2188
+    Name: donor_organism.provenance.document_id, dtype: int64
+  #+END_EXAMPLE
+  :END:
+
+  #+BEGIN_SRC ipython
+    query = y[y.obs['donor_organism.provenance.document_id'] == '9fde0deb-9630-4007-aea6-e7a7b1e68c2a']
+    sc.pp.filter_genes(query, min_cells=.01 * query.shape[0])
+    query
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[148]:
+  #+BEGIN_EXAMPLE
+    AnnData object with n_obs × n_vars = 11233 × 15496
+    obs: 'cellkey', 'genes_detected', 'file_uuid', 'file_version', 'total_umis', 'emptydrops_is_cell', 'barcode', 'cell_suspension.provenance.document_id', 'specimen_from_organism.provenance.document_id', 'derived_organ_ontology', 'derived_organ_label', 'derived_organ_parts_ontology', 'derived_organ_parts_label', 'cell_suspension.genus_species.ontology', 'cell_suspension.genus_species.ontology_label', 'donor_organism.provenance.document_id', 'donor_organism.human_specific.ethnicity.ontology', 'donor_organism.human_specific.ethnicity.ontology_label', 'donor_organism.diseases.ontology', 'donor_organism.diseases.ontology_label', 'donor_organism.development_stage.ontology', 'donor_organism.development_stage.ontology_label', 'donor_organism.sex', 'donor_organism.is_living', 'specimen_from_organism.organ.ontology', 'specimen_from_organism.organ.ontology_label', 'specimen_from_organism.organ_parts.ontology', 'specimen_from_organism.organ_parts.ontology_label', 'library_preparation_protocol.provenance.document_id', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology_label', 'library_preparation_protocol.library_construction_method.ontology', 'library_preparation_protocol.library_construction_method.ontology_label', 'library_preparation_protocol.end_bias', 'library_preparation_protocol.strand', 'project.provenance.document_id', 'project.project_core.project_short_name', 'project.project_core.project_title', 'analysis_protocol.provenance.document_id', 'dss_bundle_fqid', 'bundle_uuid', 'bundle_version', 'analysis_protocol.protocol_core.protocol_id', 'analysis_working_group_approval_status', 'n_genes'
+    var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species', 'n_cells'
+  #+END_EXAMPLE
+  :END:
+
+  #+BEGIN_SRC ipython
+    query.write('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/kidney/kidney.h5ad')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[149]:
+  :END:
+
+** Pre-processed data                                              :noexport:
+
   Download the data.
 
   #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes/
@@ -81,7 +172,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[113]:
   #+BEGIN_EXAMPLE
     AnnData object with n_obs × n_vars = 40268 × 33694
     obs: 'celltype', 'compartment', 'broad_celltype', 'Experiment', 'Project'
@@ -119,7 +210,7 @@
   #+END_EXAMPLE
   :END:
 
-* Results
+* Results                                                          :noexport:
 ** Gamma assumption
 
    Fit a Gamma distribution to expression variation at each gene within the

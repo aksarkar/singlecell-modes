@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-07-22 Wed 09:56 -->
+<!-- 2020-08-03 Mon 04:59 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Expression variation in human kidney</title>
@@ -228,28 +228,6 @@ for the JavaScript code in this tag.
  }
 /*]]>*///-->
 </script>
-<script type="text/x-mathjax-config">
-    MathJax.Hub.Config({
-        displayAlign: "center",
-        displayIndent: "0em",
-
-        "HTML-CSS": { scale: 100,
-                        linebreaks: { automatic: "false" },
-                        webFont: "TeX"
-                       },
-        SVG: {scale: 100,
-              linebreaks: { automatic: "false" },
-              font: "TeX"},
-        NativeMML: {scale: 100},
-        TeX: { equationNumbers: {autoNumber: "AMS"},
-               MultLineWidth: "85%",
-               TagSide: "right",
-               TagIndent: ".8em"
-             }
-});
-</script>
-<script type="text/javascript"
-        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
 </head>
 <body>
 <div id="content">
@@ -261,13 +239,6 @@ for the JavaScript code in this tag.
 <li><a href="#org38d5871">Introduction</a></li>
 <li><a href="#setup">Setup</a></li>
 <li><a href="#orgac830dc">Data</a></li>
-<li><a href="#org5e617fd">Results</a>
-<ul>
-<li><a href="#orgad58c92">Gamma assumption</a></li>
-<li><a href="#org8cbdcc2">Point-Gamma assumption</a></li>
-<li><a href="#org3a194e2">Unimodal assumption</a></li>
-</ul>
-</li>
 </ul>
 </div>
 </div>
@@ -321,291 +292,79 @@ expression variation in this data.
 <h2 id="orgac830dc">Data</h2>
 <div class="outline-text-2" id="text-orgac830dc">
 <p>
-Download the data.
+Read the HCA data.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">curl -L <span class="org-string">"https://cellgeni.cog.sanger.ac.uk/BenKidney_v2.1/Mature_Full_v2.1.h5ad"</span> -o kidney.h5ad
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/scratch/midway2/aksarkar/modes/kidney.h5ad'</span>)
+<pre class="src src-ipython"><span class="org-variable-name">prefix</span> = <span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/kidney/416e82bc-04a2-4ddb-a2d1-68eaf69382d2.mtx'</span>
+<span class="org-variable-name">counts</span> = si.mmread(f<span class="org-string">'{prefix}/matrix.mtx.gz'</span>).tocsr()
+<span class="org-comment-delimiter"># </span><span class="org-comment">Important: the HCA metadata has a header, which breaks scmodes.dataset.read_10x</span>
+<span class="org-variable-name">samples</span> = pd.read_csv(f<span class="org-string">'{prefix}/cells.tsv.gz'</span>, sep=<span class="org-string">'\t'</span>)
+<span class="org-variable-name">genes</span> = pd.read_csv(f<span class="org-string">'{prefix}/genes.tsv.gz'</span>, sep=<span class="org-string">'\t'</span>)
+<span class="org-variable-name">x</span> = anndata.AnnData(counts.T, obs=samples, var=genes)
 x
 </pre>
 </div>
 
 <pre class="example">
-AnnData object with n_obs × n_vars = 40268 × 33694
-obs: 'celltype', 'compartment', 'broad_celltype', 'Experiment', 'Project'
-var: 'ID'
-obsm: 'X_umap'
+AnnData object with n_obs × n_vars = 341079 × 58347
+obs: 'cellkey', 'genes_detected', 'file_uuid', 'file_version', 'total_umis', 'emptydrops_is_cell', 'barcode', 'cell_suspension.provenance.document_id', 'specimen_from_organism.provenance.document_id', 'derived_organ_ontology', 'derived_organ_label', 'derived_organ_parts_ontology', 'derived_organ_parts_label', 'cell_suspension.genus_species.ontology', 'cell_suspension.genus_species.ontology_label', 'donor_organism.provenance.document_id', 'donor_organism.human_specific.ethnicity.ontology', 'donor_organism.human_specific.ethnicity.ontology_label', 'donor_organism.diseases.ontology', 'donor_organism.diseases.ontology_label', 'donor_organism.development_stage.ontology', 'donor_organism.development_stage.ontology_label', 'donor_organism.sex', 'donor_organism.is_living', 'specimen_from_organism.organ.ontology', 'specimen_from_organism.organ.ontology_label', 'specimen_from_organism.organ_parts.ontology', 'specimen_from_organism.organ_parts.ontology_label', 'library_preparation_protocol.provenance.document_id', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology_label', 'library_preparation_protocol.library_construction_method.ontology', 'library_preparation_protocol.library_construction_method.ontology_label', 'library_preparation_protocol.end_bias', 'library_preparation_protocol.strand', 'project.provenance.document_id', 'project.project_core.project_short_name', 'project.project_core.project_title', 'analysis_protocol.provenance.document_id', 'dss_bundle_fqid', 'bundle_uuid', 'bundle_version', 'analysis_protocol.protocol_core.protocol_id', 'analysis_working_group_approval_status'
+var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species'
 </pre>
 
 <p>
-The donor information is available in
-<a href="https://science.sciencemag.org/highwire/filestream/732130/field_highwire_adjunct_files/0/aat5031-Stewart-SM.pdf">Supplementary
-Table 2</a>, and the biospy information is available in Supplementary Table
+Replicate the
+<a href="https://github.com/bjstewart1/kidney_sc_immune/blob/master/SC_analysis_pipeline.R#L48">initial
+QC</a>.
 </p>
-<ol class="org-ol">
-<li>Donor &ldquo;Teen Tx left&rdquo; had the most samples assayed.</li>
-</ol>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">donor_pass</span> = <span class="org-builtin">set</span>([
-  <span class="org-string">'4602STDY6949184'</span>,
-  <span class="org-string">'4602STDY6949185'</span>,
-  <span class="org-string">'4602STDY6949187'</span>,
-  <span class="org-string">'4602STDY6949188'</span>,
-])
-<span class="org-variable-name">query</span> = np.array([t.split(<span class="org-string">'_'</span>)[0] <span class="org-keyword">in</span> donor_pass <span class="org-keyword">for</span> t <span class="org-keyword">in</span> x.obs.index])
-<span class="org-variable-name">y</span> = x[query]
-sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
+<pre class="src src-ipython"><span class="org-variable-name">emptydrops_pass</span> = x.obs[<span class="org-string">'emptydrops_is_cell'</span>] == <span class="org-string">'t'</span>
+<span class="org-variable-name">mt_pass</span> = x[:,(x.var[<span class="org-string">'chromosome'</span>] == <span class="org-string">'chrM'</span>) &amp; (x.var[<span class="org-string">'featuretype'</span>] == <span class="org-string">'protein_coding'</span>)].X.<span class="org-builtin">sum</span>(axis=1).A.ravel() / x.obs[<span class="org-string">'total_umis'</span>] &lt; 0.7
+<span class="org-variable-name">y</span> = x[emptydrops_pass &amp; mt_pass]
+sc.pp.filter_cells(y, min_genes=200)
 y
 </pre>
 </div>
 
 <pre class="example">
-AnnData object with n_obs × n_vars = 12136 × 8592
-obs: 'celltype', 'compartment', 'broad_celltype', 'Experiment', 'Project', 'donor'
-var: 'ID', 'n_cells'
-obsm: 'X_umap'
+AnnData object with n_obs × n_vars = 61819 × 58347
+obs: 'cellkey', 'genes_detected', 'file_uuid', 'file_version', 'total_umis', 'emptydrops_is_cell', 'barcode', 'cell_suspension.provenance.document_id', 'specimen_from_organism.provenance.document_id', 'derived_organ_ontology', 'derived_organ_label', 'derived_organ_parts_ontology', 'derived_organ_parts_label', 'cell_suspension.genus_species.ontology', 'cell_suspension.genus_species.ontology_label', 'donor_organism.provenance.document_id', 'donor_organism.human_specific.ethnicity.ontology', 'donor_organism.human_specific.ethnicity.ontology_label', 'donor_organism.diseases.ontology', 'donor_organism.diseases.ontology_label', 'donor_organism.development_stage.ontology', 'donor_organism.development_stage.ontology_label', 'donor_organism.sex', 'donor_organism.is_living', 'specimen_from_organism.organ.ontology', 'specimen_from_organism.organ.ontology_label', 'specimen_from_organism.organ_parts.ontology', 'specimen_from_organism.organ_parts.ontology_label', 'library_preparation_protocol.provenance.document_id', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology_label', 'library_preparation_protocol.library_construction_method.ontology', 'library_preparation_protocol.library_construction_method.ontology_label', 'library_preparation_protocol.end_bias', 'library_preparation_protocol.strand', 'project.provenance.document_id', 'project.project_core.project_short_name', 'project.project_core.project_title', 'analysis_protocol.provenance.document_id', 'dss_bundle_fqid', 'bundle_uuid', 'bundle_version', 'analysis_protocol.protocol_core.protocol_id', 'analysis_working_group_approval_status', 'n_genes'
+var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species'
 </pre>
-</div>
-</div>
-
-<div id="outline-container-org5e617fd" class="outline-2">
-<h2 id="org5e617fd">Results</h2>
-<div class="outline-text-2" id="text-org5e617fd">
-</div>
-<div id="outline-container-orgad58c92" class="outline-3">
-<h3 id="orgad58c92">Gamma assumption</h3>
-<div class="outline-text-3" id="text-orgad58c92">
-<p>
-Fit a Gamma distribution to expression variation at each gene within the
-donor with maximum number of cells assayed.
-</p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">res</span> = scmodes.ebpm.sgd.ebpm_gamma(y.X, batch_size=64, max_epochs=40, verbose=<span class="org-constant">True</span>)
-</pre>
-</div>
-
-<p>
-Test GOF at each gene.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">s</span> = y.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
-<span class="org-variable-name">gof_res</span> = []
-<span class="org-keyword">for</span> j, (log_mu, neg_log_phi) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(np.vstack(res[:-1]).T):
-  <span class="org-variable-name">d</span>, <span class="org-variable-name">p</span> = scmodes.benchmark.gof._gof(x=y[:,j].X.A.ravel(),
-                                    cdf=scmodes.benchmark.gof._zig_cdf,
-                                    pmf=scmodes.benchmark.gof._zig_pmf,
-                                    size=s,
-                                    log_mu=log_mu,
-                                    log_phi=-neg_log_phi)
-  gof_res.append([d, p])
-<span class="org-variable-name">gof_res</span> = pd.DataFrame(gof_res, columns=[<span class="org-string">'stat'</span>, <span class="org-string">'p'</span>], index=y.var[<span class="org-string">'ID'</span>]).reset_index()
-gof_res.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/kidney-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>)
-</pre>
-</div>
-
-<p>
-Plot the histogram of GOF \(p\)-values.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(2, 2)
-plt.hist(gof_res[<span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
-plt.axhline(y=1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
-plt.xlim(0, 1)
-plt.xlabel(<span class="org-string">'$p$-value'</span>)
-plt.ylabel(<span class="org-string">'Density'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/kidney.org/gamma-gof-hist.png" alt="gamma-gof-hist.png">
-</p>
-</div>
-
-<p>
-Report the fraction of genes which significantly depart from a Gamma
-(Bonferroni-corrected \(p < 0.05\)).
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">sig</span> = gof_res.loc[gof_res[<span class="org-string">'p'</span>] &lt; 0.05 / gof_res.shape[0]]
-sig.shape[0] / gof_res.shape[0]
+<pre class="src src-ipython">y.obs[<span class="org-string">'donor_organism.provenance.document_id'</span>].value_counts()
 </pre>
 </div>
 
 <pre class="example">
-0.5421322160148976
-
+56a5a34b-1362-4d3c-ae6f-b5f01d4eabc0    19177
+9fde0deb-9630-4007-aea6-e7a7b1e68c2a    11233
+91f51e13-dc56-4526-9e39-92a6c6778e16     6661
+125a0c93-3187-463f-990b-1166aeb26e84     6497
+05617ca5-c033-40aa-b865-45b34a14bc27     5971
+b736af42-04c7-4845-a410-310f8f912eeb     5250
+8ef48580-339e-4c23-b5bd-04c8692cab5f     4842
+a6116756-3aeb-48f2-8952-caccbfd3f57b     2188
+Name: donor_organism.provenance.document_id, dtype: int64
 </pre>
-</div>
-</div>
-
-<div id="outline-container-org8cbdcc2" class="outline-3">
-<h3 id="org8cbdcc2">Point-Gamma assumption</h3>
-<div class="outline-text-3" id="text-org8cbdcc2">
-<p>
-Fit a point-Gamma distribution to expression variation at each gene.
-</p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">res</span> = scmodes.ebpm.sgd.ebpm_point_gamma(y.X, max_epochs=40, verbose=<span class="org-constant">True</span>)
-</pre>
-</div>
-
-<p>
-Test GOF at each gene.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">s</span> = y.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
-<span class="org-variable-name">result</span> = []
-<span class="org-keyword">for</span> j, (log_mu, log_phi, logodds) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(np.vstack(res[:3]).T):
-  <span class="org-variable-name">d</span>, <span class="org-variable-name">p</span> = scmodes.benchmark.gof._gof(x=y[:,j].X.A.ravel(),
-                                    cdf=scmodes.benchmark.gof._zig_cdf,
-                                    pmf=scmodes.benchmark.gof._zig_pmf,
-                                    size=s,
-                                    log_mu=log_mu,
-                                    log_phi=-log_phi,
-                                    logodds=logodds)
-  result.append([d, p])
-<span class="org-variable-name">result</span> = pd.DataFrame(result, columns=[<span class="org-string">'stat'</span>, <span class="org-string">'p'</span>], index=y.var[<span class="org-string">'ID'</span>]).reset_index()
-result.to_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/kidney-point-gamma.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, compression=<span class="org-string">'gzip'</span>)
-</pre>
-</div>
-
-<p>
-Plot the histogram of GOF \(p\)-values.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(2, 2)
-plt.hist(result[<span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
-plt.axhline(y=1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
-plt.xlim(0, 1)
-plt.xlabel(<span class="org-string">'$p$-value'</span>)
-plt.ylabel(<span class="org-string">'Density'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/kidney.org/point-gamma-gof-hist.png" alt="point-gamma-gof-hist.png">
-</p>
-</div>
-
-<p>
-Report the fraction of genes which significantly depart from point-Gamma
-(Bonferroni-corrected \(p < 0.05\)).
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">sig</span> = result.loc[result[<span class="org-string">'p'</span>] &lt; 0.05 / result.shape[0]]
-sig.shape[0] / result.shape[0]
+<pre class="src src-ipython"><span class="org-variable-name">query</span> = y[y.obs[<span class="org-string">'donor_organism.provenance.document_id'</span>] == <span class="org-string">'9fde0deb-9630-4007-aea6-e7a7b1e68c2a'</span>]
+sc.pp.filter_genes(query, min_cells=.01 * query.shape[0])
+query
 </pre>
 </div>
 
 <pre class="example">
-0.45332867783985104
-
+AnnData object with n_obs × n_vars = 11233 × 15496
+obs: 'cellkey', 'genes_detected', 'file_uuid', 'file_version', 'total_umis', 'emptydrops_is_cell', 'barcode', 'cell_suspension.provenance.document_id', 'specimen_from_organism.provenance.document_id', 'derived_organ_ontology', 'derived_organ_label', 'derived_organ_parts_ontology', 'derived_organ_parts_label', 'cell_suspension.genus_species.ontology', 'cell_suspension.genus_species.ontology_label', 'donor_organism.provenance.document_id', 'donor_organism.human_specific.ethnicity.ontology', 'donor_organism.human_specific.ethnicity.ontology_label', 'donor_organism.diseases.ontology', 'donor_organism.diseases.ontology_label', 'donor_organism.development_stage.ontology', 'donor_organism.development_stage.ontology_label', 'donor_organism.sex', 'donor_organism.is_living', 'specimen_from_organism.organ.ontology', 'specimen_from_organism.organ.ontology_label', 'specimen_from_organism.organ_parts.ontology', 'specimen_from_organism.organ_parts.ontology_label', 'library_preparation_protocol.provenance.document_id', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology_label', 'library_preparation_protocol.library_construction_method.ontology', 'library_preparation_protocol.library_construction_method.ontology_label', 'library_preparation_protocol.end_bias', 'library_preparation_protocol.strand', 'project.provenance.document_id', 'project.project_core.project_short_name', 'project.project_core.project_title', 'analysis_protocol.provenance.document_id', 'dss_bundle_fqid', 'bundle_uuid', 'bundle_version', 'analysis_protocol.protocol_core.protocol_id', 'analysis_working_group_approval_status', 'n_genes'
+var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species', 'n_cells'
 </pre>
-
-<p>
-Write out the significant genes.
-</p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">y.obs</span>[<span class="org-string">'size'</span>] = y.X.<span class="org-builtin">sum</span>(axis=1)
-y[:,sig.index].write(<span class="org-string">'/scratch/midway2/aksarkar/modes/unimodal-data/kidney.h5ad'</span>)
-</pre>
-</div>
-</div>
-</div>
-
-<div id="outline-container-org3a194e2" class="outline-3">
-<h3 id="org3a194e2">Unimodal assumption</h3>
-<div class="outline-text-3" id="text-org3a194e2">
-<p>
-Fit a unimodal distribution to expression variation at each gene which
-departed significantly from a point-Gamma assumption.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --time=12:00:00 --job-name=gof
-<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
-<span class="org-builtin">source</span> activate scmodes
-python &lt;&lt;EOF
-<span class="org-sh-heredoc">import anndata</span>
-<span class="org-sh-heredoc">import multiprocessing as mp</span>
-<span class="org-sh-heredoc">import pandas as pd</span>
-<span class="org-sh-heredoc">import scmodes</span>
-<span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=20) as pool:</span>
-<span class="org-sh-heredoc">  x = anndata.read('/scratch/midway2/aksarkar/modes/unimodal-data/kidney.h5ad')</span>
-<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_gof(pd.DataFrame(x.X.A), s=x.obs['size'], pool=pool, </span>
-<span class="org-sh-heredoc">                                       methods=['unimodal'])</span>
-<span class="org-sh-heredoc">  res.index = x.var['ID']</span>
-<span class="org-sh-heredoc">  res.to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/kidney-unimodal.txt.gz', compression='gzip', sep='\t')</span>
-<span class="org-sh-heredoc">EOF</span>
-</pre>
-</div>
-
-<p>
-Read the results.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">unimodal_res</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/kidney-unimodal.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
-</pre>
-</div>
-
-<p>
-Plot the histogram of GOF \(p\)-values.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(2, 2)
-plt.hist(unimodal_res[<span class="org-string">'p'</span>], bins=np.linspace(0, 1, 11), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
-plt.axhline(y=1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
-plt.xlim(0, 1)
-plt.xlabel(<span class="org-string">'$p$-value'</span>)
-plt.ylabel(<span class="org-string">'Density'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/kidney.org/unimodal-gof-hist.png" alt="unimodal-gof-hist.png">
-</p>
-</div>
-
-<p>
-Report the number and fraction of genes which depart from a unimodal
-assumption.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">sig</span> = unimodal_res.loc[unimodal_res[<span class="org-string">'p'</span>] &lt; .05 / unimodal_res.shape[0]]
-sig.shape[0], sig.shape[0] / unimodal_res.shape[0]
-</pre>
-</div>
-
-<pre class="example">
-(2600, 0.6675224646983312)
-
+<pre class="src src-ipython">query.write(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/kidney/kidney.h5ad'</span>)
 </pre>
 </div>
 </div>
@@ -613,7 +372,7 @@ sig.shape[0], sig.shape[0] / unimodal_res.shape[0]
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-07-22 Wed 09:56</p>
+<p class="date">Created: 2020-08-03 Mon 04:59</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
