@@ -120,25 +120,10 @@
          return x[:,chunk * chunksize:(chunk + 1) * chunksize]
 
      def read_liver():
-       x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/liver-caudate-lobe.h5ad')
-       query = x.obs['donor'] == 'P3TLH'
-       y = x[query]
-       sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
-       return y
+       return anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/liver-caudate-lobe.h5ad')
 
      def read_kidney():
-       x = anndata.read_h5ad('/scratch/midway2/aksarkar/modes/kidney.h5ad')
-       # Supp Table 2+3 lists donor+biopsy information
-       donor_pass = set([
-         # '4602STDY6949184',
-         '4602STDY6949185',
-         # '4602STDY6949187',
-         # '4602STDY6949188',
-       ])
-       query = np.array([t.split('_')[0] in donor_pass for t in x.obs.index])
-       y = x[query]
-       sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
-       return y
+       return anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/kidney/kidney.h5ad')
 
      def read_brain(chunk=None, chunksize=500):
        x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/gtex-droncseq.h5ad')
@@ -200,7 +185,7 @@
    Run the GPU-based methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=llik --time=1:00:00 -a 11-12%4
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=llik --time=1:00:00 -a 11,12
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -216,12 +201,12 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 3309618
+   : Submitted batch job 3311600
 
    Run the CPU-based methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik-npmle --time=24:00:00 -a 30-44
+     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik-point --time=24:00:00 -a 7-9
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -240,7 +225,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 3311435
+   : Submitted batch job 3311618
 
    Shard data sets to fit unimodal expression models within the ~midway2~ time
    limits.
