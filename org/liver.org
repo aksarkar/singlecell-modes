@@ -40,7 +40,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[1]:
+  # Out[33]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -66,10 +66,69 @@
 
 * Data
 
+  Read the HCA data.
+
+  #+BEGIN_SRC ipython :async t
+    prefix = '/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/481193cb-c021-4e04-b477-0b7cfef4614b.mtx'
+    counts = si.mmread(f'{prefix}/matrix.mtx.gz').tocsr()
+    # Important: the HCA metadata has a header, which breaks scmodes.dataset.read_10x
+    samples = pd.read_csv(f'{prefix}/cells.tsv.gz', sep='\t')
+    genes = pd.read_csv(f'{prefix}/genes.tsv.gz', sep='\t')
+    x = anndata.AnnData(counts.T, obs=samples, var=genes)
+    x
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[71]:
+  #+BEGIN_EXAMPLE
+    AnnData object with n_obs × n_vars = 299486 × 58347
+    obs: 'cellkey', 'genes_detected', 'file_uuid', 'file_version', 'total_umis', 'emptydrops_is_cell', 'barcode', 'cell_suspension.provenance.document_id', 'specimen_from_organism.provenance.document_id', 'derived_organ_ontology', 'derived_organ_label', 'derived_organ_parts_ontology', 'derived_organ_parts_label', 'cell_suspension.genus_species.ontology', 'cell_suspension.genus_species.ontology_label', 'donor_organism.provenance.document_id', 'donor_organism.human_specific.ethnicity.ontology', 'donor_organism.human_specific.ethnicity.ontology_label', 'donor_organism.diseases.ontology', 'donor_organism.diseases.ontology_label', 'donor_organism.development_stage.ontology', 'donor_organism.development_stage.ontology_label', 'donor_organism.sex', 'donor_organism.is_living', 'specimen_from_organism.organ.ontology', 'specimen_from_organism.organ.ontology_label', 'specimen_from_organism.organ_parts.ontology', 'specimen_from_organism.organ_parts.ontology_label', 'library_preparation_protocol.provenance.document_id', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology_label', 'library_preparation_protocol.library_construction_method.ontology', 'library_preparation_protocol.library_construction_method.ontology_label', 'library_preparation_protocol.end_bias', 'library_preparation_protocol.strand', 'project.provenance.document_id', 'project.project_core.project_short_name', 'project.project_core.project_title', 'analysis_protocol.provenance.document_id', 'dss_bundle_fqid', 'bundle_uuid', 'bundle_version', 'analysis_protocol.protocol_core.protocol_id', 'analysis_working_group_approval_status'
+    var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species'
+  #+END_EXAMPLE
+  :END:
+
+  Replicate the QC.
+
+  #+BEGIN_QUOTE
+  Cells with a very small library size (<1500) and a very high (>0.5)
+  mitochondrial genome transcript ratio were removed. Genes detected (UMI
+  count > 0) in less than three cells were removed.
+  #+END_QUOTE
+
+  #+BEGIN_SRC ipython :async t
+    umi_pass = x.obs['total_umis'] >= 1500
+    mt_pass = x[:,(x.var['chromosome'] == 'chrM') & (x.var['featuretype'] == 'protein_coding')].X.sum(axis=1).A.ravel() / x.obs['total_umis'] > 0.5
+    y = x[umi_pass & mt_pass]
+    sc.pp.filter_genes(y, min_cells=3)
+    y
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[105]:
+  #+BEGIN_EXAMPLE
+    AnnData object with n_obs × n_vars = 8856 × 16200
+    obs: 'cellkey', 'genes_detected', 'file_uuid', 'file_version', 'total_umis', 'emptydrops_is_cell', 'barcode', 'cell_suspension.provenance.document_id', 'specimen_from_organism.provenance.document_id', 'derived_organ_ontology', 'derived_organ_label', 'derived_organ_parts_ontology', 'derived_organ_parts_label', 'cell_suspension.genus_species.ontology', 'cell_suspension.genus_species.ontology_label', 'donor_organism.provenance.document_id', 'donor_organism.human_specific.ethnicity.ontology', 'donor_organism.human_specific.ethnicity.ontology_label', 'donor_organism.diseases.ontology', 'donor_organism.diseases.ontology_label', 'donor_organism.development_stage.ontology', 'donor_organism.development_stage.ontology_label', 'donor_organism.sex', 'donor_organism.is_living', 'specimen_from_organism.organ.ontology', 'specimen_from_organism.organ.ontology_label', 'specimen_from_organism.organ_parts.ontology', 'specimen_from_organism.organ_parts.ontology_label', 'library_preparation_protocol.provenance.document_id', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology_label', 'library_preparation_protocol.library_construction_method.ontology', 'library_preparation_protocol.library_construction_method.ontology_label', 'library_preparation_protocol.end_bias', 'library_preparation_protocol.strand', 'project.provenance.document_id', 'project.project_core.project_short_name', 'project.project_core.project_title', 'analysis_protocol.provenance.document_id', 'dss_bundle_fqid', 'bundle_uuid', 'bundle_version', 'analysis_protocol.protocol_core.protocol_id', 'analysis_working_group_approval_status'
+    var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species', 'n_cells'
+  #+END_EXAMPLE
+  :END:
+
+  #+BEGIN_SRC ipython
+    y.write('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/liver-caudate-lobe.h5ad')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[107]:
+  :END:
+
+** Pre-processed data (normalized)                                  :noexport:
+
   Download the data.
 
   #+BEGIN_SRC sh :dir /scratch/midway2/aksarkar/modes
-    curl --ftp-pasv -OL "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE115nnn/GSE115469/suppl/GSE115469_Data.csv.gz"
+    curl --ftp-pasv -OL "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE115/GSE115469/suppl/GSE115469_Data.csv.gz"
   #+END_SRC
 
   #+RESULTS:
@@ -110,12 +169,12 @@
   Report the number of samples per donor.
 
   #+BEGIN_SRC ipython
-     x.obs['donor'].value_counts()
+    x.obs['donor'].value_counts()
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[25]:
+  # Out[69]:
   #+BEGIN_EXAMPLE
     P3TLH    3127
     P5TLH    1705
@@ -135,15 +194,15 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[5]:
+  # Out[111]:
   #+BEGIN_EXAMPLE
-    AnnData object with n_obs × n_vars = 8444 × 12170
-    obs: 'donor', 'barcode'
-    var: 'gene', 'n_cells'
+    AnnData object with n_obs × n_vars = 8856 × 16200
+    obs: 'cellkey', 'genes_detected', 'file_uuid', 'file_version', 'total_umis', 'emptydrops_is_cell', 'barcode', 'cell_suspension.provenance.document_id', 'specimen_from_organism.provenance.document_id', 'derived_organ_ontology', 'derived_organ_label', 'derived_organ_parts_ontology', 'derived_organ_parts_label', 'cell_suspension.genus_species.ontology', 'cell_suspension.genus_species.ontology_label', 'donor_organism.provenance.document_id', 'donor_organism.human_specific.ethnicity.ontology', 'donor_organism.human_specific.ethnicity.ontology_label', 'donor_organism.diseases.ontology', 'donor_organism.diseases.ontology_label', 'donor_organism.development_stage.ontology', 'donor_organism.development_stage.ontology_label', 'donor_organism.sex', 'donor_organism.is_living', 'specimen_from_organism.organ.ontology', 'specimen_from_organism.organ.ontology_label', 'specimen_from_organism.organ_parts.ontology', 'specimen_from_organism.organ_parts.ontology_label', 'library_preparation_protocol.provenance.document_id', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology', 'library_preparation_protocol.input_nucleic_acid_molecule.ontology_label', 'library_preparation_protocol.library_construction_method.ontology', 'library_preparation_protocol.library_construction_method.ontology_label', 'library_preparation_protocol.end_bias', 'library_preparation_protocol.strand', 'project.provenance.document_id', 'project.project_core.project_short_name', 'project.project_core.project_title', 'analysis_protocol.provenance.document_id', 'dss_bundle_fqid', 'bundle_uuid', 'bundle_version', 'analysis_protocol.protocol_core.protocol_id', 'analysis_working_group_approval_status'
+    var: 'featurekey', 'featurename', 'featuretype', 'chromosome', 'featurestart', 'featureend', 'isgene', 'genus_species', 'n_cells'
   #+END_EXAMPLE
   :END:
 
-* Results
+* Results                                                          :noexport:
 ** Gamma assumption
 
    Fit a Gamma distribution to expression variation at each gene within the
