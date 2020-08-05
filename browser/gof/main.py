@@ -24,12 +24,12 @@ def init():
   global gene_data
   with sqlite3.connect(db) as conn:
     gene_df = pd.read_sql(
-        sql="""select * from genes order by dataset, p;""",
+        sql="""select * from genes order by dataset, gene, llr;""",
         con=conn)
     gene_data.data = bokeh.models.ColumnDataSource.from_df(gene_df)
   
 gene_df = pd.DataFrame(
-  columns=['dataset', 'gene', 'name', 'method', 'stat', 'p'])
+  columns=['dataset', 'gene', 'name', 'unimodal', 'npmle', 'llr'])
 
 gene_data = bokeh.models.ColumnDataSource(gene_df)
 gene_data.selected.on_change('indices', update_gene)

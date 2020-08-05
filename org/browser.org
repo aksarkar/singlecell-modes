@@ -13,7 +13,7 @@
 
   #+RESULTS:
   : 
-  : cd /project2/mstephens/aksarkar/projects/singlecell -modes/browser/
+  : cd /project2/mstephens/aksarkar/projects/singlecell-mo des/browser/
   : source activate scmodes
 
   (Re)start the browser
@@ -25,8 +25,10 @@
 
   #+RESULTS:
   : pkill -u aksarkar bokeh
+  : Received signal 15, shutting down
+  : (hostname -i) --allow-websocket-origin=$(hostname -i):5006
   : bokeh serve capture gof markers --addres s $(hostname -i) --allow-websocket-origin=$(hostname -i):5006 &
-  : [1] 14487
+  : [3] 29979
 
 * Production environment
 

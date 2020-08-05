@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-07-31 Fri 11:23 -->
+<!-- 2020-08-05 Wed 18:04 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Goodness of fit of deconvolved distributions</title>
@@ -262,7 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#org9458460">Methods</a>
 <ul>
-<li><a href="#org57b52dd">Test for goodness of fit</a></li>
+<li><a href="#orgf7646ad">Test for goodness of fit</a></li>
 <li><a href="#org1e959d4">Poisson-unimodal goodness of fit</a></li>
 <li><a href="#orgfd5c235">Data</a></li>
 </ul>
@@ -355,9 +355,9 @@ Here, we directly test for the goodness of fit of the estimated distributions
 <h2 id="org9458460">Methods</h2>
 <div class="outline-text-2" id="text-org9458460">
 </div>
-<div id="outline-container-org57b52dd" class="outline-3">
-<h3 id="org57b52dd">Test for goodness of fit</h3>
-<div class="outline-text-3" id="text-org57b52dd">
+<div id="outline-container-orgf7646ad" class="outline-3">
+<h3 id="orgf7646ad">Test for goodness of fit</h3>
+<div class="outline-text-3" id="text-orgf7646ad">
 <p>
 The key idea underlying our test for goodness of fit is the fact that if
 \(x_{i} \sim F(\cdot)\), then \(F(x_{i}) \sim \operatorname{Uniform}(0,
@@ -565,12 +565,6 @@ and
   sc.pp.filter_genes(x, min_cells=1)
   <span class="org-keyword">return</span> pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
 
-<span class="org-keyword">def</span> <span class="org-function-name">read_c1</span>(min_detect=1000):
-  <span class="org-variable-name">x</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/ercc-counts.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0)
-  <span class="org-variable-name">keep_samples</span> = pd.read_csv(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt'</span>, header=<span class="org-constant">None</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
-  <span class="org-comment-delimiter"># </span><span class="org-comment">Throw out samples with too few spike-in molecules detected</span>
-  <span class="org-keyword">return</span> x.loc[:,np.logical_and((x.<span class="org-builtin">sum</span>(axis=0) &gt; min_detect).values, keep_samples.values.ravel())].T
-
 <span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.01, return_y=<span class="org-constant">False</span>):
   <span class="org-variable-name">x1</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
   <span class="org-variable-name">x2</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/'</span>, return_df=<span class="org-constant">True</span>, min_detect=0)
@@ -592,24 +586,13 @@ and
 
 <span class="org-keyword">def</span> <span class="org-function-name">read_liver</span>():
   <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/liver-caudate-lobe.h5ad'</span>)
-  <span class="org-variable-name">query</span> = x.obs[<span class="org-string">'donor'</span>] == <span class="org-string">'P3TLH'</span>
-  <span class="org-variable-name">y</span> = x[query]
-  sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
-  <span class="org-keyword">return</span> y
+  sc.pp.filter_genes(x, min_cells=.01 * x.shape[0])
+  <span class="org-keyword">return</span> x
 
 <span class="org-keyword">def</span> <span class="org-function-name">read_kidney</span>():
-  <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/scratch/midway2/aksarkar/modes/kidney.h5ad'</span>)
-  <span class="org-comment-delimiter"># </span><span class="org-comment">Supp Table 2+3 lists donor+biopsy information</span>
-  <span class="org-variable-name">donor_pass</span> = <span class="org-builtin">set</span>([
-    <span class="org-comment-delimiter"># </span><span class="org-comment">'4602STDY6949184',</span>
-    <span class="org-string">'4602STDY6949185'</span>,
-    <span class="org-comment-delimiter"># </span><span class="org-comment">'4602STDY6949187',</span>
-    <span class="org-comment-delimiter"># </span><span class="org-comment">'4602STDY6949188',</span>
-  ])
-  <span class="org-variable-name">query</span> = np.array([t.split(<span class="org-string">'_'</span>)[0] <span class="org-keyword">in</span> donor_pass <span class="org-keyword">for</span> t <span class="org-keyword">in</span> x.obs.index])
-  <span class="org-variable-name">y</span> = x[query]
-  sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
-  <span class="org-keyword">return</span> y
+  <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/kidney/kidney.h5ad'</span>)
+  sc.pp.filter_genes(x, min_cells=.01 * x.shape[0])
+  <span class="org-keyword">return</span> x
 
 <span class="org-keyword">def</span> <span class="org-function-name">read_brain</span>():
   <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/gtex-droncseq.h5ad'</span>)
@@ -629,17 +612,16 @@ and
   <span class="org-string">'chromium1'</span>: <span class="org-keyword">lambda</span>: read_chromium(<span class="org-string">'20311'</span>),
   <span class="org-string">'chromium2'</span>: <span class="org-keyword">lambda</span>: read_chromium(<span class="org-string">'20312'</span>),
   <span class="org-string">'gemcode'</span>: read_gemcode,
-  <span class="org-string">'c1'</span>: read_c1,
   <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'cytotoxic_t'</span>),
   <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'b_cells'</span>),
   <span class="org-string">'ipsc'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>, return_df=<span class="org-constant">True</span>),
   <span class="org-string">'cytotoxic_t-b_cells'</span>: _cd8_cd19_mix,
   <span class="org-string">'cytotoxic_t-naive_t'</span>: _cyto_naive_mix,
   <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>, return_df=<span class="org-constant">False</span>),
-  <span class="org-string">'liver-caudate-lobe'</span>: <span class="org-keyword">lambda</span>: read_liver(),
-  <span class="org-string">'kidney'</span>: <span class="org-keyword">lambda</span>: read_kidney(),
-  <span class="org-string">'brain'</span>: <span class="org-keyword">lambda</span>: read_brain(),
-  <span class="org-string">'retina'</span>: <span class="org-keyword">lambda</span>: read_retina()
+  <span class="org-string">'liver-caudate-lobe'</span>: read_liver,
+  <span class="org-string">'kidney'</span>: read_kidney,
+  <span class="org-string">'brain'</span>: read_brain,
+  <span class="org-string">'retina'</span>: read_retina,
 }
 </pre>
 </div>
@@ -662,16 +644,16 @@ indrops                    953        103
 chromium1                 2000         88
 chromium2                 2000         88
 gemcode                   1015         91
-c1                        5002         92
 cytotoxic_t              10209       6530
 b_cells                  10085       6417
 ipsc                      5597       9957
 cytotoxic_t-b_cells      20294       6647
 cytotoxic_t-naive_t      20688       6246
 pbmcs_68k                68579       6502
-liver-caudate-lobe        3127      10646
-kidney                    4876       8463
+liver-caudate-lobe        8856       3181
+kidney                   11233      15496
 brain                    14963      11744
+retina                   21285      10047
 </pre>
 </div>
 </div>
@@ -825,15 +807,15 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-orge42f81a" class="outline-3">
-<h3 id="gof"><a id="orge42f81a"></a>Test for goodness of fit</h3>
+<div id="outline-container-org7d7e1da" class="outline-3">
+<h3 id="gof"><a id="org7d7e1da"></a>Test for goodness of fit</h3>
 <div class="outline-text-3" id="text-gof">
 <p>
 Run the GPU-based methods.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=gof --time=1:00:00 -a 15
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=gof --time=1:00:00 -a 7
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -957,7 +939,7 @@ not fit the data.
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 22
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 11-12,26-27
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -1015,7 +997,7 @@ expression models.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 7-15
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llr --time=12:00:00 -a 6-14
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -1246,23 +1228,24 @@ tested only for genes which significantly depart from Gamma.
  .groupby([<span class="org-string">'dataset'</span>, <span class="org-string">'method'</span>])
  .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &lt;= 0.05 / x.shape[0]).<span class="org-builtin">sum</span>())
  .reset_index()
- .pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>))[0]
+ .pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
+ [0]
+ [[<span class="org-string">'gamma'</span>, <span class="org-string">'zig'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]])
 </pre>
 </div>
 
 <pre class="example">
-method               gamma  npmle  unimodal   zig
+method               gamma   zig  unimodal  npmle
 dataset
-b_cells                 53     10        10    45
-brain                  399     74        63   400
-cytotoxic_t             35      1         0    34
-cytotoxic_t-b_cells   1077     31        19  1070
-cytotoxic_t-naive_t    945     24        17   951
-ipsc                  2251     11         6  2244
-kidney                3487   2104      1815  2934
-liver-caudate-lobe    5365   4831      4796  4559
-pbmcs_68k              422     48        22   409
-retina                 226    125       133   202
+b_cells                 53    45        10     10
+brain                  399   400        63     74
+cytotoxic_t-b_cells   1077  1070        19     31
+cytotoxic_t-naive_t    945   951        17     24
+ipsc                  2246  2245         6     11
+kidney                 126   122        57     66
+liver-caudate-lobe      45    45         3      7
+pbmcs_68k              422   409        22     48
+retina                 226   202       133    125
 </pre>
 
 <p>
@@ -1277,23 +1260,22 @@ correction at level 0.05).
         .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: (x[<span class="org-string">'p'</span>] &gt;= 0.05 / x.shape[0]).mean())
         .reset_index()
         .pivot(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>))[0]
-frac
+frac[[<span class="org-string">'gamma'</span>, <span class="org-string">'zig'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]]
 </pre>
 </div>
 
 <pre class="example">
-method                  gamma     npmle  unimodal       zig
+method                  gamma       zig  unimodal     npmle
 dataset
-b_cells              0.991741  0.811321  0.811321  0.992987
-brain                0.966025  0.814536  0.842105  0.965940
-cytotoxic_t          0.994640  0.971429  1.000000  0.994793
-cytotoxic_t-b_cells  0.837972  0.971216  0.982358  0.839025
-cytotoxic_t-naive_t  0.848703  0.974603  0.982011  0.847743
-ipsc                 0.773928  0.995113  0.997335  0.774631
-kidney               0.587971  0.396616  0.479495  0.653314
-liver-caudate-lobe   0.496055  0.099534  0.106058  0.571764
-pbmcs_68k            0.935097  0.886256  0.947867  0.937096
-retina               0.977506  0.446903  0.411504  0.979894
+b_cells              0.991741  0.992987  0.811321  0.811321
+brain                0.966025  0.965940  0.842105  0.814536
+cytotoxic_t-b_cells  0.837972  0.839025  0.982358  0.971216
+cytotoxic_t-naive_t  0.848703  0.847743  0.982011  0.974603
+ipsc                 0.774430  0.774530  0.997335  0.995113
+kidney               0.991869  0.992127  0.547619  0.476190
+liver-caudate-lobe   0.997222  0.997222  0.933333  0.844444
+pbmcs_68k            0.935097  0.937096  0.947867  0.886256
+retina               0.977506  0.979894  0.411504  0.446903
 </pre>
 
 <p>
@@ -1338,12 +1320,11 @@ a point-Gamma assumption on expression variation.
 dataset
 b_cells                0.150943
 brain                  0.082707
-cytotoxic_t            0.057143
 cytotoxic_t-b_cells    0.053853
-cytotoxic_t-naive_t    0.069370
-ipsc                   0.055531
-kidney                 0.158876
-liver-caudate-lobe     0.155079
+cytotoxic_t-naive_t    0.067725
+ipsc                   0.000000
+kidney                 0.174603
+liver-caudate-lobe     0.044444
 pbmcs_68k              0.099526
 retina                 0.230088
 dtype: float64
@@ -1360,65 +1341,75 @@ a fully non-parametric assumption on expression variation.
 (query
  .groupby(level=0)
  .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: np.logical_and(x[<span class="org-string">'p'</span>][<span class="org-string">'unimodal'</span>] &lt; .05 / x.shape[0],
-                                 x[<span class="org-string">'p'</span>][<span class="org-string">'npmle'</span>] &gt;= .05 / x.shape[0]).<span class="org-builtin">sum</span>()
-        / (x[<span class="org-string">'p'</span>][<span class="org-string">'unimodal'</span>] &lt; .05 / x.shape[0]).<span class="org-builtin">sum</span>()))
+                                 x[<span class="org-string">'p'</span>][<span class="org-string">'npmle'</span>] &gt;= .05 / x.shape[0]).<span class="org-builtin">sum</span>()))
 </pre>
 </div>
 
 <pre class="example">
 dataset
-b_cells                0.200000
-brain                  0.111111
-cytotoxic_t                 NaN
-cytotoxic_t-b_cells    0.684211
-cytotoxic_t-naive_t    0.235294
-ipsc                   0.333333
-kidney                 0.012121
-liver-caudate-lobe     0.049833
-pbmcs_68k              0.045455
-retina                 0.150376
-dtype: float64
+b_cells                 2
+brain                   7
+cytotoxic_t-b_cells    13
+cytotoxic_t-naive_t     4
+ipsc                    2
+kidney                  6
+liver-caudate-lobe      3
+pbmcs_68k               1
+retina                 20
+dtype: int64
 </pre>
 
 <p>
 Report the number of genes where the log likelihood difference between the
 non-parametric expression model and unimodal model exceeds \(t \in (1, 10,
-    100, 1000)\), for genes which did not depart from a non-parametric
-assumption on expression variation.
+    100, 1000)\), for genes which departed from a unimodal assumption on
+expression variation.
 </p>
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">llr</span> = pd.concat({k: pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-llr.txt.gz'</span>, sep=<span class="org-string">'\t'</span>, index_col=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> non_control}).reset_index()
-<span class="org-variable-name">query</span> = (gof_res[(gof_res[<span class="org-string">'dataset'</span>].isin(non_control)) &amp; (gof_res[<span class="org-string">'method'</span>] == <span class="org-string">'npmle'</span>)]
-         .pivot_table(index=[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>], columns=[<span class="org-string">'method'</span>], values=[<span class="org-string">'p'</span>])
-         .groupby(level=0)
-         .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: x.loc[x[<span class="org-string">'p'</span>][<span class="org-string">'npmle'</span>] &gt; .05 / x.shape[0]])
-         .reset_index(level=0, drop=<span class="org-constant">True</span>)
-         .reset_index())
-(llr
- .merge(query, left_on=[<span class="org-string">'level_0'</span>, <span class="org-string">'gene'</span>], right_on=[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>])
- .groupby(<span class="org-string">'level_0'</span>)
- [<span class="org-string">'llr'</span>]
- .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: pd.Series({t: (x &gt; t).mean() <span class="org-keyword">for</span> t <span class="org-keyword">in</span> (1, 10, 100, 1000)}))
- .reset_index()
- .pivot_table(index=<span class="org-string">'level_0'</span>, columns=<span class="org-string">'level_1'</span>))
+llr.groupby(<span class="org-string">'level_0'</span>).<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: pd.Series({t: (x[<span class="org-string">'llr'</span>] &gt; t).<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> t <span class="org-keyword">in</span> (1, 10, 100, 1000)}))
 </pre>
 </div>
 
 <pre class="example">
-llr
-level_1                  1         10        100       1000
+1     10    100   1000
 level_0
-b_cells              0.069767  0.023256  0.000000  0.000000
-brain                0.092308  0.003077  0.000000  0.000000
-cytotoxic_t          0.352941  0.000000  0.000000  0.000000
-cytotoxic_t-b_cells  0.043977  0.014340  0.004780  0.000956
-cytotoxic_t-naive_t  0.027144  0.000000  0.000000  0.000000
-ipsc                 0.241964  0.005357  0.000893  0.000000
-kidney               0.000000  0.000000  0.000000  0.000000
-liver-caudate-lobe   0.005618  0.001873  0.000000  0.000000
-pbmcs_68k            0.155080  0.029412  0.000000  0.000000
-retina               0.257426  0.108911  0.049505  0.000000
+b_cells                 6     1     0     0
+brain                  52     3     1     1
+cytotoxic_t-b_cells    49    16     6     1
+cytotoxic_t-naive_t    30     1     0     0
+ipsc                  542    12     2     0
+kidney                 51     2     0     0
+liver-caudate-lobe     28    12     1     0
+pbmcs_68k              66    12     1     0
+retina                 74    20     9     0
+</pre>
+
+<p>
+Report the intersection of the two sets of putative multi-modal genes.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">sig</span> = (gof_res
+       .pivot_table(index=[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>], columns=[<span class="org-string">'method'</span>], values=[<span class="org-string">'p'</span>])
+       [<span class="org-string">'p'</span>]
+       .groupby(level=0)
+       .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: x.loc[(x[<span class="org-string">'unimodal'</span>] &lt; 0.05 / x.shape[0]) &amp; (x[<span class="org-string">'npmle'</span>] &gt;= 0.05 / x.shape[0])])
+       .reset_index(level=0, drop=<span class="org-constant">True</span>)
+       .reset_index()
+)
+<span class="org-variable-name">query</span> = (sig
+         .merge(llr.loc[llr[<span class="org-string">'llr'</span>] &gt; 10], left_on=[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>], right_on=[<span class="org-string">'level_0'</span>, <span class="org-string">'gene'</span>])
+         .reset_index(drop=<span class="org-constant">True</span>)
+         .merge(gene_info, on=<span class="org-string">'gene'</span>))
+query.shape
+</pre>
+</div>
+
+<pre class="example">
+(20, 15)
+
 </pre>
 </div>
 </div>
@@ -1436,25 +1427,32 @@ Read gene metadata.
 </div>
 
 <p>
-Populate the database with the top 100 genes departing from each fitted
-distribution.
+Populate the database with the genes departing from a unimodal expression
+model.
 </p>
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">sig</span> = (gof_res
-       .loc[gof_res[<span class="org-string">'method'</span>] == <span class="org-string">'unimodal'</span>]
-       .groupby(<span class="org-string">'dataset'</span>)
-       .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: x.loc[x[<span class="org-string">'p'</span>] &lt; 0.05 / x.shape[0]].sort_values(<span class="org-string">'p'</span>).head(n=100))
-       .reset_index(drop=<span class="org-constant">True</span>)
-       .merge(gene_info, on=<span class="org-string">'gene'</span>, how=<span class="org-string">'left'</span>)
-       [[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>, <span class="org-string">'name'</span>, <span class="org-string">'method'</span>, <span class="org-string">'stat'</span>, <span class="org-string">'p'</span>]])
+       .pivot_table(index=[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>], columns=[<span class="org-string">'method'</span>], values=[<span class="org-string">'p'</span>])
+       [<span class="org-string">'p'</span>]
+       .groupby(level=0)
+       .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: x.loc[(x[<span class="org-string">'unimodal'</span>] &lt; 0.05 / x.shape[0]) &amp; (x[<span class="org-string">'npmle'</span>] &gt;= 0.05 / x.shape[0])])
+       .reset_index(level=0, drop=<span class="org-constant">True</span>)
+       .reset_index()
+)
+<span class="org-variable-name">dat</span> = (sig
+         .merge(llr.loc[llr[<span class="org-string">'llr'</span>] &gt; 10], left_on=[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>], right_on=[<span class="org-string">'level_0'</span>, <span class="org-string">'gene'</span>], how=<span class="org-string">'outer'</span>)
+         .reset_index(drop=<span class="org-constant">True</span>)
+         .merge(gene_info, on=<span class="org-string">'gene'</span>))
+dat[<span class="org-string">'dataset'</span>].fillna(dat[<span class="org-string">'level_0'</span>], inplace=<span class="org-constant">True</span>)
+<span class="org-variable-name">dat</span> = dat[[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>, <span class="org-string">'name'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>, <span class="org-string">'llr'</span>]]
 </pre>
 </div>
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">keys</span> = []
 <span class="org-variable-name">counts</span> = []
-<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> sig.groupby([<span class="org-string">'dataset'</span>]):
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> dat.groupby([<span class="org-string">'dataset'</span>]):
   <span class="org-variable-name">x</span> = data[k]()
   <span class="org-variable-name">query</span> = g[<span class="org-string">'gene'</span>].unique()
   <span class="org-keyword">if</span> <span class="org-keyword">not</span> <span class="org-builtin">isinstance</span>(x, anndata.AnnData):
@@ -1470,13 +1468,15 @@ distribution.
           .reset_index()
           .melt(id_vars=<span class="org-string">'sample'</span>, var_name=<span class="org-string">'gene'</span>, value_name=<span class="org-string">'count'</span>))
 
-<span class="org-variable-name">count_data</span> = pd.concat([_melt(y) <span class="org-keyword">for</span> y <span class="org-keyword">in</span> counts], keys=keys).reset_index(level=0).rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
+<span class="org-variable-name">count_data</span> = (pd.concat([_melt(y) <span class="org-keyword">for</span> y <span class="org-keyword">in</span> counts], keys=keys)
+              .reset_index(level=0)
+              .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1))
 </pre>
 </div>
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-keyword">with</span> sqlite3.connect(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/browser/browser.db'</span>) <span class="org-keyword">as</span> conn:
-  sig.to_sql(<span class="org-string">'genes'</span>, conn, if_exists=<span class="org-string">'replace'</span>, index=<span class="org-constant">False</span>)
+  dat.to_sql(<span class="org-string">'genes'</span>, conn, if_exists=<span class="org-string">'replace'</span>, index=<span class="org-constant">False</span>)
   conn.execute(<span class="org-string">'create index genes_idx on genes(dataset, gene);'</span>)
   count_data.to_sql(<span class="org-string">'counts'</span>, conn, if_exists=<span class="org-string">'replace'</span>, index=<span class="org-constant">False</span>)
   conn.execute(<span class="org-string">'create index counts_idx on counts(dataset, gene);'</span>)
@@ -2064,7 +2064,7 @@ plt.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-07-31 Fri 11:23</p>
+<p class="date">Created: 2020-08-05 Wed 18:04</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

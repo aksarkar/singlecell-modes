@@ -271,12 +271,6 @@
        sc.pp.filter_genes(x, min_cells=1)
        return pd.DataFrame(x.X.A, index=x.obs.index, columns=x.var.index)
 
-     def read_c1(min_detect=1000):
-       x = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/ercc-counts.txt.gz', sep='\t', index_col=0)
-       keep_samples = pd.read_csv('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/quality-single-cells.txt', header=None, index_col=0, sep='\t')
-       # Throw out samples with too few spike-in molecules detected
-       return x.loc[:,np.logical_and((x.sum(axis=0) > min_detect).values, keep_samples.values.ravel())].T
-
      def _mix_10x(k1, k2, min_detect=0.01, return_y=False):
        x1 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
        x2 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/', return_df=True, min_detect=0)
@@ -298,24 +292,13 @@
 
      def read_liver():
        x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/liver-caudate-lobe.h5ad')
-       query = x.obs['donor'] == 'P3TLH'
-       y = x[query]
-       sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
-       return y
+       sc.pp.filter_genes(x, min_cells=.01 * x.shape[0])
+       return x
 
      def read_kidney():
-       x = anndata.read_h5ad('/scratch/midway2/aksarkar/modes/kidney.h5ad')
-       # Supp Table 2+3 lists donor+biopsy information
-       donor_pass = set([
-         # '4602STDY6949184',
-         '4602STDY6949185',
-         # '4602STDY6949187',
-         # '4602STDY6949188',
-       ])
-       query = np.array([t.split('_')[0] in donor_pass for t in x.obs.index])
-       y = x[query]
-       sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
-       return y
+       x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/kidney/kidney.h5ad')
+       sc.pp.filter_genes(x, min_cells=.01 * x.shape[0])
+       return x
 
      def read_brain():
        x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/gtex-droncseq.h5ad')
@@ -335,17 +318,16 @@
        'chromium1': lambda: read_chromium('20311'),
        'chromium2': lambda: read_chromium('20312'),
        'gemcode': read_gemcode,
-       'c1': read_c1,
        'cytotoxic_t': lambda: _read_10x('cytotoxic_t'),
        'b_cells': lambda: _read_10x('b_cells'),
        'ipsc': lambda: scmodes.dataset.ipsc('/project2/mstephens/aksarkar/projects/singlecell-qtl/data/', return_df=True),
        'cytotoxic_t-b_cells': _cd8_cd19_mix,
        'cytotoxic_t-naive_t': _cyto_naive_mix,
        'pbmcs_68k': lambda: _read_10x('fresh_68k_pbmc_donor_a', return_df=False),
-       'liver-caudate-lobe': lambda: read_liver(),
-       'kidney': lambda: read_kidney(),
-       'brain': lambda: read_brain(),
-       'retina': lambda: read_retina()
+       'liver-caudate-lobe': read_liver,
+       'kidney': read_kidney,
+       'brain': read_brain,
+       'retina': read_retina,
      }
    #+END_SRC
 
@@ -364,7 +346,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[76]:
+   # Out[14]:
    #+BEGIN_EXAMPLE
      num_cells  num_genes
      dropseq                     84         81
@@ -372,16 +354,16 @@
      chromium1                 2000         88
      chromium2                 2000         88
      gemcode                   1015         91
-     c1                        5002         92
      cytotoxic_t              10209       6530
      b_cells                  10085       6417
      ipsc                      5597       9957
      cytotoxic_t-b_cells      20294       6647
      cytotoxic_t-naive_t      20688       6246
      pbmcs_68k                68579       6502
-     liver-caudate-lobe        3127      10646
-     kidney                    4876       8463
+     liver-caudate-lobe        8856       3181
+     kidney                   11233      15496
      brain                    14963      11744
+     retina                   21285      10047
    #+END_EXAMPLE
    :END:
 
@@ -536,7 +518,7 @@
     Run the GPU-based methods.
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=gof --time=1:00:00 -a 15
+      sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=gof --time=1:00:00 -a 7
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -552,7 +534,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 3176635
+    : Submitted batch job 3328750
 
     Move the results to permanent storage.
 
@@ -590,7 +572,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[41]:
+    # Out[6]:
     :END:
 
     Write out the post-processed results.
@@ -601,7 +583,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[42]:
+    # Out[7]:
     :END:
 
     Read the post-processed results.
@@ -637,7 +619,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[14]:
+    # Out[20]:
     :END:
 
     #+BEGIN_SRC ipython :async t
@@ -665,11 +647,11 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[79]:
+    # Out[21]:
     :END:
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 22
+      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 11-12,26-27
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -699,7 +681,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 3264061
+    : Submitted batch job 3327559
 
     Run goodness of fit tests for a point mass assumption on control data sets
     only.
@@ -727,7 +709,7 @@
     expression models.
 
     #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=gof --time=12:00:00 -a 7-15
+      sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llr --time=12:00:00 -a 6-14
       #!/bin/bash
       source activate scmodes
       python <<EOF
@@ -757,7 +739,7 @@
     #+END_SRC
 
     #+RESULTS:
-    : Submitted batch job 3267625
+    : Submitted batch job 3328867
 
 ** Application to control data sets
 
@@ -882,7 +864,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[6]:
+    # Out[7]:
     :END:
 
     Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
@@ -907,7 +889,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[31]:
+    # Out[28]:
     [[file:figure/gof.org/gamma-gof-hist.png]]
     :END:
 
@@ -933,7 +915,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[32]:
+    # Out[29]:
     [[file:figure/gof.org/zig-gof-hist.png]]
     :END:
 
@@ -946,25 +928,26 @@
        .groupby(['dataset', 'method'])
        .apply(lambda x: (x['p'] <= 0.05 / x.shape[0]).sum())
        .reset_index()
-       .pivot(index='dataset', columns='method'))[0]
+       .pivot(index='dataset', columns='method')
+       [0]
+       [['gamma', 'zig', 'unimodal', 'npmle']])
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[10]:
+    # Out[9]:
     #+BEGIN_EXAMPLE
-      method               gamma  npmle  unimodal   zig
+      method               gamma   zig  unimodal  npmle
       dataset
-      b_cells                 53     10        10    45
-      brain                  399     74        63   400
-      cytotoxic_t             35      1         0    34
-      cytotoxic_t-b_cells   1077     31        19  1070
-      cytotoxic_t-naive_t    945     24        17   951
-      ipsc                  2251     11         6  2244
-      kidney                3487   2104      1815  2934
-      liver-caudate-lobe    5365   4831      4796  4559
-      pbmcs_68k              422     48        22   409
-      retina                 226    125       133   202
+      b_cells                 53    45        10     10
+      brain                  399   400        63     74
+      cytotoxic_t-b_cells   1077  1070        19     31
+      cytotoxic_t-naive_t    945   951        17     24
+      ipsc                  2246  2245         6     11
+      kidney                 126   122        57     66
+      liver-caudate-lobe      45    45         3      7
+      pbmcs_68k              422   409        22     48
+      retina                 226   202       133    125
     #+END_EXAMPLE
     :END:
 
@@ -978,25 +961,24 @@
               .apply(lambda x: (x['p'] >= 0.05 / x.shape[0]).mean())
               .reset_index()
               .pivot(index='dataset', columns='method'))[0]
-      frac
+      frac[['gamma', 'zig', 'unimodal', 'npmle']]
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[11]:
+    # Out[10]:
     #+BEGIN_EXAMPLE
-      method                  gamma     npmle  unimodal       zig
+      method                  gamma       zig  unimodal     npmle
       dataset
-      b_cells              0.991741  0.811321  0.811321  0.992987
-      brain                0.966025  0.814536  0.842105  0.965940
-      cytotoxic_t          0.994640  0.971429  1.000000  0.994793
-      cytotoxic_t-b_cells  0.837972  0.971216  0.982358  0.839025
-      cytotoxic_t-naive_t  0.848703  0.974603  0.982011  0.847743
-      ipsc                 0.773928  0.995113  0.997335  0.774631
-      kidney               0.587971  0.396616  0.479495  0.653314
-      liver-caudate-lobe   0.496055  0.099534  0.106058  0.571764
-      pbmcs_68k            0.935097  0.886256  0.947867  0.937096
-      retina               0.977506  0.446903  0.411504  0.979894
+      b_cells              0.991741  0.992987  0.811321  0.811321
+      brain                0.966025  0.965940  0.842105  0.814536
+      cytotoxic_t-b_cells  0.837972  0.839025  0.982358  0.971216
+      cytotoxic_t-naive_t  0.848703  0.847743  0.982011  0.974603
+      ipsc                 0.774430  0.774530  0.997335  0.995113
+      kidney               0.991869  0.992127  0.547619  0.476190
+      liver-caudate-lobe   0.997222  0.997222  0.933333  0.844444
+      pbmcs_68k            0.935097  0.937096  0.947867  0.886256
+      retina               0.977506  0.979894  0.411504  0.446903
     #+END_EXAMPLE
     :END:
 
@@ -1036,12 +1018,11 @@
       dataset
       b_cells                0.150943
       brain                  0.082707
-      cytotoxic_t            0.057143
       cytotoxic_t-b_cells    0.053853
-      cytotoxic_t-naive_t    0.069370
-      ipsc                   0.055531
-      kidney                 0.158876
-      liver-caudate-lobe     0.155079
+      cytotoxic_t-naive_t    0.067725
+      ipsc                   0.000000
+      kidney                 0.174603
+      liver-caudate-lobe     0.044444
       pbmcs_68k              0.099526
       retina                 0.230088
       dtype: float64
@@ -1057,69 +1038,77 @@
       (query
        .groupby(level=0)
        .apply(lambda x: np.logical_and(x['p']['unimodal'] < .05 / x.shape[0],
-                                       x['p']['npmle'] >= .05 / x.shape[0]).sum()
-              / (x['p']['unimodal'] < .05 / x.shape[0]).sum()))
+                                       x['p']['npmle'] >= .05 / x.shape[0]).sum()))
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[45]:
+    # Out[12]:
     #+BEGIN_EXAMPLE
       dataset
-      b_cells                0.200000
-      brain                  0.111111
-      cytotoxic_t                 NaN
-      cytotoxic_t-b_cells    0.684211
-      cytotoxic_t-naive_t    0.235294
-      ipsc                   0.333333
-      kidney                 0.012121
-      liver-caudate-lobe     0.049833
-      pbmcs_68k              0.045455
-      retina                 0.150376
-      dtype: float64
+      b_cells                 2
+      brain                   7
+      cytotoxic_t-b_cells    13
+      cytotoxic_t-naive_t     4
+      ipsc                    2
+      kidney                  6
+      liver-caudate-lobe      3
+      pbmcs_68k               1
+      retina                 20
+      dtype: int64
     #+END_EXAMPLE
     :END:
 
     Report the number of genes where the log likelihood difference between the
     non-parametric expression model and unimodal model exceeds \(t \in (1, 10,
-    100, 1000)\), for genes which did not depart from a non-parametric
-    assumption on expression variation.
+    100, 1000)\), for genes which departed from a unimodal assumption on
+    expression variation.
 
     #+BEGIN_SRC ipython
       llr = pd.concat({k: pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/gof/{k}-llr.txt.gz', sep='\t', index_col=0) for k in non_control}).reset_index()
-      query = (gof_res[(gof_res['dataset'].isin(non_control)) & (gof_res['method'] == 'npmle')]
-               .pivot_table(index=['dataset', 'gene'], columns=['method'], values=['p'])
-               .groupby(level=0)
-               .apply(lambda x: x.loc[x['p']['npmle'] > .05 / x.shape[0]])
-               .reset_index(level=0, drop=True)
-               .reset_index())
-      (llr
-       .merge(query, left_on=['level_0', 'gene'], right_on=['dataset', 'gene'])
-       .groupby('level_0')
-       ['llr']
-       .apply(lambda x: pd.Series({t: (x > t).mean() for t in (1, 10, 100, 1000)}))
-       .reset_index()
-       .pivot_table(index='level_0', columns='level_1'))
+      llr.groupby('level_0').apply(lambda x: pd.Series({t: (x['llr'] > t).sum() for t in (1, 10, 100, 1000)}))
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[87]:
+    # Out[30]:
     #+BEGIN_EXAMPLE
-      llr
-      level_1                  1         10        100       1000
+      1     10    100   1000
       level_0
-      b_cells              0.069767  0.023256  0.000000  0.000000
-      brain                0.092308  0.003077  0.000000  0.000000
-      cytotoxic_t          0.352941  0.000000  0.000000  0.000000
-      cytotoxic_t-b_cells  0.043977  0.014340  0.004780  0.000956
-      cytotoxic_t-naive_t  0.027144  0.000000  0.000000  0.000000
-      ipsc                 0.241964  0.005357  0.000893  0.000000
-      kidney               0.000000  0.000000  0.000000  0.000000
-      liver-caudate-lobe   0.005618  0.001873  0.000000  0.000000
-      pbmcs_68k            0.155080  0.029412  0.000000  0.000000
-      retina               0.257426  0.108911  0.049505  0.000000
+      b_cells                 6     1     0     0
+      brain                  52     3     1     1
+      cytotoxic_t-b_cells    49    16     6     1
+      cytotoxic_t-naive_t    30     1     0     0
+      ipsc                  542    12     2     0
+      kidney                 51     2     0     0
+      liver-caudate-lobe     28    12     1     0
+      pbmcs_68k              66    12     1     0
+      retina                 74    20     9     0
     #+END_EXAMPLE
+    :END:
+
+    Report the intersection of the two sets of putative multi-modal genes.
+
+    #+BEGIN_SRC ipython
+      sig = (gof_res
+             .pivot_table(index=['dataset', 'gene'], columns=['method'], values=['p'])
+             ['p']
+             .groupby(level=0)
+             .apply(lambda x: x.loc[(x['unimodal'] < 0.05 / x.shape[0]) & (x['npmle'] >= 0.05 / x.shape[0])])
+             .reset_index(level=0, drop=True)
+             .reset_index()
+      )
+      query = (sig
+               .merge(llr.loc[llr['llr'] > 10], left_on=['dataset', 'gene'], right_on=['level_0', 'gene'])
+               .reset_index(drop=True)
+               .merge(gene_info, on='gene'))
+      query.shape
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[92]:
+    : (20, 15)
     :END:
 
 ** Browser
@@ -1135,31 +1124,38 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[8]:
    :END:
 
-   Populate the database with the top 100 genes departing from each fitted
-   distribution.
+   Populate the database with the genes departing from a unimodal expression
+   model.
 
    #+BEGIN_SRC ipython
      sig = (gof_res
-            .loc[gof_res['method'] == 'unimodal']
-            .groupby('dataset')
-            .apply(lambda x: x.loc[x['p'] < 0.05 / x.shape[0]].sort_values('p').head(n=100))
-            .reset_index(drop=True)
-            .merge(gene_info, on='gene', how='left')
-            [['dataset', 'gene', 'name', 'method', 'stat', 'p']])
+            .pivot_table(index=['dataset', 'gene'], columns=['method'], values=['p'])
+            ['p']
+            .groupby(level=0)
+            .apply(lambda x: x.loc[(x['unimodal'] < 0.05 / x.shape[0]) & (x['npmle'] >= 0.05 / x.shape[0])])
+            .reset_index(level=0, drop=True)
+            .reset_index()
+     )
+     dat = (sig
+              .merge(llr.loc[llr['llr'] > 10], left_on=['dataset', 'gene'], right_on=['level_0', 'gene'], how='outer')
+              .reset_index(drop=True)
+              .merge(gene_info, on='gene'))
+     dat['dataset'].fillna(dat['level_0'], inplace=True)
+     dat = dat[['dataset', 'gene', 'name', 'unimodal', 'npmle', 'llr']]
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[31]:
+   # Out[100]:
    :END:
 
    #+BEGIN_SRC ipython :async t
      keys = []
      counts = []
-     for k, g in sig.groupby(['dataset']):
+     for k, g in dat.groupby(['dataset']):
        x = data[k]()
        query = g['gene'].unique()
        if not isinstance(x, anndata.AnnData):
@@ -1175,17 +1171,19 @@
                .reset_index()
                .melt(id_vars='sample', var_name='gene', value_name='count'))
 
-     count_data = pd.concat([_melt(y) for y in counts], keys=keys).reset_index(level=0).rename({'level_0': 'dataset'}, axis=1)
+     count_data = (pd.concat([_melt(y) for y in counts], keys=keys)
+                   .reset_index(level=0)
+                   .rename({'level_0': 'dataset'}, axis=1))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
+   # Out[101]:
    :END:
 
    #+BEGIN_SRC ipython :async t
      with sqlite3.connect('/project2/mstephens/aksarkar/projects/singlecell-modes/browser/browser.db') as conn:
-       sig.to_sql('genes', conn, if_exists='replace', index=False)
+       dat.to_sql('genes', conn, if_exists='replace', index=False)
        conn.execute('create index genes_idx on genes(dataset, gene);')
        count_data.to_sql('counts', conn, if_exists='replace', index=False)
        conn.execute('create index counts_idx on counts(dataset, gene);')
@@ -1193,7 +1191,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[14]:
+   # Out[103]:
    :END:
 
 ** Real data examples
