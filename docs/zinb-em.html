@@ -4,7 +4,7 @@
 <!-- 2020-08-07 Fri 16:36 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clarifying confusion in scRNA-seq analysis</title>
+<title>EM algorithm for point-Gamma expression model</title>
 <meta name="generator" content="Org mode">
 <meta name="author" content="Abhishek Sarkar">
 <style type="text/css">
@@ -228,95 +228,134 @@ for the JavaScript code in this tag.
  }
 /*]]>*///-->
 </script>
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        displayAlign: "center",
+        displayIndent: "0em",
+
+        "HTML-CSS": { scale: 100,
+                        linebreaks: { automatic: "false" },
+                        webFont: "TeX"
+                       },
+        SVG: {scale: 100,
+              linebreaks: { automatic: "false" },
+              font: "TeX"},
+        NativeMML: {scale: 100},
+        TeX: { equationNumbers: {autoNumber: "AMS"},
+               MultLineWidth: "85%",
+               TagSide: "right",
+               TagIndent: ".8em"
+             }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
 </head>
 <body>
 <div id="content">
-<h1 class="title">Clarifying confusion in scRNA-seq analysis</h1>
+<h1 class="title">EM algorithm for point-Gamma expression model</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org34a9ad2">Introduction</a></li>
+<li><a href="#org46ddd80">EM algorithm</a></li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org34a9ad2" class="outline-2">
+<h2 id="org34a9ad2">Introduction</h2>
+<div class="outline-text-2" id="text-org34a9ad2">
 <p>
-The development of single cell RNA sequencing (scRNA-seq) technologies has
-greatly facilitated investigation of important biological questions that were
-previously difficult or impossible to study. However, how to model and analyze
-scRNA-seq data has been the subject of considerable confusion and debate. We
-develop a simple way of thinking and talking about scRNA-seq data that can
-clarify much of this confusion. We outline a general framework which explicitly
-models, and distinguishes between, the measurement process and variation in
-actual expression levels between cells. Although our simple framework cannot on
-its own address all issues that arise in scRNA-seq data, we show how it can
-help clarify thinking, guide interpretation of existing analysis methods,
-address questions of biological interest, and suggest directions for
-development of new methods and analysis strategies.
+Assume a point-Gamma expression model for scRNA-seq observations at some gene
+\(j\) (Sarkar and Stephens 2020) \(
+  \DeclareMathOperator\Pois{Poisson}
+  \DeclareMathOperator\Bern{Bernoulli}
+  \DeclareMathOperator\Gam{Gamma}
+  \newcommand\const{\mathrm{const}}
+  \newcommand\lnb{l_{\mathrm{NB}}}
+  \newcommand\E[1]{\left\langle #1 \right\rangle}
+  \)
 </p>
 
+\begin{align}
+  x_{i} \mid s_i, \lambda_{i} &\sim \Pois(s_i \lambda_{i})\\
+  \lambda_{i} \mid z_i = 1, a, b &\sim \Gam(a, b)\\
+  \lambda_{i} \mid z_i = 0 &= 0\\
+  z_i &\sim \Bern(p),
+\end{align}
+
 <p>
-Sarkar and Stephens,
-<a href="https://dx.doi.org/10.1101/2020.04.07.030007">&ldquo;Separating measurement and
-expression models clarifies confusion in single cell RNA-seq analysis.&rdquo;</a>
-<i>BioRxiv</i> 2020.
+where the Gamma distribution is parameterized by shape and rate. Here, we
+derive an EM algorithm to maximize the marginal log likelihood with respect
+to \((a, b, p)\).
+</p>
+</div>
+</div>
+
+<div id="outline-container-org46ddd80" class="outline-2">
+<h2 id="org46ddd80">EM algorithm</h2>
+<div class="outline-text-2" id="text-org46ddd80">
+<p>
+If \(x_i = 0\), the log joint probability
 </p>
 
-<div id="outline-container-org7b1d935" class="outline-2">
-<h2 id="org7b1d935">Empirical results</h2>
-<div class="outline-text-2" id="text-org7b1d935">
-<ul class="org-ul">
-<li><a href="gof.html">Goodness of fit of deconvolved distributions</a> (<a href="http://shiny.stephenslab.uchicago.edu:5009/gof">interactive browser</a>)</li>
-<li><a href="lra.html">Low rank approximation</a></li>
-<li><a href="fitted-values.html">Comparison of fitted values</a></li>
-<li><a href="mlcb.html">MLCB figures</a></li>
-<li><a href="figures.html">Manuscript figures</a></li>
-</ul>
-</div>
-</div>
+\begin{multline}
+  \ln p(x_i, \lambda_i, z_i \mid s_i, a, b, p) = (1 - z_i) \ln (1 - p)\\
+  + z_i \left(\ln p + x_i \ln (s_i \lambda_i) - s_i \lambda_i - \ln\Gamma(x + 1) + a \ln b + (a - 1) \ln \lambda_i - b \lambda_i - \ln \Gamma(a)\right).
+\end{multline}
 
-<div id="outline-container-org819fb0c" class="outline-2">
-<h2 id="org819fb0c">Additional analyses</h2>
-<div class="outline-text-2" id="text-org819fb0c">
-<ul class="org-ul">
-<li><a href="deconvolution.html">Comparison of distribution deconvolution methods</a></li>
-<li><a href="deconv-examples.html">Distribution deconvolution examples</a></li>
-<li><a href="marker-genes.html">Marker genes in <i>in silico</i> mixtures</a>
-(<a href="http://shiny.stephenslab.uchicago.edu:5009/markers">interactive browser</a>)</li>
-<li><a href="immune-census.html">Expression variation in Census of Immune Cells</a></li>
-<li><a href="chromium3.html">Expression variation in 10X v3 PBMC data</a></li>
-<li><a href="brain-dronc-seq.html">Expression variation in human brain cells</a></li>
-<li><a href="retina.html">Expression variation in human retina cells</a></li>
-<li><a href="liver.html">Expression variation in human liver</a></li>
-<li><a href="imputation.html">Imputation of count matrices</a></li>
-<li><a href="llr.html">Marginal log likelihood comparison of expression models</a></li>
-</ul>
-</div>
-</div>
+<p>
+Otherwise,
+</p>
 
-<div id="outline-container-org012444b" class="outline-2">
-<h2 id="org012444b">Technical details</h2>
-<div class="outline-text-2" id="text-org012444b">
-<ul class="org-ul">
-<li><a href="pitfalls.html">Technical zero-generating mechanism in scRNA-seq data</a></li>
-<li><a href="modes.html">Estimating the number of modes</a></li>
-<li><a href="browser.html">Interactive simulations</a></li>
-<li><a href="capture.html">Effect of capture rate on sampling variation</a></li>
-<li><a href="ash-estmode.html">Speed up ash mode estimation</a></li>
-<li><a href="mix-nb.html">Mixture of negative binomials</a></li>
-<li><a href="gamma.html">Convergence of Gamma deconvolution</a></li>
-<li><a href="poisson.html">Deconvolution of near-Poisson data</a></li>
-<li><a href="validation.html">Validation set log likelihood comparison</a></li>
-<li><a href="npmle.html">NPMLE on C1 spike-in data</a></li>
-<li><a href="deconv-de.html">Differential expression from distribution deconvolution</a></li>
-<li><a href="ep.html">Posterior approximation for scRNA-seq data</a></li>
-<li><a href="link.html">Link functions in Poisson LRA</a></li>
-<li><a href="random-effect.html">Distributional assumptions in Poisson LRA</a></li>
-<li><a href="pois-truncnorm.html">Poisson-truncated normal data</a></li>
-<li><a href="gamma-mix.html">Poisson-unimodal Gamma mixture model</a></li>
-<li><a href="pois-gam-lik.html">Poisson-Gamma log likelihood surface</a></li>
-<li><a href="vae.html">Variational autoencoders for scRNA-seq data</a></li>
-<li><a href="wnbmf.html">Weighted Negative Binomial Matrix Factorization</a></li>
-<li><a href="ash-pois-log-link.html">Log link in Poisson ash</a></li>
-<li><a href="transforms.html">Transformations of deconvolved gene expression
-distributions</a></li>
-<li><a href="gaussian.html">Gaussian methods</a></li>
-<li><a href="quantiles.html">Randomized quantiles</a></li>
-<li><a href="independence.html">Relaxing the independence assumption on expression models</a></li>
-<li><a href="zinb-em.html">EM algorithm for point-Gamma expression model</a></li>
-</ul>
+\begin{equation}
+  \ln p(x_i, \lambda_i, z_i \mid s_i, a, b, p) = x_i \ln (s_i \lambda_i) - s_i \lambda_i - \ln\Gamma(x + 1) + a \ln b + (a - 1) \ln \lambda_i - b \lambda_i - \ln \Gamma(a).
+\end{equation}
+
+<p>
+The posteriors
+</p>
+
+\begin{align}
+  q(z_i \mid x_i = 0) \triangleq \ln p(z_i \mid x_i = 0, \cdot) &= (1 - z_i) \ln (1 - p) + z_i \ln (p \exp(\lnb)) + \const\\
+  &= \Bern\left(\frac{p \exp(\lnb)}{1 - p + p \exp(\lnb)}\right)\\
+  q(z_i \mid x_i > 0) &= \Bern(1)\\
+  q(\lambda_i \mid z_i = 1) \triangleq \ln p(\lambda_i \mid z_i = 1, \cdot) &= x_i \ln (s_i \lambda_i) - s_i \lambda_i + (a - 1) \ln \lambda_i - b \lambda_i + \const\\
+  &= \Gam(a + x_i, b + s_i),
+\end{align}
+
+<p>
+where \(\lnb\) denotes the negative binomial log likelihood (given \(a,
+  b\)). The expected log joint with respect to \(q\)
+</p>
+
+\begin{multline}
+  h \triangleq \E{\ln p(x_i, \lambda_i, z_i \mid s_i, a, b, p)} = \sum_i \left[\E{1 - z_i} \ln (1 - p)\right.\\
+    + \left.\E{z_i} \left(\ln p + x_i \ln s_i + x_i \E{\ln \lambda_i} - s_i \E{\lambda_i} + a \ln b + (a - 1) \E{\ln \lambda_i} - b \E{\lambda_i} - \ln \Gamma(a)\right)\right],
+\end{multline}
+
+<p>
+yielding M step updates
+</p>
+
+\begin{align}
+  \frac{\partial h}{\partial p} &= \sum_i -\frac{\E{1 - z_i}}{1 - p} + \frac{\E{z_i}}{p}\\
+  \ln\left(\frac{p}{1 - p}\right) &:= \ln\left(\frac{\sum_i \E{z_i}}{\sum_i \E{1 - z_i}}\right)\\
+  \frac{\partial h}{\partial b} &= \sum_i \E{z_i}\left(\frac{a}{b} - \E{\lambda_i}\right)\\
+  b &:= a \frac{\sum_i \E{z_i}}{\sum_i \E{z_i} \E{\lambda_i}}\\
+  \frac{\partial h}{\partial a} &= \sum_i \E{z_i} (\ln b + \E{\ln \lambda_i} - \psi(a))\\
+  \frac{\partial^2 h}{\partial a^2} &= -\sum_i \E{z_i} \psi^{(1)}(a),
+\end{align}
+
+<p>
+where \(\psi\) denotes the digamma function, \(\psi^{(1)}\) denotes the
+trigamma function, and the log likelihood is improved by making a
+Newton-Raphson update to \(a\). As a sanity check, if we fix \(\E{z_i} = 1\),
+we recover an EM algorithm for the NB observation model
+(<a href="https://doi.org/10.1017/S0515036100014033">Karlis 2005</a>).
+</p>
 </div>
 </div>
 </div>

@@ -1,0 +1,75 @@
+#+TITLE: EM algorithm for point-Gamma expression model
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  Assume a point-Gamma expression model for scRNA-seq observations at some gene
+  \(j\) (Sarkar and Stephens 2020) \(
+  \DeclareMathOperator\Pois{Poisson}
+  \DeclareMathOperator\Bern{Bernoulli}
+  \DeclareMathOperator\Gam{Gamma}
+  \newcommand\const{\mathrm{const}}
+  \newcommand\lnb{l_{\mathrm{NB}}}
+  \newcommand\E[1]{\left\langle #1 \right\rangle}
+  \)
+
+  \begin{align}
+    x_{i} \mid s_i, \lambda_{i} &\sim \Pois(s_i \lambda_{i})\\
+    \lambda_{i} \mid z_i = 1, a, b &\sim \Gam(a, b)\\
+    \lambda_{i} \mid z_i = 0 &= 0\\
+    z_i &\sim \Bern(p),
+  \end{align}
+
+  where the Gamma distribution is parameterized by shape and rate. Here, we
+  derive an EM algorithm to maximize the marginal log likelihood with respect
+  to \((a, b, p)\).
+
+* EM algorithm
+
+  If \(x_i = 0\), the log joint probability
+
+  \begin{multline}
+    \ln p(x_i, \lambda_i, z_i \mid s_i, a, b, p) = (1 - z_i) \ln (1 - p)\\
+    + z_i \left(\ln p + x_i \ln (s_i \lambda_i) - s_i \lambda_i - \ln\Gamma(x + 1) + a \ln b + (a - 1) \ln \lambda_i - b \lambda_i - \ln \Gamma(a)\right).
+  \end{multline}
+
+  Otherwise,
+
+  \begin{equation}
+    \ln p(x_i, \lambda_i, z_i \mid s_i, a, b, p) = x_i \ln (s_i \lambda_i) - s_i \lambda_i - \ln\Gamma(x + 1) + a \ln b + (a - 1) \ln \lambda_i - b \lambda_i - \ln \Gamma(a).
+  \end{equation}
+
+  The posteriors
+
+  \begin{align}
+    q(z_i \mid x_i = 0) \triangleq \ln p(z_i \mid x_i = 0, \cdot) &= (1 - z_i) \ln (1 - p) + z_i \ln (p \exp(\lnb)) + \const\\
+    &= \Bern\left(\frac{p \exp(\lnb)}{1 - p + p \exp(\lnb)}\right)\\
+    q(z_i \mid x_i > 0) &= \Bern(1)\\
+    q(\lambda_i \mid z_i = 1) \triangleq \ln p(\lambda_i \mid z_i = 1, \cdot) &= x_i \ln (s_i \lambda_i) - s_i \lambda_i + (a - 1) \ln \lambda_i - b \lambda_i + \const\\
+    &= \Gam(a + x_i, b + s_i),
+  \end{align}
+
+  where \(\lnb\) denotes the negative binomial log likelihood (given \(a,
+  b\)). The expected log joint with respect to \(q\)
+
+  \begin{multline}
+    h \triangleq \E{\ln p(x_i, \lambda_i, z_i \mid s_i, a, b, p)} = \sum_i \left[\E{1 - z_i} \ln (1 - p)\right.\\
+      + \left.\E{z_i} \left(\ln p + x_i \ln s_i + x_i \E{\ln \lambda_i} - s_i \E{\lambda_i} + a \ln b + (a - 1) \E{\ln \lambda_i} - b \E{\lambda_i} - \ln \Gamma(a)\right)\right],
+  \end{multline}
+
+  yielding M step updates
+
+  \begin{align}
+    \frac{\partial h}{\partial p} &= \sum_i -\frac{\E{1 - z_i}}{1 - p} + \frac{\E{z_i}}{p}\\
+    \ln\left(\frac{p}{1 - p}\right) &:= \ln\left(\frac{\sum_i \E{z_i}}{\sum_i \E{1 - z_i}}\right)\\
+    \frac{\partial h}{\partial b} &= \sum_i \E{z_i}\left(\frac{a}{b} - \E{\lambda_i}\right)\\
+    b &:= a \frac{\sum_i \E{z_i}}{\sum_i \E{z_i} \E{\lambda_i}}\\
+    \frac{\partial h}{\partial a} &= \sum_i \E{z_i} (\ln b + \E{\ln \lambda_i} - \psi(a))\\
+    \frac{\partial^2 h}{\partial a^2} &= -\sum_i \E{z_i} \psi^{(1)}(a),
+  \end{align}
+
+  where \(\psi\) denotes the digamma function, \(\psi^{(1)}\) denotes the
+  trigamma function, and the log likelihood is improved by making a
+  Newton-Raphson update to \(a\). As a sanity check, if we fix \(\E{z_i} = 1\),
+  we recover an EM algorithm for the NB observation model
+  ([[https://doi.org/10.1017/S0515036100014033][Karlis 2005]]).
