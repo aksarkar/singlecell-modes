@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-08-05 Wed 18:03 -->
+<!-- 2020-08-08 Sat 06:13 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Marginal log likelihood comparison of expression models</title>
@@ -364,6 +364,7 @@ Prepare the data in <code>h5ad</code>.
 <span class="org-keyword">def</span> <span class="org-function-name">read_brain</span>(chunk=<span class="org-constant">None</span>, chunksize=500):
   <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/gtex-droncseq.h5ad'</span>)
   sc.pp.filter_genes(x, min_counts=.01 * x.shape[0])
+  <span class="org-variable-name">x.obs</span>[<span class="org-string">'size'</span>] = x.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
   <span class="org-keyword">if</span> chunk <span class="org-keyword">is</span> <span class="org-constant">None</span>:
     <span class="org-keyword">return</span> x
   <span class="org-keyword">else</span>:
@@ -374,6 +375,7 @@ Prepare the data in <code>h5ad</code>.
   <span class="org-variable-name">query</span> = x.obs[<span class="org-string">'donor_organism.provenance.document_id'</span>] == <span class="org-string">'427c0a62-9baf-42ab-a3a3-f48d10544280'</span>
   <span class="org-variable-name">y</span> = x[query]
   sc.pp.filter_genes(y, min_cells=.01 * y.shape[0])
+  <span class="org-variable-name">y.obs</span>[<span class="org-string">'size'</span>] = y.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
   <span class="org-keyword">if</span> chunk <span class="org-keyword">is</span> <span class="org-constant">None</span>:
     <span class="org-keyword">return</span> y
   <span class="org-keyword">else</span>:
@@ -381,6 +383,7 @@ Prepare the data in <code>h5ad</code>.
 
 <span class="org-keyword">def</span> <span class="org-function-name">read_pbmcs_68k</span>(chunk=<span class="org-constant">None</span>, chunksize=500):
   <span class="org-variable-name">x</span> = _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>, return_df=<span class="org-constant">False</span>)
+  <span class="org-variable-name">x.obs</span>[<span class="org-string">'size'</span>] = x.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
   <span class="org-keyword">if</span> chunk <span class="org-keyword">is</span> <span class="org-constant">None</span>:
     <span class="org-keyword">return</span> x
   <span class="org-keyword">else</span>:
@@ -405,7 +408,7 @@ Prepare the data in <code>h5ad</code>.
 }
 
 <span class="org-variable-name">chunks</span> = {
-  <span class="org-string">'liver-caudate-lobe'</span>: 12170 // 500,
+  <span class="org-string">'brain'</span>: 11744 // 500,
   <span class="org-string">'pbmcs_68k'</span>: 6502 // 500,
   <span class="org-string">'retina'</span>: 11446 // 500,
 }
@@ -421,32 +424,12 @@ Prepare the data in <code>h5ad</code>.
 <h3 id="orge0340e9">Estimate marginal log likelihood</h3>
 <div class="outline-text-3" id="text-orge0340e9">
 <p>
-Run the GPU-based methods.
+Estimate the marginal likelihood for each data set, for each gene, for each
+family of expression models.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --job-name=llik --time=2:00:00 -a 0-14%4
-<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
-<span class="org-builtin">source</span> activate scmodes
-python &lt;&lt;EOF
-<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-<span class="org-sh-heredoc">import os</span>
-<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
-<span class="org-sh-heredoc">tasks = list(data.keys())</span>
-<span class="org-sh-heredoc">task = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
-<span class="org-sh-heredoc">x = data[task]()</span>
-<span class="org-sh-heredoc">res = scmodes.benchmark.evaluate_llik(x, methods=['gamma', 'point_gamma'])</span>
-<span class="org-sh-heredoc">res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{task}-gpu.txt.gz', compression='gzip', sep='\t')</span>
-<span class="org-sh-heredoc">EOF</span>
-</pre>
-</div>
-
-<p>
-Run the CPU-based methods.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik-npmle --time=24:00:00 -a 31-44
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=60:00 -a 40
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -455,9 +438,13 @@ python &lt;&lt;EOF
 <span class="org-sh-heredoc">import multiprocessing as mp</span>
 <span class="org-sh-heredoc">import os</span>
 <span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
-<span class="org-sh-heredoc">tasks = [(m, d) for m in ('point', 'unimodal', 'npmle') for d in data]</span>
+<span class="org-sh-heredoc">tasks = [(m, d) for m in ('point', 'gamma', 'point_gamma', 'unimodal', 'npmle') for d in data]</span>
 <span class="org-sh-heredoc">m, d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
-<span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=20) as pool:</span>
+<span class="org-sh-heredoc">if m == 'npmle':</span>
+<span class="org-sh-heredoc">  kwargs = {'processes': 8}</span>
+<span class="org-sh-heredoc">else:</span>
+<span class="org-sh-heredoc">  kwargs = dict()</span>
+<span class="org-sh-heredoc">with mp.Pool(**kwargs) as pool:</span>
 <span class="org-sh-heredoc">  x = data[d]()</span>
 <span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_llik(x, pool=pool, methods=[m])</span>
 <span class="org-sh-heredoc">  res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-{m}.txt.gz', compression='gzip', sep='\t')</span>
@@ -466,8 +453,8 @@ python &lt;&lt;EOF
 </div>
 
 <p>
-Shard data sets to fit unimodal expression models within the <code>midway2</code> time
-limits.
+Shard data sets to fit unimodal and non-parametric expression models within
+the <code>midway2</code> time/memory limits.
 </p>
 
 <div class="org-src-container">
@@ -480,10 +467,10 @@ python &lt;&lt;EOF
 <span class="org-sh-heredoc">import os</span>
 <span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
 <span class="org-sh-heredoc">tasks = [(d, c) for d in chunks for c in range(chunks[d])]</span>
-<span class="org-sh-heredoc">m, d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
+<span class="org-sh-heredoc">d, c = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
 <span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=20) as pool:</span>
 <span class="org-sh-heredoc">  x = data[d](chunk=c)</span>
-<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_llik(x, pool=pool, methods=[m])</span>
+<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_llik(x, s=x.obs['size'], pool=pool, methods=['unimodal'])</span>
 <span class="org-sh-heredoc">  res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-unimodal-{c}.txt.gz', compression='gzip', sep='\t')</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
@@ -507,7 +494,7 @@ Read the results.
   {
     k: pd.concat([
       pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-{m}.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
-      <span class="org-keyword">for</span> m <span class="org-keyword">in</span> (<span class="org-string">'point'</span>, <span class="org-string">'gpu'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>)
+      <span class="org-keyword">for</span> m <span class="org-keyword">in</span> (<span class="org-string">'point'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>)
       <span class="org-keyword">if</span> os.path.exists(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-{m}.txt.gz'</span>)])
     <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data
   })
@@ -546,12 +533,18 @@ res[[<span class="org-string">'gamma'</span>, <span class="org-string">'point_ga
 <pre class="example">
 method     gamma  point_gamma  unimodal  npmle
 dataset
-chromium1     14           14        17     17
-chromium2     49           49        51     48
+chromium1     13            0        17     17
+chromium2     47           31        51     48
 dropseq       77           77        78     76
-gemcode       53           53        56     56
-indrops        4            6         4      4
+gemcode       52           24        56     56
+indrops        4            0         4      4
 </pre>
+
+<p>
+For each control data set, for each expression model, report the number of
+genes which have improvement in marginal log likelihood above some threshold
+over the Gamma expression model.
+</p>
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
@@ -572,11 +565,11 @@ res[[<span class="org-string">'point'</span>, <span class="org-string">'point_ga
 <pre class="example">
 method     point  point_gamma  unimodal  npmle
 dataset
-chromium1      1            0        10     10
-chromium2      0            0         9      9
+chromium1      0            0        10     10
+chromium2      0            0         7      6
 dropseq        0            2         6     17
-gemcode        0            0        52     51
-indrops        0            2         1      1
+gemcode        1            0        53     52
+indrops        3            0         7      7
 </pre>
 </div>
 </div>
@@ -626,7 +619,7 @@ retina                  9.0        188.0       NaN   649.0
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-08-05 Wed 18:03</p>
+<p class="date">Created: 2020-08-08 Sat 06:13</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
