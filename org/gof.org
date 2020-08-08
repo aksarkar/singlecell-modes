@@ -333,7 +333,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[5]:
+   # Out[6]:
    :END:
 
    Report the dimensions of each data set.
@@ -572,7 +572,6 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[6]:
     :END:
 
     Write out the post-processed results.
@@ -594,7 +593,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[6]:
+    # Out[7]:
     :END:
 
     To reduce computational burden, run ~ashr~ only on genes which
@@ -619,7 +618,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[20]:
+    # Out[8]:
     :END:
 
     #+BEGIN_SRC ipython :async t
@@ -864,7 +863,7 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[7]:
+    # Out[13]:
     :END:
 
     Plot the histogram of goodness of fit test \(p\)-values for the fitted Gamma
@@ -1124,7 +1123,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[19]:
    :END:
 
    Populate the database with the genes departing from a unimodal expression
