@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-08-08 Sat 06:14 -->
+<!-- 2020-08-08 Sat 14:16 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Randomized quantiles</title>
@@ -267,6 +267,7 @@ for the JavaScript code in this tag.
 <li><a href="#org3eb8905">Expected randomized quantiles</a></li>
 <li><a href="#org2f258ae">Gamma model</a></li>
 <li><a href="#org5d81e6d">Dependency on size factors</a></li>
+<li><a href="#org83cb4e4">iPSC example</a></li>
 </ul>
 </div>
 </div>
@@ -286,12 +287,22 @@ variability in the randomized quantiles that went into that illustration.
 <h2 id="setup"><a id="org7d40b9d"></a>Setup</h2>
 <div class="outline-text-2" id="text-setup">
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<pre class="src src-ipython"><span class="org-keyword">import</span> anndata
+<span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
-<span class="org-keyword">import</span> scmodes
-<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+<span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
 <span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
+<span class="org-keyword">import</span> scmodes
 <span class="org-keyword">import</span> sqlite3
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> rpy2.robjects.packages
+<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
+rpy2.robjects.pandas2ri.activate()
+<span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
 </pre>
 </div>
 
@@ -302,7 +313,8 @@ variability in the randomized quantiles that went into that illustration.
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<pre class="src src-ipython"><span class="org-keyword">import</span> colorcet
+<span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
 <span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
 <span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
 </pre>
@@ -952,9 +964,7 @@ Fit a dependent expression model.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
-
-<span class="org-keyword">def</span> <span class="org-function-name">loss</span>(a, x, s):
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">loss</span>(a, x, s):
   <span class="org-keyword">return</span> -np.array(scmodes.ebpm.ebpm_unimodal(x, np.exp(a * np.log(s))).rx2(<span class="org-string">'loglik'</span>))[0]
 
 <span class="org-variable-name">opt</span> = so.minimize_scalar(loss, bracket=[0, 1], method=<span class="org-string">'brent'</span>, args=(x, s))
@@ -973,10 +983,161 @@ Fit a dependent expression model.
 </pre>
 </div>
 </div>
+
+<div id="outline-container-org83cb4e4" class="outline-2">
+<h2 id="org83cb4e4">iPSC example</h2>
+<div class="outline-text-2" id="text-org83cb4e4">
+<p>
+Pick a different, better-behaved example.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">ipsc</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/ipsc/ipsc.h5ad'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">gene</span> = <span class="org-string">'PACRG'</span>
+<span class="org-variable-name">x</span> = ipsc[:,ipsc.var[<span class="org-string">'name'</span>] == gene].X.A.ravel()
+<span class="org-variable-name">s</span> = ipsc.obs[<span class="org-string">'mol_hs'</span>].values.ravel()
+<span class="org-variable-name">y</span> = np.arange(x.<span class="org-builtin">max</span>() + 1)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">grid</span> = np.linspace(0, (x / s).<span class="org-builtin">max</span>(), 1000)
+<span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
+<span class="org-variable-name">erpp</span> = <span class="org-builtin">dict</span>()
+<span class="org-variable-name">cdf</span> = <span class="org-builtin">dict</span>()
+
+<span class="org-variable-name">gamma_res</span> = scmodes.ebpm.ebpm_gamma(x, s)
+<span class="org-variable-name">pmf</span>[<span class="org-string">'Gamma'</span>] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean()
+                         <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-variable-name">cdf</span>[<span class="org-string">'Gamma'</span>] = st.gamma(a=np.exp(gamma_res[1]), scale=np.exp(gamma_res[0] - gamma_res[1])).cdf(grid)
+<span class="org-variable-name">erpp</span>[<span class="org-string">'Gamma'</span>] = (scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]) +
+                 .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]))
+
+<span class="org-variable-name">point_gamma_res</span> = scmodes.ebpm.ebpm_point_gamma(x, s)
+<span class="org-variable-name">cdf</span>[<span class="org-string">'ZIG'</span>] = sp.expit(point_gamma_res[2]) + sp.expit(-point_gamma_res[2]) * st.gamma(a=np.exp(point_gamma_res[1]), scale=np.exp(point_gamma_res[0] - point_gamma_res[1])).cdf(grid)
+<span class="org-variable-name">pmf</span>[<span class="org-string">'ZIG'</span>] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]).mean()
+                       <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-variable-name">erpp</span>[<span class="org-string">'ZIG'</span>] = (scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]) +
+               .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=-point_gamma_res[2]))
+
+<span class="org-variable-name">zief_res</span> = scmodes.ebpm.ebpm_point_expfam(x, s)
+<span class="org-variable-name">pmf</span>[<span class="org-string">'ZIEF'</span>] = np.array([scmodes.benchmark.gof._point_expfam_pmf(np.full(x.shape, k), size=s, res=zief_res).mean()
+                        <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-variable-name">cdf</span>[<span class="org-string">'ZIEF'</span>] = np.interp(grid, np.array(zief_res.slots[<span class="org-string">'distribution'</span>])[:,0], np.cumsum(np.array(zief_res.slots[<span class="org-string">'distribution'</span>])[:,1]))
+<span class="org-variable-name">erpp</span>[<span class="org-string">'ZIEF'</span>] = (scmodes.benchmark.gof._point_expfam_cdf(x - 1, size=s, res=zief_res) +
+                .5 * scmodes.benchmark.gof._point_expfam_pmf(x, size=s, res=zief_res))
+
+<span class="org-variable-name">unimodal_res</span> = scmodes.ebpm.ebpm_unimodal(x, s)
+<span class="org-variable-name">g</span> = np.array(unimodal_res.rx2(<span class="org-string">'fitted_g'</span>))
+<span class="org-variable-name">g</span> = g[:,g[0] &gt; 1e-8]
+<span class="org-variable-name">a</span> = np.fmin(g[1], g[2])
+<span class="org-variable-name">b</span> = np.fmax(g[1], g[2])
+<span class="org-variable-name">comp_dens_conv</span> = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-variable-name">comp_dens_conv</span>[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+<span class="org-variable-name">pmf</span>[<span class="org-string">'Unimodal'</span>] = comp_dens_conv @ g[0]
+<span class="org-variable-name">cdf</span>[<span class="org-string">'Unimodal'</span>] = ashr.cdf_ash(unimodal_res, grid).rx2(<span class="org-string">'y'</span>).ravel()
+<span class="org-variable-name">erpp</span>[<span class="org-string">'Unimodal'</span>] = (scmodes.benchmark.gof._ash_cdf(x - 1, s=s, fit=unimodal_res) +
+                    .5 * scmodes.benchmark.gof._ash_pmf(x, s=s, fit=unimodal_res))
+
+<span class="org-variable-name">npmle_res</span> = scmodes.ebpm.ebpm_npmle(x, s, step=1e-6)
+<span class="org-variable-name">g</span> = np.array(npmle_res.rx2(<span class="org-string">'fitted_g'</span>))
+<span class="org-variable-name">g</span> = g[:,g[0] &gt; 1e-8]
+<span class="org-variable-name">a</span> = np.fmin(g[1], g[2])
+<span class="org-variable-name">b</span> = np.fmax(g[1], g[2])
+<span class="org-variable-name">comp_dens_conv</span> = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-variable-name">pmf</span>[<span class="org-string">'NPMLE'</span>] = comp_dens_conv @ g[0]
+<span class="org-variable-name">cdf</span>[<span class="org-string">'NPMLE'</span>] = ashr.cdf_ash(npmle_res, grid).rx2(<span class="org-string">'y'</span>).ravel()
+<span class="org-variable-name">erpp</span>[<span class="org-string">'NPMLE'</span>] = (scmodes.benchmark.gof._ash_cdf(x - 1, s=s, fit=npmle_res) +
+                 .5 * scmodes.benchmark.gof._ash_pmf(x, s=s, fit=npmle_res))
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
+fig.set_size_inches(4, 4)
+ax[0].hist(x, bins=y, color=<span class="org-string">'k'</span>, label=<span class="org-constant">None</span>)
+<span class="org-keyword">for</span> c, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(plt.get_cmap(<span class="org-string">'Dark2'</span>).colors, [<span class="org-string">'Gamma'</span>, <span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>]):
+  ax[0].plot(y + .5, x.shape[0] * pmf[k], color=c, lw=1, label=k)
+ax[0].legend(frameon=<span class="org-constant">False</span>)
+ax[0].set_title(gene)
+ax[0].set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+
+<span class="org-keyword">for</span> c, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(plt.get_cmap(<span class="org-string">'Dark2'</span>).colors, [<span class="org-string">'Gamma'</span>, <span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>]):
+  ax[1].plot(grid, cdf[k], color=c, lw=1, label=k)
+ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
+ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
+ax[1].legend(frameon=<span class="org-constant">False</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/quantiles.org/ipsc-ex.png" alt="ipsc-ex.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">opt</span> = so.minimize_scalar(<span class="org-keyword">lambda</span> a: -scmodes.ebpm.ebpm_point_gamma(x, np.exp((1 - a) * np.log(s)))[-1], bracket=[0, 1])
+opt
+</pre>
+</div>
+
+<pre class="example">
+fun: 19321.753576794905
+nfev: 16
+nit: 12
+success: True
+x: 0.7713271091374253
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">point_gamma_res</span> = scmodes.ebpm.ebpm_point_gamma(x, np.exp((1 - opt.x) * np.log(s)))
+<span class="org-variable-name">k</span> = rf<span class="org-string">'ZIG ($\alpha$ = {opt.x:.3g})'</span>
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
+fig.set_size_inches(4, 4)
+ax[0].hist(x, bins=y, color=<span class="org-string">'k'</span>, label=<span class="org-constant">None</span>)
+<span class="org-keyword">for</span> c, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(plt.get_cmap(<span class="org-string">'Paired'</span>).colors, pmf):
+  <span class="org-keyword">if</span> k.startswith(<span class="org-string">'ZIG'</span>):
+    ax[0].plot(y + .5, x.shape[0] * pmf[k], color=c, lw=1, label=k)
+ax[0].legend(frameon=<span class="org-constant">False</span>)
+ax[0].set_title(gene)
+ax[0].set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+
+<span class="org-keyword">for</span> q <span class="org-keyword">in</span> (.1, .25, .5, .75, .9):
+  <span class="org-variable-name">temp</span> = np.percentile(sp.expit(point_gamma_res[2]) + sp.expit(-point_gamma_res[2]) * st.gamma(a=np.exp(point_gamma_res[1]), scale=np.exp(point_gamma_res[0] - point_gamma_res[1]) / np.exp(opt.x * np.log(s)).reshape(-1, 1)).cdf(grid), 100 * q, axis=0)
+  ax[1].plot(grid, temp, color=colorcet.cm[<span class="org-string">'fire'</span>](q), lw=1, label=f<span class="org-string">'{q:.2g}'</span>)
+ax[1].set_ylim(0, 1)
+ax[1].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
+ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
+ax[1].legend(frameon=<span class="org-constant">False</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/quantiles.org/ipsc-ex2.png" alt="ipsc-ex2.png">
+</p>
+</div>
+</div>
+</div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-08-08 Sat 06:14</p>
+<p class="date">Created: 2020-08-08 Sat 14:16</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

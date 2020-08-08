@@ -20,20 +20,34 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="scmodes",partition="broadwl",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes/
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes/
 
   #+BEGIN_SRC ipython
+    import anndata
     import numpy as np
     import pandas as pd
-    import scmodes
-    import scipy.stats as st
+    import scipy.optimize as so
     import scipy.special as sp
+    import scipy.stats as st
+    import scmodes
     import sqlite3
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[69]:
+  # Out[42]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import rpy2.robjects.packages
+    import rpy2.robjects.pandas2ri
+    rpy2.robjects.pandas2ri.activate()
+    ashr = rpy2.robjects.packages.importr('ashr')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[23]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -47,6 +61,7 @@
   :END:
 
   #+BEGIN_SRC ipython
+    import colorcet
     import matplotlib.pyplot as plt
     plt.rcParams['figure.facecolor'] = 'w'
     plt.rcParams['font.family'] = 'Nimbus Sans'
@@ -54,7 +69,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[93]:
   :END:
 
 * Data
@@ -654,8 +669,6 @@
   Fit a dependent expression model.
 
   #+BEGIN_SRC ipython :async t
-    import scipy.optimize as so
-
     def loss(a, x, s):
       return -np.array(scmodes.ebpm.ebpm_unimodal(x, np.exp(a * np.log(s))).rx2('loglik'))[0]
 
@@ -676,4 +689,167 @@
   :RESULTS:
   # Out[155]:
   : (1.0177157921515285, 31202.115784911897, 31198.919049387503)
+  :END:
+
+* iPSC example
+
+  Pick a different, better-behaved example.
+
+  #+BEGIN_SRC ipython :async t
+    ipsc = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/ipsc/ipsc.h5ad')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[5]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    gene = 'PACRG'
+    x = ipsc[:,ipsc.var['name'] == gene].X.A.ravel()
+    s = ipsc.obs['mol_hs'].values.ravel()
+    y = np.arange(x.max() + 1)
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[28]:
+  :END:
+
+  #+BEGIN_SRC ipython :async t
+    grid = np.linspace(0, (x / s).max(), 1000)
+    pmf = dict()
+    erpp = dict()
+    cdf = dict()
+
+    gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
+    pmf['Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean()
+                             for k in y])
+    cdf['Gamma'] = st.gamma(a=np.exp(gamma_res[1]), scale=np.exp(gamma_res[0] - gamma_res[1])).cdf(grid)
+    erpp['Gamma'] = (scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]) +
+                     .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]))
+
+    point_gamma_res = scmodes.ebpm.ebpm_point_gamma(x, s)
+    cdf['ZIG'] = sp.expit(point_gamma_res[2]) + sp.expit(-point_gamma_res[2]) * st.gamma(a=np.exp(point_gamma_res[1]), scale=np.exp(point_gamma_res[0] - point_gamma_res[1])).cdf(grid)
+    pmf['ZIG'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]).mean()
+                           for k in y])
+    erpp['ZIG'] = (scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]) +
+                   .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=-point_gamma_res[2]))
+
+    zief_res = scmodes.ebpm.ebpm_point_expfam(x, s)
+    pmf['ZIEF'] = np.array([scmodes.benchmark.gof._point_expfam_pmf(np.full(x.shape, k), size=s, res=zief_res).mean()
+                            for k in y])
+    cdf['ZIEF'] = np.interp(grid, np.array(zief_res.slots['distribution'])[:,0], np.cumsum(np.array(zief_res.slots['distribution'])[:,1]))
+    erpp['ZIEF'] = (scmodes.benchmark.gof._point_expfam_cdf(x - 1, size=s, res=zief_res) +
+                    .5 * scmodes.benchmark.gof._point_expfam_pmf(x, size=s, res=zief_res))
+
+    unimodal_res = scmodes.ebpm.ebpm_unimodal(x, s)
+    g = np.array(unimodal_res.rx2('fitted_g'))
+    g = g[:,g[0] > 1e-8]
+    a = np.fmin(g[1], g[2])
+    b = np.fmax(g[1], g[2])
+    comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+    comp_dens_conv[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+    pmf['Unimodal'] = comp_dens_conv @ g[0]
+    cdf['Unimodal'] = ashr.cdf_ash(unimodal_res, grid).rx2('y').ravel()
+    erpp['Unimodal'] = (scmodes.benchmark.gof._ash_cdf(x - 1, s=s, fit=unimodal_res) +
+                        .5 * scmodes.benchmark.gof._ash_pmf(x, s=s, fit=unimodal_res))
+
+    npmle_res = scmodes.ebpm.ebpm_npmle(x, s, step=1e-6)
+    g = np.array(npmle_res.rx2('fitted_g'))
+    g = g[:,g[0] > 1e-8]
+    a = np.fmin(g[1], g[2])
+    b = np.fmax(g[1], g[2])
+    comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+    pmf['NPMLE'] = comp_dens_conv @ g[0]
+    cdf['NPMLE'] = ashr.cdf_ash(npmle_res, grid).rx2('y').ravel()
+    erpp['NPMLE'] = (scmodes.benchmark.gof._ash_cdf(x - 1, s=s, fit=npmle_res) +
+                     .5 * scmodes.benchmark.gof._ash_pmf(x, s=s, fit=npmle_res))
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[30]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/quantiles.org/ipsc-ex.png
+    plt.clf()
+    fig, ax = plt.subplots(2, 1)
+    fig.set_size_inches(4, 4)
+    ax[0].hist(x, bins=y, color='k', label=None)
+    for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+      ax[0].plot(y + .5, x.shape[0] * pmf[k], color=c, lw=1, label=k)
+    ax[0].legend(frameon=False)
+    ax[0].set_title(gene)
+    ax[0].set_xlabel('Number of molecules')
+    ax[0].set_ylabel('Number of cells')
+
+    for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+      ax[1].plot(grid, cdf[k], color=c, lw=1, label=k)
+    ax[1].set_xlabel('Latent gene expression')
+    ax[1].set_ylabel('CDF')
+    ax[1].legend(frameon=False)
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[40]:
+  [[file:figure/quantiles.org/ipsc-ex.png]]
+  :END:
+
+  #+BEGIN_SRC ipython :async t
+    opt = so.minimize_scalar(lambda a: -scmodes.ebpm.ebpm_point_gamma(x, np.exp((1 - a) * np.log(s)))[-1], bracket=[0, 1])
+    opt
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[43]:
+  #+BEGIN_EXAMPLE
+    fun: 19321.753576794905
+    nfev: 16
+    nit: 12
+    success: True
+    x: 0.7713271091374253
+  #+END_EXAMPLE
+  :END:
+
+  #+BEGIN_SRC ipython :async t
+    point_gamma_res = scmodes.ebpm.ebpm_point_gamma(x, np.exp((1 - opt.x) * np.log(s)))
+    k = rf'ZIG ($\alpha$ = {opt.x:.3g})'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[106]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/quantiles.org/ipsc-ex2.png
+    plt.clf()
+    fig, ax = plt.subplots(2, 1)
+    fig.set_size_inches(4, 4)
+    ax[0].hist(x, bins=y, color='k', label=None)
+    for c, k in zip(plt.get_cmap('Paired').colors, pmf):
+      if k.startswith('ZIG'):
+        ax[0].plot(y + .5, x.shape[0] * pmf[k], color=c, lw=1, label=k)
+    ax[0].legend(frameon=False)
+    ax[0].set_title(gene)
+    ax[0].set_xlabel('Number of molecules')
+    ax[0].set_ylabel('Number of cells')
+
+    for q in (.1, .25, .5, .75, .9):
+      temp = np.percentile(sp.expit(point_gamma_res[2]) + sp.expit(-point_gamma_res[2]) * st.gamma(a=np.exp(point_gamma_res[1]), scale=np.exp(point_gamma_res[0] - point_gamma_res[1]) / np.exp(opt.x * np.log(s)).reshape(-1, 1)).cdf(grid), 100 * q, axis=0)
+      ax[1].plot(grid, temp, color=colorcet.cm['fire'](q), lw=1, label=f'{q:.2g}')
+    ax[1].set_ylim(0, 1)
+    ax[1].set_xlabel('Latent gene expression')
+    ax[1].set_ylabel('CDF')
+    ax[1].legend(frameon=False)
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[113]:
+  [[file:figure/quantiles.org/ipsc-ex2.png]]
   :END:
