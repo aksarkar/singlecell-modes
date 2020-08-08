@@ -33,7 +33,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[10]:
+  # Out[69]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -72,7 +72,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[13]:
+  # Out[164]:
   :END:
 
 * Seed 2
@@ -359,8 +359,8 @@
                      .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]))
 
     point_gamma_res = scmodes.ebpm.ebpm_point_gamma(x, s)
-    erpp['ZIG'] = (scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]) +
-                   .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]))
+    erpp['ZIG'] = (scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=-point_gamma_res[2]) +
+                   .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=-point_gamma_res[2]))
 
     zief_res = scmodes.ebpm.ebpm_point_expfam(x, s)
     erpp['ZIEF'] = (scmodes.benchmark.gof._point_expfam_cdf(x.values.ravel() - 1, size=s, res=zief_res) +
@@ -377,7 +377,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[14]:
+  # Out[67]:
   :END:
 
   #+BEGIN_SRC ipython :ipyfile figure/quantiles.org/erpp.png
@@ -404,7 +404,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[41]:
+  # Out[75]:
   [[file:figure/quantiles.org/erpp.png]]
   :END:
 
@@ -412,8 +412,6 @@
 
   #+BEGIN_SRC ipython :ipyfile figure/quantiles.org/erpp-linear.png
     grid = np.linspace(0, 1, x.shape[0] + 1)[1:]
-    F = st.beta(np.arange(1, 1 + x.shape[0]), 1 + x.shape[0] - np.arange(1, 1 + x.shape[0]))
-
     plt.clf()
     plt.gcf().set_size_inches(3, 3)
     for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
@@ -435,7 +433,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[22]:
+  # Out[76]:
   [[file:figure/quantiles.org/erpp-linear.png]]
   :END:
 
@@ -513,4 +511,169 @@
   :RESULTS:
   # Out[47]:
   : array([265.32446831])
+  :END:
+
+* Dependency on size factors
+
+  Look at the distribution of size factors.
+
+  #+BEGIN_SRC ipython :ipyfile figure/quantiles.org/size.png
+    plt.clf()
+    plt.gcf().set_size_inches(2.5, 2.5)
+    plt.hist(s, bins=15, density=True, color='0.7')
+    plt.xlabel('Size factor')
+    plt.ylabel('Density')
+    plt.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[103]:
+  [[file:figure/quantiles.org/size.png]]
+  :END:
+
+  Look at the distribution of \(x_{ij} / x_{i+}\).
+
+  #+BEGIN_SRC ipython :ipyfile figure/quantiles.org/mle.png
+    plt.clf()
+    plt.gcf().set_size_inches(2.5, 2.5)
+    plt.hist(x / s, bins=15, density=True, color='0.7')
+    plt.xlabel('$x_i / s_i$')
+    plt.ylabel('Density')
+    plt.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[104]:
+  [[file:figure/quantiles.org/mle.png]]
+  :END:
+
+  Plot the expected randomized quantile against the size factor, to see if they
+  are not independent.
+
+  #+BEGIN_SRC ipython :ipyfile figure/quantiles.org/rpp-size.png
+    plt.clf()
+    fig, ax = plt.subplots(1, 5, sharey=True)
+    fig.set_size_inches(7.5, 2.5)
+    for a, k in zip(ax, erpp):
+      a.scatter(s, erpp[k], s=1, c='k')
+      a.set_title(k)
+      a.set_xlabel('Size factor')
+    ax[0].set_ylabel('Expected randomized quantile')
+    fig.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[80]:
+  [[file:figure/quantiles.org/rpp-size.png]]
+  :END:
+
+  Plot the example again.
+
+  #+BEGIN_SRC ipython :async t
+    pmf = dict()
+    pmf['Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean()
+                             for k in y])
+    pmf['ZIG'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=-point_gamma_res[2]).mean()
+                           for k in y])
+    pmf['ZIEF'] = np.array([scmodes.benchmark.gof._point_expfam_pmf(np.full(x.shape, k), size=s, res=zief_res).mean()
+                            for k in y])
+
+    g = np.array(unimodal_res.rx2('fitted_g'))
+    g = g[:,g[0] > 1e-8]
+    a = np.fmin(g[1], g[2])
+    b = np.fmax(g[1], g[2])
+    comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+    comp_dens_conv[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+    pmf['Unimodal'] = comp_dens_conv @ g[0]
+
+    g = np.array(npmle_res.rx2('fitted_g'))
+    g = g[:,g[0] > 1e-8]
+    a = np.fmin(g[1], g[2])
+    b = np.fmax(g[1], g[2])
+    comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+    pmf['NPMLE'] = comp_dens_conv @ g[0]
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[94]:
+  :END:
+
+  #+BEGIN_SRC ipython :ipyfile figure/quantiles.org/rpl34.png
+    plt.clf()
+    plt.gcf().set_size_inches(4, 2.5)
+    plt.hist(x, bins=y, color='0.7', density=True, label=None)
+    for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+      plt.plot(y + .5, pmf[k], color=c, lw=1, label=k)
+    plt.legend(frameon=False)
+    plt.title(gene_info.loc[gene, 'name'])
+    plt.xlabel('Number of molecules')
+    plt.ylabel('Density')
+    plt.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[167]:
+  [[file:figure/quantiles.org/rpl34.png]]
+  :END:
+
+  Take the fitted NPMLE \(\hat{g}\). For each observed \(x_{i+}\), draw one
+  \(\lambda_i \sim \hat{g}\), then convolve with the measurement model.
+
+  #+BEGIN_SRC ipython :ipyfile figure/quantiles.org/ppc.png
+    np.random.seed(0)
+    g = np.array(unimodal_res.rx2('fitted_g'))
+    g = g[:,g[0] > 1e-8]
+    a = np.fmin(g[1], g[2])
+    b = np.fmax(g[1], g[2])
+    z = np.random.choice(g.shape[1], size=x.shape[0], p=g[0])
+    lam = np.random.uniform(a[z], b[z])
+    x = np.random.poisson(s * lam)
+    plt.clf()
+    plt.gcf().set_size_inches(4, 2.5)
+    plt.hist(x, bins=y, color='0.7', density=True, label=None)
+    for c, k in zip(plt.get_cmap('Dark2').colors, ['Gamma', 'ZIG', 'Unimodal', 'ZIEF', 'NPMLE']):
+      plt.plot(y + .5, pmf[k], color=c, lw=1, label=k)
+    plt.legend(frameon=False)
+    plt.title('Random sample from unimodal')
+    plt.xlabel('Number of molecules')
+    plt.ylabel('Density')
+    plt.tight_layout()
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[151]:
+  [[file:figure/quantiles.org/ppc.png]]
+  :END:
+
+  Fit a dependent expression model.
+
+  #+BEGIN_SRC ipython :async t
+    import scipy.optimize as so
+
+    def loss(a, x, s):
+      return -np.array(scmodes.ebpm.ebpm_unimodal(x, np.exp(a * np.log(s))).rx2('loglik'))[0]
+
+    opt = so.minimize_scalar(loss, bracket=[0, 1], method='brent', args=(x, s))
+    assert opt.success
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[141]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    opt.x, opt.fun, -unimodal_res.rx2('loglik')[0]
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[155]:
+  : (1.0177157921515285, 31202.115784911897, 31198.919049387503)
   :END:

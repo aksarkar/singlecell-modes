@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-07-21 Tue 21:55 -->
+<!-- 2020-08-08 Sat 06:14 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Randomized quantiles</title>
@@ -266,6 +266,7 @@ for the JavaScript code in this tag.
 <li><a href="#orge2dbfd5">Seed 10</a></li>
 <li><a href="#org3eb8905">Expected randomized quantiles</a></li>
 <li><a href="#org2f258ae">Gamma model</a></li>
+<li><a href="#org5d81e6d">Dependency on size factors</a></li>
 </ul>
 </div>
 </div>
@@ -633,8 +634,8 @@ statistics.
                  .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]))
 
 <span class="org-variable-name">point_gamma_res</span> = scmodes.ebpm.ebpm_point_gamma(x, s)
-<span class="org-variable-name">erpp</span>[<span class="org-string">'ZIG'</span>] = (scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]) +
-               .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]))
+<span class="org-variable-name">erpp</span>[<span class="org-string">'ZIG'</span>] = (scmodes.benchmark.gof._zig_cdf(x - 1, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=-point_gamma_res[2]) +
+               .5 * scmodes.benchmark.gof._zig_pmf(x, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=-point_gamma_res[2]))
 
 <span class="org-variable-name">zief_res</span> = scmodes.ebpm.ebpm_point_expfam(x, s)
 <span class="org-variable-name">erpp</span>[<span class="org-string">'ZIEF'</span>] = (scmodes.benchmark.gof._point_expfam_cdf(x.values.ravel() - 1, size=s, res=zief_res) +
@@ -685,8 +686,6 @@ Plot the expected randomized quantiles on a linear scale.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">grid</span> = np.linspace(0, 1, x.shape[0] + 1)[1:]
-<span class="org-variable-name">F</span> = st.beta(np.arange(1, 1 + x.shape[0]), 1 + x.shape[0] - np.arange(1, 1 + x.shape[0]))
-
 plt.clf()
 plt.gcf().set_size_inches(3, 3)
 <span class="org-keyword">for</span> c, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(plt.get_cmap(<span class="org-string">'Dark2'</span>).colors, [<span class="org-string">'Gamma'</span>, <span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>]):
@@ -797,10 +796,187 @@ array([265.32446831])
 </pre>
 </div>
 </div>
+
+<div id="outline-container-org5d81e6d" class="outline-2">
+<h2 id="org5d81e6d">Dependency on size factors</h2>
+<div class="outline-text-2" id="text-org5d81e6d">
+<p>
+Look at the distribution of size factors.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(2.5, 2.5)
+plt.hist(s, bins=15, density=<span class="org-constant">True</span>, color=<span class="org-string">'0.7'</span>)
+plt.xlabel(<span class="org-string">'Size factor'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/quantiles.org/size.png" alt="size.png">
+</p>
+</div>
+
+<p>
+Look at the distribution of \(x_{ij} / x_{i+}\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(2.5, 2.5)
+plt.hist(x / s, bins=15, density=<span class="org-constant">True</span>, color=<span class="org-string">'0.7'</span>)
+plt.xlabel(<span class="org-string">'$x_i / s_i$'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/quantiles.org/mle.png" alt="mle.png">
+</p>
+</div>
+
+<p>
+Plot the expected randomized quantile against the size factor, to see if they
+are not independent.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 5, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(7.5, 2.5)
+<span class="org-keyword">for</span> a, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax, erpp):
+  a.scatter(s, erpp[k], s=1, c=<span class="org-string">'k'</span>)
+  a.set_title(k)
+  a.set_xlabel(<span class="org-string">'Size factor'</span>)
+ax[0].set_ylabel(<span class="org-string">'Expected randomized quantile'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/quantiles.org/rpp-size.png" alt="rpp-size.png">
+</p>
+</div>
+
+<p>
+Plot the example again.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
+<span class="org-variable-name">pmf</span>[<span class="org-string">'Gamma'</span>] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean()
+                         <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-variable-name">pmf</span>[<span class="org-string">'ZIG'</span>] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=-point_gamma_res[2]).mean()
+                       <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-variable-name">pmf</span>[<span class="org-string">'ZIEF'</span>] = np.array([scmodes.benchmark.gof._point_expfam_pmf(np.full(x.shape, k), size=s, res=zief_res).mean()
+                        <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+
+<span class="org-variable-name">g</span> = np.array(unimodal_res.rx2(<span class="org-string">'fitted_g'</span>))
+<span class="org-variable-name">g</span> = g[:,g[0] &gt; 1e-8]
+<span class="org-variable-name">a</span> = np.fmin(g[1], g[2])
+<span class="org-variable-name">b</span> = np.fmax(g[1], g[2])
+<span class="org-variable-name">comp_dens_conv</span> = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-variable-name">comp_dens_conv</span>[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+<span class="org-variable-name">pmf</span>[<span class="org-string">'Unimodal'</span>] = comp_dens_conv @ g[0]
+
+<span class="org-variable-name">g</span> = np.array(npmle_res.rx2(<span class="org-string">'fitted_g'</span>))
+<span class="org-variable-name">g</span> = g[:,g[0] &gt; 1e-8]
+<span class="org-variable-name">a</span> = np.fmin(g[1], g[2])
+<span class="org-variable-name">b</span> = np.fmax(g[1], g[2])
+<span class="org-variable-name">comp_dens_conv</span> = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-variable-name">pmf</span>[<span class="org-string">'NPMLE'</span>] = comp_dens_conv @ g[0]
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(4, 2.5)
+plt.hist(x, bins=y, color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>, label=<span class="org-constant">None</span>)
+<span class="org-keyword">for</span> c, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(plt.get_cmap(<span class="org-string">'Dark2'</span>).colors, [<span class="org-string">'Gamma'</span>, <span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>]):
+  plt.plot(y + .5, pmf[k], color=c, lw=1, label=k)
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.title(gene_info.loc[gene, <span class="org-string">'name'</span>])
+plt.xlabel(<span class="org-string">'Number of molecules'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/quantiles.org/rpl34.png" alt="rpl34.png">
+</p>
+</div>
+
+<p>
+Take the fitted NPMLE \(\hat{g}\). For each observed \(x_{i+}\), draw one
+\(\lambda_i \sim \hat{g}\), then convolve with the measurement model.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.random.seed(0)
+<span class="org-variable-name">g</span> = np.array(unimodal_res.rx2(<span class="org-string">'fitted_g'</span>))
+<span class="org-variable-name">g</span> = g[:,g[0] &gt; 1e-8]
+<span class="org-variable-name">a</span> = np.fmin(g[1], g[2])
+<span class="org-variable-name">b</span> = np.fmax(g[1], g[2])
+<span class="org-variable-name">z</span> = np.random.choice(g.shape[1], size=x.shape[0], p=g[0])
+<span class="org-variable-name">lam</span> = np.random.uniform(a[z], b[z])
+<span class="org-variable-name">x</span> = np.random.poisson(s * lam)
+plt.clf()
+plt.gcf().set_size_inches(4, 2.5)
+plt.hist(x, bins=y, color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>, label=<span class="org-constant">None</span>)
+<span class="org-keyword">for</span> c, k <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(plt.get_cmap(<span class="org-string">'Dark2'</span>).colors, [<span class="org-string">'Gamma'</span>, <span class="org-string">'ZIG'</span>, <span class="org-string">'Unimodal'</span>, <span class="org-string">'ZIEF'</span>, <span class="org-string">'NPMLE'</span>]):
+  plt.plot(y + .5, pmf[k], color=c, lw=1, label=k)
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.title(<span class="org-string">'Random sample from unimodal'</span>)
+plt.xlabel(<span class="org-string">'Number of molecules'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/quantiles.org/ppc.png" alt="ppc.png">
+</p>
+</div>
+
+<p>
+Fit a dependent expression model.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
+
+<span class="org-keyword">def</span> <span class="org-function-name">loss</span>(a, x, s):
+  <span class="org-keyword">return</span> -np.array(scmodes.ebpm.ebpm_unimodal(x, np.exp(a * np.log(s))).rx2(<span class="org-string">'loglik'</span>))[0]
+
+<span class="org-variable-name">opt</span> = so.minimize_scalar(loss, bracket=[0, 1], method=<span class="org-string">'brent'</span>, args=(x, s))
+<span class="org-keyword">assert</span> opt.success
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">opt.x, opt.fun, -unimodal_res.rx2(<span class="org-string">'loglik'</span>)[0]
+</pre>
+</div>
+
+<pre class="example">
+(1.0177157921515285, 31202.115784911897, 31198.919049387503)
+
+</pre>
+</div>
+</div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-07-21 Tue 21:55</p>
+<p class="date">Created: 2020-08-08 Sat 06:14</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
