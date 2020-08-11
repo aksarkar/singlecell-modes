@@ -306,18 +306,23 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[75]:
    #+BEGIN_EXAMPLE
      method     gamma  point_gamma  unimodal  npmle
      dataset
-     chromium1     13            0        17     17
-     chromium2     47           31        51     48
-     dropseq       77           77        78     76
-     gemcode       52           24        56     56
-     indrops        4            0         4      4
+     chromium1     15           13        17     17
+     chromium2     48           48        51     50
+     dropseq       77           77        78     78
+     gemcode       52           52        56     56
+     indrops        4            4         4      4
    #+END_EXAMPLE
    :END:
 
+   The case where (the improvement over point mass expression model of) the
+   NPMLE expression model appears worse than the unimodal expression model
+   appears to be a [[file:npmle-grid.org][problem with our iterative refinement
+   scheme]].
+   
    For each control data set, for each expression model, report the number of
    genes which have improvement in marginal log likelihood above some threshold
    over the Gamma expression model.
@@ -339,15 +344,92 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[9]:
+   # Out[121]:
    #+BEGIN_EXAMPLE
      method     point  point_gamma  unimodal  npmle
      dataset
-     chromium1      0            0        10     10
-     chromium2      0            0         7      6
-     dropseq        0            2         6     17
-     gemcode        1            0        53     52
-     indrops        3            0         7      7
+     chromium1      0            0         8      8
+     chromium2      0            0         4      5
+     dropseq        0            2         6     20
+     gemcode        1            1        53     53
+     indrops        1            0         2      2
+   #+END_EXAMPLE
+   :END:
+
+   Find the genes where a point-Gamma model improved over a Gamma model.
+
+   #+BEGIN_SRC ipython
+     temp = []
+     for k, g in llik[llik['dataset'].isin(control)].groupby('dataset'):
+       query = g.pivot_table(index='gene', columns='method', values='llik')
+       temp.append(query.loc[query['point_gamma'] > query['gamma'] + thresh])
+     query = pd.concat(temp)[['point', 'gamma', 'point_gamma', 'unimodal', 'npmle']]
+     query
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[137]:
+   #+BEGIN_EXAMPLE
+     method            point        gamma  point_gamma     unimodal        npmle
+     gene
+     ERCC-00078  -765.076024  -279.353443  -264.522869  -263.565367  -261.759913
+     ERCC-00131  -723.520929  -356.755781  -341.742929  -347.518213  -337.364384
+     ERCC-00002 -6108.645264 -6148.879840 -6132.663007 -5944.693604 -5944.424540
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/llr.org/dropseq-point-gamma.png
+     x = data['dropseq']()
+     plt.clf()
+     fig, ax = plt.subplots(1, 2)
+     fig.set_size_inches(4, 2.5)
+     for (k, _), a in zip(query.iterrows(), ax):
+       y = x[:,x.var['index'] == k].X.A.ravel()
+       a.hist(y, bins=np.arange(y.max() + 2), density=True, color='0.7')
+       a.set_title(k)
+     ax[0].set_ylabel('Density')
+     a = fig.add_subplot(111, frameon=False, xticks=[], yticks=[])
+     a.set_xlabel('Number of molecules', labelpad=16)
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[155]:
+   [[file:figure/llr.org/dropseq-point-gamma.png]]
+   :END:
+
+   For each control data set, for each expression model, report the number of
+   genes which have improvement in marginal log likelihood above some threshold
+   over the unimodal expression model.
+
+   #+BEGIN_SRC ipython
+     thresh = 10
+     res = dict()
+     for k, g in llik[llik['dataset'].isin(control)].groupby('dataset'):
+       query = g.pivot_table(index='gene', columns='method', values='llik')
+       res[k] = (query.sub(query['unimodal'], axis=0) > thresh).sum(axis=0)
+     res = (pd.concat(res)
+            .reset_index()
+            .rename({'level_0': 'dataset'}, axis=1)
+            .pivot_table(index='dataset', columns='method')
+            [0])
+     del res['unimodal']
+     res[['point', 'gamma', 'point_gamma', 'npmle']]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[77]:
+   #+BEGIN_EXAMPLE
+     method     point  gamma  point_gamma  npmle
+     dataset
+     chromium1      0      0            0      0
+     chromium2      0      0            0      0
+     dropseq        0      0            0      1
+     gemcode        0      0            0      0
+     indrops        0      0            0      0
    #+END_EXAMPLE
    :END:
 
@@ -357,7 +439,7 @@
    genes which have improvement in marginal log likelihood above some threshold
    over the Gamma expression model.
 
-   #+BEGIN_SRC ipython
+   #+BEGIN_SRC ipython :async t
      thresh = 10
      res = dict()
      for k, g in llik[llik['dataset'].isin(non_control)].groupby('dataset'):

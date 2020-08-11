@@ -1,0 +1,270 @@
+#+TITLE: Iterative refinement of NPMLE grid in ashr
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  A fundamental challenge in fitting fully non-parametric expression models to
+  all genes in a variety of data sets is that the size of the grid (i.e., the
+  size of the convex optimization problem) depends on the range of the data. In
+  practice, this means that a single fixed choice of step size can either prove
+  to be inadequate to fit variation at some genes, or require prohibitive
+  memory to represent.
+
+  We developed an iterative algorithm to refine the grid as follows, given an
+  initial grid size \(K\):
+
+  1. Let \(\lambda_i = x_i / s_i\), initialize the step size \(a =
+     \max(\lambda_i) / K\)
+  2. Initialize \(\mathcal{G}\) to be the set of mixtures distributions over
+     uniform segments \(\{(ka, (k + 1)a) \mid 0 \leq k < K\}\)
+  3. Initialize the current solution \(\hat{g} = \operatorname{EBPM}(x_1,
+     \ldots, x_n, s_1, \ldots, s_n, \mathcal{G})\)
+  4. Until the improvement in log likelihood falls below a threshold (or
+     maximum number of updates are exceeded)
+     1. Update \(\mathcal{G} = \{(a_k, (b_k - a_k) / 2), ((b_k - a_k) / 2, b_k)
+        \mid (a_k, b_k) \in \mathcal{G}, \pi_k > \mathrm{threshold}\}\)
+     2. Update the current solution \(\hat{g} = \operatorname{EBPM}(x_1,
+        \ldots, x_n, s_1, \ldots, s_n, \mathcal{G})\)
+
+  Here, we investigate cases where this scheme fails.
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+    (org-babel-lob-ingest "llr.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 1
+
+  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes
+
+  #+BEGIN_SRC ipython
+    import anndata
+    import collections
+    import numpy as np
+    import os
+    import pandas as pd
+    import scanpy as sc
+    import scmodes
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[1]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import rpy2.robjects.packages
+    import rpy2.robjects.pandas2ri
+    rpy2.robjects.pandas2ri.activate()
+    ashr = rpy2.robjects.packages.importr('ashr')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import colorcet
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[23]:
+  :END:
+
+* Results
+** Control data example
+
+   #+CALL: data()
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[5]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     llik = (pd.concat(
+       {
+         k: pd.concat([
+           pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-{m}.txt.gz', index_col=0, sep='\t')
+           for m in ('point', 'gamma', 'point_gamma', 'unimodal', 'npmle')
+           if os.path.exists(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-{m}.txt.gz')])
+         for k in data
+       })
+             .reset_index(level=0)
+             .rename({'level_0': 'dataset'}, axis=1))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   :END:
+
+   Look at the case where (the improvement over point mass expression model of)
+   the NPMLE expression model appears worse than the unimodal expression model.
+
+   #+BEGIN_SRC ipython
+     query = llik[llik['dataset'] == 'chromium2'].pivot_table(index='gene', columns='method', values='llik')
+     temp = query.sub(query['point'], axis=0)
+     temp = temp[temp['unimodal'] > 10].merge(temp[temp['npmle'] > 10], left_index=True, right_index=True, how='left')
+     query.loc[temp.loc[~np.isfinite(temp['unimodal_y'])].index, ['point', 'unimodal', 'npmle']]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   #+BEGIN_EXAMPLE
+     method           point    unimodal       npmle
+     gene
+     ERCC-00031 -137.566379 -124.357224 -128.160262
+     ERCC-00067 -338.594729 -328.420576 -328.920201
+   #+END_EXAMPLE
+   :END:
+
+   Plot the log density of the observed data.
+
+   #+BEGIN_SRC ipython :ipyfile figure/npmle-grid.org/chromium2-ERCC-00031.png
+     x = data['chromium2']()
+     y = x[:,x.var['index'] == 'ERCC-00031'].X.A.ravel()
+     plt.clf()
+     plt.gcf().set_size_inches(2.5, 2.5)
+     n, h = np.histogram(y, np.arange(y.max() + 2))
+     plt.plot(h[:-1], np.log(n) - np.log(y.shape[0]), c='k', lw=1)
+     plt.xlabel('Number of molecules')
+     plt.ylabel('Log density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   [[file:figure/npmle-grid.org/chromium2-ERCC-00031.png]]
+   :END:
+
+   Report the log likelihood achieved by different initial grids.
+
+   #+BEGIN_SRC ipython :async t
+     pd.Series({
+       k: scmodes.ebpm.ebpm_npmle(x[:,x.var['index'] == 'ERCC-00031'].X.A.ravel(),
+                                  x.X.sum(axis=1).A.ravel(),
+                                  K=k, 
+                                  max_grid_updates=30, 
+                                  tol=1e-7).rx2('loglik')[0]
+       for k in (32, 64, 128, 256, 512)
+     })
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   #+BEGIN_EXAMPLE
+     32    -132.714344
+     64    -128.159731
+     128   -128.090697
+     256   -124.961770
+     512   -124.649102
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Trace the refinement of the grid starting from \(K = 32\) and \(K = 512\).
+
+   #+BEGIN_SRC ipython :async t
+     dat = data['chromium2']()
+     x = dat[:,dat.var['index'] == 'ERCC-00031'].X.A.ravel()
+     s = dat.X.sum(axis=1).A.ravel()
+     lam = x / s
+
+     max_grid_updates = 30
+     thresh = 1e-7
+     tol = 1e-5
+
+     res = collections.defaultdict(list)
+     for init in (32, 512):
+       K = init
+       grid = np.linspace(0, lam.max(), K + 1)
+       fit = ashr.ash_pois(
+         pd.Series(x), pd.Series(s),
+         g=ashr.unimix(pd.Series(np.ones(K) / K), pd.Series(grid[:-1]), pd.Series(grid[1:])))
+       obj = fit.rx2('loglik')[0]
+       for i in range(max_grid_updates):
+         print(f'init={init} iteration={i} obj={obj}')
+         g = np.array(fit.rx2('fitted_g'))
+         if i == 5:
+           print(g)
+         g = g[:,g[0] > thresh]
+         res[init].append(g)
+         grid = np.linspace(g[1], g[2], 3)
+         a = pd.Series(grid[:-1,:].ravel(order='F'))
+         b = pd.Series(grid[1:,:].ravel(order='F'))
+         pi = pd.Series((np.tile(g[0], (2, 1)) / 2).ravel(order='F'))
+         fit1 = ashr.ash_pois(
+           pd.Series(x), pd.Series(s),
+           g=ashr.unimix(pi, a, b))
+         update = fit1.rx2('loglik')[0]
+         if update < obj:
+           raise RuntimeError('loglik decreased')
+         elif update - obj < tol:
+           g = np.array(fit1.rx2('fitted_g'))
+           g = g[:,g[0] > thresh]
+           res[init].append(g)
+           break
+         else:
+           obj = update
+           fit = fit1
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[128]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/npmle-grid.org/chromium2-ERCC-00031-trace-cdf.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 2, sharey=True)
+     fig.set_size_inches(4, 2.5)
+     for k, a in zip(cdf, ax):
+       for i, g in enumerate(res[k]):
+         xx = g[1:].ravel(order='F')
+         yy = np.zeros(xx.shape[0])
+         for j in np.arange(xx.shape[0]):
+           if j % 2:
+             yy[j] = yy[j - 1] + g[0][j // 2]
+           elif j > 0:
+             yy[j] = yy[j - 1]
+         a.plot(xx, yy, c=colorcet.cm['bmy'](i / len(cdf[k])), marker='.', ms=4, lw=1)
+       a.set_title(f'Initial $K$ = {k}')
+       a.set_xlim(0, 5e-5)
+       a.set_ylim(0, 1)
+     ax[0].set_ylabel('CDF')
+     a = fig.add_subplot(111, frameon=False, xticks=[], yticks=[])
+     a.set_xlabel('Latent gene expression', labelpad=20)
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[127]:
+   [[file:figure/npmle-grid.org/chromium2-ERCC-00031-trace-cdf.png]]
+   :END:
