@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-08-11 Tue 13:12 -->
+<!-- 2020-08-11 Tue 13:17 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Marginal log likelihood comparison of expression models</title>
@@ -358,8 +358,13 @@ Prepare the data in <code>h5ad</code>.
 <span class="org-keyword">def</span> <span class="org-function-name">read_liver</span>():
   <span class="org-keyword">return</span> anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/liver-caudate-lobe.h5ad'</span>)
 
-<span class="org-keyword">def</span> <span class="org-function-name">read_kidney</span>():
-  <span class="org-keyword">return</span> anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/kidney/kidney.h5ad'</span>)
+<span class="org-keyword">def</span> <span class="org-function-name">read_kidney</span>(chunk=<span class="org-constant">None</span>, chunksize=500):
+  <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/kidney/kidney.h5ad'</span>)
+  <span class="org-variable-name">x.obs</span>[<span class="org-string">'size'</span>] = x.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
+  <span class="org-keyword">if</span> chunk <span class="org-keyword">is</span> <span class="org-constant">None</span>:
+    <span class="org-keyword">return</span> x
+  <span class="org-keyword">else</span>:
+    <span class="org-keyword">return</span> x[:,chunk * chunksize:(chunk + 1) * chunksize]
 
 <span class="org-keyword">def</span> <span class="org-function-name">read_brain</span>(chunk=<span class="org-constant">None</span>, chunksize=500):
   <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/gtex-droncseq.h5ad'</span>)
@@ -451,12 +456,12 @@ python &lt;&lt;EOF
 </div>
 
 <p>
-Shard data sets to fit unimodal expression models within the <code>midway2</code>
-time/memory limits.
+Shard data sets to fit unimodal/non-parametric expression models within the
+<code>midway2</code> time/memory limits.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=24:00:00 -a 1,3-56
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=4:00:00 -a 0
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -464,12 +469,13 @@ python &lt;&lt;EOF
 <span class="org-sh-heredoc">import multiprocessing as mp</span>
 <span class="org-sh-heredoc">import os</span>
 <span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
+<span class="org-sh-heredoc">method = 'npmle'</span>
 <span class="org-sh-heredoc">tasks = [(d, c) for d in chunks for c in range(chunks[d])]</span>
 <span class="org-sh-heredoc">d, c = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
 <span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=20) as pool:</span>
 <span class="org-sh-heredoc">  x = data[d](chunk=c)</span>
-<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_llik(x, s=x.obs['size'], pool=pool, methods=['unimodal'])</span>
-<span class="org-sh-heredoc">  res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-unimodal-{c}.txt.gz', compression='gzip', sep='\t')</span>
+<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_llik(x, s=x.obs['size'], pool=pool, methods=[method])</span>
+<span class="org-sh-heredoc">  res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-{method}-{c}.txt.gz', compression='gzip', sep='\t')</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
 </div>
@@ -728,7 +734,7 @@ res
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-08-11 Tue 13:12</p>
+<p class="date">Created: 2020-08-11 Tue 13:17</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

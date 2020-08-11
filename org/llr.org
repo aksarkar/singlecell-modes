@@ -119,11 +119,21 @@
        else:
          return x[:,chunk * chunksize:(chunk + 1) * chunksize]
 
-     def read_liver():
-       return anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/liver-caudate-lobe.h5ad')
+     def read_liver(chunk=None, chunksize=500):
+       x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/liver-caudate-lobe.h5ad')
+       x.obs['size'] = x.X.sum(axis=1).A.ravel()
+       if chunk is None:
+         return x
+       else:
+         return x[:,chunk * chunksize:(chunk + 1) * chunksize]
 
-     def read_kidney():
-       return anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/kidney/kidney.h5ad')
+     def read_kidney(chunk=None, chunksize=500):
+       x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/kidney/kidney.h5ad')
+       x.obs['size'] = x.X.sum(axis=1).A.ravel()
+       if chunk is None:
+         return x
+       else:
+         return x[:,chunk * chunksize:(chunk + 1) * chunksize]
 
      def read_brain(chunk=None, chunksize=500):
        x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/gtex-droncseq.h5ad')
@@ -173,6 +183,8 @@
 
      chunks = {
        'brain': 11744 // 500,
+       'kidney': 15496 // 500,
+       'liver-caudate-lobe': 3181 // 500,
        'pbmcs_68k': 6502 // 500,
        'retina': 10047 // 500,
      }
@@ -183,7 +195,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[114]:
+   # Out[4]:
    :END:
 
 ** Estimate marginal log likelihood
@@ -192,7 +204,7 @@
    family of expression models.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=24:00:00 -a 60-64
+     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=24:00:00 -a 66-69,71-74
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -203,11 +215,7 @@
      <<data>>
      tasks = [(m, d) for m in ('point', 'gamma', 'point_gamma', 'unimodal', 'npmle') for d in data]
      m, d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-     if m == 'npmle':
-       kwargs = {'processes': 8}
-     else:
-       kwargs = dict()
-     with mp.Pool(**kwargs) as pool:
+     with mp.Pool() as pool:
        x = data[d]()
        res = scmodes.benchmark.evaluate_llik(x, pool=pool, methods=[m])
        res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-{m}.txt.gz', compression='gzip', sep='\t')
@@ -215,13 +223,13 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 3398000
+   : Submitted batch job 3421359
 
-   Shard data sets to fit unimodal expression models within the ~midway2~
-   time/memory limits.
+   Shard data sets to fit unimodal/non-parametric expression models within the
+   ~midway2~ time/memory limits.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=24:00:00 -a 1,3-56
+     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=8:00:00 -a 59-69,71
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -229,17 +237,18 @@
      import multiprocessing as mp
      import os
      <<data>>
+     method = 'npmle'
      tasks = [(d, c) for d in chunks for c in range(chunks[d])]
      d, c = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      with mp.Pool(maxtasksperchild=20) as pool:
        x = data[d](chunk=c)
-       res = scmodes.benchmark.evaluate_llik(x, s=x.obs['size'], pool=pool, methods=['unimodal'])
-       res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-unimodal-{c}.txt.gz', compression='gzip', sep='\t')
+       res = scmodes.benchmark.evaluate_llik(x, s=x.obs['size'], pool=pool, methods=[method])
+       res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-{method}-{c}.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 3379505
+   : Submitted batch job 3436059
 
    Move the results to permanent storage.
 
@@ -249,18 +258,20 @@
 
    #+RESULTS:
 
-   Combine the sharded results for unimodal expression models.
+   Combine the sharded results.
 
    #+BEGIN_SRC ipython :async t
-     for k in chunks:
-       (pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-unimodal-{i}.txt.gz', index_col=0, sep='\t')
-                   for i in range(chunks[k])])
-        .to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-unimodal.txt.gz', sep='\t'))
+     for m in ('unimodal', 'npmle'):
+       for k in chunks:
+         if os.path.exists(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-{m}-0.txt.gz'):
+           (pd.concat([pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-{m}-{i}.txt.gz', index_col=0, sep='\t')
+                       for i in range(chunks[k])])
+            .to_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-{m}.txt.gz', sep='\t'))
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[25]:
+   # Out[7]:
    :END:
 
    Read the results.
@@ -280,7 +291,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[8]:
    :END:
 
 ** Application to control data sets
@@ -306,7 +317,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[75]:
+   # Out[9]:
    #+BEGIN_EXAMPLE
      method     gamma  point_gamma  unimodal  npmle
      dataset
@@ -344,7 +355,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[121]:
+   # Out[10]:
    #+BEGIN_EXAMPLE
      method     point  point_gamma  unimodal  npmle
      dataset
@@ -449,26 +460,41 @@
             .reset_index()
             .rename({'level_0': 'dataset'}, axis=1)
             .pivot_table(index='dataset', columns='method')
-            [0])
-     del res['gamma']
-     res[['point', 'point_gamma', 'unimodal', 'npmle']]
+            [0]
+            [['point', 'point_gamma', 'unimodal', 'npmle']])
+     res
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[20]:
+   # Out[11]:
    #+BEGIN_EXAMPLE
-     method                point  point_gamma  unimodal   npmle
+     method               point  point_gamma  unimodal   npmle
      dataset
-     b_cells                14.0         15.0     541.0   422.0
-     brain                   7.0         10.0       NaN  1441.0
-     cytotoxic_t             9.0         13.0     634.0   555.0
-     cytotoxic_t-b_cells  1238.0         23.0       NaN     NaN
-     cytotoxic_t-naive_t  1225.0         17.0       NaN     NaN
-     ipsc                    0.0          1.0       NaN    25.0
-     kidney                  0.0        110.0    7096.0  7076.0
-     liver-caudate-lobe      0.0          2.0       0.0     0.0
-     pbmcs_68k              44.0         84.0       NaN  1979.0
-     retina                  9.0        188.0       NaN   649.0
+     b_cells               24.0         64.0     624.0   615.0
+     brain                  0.0        303.0    1057.0   828.0
+     cytotoxic_t           21.0         83.0     710.0   716.0
+     cytotoxic_t-b_cells   26.0        259.0       NaN  1434.0
+     cytotoxic_t-naive_t   22.0        186.0       NaN  1482.0
+     ipsc                   0.0          1.0      25.0    24.0
+     kidney                 0.0        222.0    7097.0  1650.0
+     liver-caudate-lobe     0.0         49.0       0.0    63.0
+     pbmcs_68k              6.0       1302.0    4454.0  2931.0
+     retina               164.0        350.0    1647.0  1449.0
    #+END_EXAMPLE
    :END:
+
+   #+BEGIN_SRC ipython
+     thresh = 10
+     res = dict()
+     for k, g in llik[llik['dataset'].isin(non_control)].groupby('dataset'):
+       query = g.pivot_table(index='gene', columns='method', values='llik')
+       res[k] = (query.sub(query['unimodal'], axis=0) > thresh).sum(axis=0)
+     res = (pd.concat(res)
+            .reset_index()
+            .rename({'level_0': 'dataset'}, axis=1)
+            .pivot_table(index='dataset', columns='method')
+            [0]
+            [['point', 'point_gamma', 'unimodal', 'npmle']])
+     res
+   #+END_SRC
