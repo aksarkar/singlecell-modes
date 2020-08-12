@@ -7,7 +7,7 @@ bioRxiv (2020).
 
 The minimal specification of the working environment is
 
-#+BEGIN_SRC sh
+#+BEGIN_SRC sh :results none
   xargs -L100 conda create -n scmodes -c aksarkar <<EOF
   bokeh
   colorcet
@@ -20,11 +20,12 @@ The minimal specification of the working environment is
   python=3.6.9=h265db76_0
   pytorch
   r-ashr
+  r-base=3.5.1
   r-descend
   r-devtools
   r-expint
   r-irlba
-  r-mixsqp=0.3.17
+  r-mixsqp=0.3.43
   r-roxygen2
   r-testthat
   scikit-learn
@@ -33,7 +34,7 @@ The minimal specification of the working environment is
   EOF
 #+END_SRC
 
-#+BEGIN_SRC sh
+#+BEGIN_SRC sh :results none
   source activate scmodes
   xargs -L100 python -m pip install <<EOF
   -e /project2/mstephens/aksarkar/projects/scmodes/
