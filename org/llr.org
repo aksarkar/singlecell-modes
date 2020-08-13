@@ -212,8 +212,9 @@
    Estimate the marginal likelihood for each data set, for each gene, for each
    family of expression models.
 
+   #+NAME: main
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=24:00:00 -a 66-69,71-74
+     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=24:00:00 -a 7,22,37,52-60
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -222,7 +223,9 @@
      import multiprocessing as mp
      import os
      <<data>>
-     tasks = [(m, d) for m in ('point', 'gamma', 'point_gamma', 'unimodal', 'npmle') for d in data]
+     tasks = [(m, d) for m in ('point', 'gamma', 'point_gamma', 'unimodal', 'npmle') 
+              for d in data
+              if m not in ('unimodal', 'npmle') or d not in chunks]
      m, d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      with mp.Pool() as pool:
        x = data[d]()
@@ -334,23 +337,18 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[9]:
+   # Out[37]:
    #+BEGIN_EXAMPLE
      method     gamma  point_gamma  unimodal  npmle
      dataset
      chromium1     15           13        17     17
-     chromium2     48           48        51     50
+     chromium2     48           48        51     52
      dropseq       77           77        78     78
      gemcode       52           52        56     56
      indrops        4            4         4      4
    #+END_EXAMPLE
    :END:
 
-   The case where (the improvement over point mass expression model of) the
-   NPMLE expression model appears worse than the unimodal expression model
-   appears to be a [[file:npmle-grid.org][problem with our iterative refinement
-   scheme]].
-   
    For each control data set, for each expression model, report the number of
    genes which have improvement in marginal log likelihood above some threshold
    over the Gamma expression model.
@@ -463,7 +461,7 @@
 
 ** Application to biological data sets
 
-   For each control data set, for each expression model, report the number of
+   For each data set, for each expression model, report the number of
    genes which have improvement in marginal log likelihood above some threshold
    over the Gamma expression model.
 
@@ -484,7 +482,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[11]:
+   # Out[66]:
    #+BEGIN_EXAMPLE
      method               point  point_gamma  unimodal   npmle
      dataset
@@ -501,17 +499,77 @@
    #+END_EXAMPLE
    :END:
 
+   For each data set, for each expression model, report the number of genes
+   which have improvement in marginal log likelihood above some threshold over
+   the unimodal expression model.
+
    #+BEGIN_SRC ipython
      thresh = 10
      res = dict()
      for k, g in llik[llik['dataset'].isin(non_control)].groupby('dataset'):
        query = g.pivot_table(index='gene', columns='method', values='llik')
-       res[k] = (query.sub(query['unimodal'], axis=0) > thresh).sum(axis=0)
+       if 'unimodal' in query:
+         res[k] = (query.sub(query['unimodal'], axis=0) > thresh).sum(axis=0)
      res = (pd.concat(res)
             .reset_index()
             .rename({'level_0': 'dataset'}, axis=1)
             .pivot_table(index='dataset', columns='method')
             [0]
-            [['point', 'point_gamma', 'unimodal', 'npmle']])
+            [['point', 'gamma', 'point_gamma', 'npmle']])
      res
    #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[67]:
+   #+BEGIN_EXAMPLE
+     method              point  gamma  point_gamma  npmle
+     dataset
+     b_cells                 0      0            0      1
+     brain                   0      0            1     10
+     cytotoxic_t             0      0            0      0
+     ipsc                    0      0            0      9
+     kidney                  0    757          755    753
+     liver-caudate-lobe      0      0            0      0
+     pbmcs_68k               0      0            2     17
+     retina                  0      0           11    120
+   #+END_EXAMPLE
+   :END:
+
+   For each data set, for each expression model, report the number of genes
+   which have improvement in marginal log likelihood above some threshold over
+   the non-parametric expression model.
+
+   #+BEGIN_SRC ipython
+     thresh = 10
+     res = dict()
+     for k, g in llik[llik['dataset'].isin(non_control)].groupby('dataset'):
+       query = g.pivot_table(index='gene', columns='method', values='llik')
+       res[k] = (query.sub(query['npmle'], axis=0) > thresh).sum(axis=0)
+     res = (pd.concat(res)
+            .reset_index()
+            .rename({'level_0': 'dataset'}, axis=1)
+            .pivot_table(index='dataset', columns='method')
+            [0]
+            [['point', 'gamma', 'point_gamma', 'unimodal']])
+     res
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[37]:
+   #+BEGIN_EXAMPLE
+     method               point  gamma  point_gamma  unimodal
+     dataset
+     b_cells                0.0    4.0          5.0       7.0
+     brain                  0.0  374.0        428.0     607.0
+     cytotoxic_t            0.0    0.0          0.0       0.0
+     cytotoxic_t-b_cells    0.0   32.0         39.0       NaN
+     cytotoxic_t-naive_t    0.0   23.0         23.0       NaN
+     ipsc                   0.0    0.0          0.0       1.0
+     kidney                 0.0  333.0        337.0    6991.0
+     liver-caudate-lobe     0.0    2.0          5.0       0.0
+     pbmcs_68k              0.0  923.0       1364.0    2330.0
+     retina                 2.0  180.0        191.0     397.0
+   #+END_EXAMPLE
+   :END:
