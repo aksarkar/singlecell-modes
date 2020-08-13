@@ -3,15 +3,38 @@
 
 * Introduction
 
-  A fundamental challenge in fitting fully non-parametric expression models to
-  all genes in a variety of data sets is that the size of the grid (i.e., the
-  size of the convex optimization problem) depends on the range of the data. In
-  practice, this means that a single fixed choice of step size can either prove
-  to be inadequate to fit variation at some genes, or require prohibitive
-  memory to represent.
+  The NPMLE (Kiefer and Wolfowitz 1956) is
 
-  We developed an iterative algorithm to refine the grid as follows, given an
-  initial grid size \(K\):
+  \begin{equation}
+    \arg\max_g \sum_{i=1}^n \int_0^{\infty} \operatorname{Poisson}(x_i; s_i \lambda_i)\,dg(\lambda_i)
+  \end{equation}
+
+  where the maximum is taken over the space of all distributions \(g\). Theorem
+  2 of Koenker and Mizera states if the likelihood is the standard normal
+  density, then the optimum \(g^*\) is an atomic probability measure of not
+  more than \(n\) atoms. (We assume that this is still for true for the Poisson
+  density, but have not proven it.)
+
+  In practice, we approximate this measure using a mixture of tiled uniform
+  segments, and solve
+
+  \begin{equation}
+    \arg\max_{\pi} \sum_{i=1}^n \int_0^{\infty} \operatorname{Poisson}(x_i; s_i \lambda_i) \prod_{k=1}^{K} \pi_k \operatorname{Uniform}(\lambda_i; (k - 1)a, ka)\,d\lambda_i
+  \end{equation}
+
+  A fundamental challenge in applying this approach to all genes in a variety
+  of data sets is that the size of the grid (i.e., the size of the convex
+  optimization problem) depends on the range of the data. In practice, this
+  means that a single fixed choice of step size can either prove to be
+  inadequate to fit variation at some genes, or require prohibitive memory to
+  represent. To address this issue, we developed an iterative algorithm to
+  refine the grid. The intuition behind our iterative refinement scheme is that
+  if some segment \(k\) overlaps atoms of \(g^*\), then the corresponding
+  \(\pi_k^* > 0\); otherwise \(\pi_k^* = 0\). Then, we can discard segments for
+  which \(\pi_k^* = 0\), and divide the remaining segments into smaller
+  segments, and this property should still hold.
+
+  Formally, given an initial grid size \(K\):
 
   1. Let \(\lambda_i = x_i / s_i\), initialize the step size \(a =
      \max(\lambda_i) / K\)
@@ -90,67 +113,35 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[23]:
+  # Out[4]:
   :END:
 
 * Results
 ** Control data example
 
+   Look at the case where (the improvement over point mass expression model of)
+   the NPMLE expression model appears worse than the unimodal expression model.
+   Plot the log density of the observed data.
+
    #+CALL: data()
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[33]:
    :END:
-
-   #+BEGIN_SRC ipython :async t
-     llik = (pd.concat(
-       {
-         k: pd.concat([
-           pd.read_csv(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-{m}.txt.gz', index_col=0, sep='\t')
-           for m in ('point', 'gamma', 'point_gamma', 'unimodal', 'npmle')
-           if os.path.exists(f'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-{m}.txt.gz')])
-         for k in data
-       })
-             .reset_index(level=0)
-             .rename({'level_0': 'dataset'}, axis=1))
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[6]:
-   :END:
-
-   Look at the case where (the improvement over point mass expression model of)
-   the NPMLE expression model appears worse than the unimodal expression model.
 
    #+BEGIN_SRC ipython
-     query = llik[llik['dataset'] == 'chromium2'].pivot_table(index='gene', columns='method', values='llik')
-     temp = query.sub(query['point'], axis=0)
-     temp = temp[temp['unimodal'] > 10].merge(temp[temp['npmle'] > 10], left_index=True, right_index=True, how='left')
-     query.loc[temp.loc[~np.isfinite(temp['unimodal_y'])].index, ['point', 'unimodal', 'npmle']]
+     dat = data['chromium2']()
+     x = dat[:,dat.var['index'] == 'ERCC-00031'].X.A.ravel()
+     s = dat.X.sum(axis=1).A.ravel()
+     lam = x / s
    #+END_SRC
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[7]:
-   #+BEGIN_EXAMPLE
-     method           point    unimodal       npmle
-     gene
-     ERCC-00031 -137.566379 -124.357224 -128.160262
-     ERCC-00067 -338.594729 -328.420576 -328.920201
-   #+END_EXAMPLE
-   :END:
-
-   Plot the log density of the observed data.
-
    #+BEGIN_SRC ipython :ipyfile figure/npmle-grid.org/chromium2-ERCC-00031.png
-     x = data['chromium2']()
-     y = x[:,x.var['index'] == 'ERCC-00031'].X.A.ravel()
      plt.clf()
      plt.gcf().set_size_inches(2.5, 2.5)
-     n, h = np.histogram(y, np.arange(y.max() + 2))
-     plt.plot(h[:-1], np.log(n) - np.log(y.shape[0]), c='k', lw=1)
+     n, h = np.histogram(x, np.arange(x.max() + 2))
+     plt.plot(h[:-1], np.log(n) - np.log(x.shape[0]), c='k', lw=1)
      plt.xlabel('Number of molecules')
      plt.ylabel('Log density')
      plt.tight_layout()
@@ -158,7 +149,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[87]:
    [[file:figure/npmle-grid.org/chromium2-ERCC-00031.png]]
    :END:
 
@@ -166,42 +157,33 @@
 
    #+BEGIN_SRC ipython :async t
      pd.Series({
-       k: scmodes.ebpm.ebpm_npmle(x[:,x.var['index'] == 'ERCC-00031'].X.A.ravel(),
-                                  x.X.sum(axis=1).A.ravel(),
-                                  K=k, 
-                                  max_grid_updates=30, 
-                                  tol=1e-7).rx2('loglik')[0]
+       k: scmodes.ebpm.ebpm_npmle(x, s, K=k, max_grid_updates=30, tol=1e-7).rx2('loglik')[0]
        for k in (32, 64, 128, 256, 512)
      })
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[9]:
+   # Out[88]:
    #+BEGIN_EXAMPLE
      32    -132.714344
-     64    -128.159731
-     128   -128.090697
-     256   -124.961770
-     512   -124.649102
+     64    -132.714344
+     128   -128.090748
+     256   -132.714344
+     512   -124.649173
      dtype: float64
    #+END_EXAMPLE
    :END:
 
-   Trace the refinement of the grid starting from \(K = 32\) and \(K = 512\).
+   Trace the refinement of the grid starting from \(K = 256\) and \(K = 512\).
 
    #+BEGIN_SRC ipython :async t
-     dat = data['chromium2']()
-     x = dat[:,dat.var['index'] == 'ERCC-00031'].X.A.ravel()
-     s = dat.X.sum(axis=1).A.ravel()
-     lam = x / s
-
      max_grid_updates = 30
      thresh = 1e-7
      tol = 1e-5
 
      res = collections.defaultdict(list)
-     for init in (32, 512):
+     for init in (256, 512):
        K = init
        grid = np.linspace(0, lam.max(), K + 1)
        fit = ashr.ash_pois(
@@ -211,17 +193,15 @@
        for i in range(max_grid_updates):
          print(f'init={init} iteration={i} obj={obj}')
          g = np.array(fit.rx2('fitted_g'))
-         if i == 5:
-           print(g)
          g = g[:,g[0] > thresh]
          res[init].append(g)
          grid = np.linspace(g[1], g[2], 3)
          a = pd.Series(grid[:-1,:].ravel(order='F'))
          b = pd.Series(grid[1:,:].ravel(order='F'))
          pi = pd.Series((np.tile(g[0], (2, 1)) / 2).ravel(order='F'))
-         fit1 = ashr.ash_pois(
-           pd.Series(x), pd.Series(s),
-           g=ashr.unimix(pi, a, b))
+         if i == 0:
+           print(np.vstack((pi, a, b)))
+         fit1 = ashr.ash_pois(pd.Series(x), pd.Series(s), g=ashr.unimix(pi, a, b))
          update = fit1.rx2('loglik')[0]
          if update < obj:
            raise RuntimeError('loglik decreased')
@@ -237,14 +217,14 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[128]:
+   # Out[92]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/npmle-grid.org/chromium2-ERCC-00031-trace-cdf.png
      plt.clf()
      fig, ax = plt.subplots(1, 2, sharey=True)
      fig.set_size_inches(4, 2.5)
-     for k, a in zip(cdf, ax):
+     for k, a in zip(res, ax):
        for i, g in enumerate(res[k]):
          xx = g[1:].ravel(order='F')
          yy = np.zeros(xx.shape[0])
@@ -253,18 +233,127 @@
              yy[j] = yy[j - 1] + g[0][j // 2]
            elif j > 0:
              yy[j] = yy[j - 1]
-         a.plot(xx, yy, c=colorcet.cm['bmy'](i / len(cdf[k])), marker='.', ms=4, lw=1)
+         a.plot(xx, yy, c=colorcet.cm['bmy'](i / len(res[k])), marker='.', ms=4, lw=1)
        a.set_title(f'Initial $K$ = {k}')
-       a.set_xlim(0, 5e-5)
+       a.set_xlim(0, 4e-5)
        a.set_ylim(0, 1)
      ax[0].set_ylabel('CDF')
      a = fig.add_subplot(111, frameon=False, xticks=[], yticks=[])
-     a.set_xlabel('Latent gene expression', labelpad=20)
+     a.set_xlabel('Latent gene expression', labelpad=32)
      fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[127]:
+   # Out[46]:
    [[file:figure/npmle-grid.org/chromium2-ERCC-00031-trace-cdf.png]]
    :END:
+
+   Clearly, even the first dividing step leads to the wrong solution. Look more
+   closely at the dividing step.
+   
+   #+BEGIN_SRC ipython :async t
+     init = dict()
+     for K in (256, 512):
+       grid = np.linspace(0, lam.max(), K + 1)
+       init[K] = ashr.ash_pois(pd.Series(x), pd.Series(s), g=ashr.unimix(pd.Series(np.ones(K) / K), pd.Series(grid[:-1]), pd.Series(grid[1:])))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[95]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/npmle-grid.org/chromium2-ERCC-00031-init-cdf.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 2, sharey=True)
+     fig.set_size_inches(4, 2.5)
+     for k, a in zip(init, ax):
+       g = np.array(init[k].rx2('fitted_g'))
+       xx = g[1:].ravel(order='F')
+       yy = np.zeros(xx.shape[0])
+       for j in np.arange(xx.shape[0]):
+         if j % 2:
+           yy[j] = yy[j - 1] + g[0][j // 2]
+         elif j > 0:
+           yy[j] = yy[j - 1]
+       a.plot(xx, yy, c=colorcet.cm['bmy'](i / len(res[k])), marker='.', ms=4, lw=1)
+       a.set_title(f'$K$ = {k}')
+       a.set_xlim(0, 4e-5)
+       a.set_ylim(0, 1)
+     ax[0].set_ylabel('CDF')
+     a = fig.add_subplot(111, frameon=False, xticks=[], yticks=[])
+     a.set_xlabel('Latent gene expression', labelpad=32)
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[64]:
+   [[file:figure/npmle-grid.org/chromium2-ERCC-00031-init-cdf.png]]
+   :END:
+
+   First, look at the segments with non-trivial mixture weight in the \(K=512\)
+   initialization.
+
+   #+BEGIN_SRC ipython
+     g = np.array(init[512].rx2('fitted_g'))
+     g[:,g[0] > thresh]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[96]:
+   #+BEGIN_EXAMPLE
+     array([[9.94031230e-01, 5.54471208e-03, 4.24058253e-04],
+     [0.00000000e+00, 7.60198382e-04, 4.79509748e-03],
+     [1.16953597e-05, 7.71893741e-04, 4.80679284e-03]])
+   #+END_EXAMPLE
+   :END:
+
+   Next, look at the segments with non-trivial mixture weight in the \(K=256\)
+   initialization.
+
+   #+BEGIN_SRC ipython
+     g = np.array(init[256].rx2('fitted_g'))
+     g[:,g[0] > thresh]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[97]:
+   #+BEGIN_EXAMPLE
+     array([[1.00000000e+00],
+     [0.00000000e+00],
+     [2.33907194e-05]])
+   #+END_EXAMPLE
+   :END:
+
+   Now, look at the result of dividing the segments with non-trivial mixture weight.
+
+   #+BEGIN_SRC ipython :async t
+     g = np.array(init[256].rx2('fitted_g'))
+     g = g[:,g[0] > 1e-7]
+     temp = np.linspace(g[1], g[2], 3)
+     a = pd.Series(temp[:-1,:].ravel(order='F'))
+     b = pd.Series(temp[1:,:].ravel(order='F'))
+     pi = pd.Series((np.tile(g[0], (2, 1)) / 2).ravel(order='F'))
+     temp = ashr.ash_pois(pd.Series(x), pd.Series(s), g=ashr.unimix(pd.Series(pi), pd.Series(a), pd.Series(b)))
+     g = np.array(temp.rx2('fitted_g'))
+     g[:,g[0] > thresh]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[104]:
+   #+BEGIN_EXAMPLE
+     array([[7.31373678e-01, 2.68626322e-01],
+     [0.00000000e+00, 1.16953597e-05],
+     [1.16953597e-05, 2.33907194e-05]])
+   #+END_EXAMPLE
+   :END:
+
+   This example appears to contradict our intuition that the solution should
+   have density wherever there was some underlying point mass, because the
+   \(K=512\) solution put non-trivial weight on some segment that did not get
+   non-trivial weight in the \(K=256\) solution.
