@@ -21,7 +21,7 @@
   #+END_SRC
 
   #+RESULTS:
-  : 1
+  : 3
 
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
@@ -96,15 +96,21 @@
        return x
 
      def _read_10x(k, return_df=False, min_detect=0.01):
-       return scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/',
+       x = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/',
                                        return_adata=not return_df, return_df=return_df, min_detect=min_detect)
+       x.var.columns = ['gene', 'name']
+       return x
 
-     def _mix_10x(k1, k2, min_detect=0.01, return_y=False):
-       x1 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k1}/filtered_matrices_mex/hg19/', return_adata=True, return_df=False, min_detect=0)
-       x2 = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k2}/filtered_matrices_mex/hg19/', return_adata=True, return_df=False, min_detect=0)
+     def _mix_10x(k1, k2, min_detect=0.01, return_y=False, chunk=None, chunksize=500):
+       x1 = _read_10x(k1, min_detect=0)
+       x2 = _read_10x(k2, min_detect=0)
        x = x1.concatenate(x2)
        sc.pp.filter_genes(x, min_cells=min_detect * x.shape[0])
-       return x
+       x.obs['size'] = x.X.sum(axis=1).A.ravel()
+       if chunk is None:
+         return x
+       else:
+         return x[:,chunk * chunksize:(chunk + 1) * chunksize]
 
      def _cd8_cd19_mix(**kwargs):
        return _mix_10x('cytotoxic_t', 'b_cells', **kwargs)
@@ -181,12 +187,15 @@
        'retina': read_retina,
      }
 
+     chunksize = 500
      chunks = {
-       'brain': 11744 // 500,
-       'kidney': 15496 // 500,
-       'liver-caudate-lobe': 3181 // 500,
-       'pbmcs_68k': 6502 // 500,
-       'retina': 10047 // 500,
+       'brain': 11744 // chunksize,
+       'cytotoxic_t-b_cells': 6647 // chunksize,
+       'cytotoxic_t-naive_t': 6246 // chunksize,
+       'kidney': 15496 // chunksize,
+       'liver-caudate-lobe': 3181 // chunksize,
+       'pbmcs_68k': 6502 // chunksize,
+       'retina': 10047 // chunksize,
      }
 
      control = list(data.keys())[:5]
@@ -195,7 +204,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[4]:
+   # Out[113]:
    :END:
 
 ** Estimate marginal log likelihood
@@ -223,13 +232,16 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 3421359
+   : Submitted batch job 3442784
 
    Shard data sets to fit unimodal/non-parametric expression models within the
    ~midway2~ time/memory limits.
 
+   # -47,117-233
+
+   #+NAME: shard
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=8:00:00 -a 59-69,71
+     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=5:00:00 -a 23
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -237,24 +249,29 @@
      import multiprocessing as mp
      import os
      <<data>>
-     method = 'npmle'
-     tasks = [(d, c) for d in chunks for c in range(chunks[d])]
-     d, c = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     tasks = [(m, d, c)
+              for m in ('unimodal', 'npmle')
+              for d in chunks
+              for c in range(chunks[d])]
+     m, d, c = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      with mp.Pool(maxtasksperchild=20) as pool:
        x = data[d](chunk=c)
-       res = scmodes.benchmark.evaluate_llik(x, s=x.obs['size'], pool=pool, methods=[method])
-       res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-{method}-{c}.txt.gz', compression='gzip', sep='\t')
+       res = scmodes.benchmark.evaluate_llik(x, s=x.obs['size'], pool=pool, methods=[m])
+       res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-{m}-{c}.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
 
-   #+RESULTS:
-   : Submitted batch job 3436059
+   #+RESULTS: shard
+   : Submitted batch job 3462121
 
    Move the results to permanent storage.
 
+   #+NAME: rsync
    #+BEGIN_SRC sh
      rsync -au /scratch/midway2/aksarkar/modes/llik/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/
    #+END_SRC
+
+   #+RESULTS: rsync
 
    #+RESULTS:
 
@@ -291,7 +308,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[36]:
    :END:
 
 ** Application to control data sets
