@@ -13,7 +13,7 @@ The minimal specification of the working environment is
   colorcet
   ipython
   jupyter_console
-  matplotlib==3.0.3
+  matplotlib=3.0.3
   numpy
   pandas
   pytest
@@ -25,7 +25,7 @@ The minimal specification of the working environment is
   r-devtools
   r-expint
   r-irlba
-  r-mixsqp=0.3.43
+  r-mixsqp=0.3.45.dev1
   r-roxygen2
   r-testthat
   scikit-learn
@@ -45,7 +45,5 @@ The minimal specification of the working environment is
   EOF
 #+END_SRC
 
-We need to
-[[https://www.anaconda.com/using-pip-in-a-conda-environment/][mix
-pip and conda]] due to incompatibilities in the biopython builds of
-scvi/scanpy.
+We need to [[https://www.anaconda.com/using-pip-in-a-conda-environment/][mix
+pip and conda]] due to incompatibilities in the biopython build of scanpy.

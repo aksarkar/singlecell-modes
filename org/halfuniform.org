@@ -1,0 +1,186 @@
+#+TITLE: Uniform vs half-uniform mixture prior
+#+SETUPFILE: setup.org
+
+* Introduction
+
+  We found cases where a unimodal expression model (half-uniform mixture) had a
+  worse log likelihood than a Gamma expression model. Investigate what
+  happened.
+
+* Setup
+  :PROPERTIES:
+  :CUSTOM_ID: setup
+  :END:
+
+  #+BEGIN_SRC emacs-lisp :exports none
+    (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
+    (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+    (org-babel-lob-ingest "llr.org")
+  #+END_SRC
+
+  #+RESULTS:
+  : 5
+
+  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
+
+  #+BEGIN_SRC ipython
+    import anndata
+    import numpy as np
+    import pandas as pd
+    import scmodes
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[1]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    %matplotlib inline
+    %config InlineBackend.figure_formats = set(['retina'])
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[2]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import matplotlib.pyplot as plt
+    plt.rcParams['figure.facecolor'] = 'w'
+    plt.rcParams['font.family'] = 'Nimbus Sans'
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[3]:
+  :END:
+
+* Results
+** iPSC example
+
+   #+CALL: data()
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     dat = data['ipsc']()
+     x = dat[:,dat.var['index'] == 'ENSG00000013364'].X.A.ravel()
+     s = dat.obs['size'].values.ravel()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   :END:
+
+   [[file:figure/llr.org/ipsc-ENSG00000013364.png]]
+
+   Fit candidate expression models, and report the log likelihood.
+
+   #+BEGIN_SRC ipython :async t
+     fit = {
+       'Gamma': scmodes.ebpm.ebpm_gamma(x, s),
+       'Unimodal (halfuniform)': scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='halfuniform'),
+       'Unimodal (uniform)': scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='uniform'),
+     }
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   :END:
+
+   #+BEGIN_SRC ipython
+     pd.Series({
+       k: fit[k][-1] if isinstance(fit[k], tuple) else fit[k].rx2('loglik')[0]
+       for k in fit
+     })
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[14]:
+   #+BEGIN_EXAMPLE
+     Gamma                    -4916.603271
+     Unimodal (halfuniform)   -5312.792661
+     Unimodal (uniform)       -4911.814471
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Look at the estimated unimodal models.
+
+   #+BEGIN_SRC ipython
+     g0 = np.array(fit['Unimodal (uniform)'].rx2('fitted_g'))
+     g0[:,g0[0] > 1e-8]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[17]:
+   #+BEGIN_EXAMPLE
+     array([[9.26338375e-01, 2.95804802e-02, 4.40811445e-02],
+     [9.24285586e-06, 0.00000000e+00, 0.00000000e+00],
+     [9.24285586e-06, 2.99375869e-05, 3.85096252e-05]])
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython
+     g1 = np.array(fit['Unimodal (halfuniform)'].rx2('fitted_g'))
+     g1[:,0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[25]:
+   : array([0.00000000e+00, 1.95308449e-05, 1.95308449e-05])
+   :END:
+
+   #+BEGIN_SRC ipython
+     g1[:,g1[0] > 1e-8]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[26]:
+   #+BEGIN_EXAMPLE
+     array([[1.00000000e+00],
+     [1.28571551e-05],
+     [1.95308449e-05]])
+   #+END_EXAMPLE
+   :END:
+
+   Look at the log likelihood as a function of the mode.
+
+   #+BEGIN_SRC ipython :async t
+     grid = np.linspace(0, 2e-5, 100)
+     llik0 = np.array([scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='uniform', mode=m).rx2('loglik')[0] for m in grid])
+     llik1 = np.array([scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='halfuniform', mode=m).rx2('loglik')[0] for m in grid])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[56]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/halfuniform.org/ipsc-ENSG00000013364-mode.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2.5)
+     for i, (y, l) in enumerate(zip([llik0, llik1], ['Uniform', 'Half-uniform'])):
+       plt.plot(grid, y, c=cm(i), label=l, lw=1)
+       plt.axvline(grid[np.argmax(y)], c=cm(i), lw=1, ls=':', label=None)
+     plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xlabel('Mode')
+     plt.ylabel('Log likelihood')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[57]:
+   [[file:figure/halfuniform.org/ipsc-ENSG00000013364-mode.png]]
+   :END:

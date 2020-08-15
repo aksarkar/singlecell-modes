@@ -21,7 +21,7 @@
   #+END_SRC
 
   #+RESULTS:
-  : 3
+  : 5
 
   #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
@@ -121,6 +121,7 @@
 
      def read_ipsc(chunk=None, chunksize=500):
        x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/ipsc/ipsc.h5ad')
+       x.obs['size'] = x.X.sum(axis=1).A.ravel()
        if chunk is None:
          return x
        else:
@@ -162,8 +163,9 @@
        else:
          return y[:,chunk * chunksize:(chunk + 1) * chunksize]
 
-     def read_pbmcs_68k(chunk=None, chunksize=500):
-       x = _read_10x('fresh_68k_pbmc_donor_a', return_df=False)
+     def read_pbmc_10k_v3(chunk=None, chunksize=500):
+       x = anndata.read_h5ad('/scratch/midway2/aksarkar/modes/10k_pbmc_v3.h5ad')
+       sc.pp.filter_genes(x, min_cells=0.01 * x.shape[0])
        x.obs['size'] = x.X.sum(axis=1).A.ravel()
        if chunk is None:
          return x
@@ -181,7 +183,7 @@
        'ipsc': read_ipsc,
        'cytotoxic_t-b_cells': _cd8_cd19_mix,
        'cytotoxic_t-naive_t': _cyto_naive_mix,
-       'pbmcs_68k': read_pbmcs_68k,
+       'pbmc_10k_v3': read_pbmc_10k_v3,
        'liver-caudate-lobe': read_liver,
        'kidney': read_kidney,
        'brain': read_brain,
@@ -195,7 +197,6 @@
        'cytotoxic_t-naive_t': 6246 // chunksize,
        'kidney': 15496 // chunksize,
        'liver-caudate-lobe': 3181 // chunksize,
-       'pbmcs_68k': 6502 // chunksize,
        'retina': 10047 // chunksize,
      }
 
@@ -205,7 +206,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[4]:
+   # Out[32]:
    :END:
 
 ** Estimate marginal log likelihood
@@ -215,7 +216,7 @@
 
    #+NAME: main
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=24:00:00 -a 7,22,37,52-60
+     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=24:00:00 -a 10,25,40,53,61,62
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -236,10 +237,12 @@
    #+END_SRC
 
    #+RESULTS: main
-   : Submitted batch job 3480198
+   : Submitted batch job 3482024
 
    Shard data sets to fit unimodal/non-parametric expression models within the
    ~midway2~ time/memory limits.
+
+   # 48-77
 
    #+NAME: shard
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
@@ -309,7 +312,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[38]:
    :END:
 
 ** Application to control data sets
@@ -487,7 +490,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[39]:
    #+BEGIN_EXAMPLE
      method                  point  point_gamma  unimodal     npmle
      dataset
@@ -499,7 +502,7 @@
      ipsc                 0.000501     0.004308  0.483370  0.000000
      kidney               0.000000     0.013791  0.440890  0.120954
      liver-caudate-lobe   0.000000     0.001825  0.000000  0.002272
-     pbmcs_68k            0.000923     0.200246  0.685020  0.450784
+     pbmc_10k_v3          0.009717     0.042902       NaN       NaN
      retina               0.016323     0.034836  0.163930  0.165622
    #+END_EXAMPLE
    :END:
@@ -526,7 +529,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[29]:
+   # Out[40]:
    #+BEGIN_EXAMPLE
      method                  point     gamma  point_gamma     npmle
      dataset
@@ -534,12 +537,11 @@
      brain                0.000000  0.000000     0.000085  0.000937
      cytotoxic_t          0.000000  0.000000     0.000000  0.000000
      cytotoxic_t-b_cells  0.016398  0.017301     0.018655  0.019859
-     cytotoxic_t-naive_t  0.042747  0.043228     0.043388  0.043868
+     cytotoxic_t-naive_t  0.042747  0.043228     0.043388  0.040346
      ipsc                 0.005410  0.006412     0.006512  0.000000
      kidney               0.000000  0.047027     0.046903  0.046779
      liver-caudate-lobe   0.000000  0.000000     0.000000  0.000000
-     pbmcs_68k            0.000000  0.000000     0.000308  0.002615
-     retina               0.000000  0.000000     0.001095  0.011944
+     retina               0.000000  0.000000     0.001095  0.012840
    #+END_EXAMPLE
    :END:
 
@@ -549,7 +551,8 @@
      temp = dict()
      for k, g in llik[llik['dataset'].isin(non_control)].groupby('dataset'):
        query = g.pivot_table(index='gene', columns='method', values='llik')
-       temp[k] = query.loc[query['gamma'] > query['unimodal'] + thresh]
+       if 'unimodal' in query:
+         temp[k] = query.loc[query['gamma'] > query['unimodal'] + thresh]
      query = (pd.concat(temp)
               .reset_index()
               .rename({'level_0': 'dataset'}, axis=1)
@@ -559,7 +562,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[33]:
+   # Out[43]:
    #+BEGIN_EXAMPLE
      method              dataset             gene         point         gamma  \
      0       cytotoxic_t-b_cells  ENSG00000002586 -18259.939115 -17790.249936
@@ -599,7 +602,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[39]:
+   # Out[5]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/llr.org/cytotoxic_t-b_cells-ENSG00000002586.png
@@ -618,9 +621,55 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[45]:
+   # Out[8]:
    [[file:figure/llr.org/cytotoxic_t-b_cells-ENSG00000002586.png]]
    :END:
+
+   #+BEGIN_SRC ipython :async t
+     dat = data['ipsc']()
+     x = dat[:,dat.var['index'] == 'ENSG00000013364'].X.A.ravel()
+     s = dat.obs['size'].values.ravel()
+     y = np.arange(x.max() + 1)
+     pmf = dict()
+
+     gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
+     pmf['Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean() for k in y])
+
+     unimodal_res = scmodes.ebpm.ebpm_unimodal(x, s)
+     g = np.array(unimodal_res.rx2('fitted_g'))
+     g = g[:,g[0] > 1e-8]
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     comp_dens_conv[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+     pmf['Unimodal'] = comp_dens_conv @ g[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[55]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/llr.org/ipsc-ENSG00000013364.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2)
+     plt.hist(x, bins=y, color='0.7', density=True)
+     for i, k in enumerate(pmf):
+       plt.plot(y + 0.5, pmf[k], lw=1, c=cm(i), label=k)
+     plt.legend(frameon=False)
+     plt.xlabel('Number of molecules')
+     plt.ylabel('Density')
+     plt.title(dat.var.loc[dat.var['index'] == 'ENSG00000013364','name'][0])
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[58]:
+   [[file:figure/llr.org/ipsc-ENSG00000013364.png]]
+   :END:
+
 
    For each data set, for each expression model, report the number of genes
    which have improvement in marginal log likelihood above some threshold over

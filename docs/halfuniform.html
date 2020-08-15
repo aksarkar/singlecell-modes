@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-08-15 Sat 17:36 -->
+<!-- 2020-08-15 Sat 17:55 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clarifying confusion in scRNA-seq analysis</title>
+<title>Uniform vs half-uniform mixture prior</title>
 <meta name="generator" content="Org mode">
 <meta name="author" content="Abhishek Sarkar">
 <style type="text/css">
@@ -231,100 +231,182 @@ for the JavaScript code in this tag.
 </head>
 <body>
 <div id="content">
-<h1 class="title">Clarifying confusion in scRNA-seq analysis</h1>
+<h1 class="title">Uniform vs half-uniform mixture prior</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org532e87b">Introduction</a></li>
+<li><a href="#setup">Setup</a></li>
+<li><a href="#org6692ddf">Results</a>
+<ul>
+<li><a href="#org78aa9f8">iPSC example</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org532e87b" class="outline-2">
+<h2 id="org532e87b">Introduction</h2>
+<div class="outline-text-2" id="text-org532e87b">
 <p>
-The development of single cell RNA sequencing (scRNA-seq) technologies has
-greatly facilitated investigation of important biological questions that were
-previously difficult or impossible to study. However, how to model and analyze
-scRNA-seq data has been the subject of considerable confusion and debate. We
-develop a simple way of thinking and talking about scRNA-seq data that can
-clarify much of this confusion. We outline a general framework which explicitly
-models, and distinguishes between, the measurement process and variation in
-actual expression levels between cells. Although our simple framework cannot on
-its own address all issues that arise in scRNA-seq data, we show how it can
-help clarify thinking, guide interpretation of existing analysis methods,
-address questions of biological interest, and suggest directions for
-development of new methods and analysis strategies.
+We found cases where a unimodal expression model (half-uniform mixture) had a
+worse log likelihood than a Gamma expression model. Investigate what
+happened.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org27ffc26" class="outline-2">
+<h2 id="setup"><a id="org27ffc26"></a>Setup</h2>
+<div class="outline-text-2" id="text-setup">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> anndata
+<span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scmodes
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">%matplotlib inline
+%config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
+<span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org6692ddf" class="outline-2">
+<h2 id="org6692ddf">Results</h2>
+<div class="outline-text-2" id="text-org6692ddf">
+</div>
+<div id="outline-container-org78aa9f8" class="outline-3">
+<h3 id="org78aa9f8">iPSC example</h3>
+<div class="outline-text-3" id="text-org78aa9f8">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">dat</span> = data[<span class="org-string">'ipsc'</span>]()
+<span class="org-variable-name">x</span> = dat[:,dat.var[<span class="org-string">'index'</span>] == <span class="org-string">'ENSG00000013364'</span>].X.A.ravel()
+<span class="org-variable-name">s</span> = dat.obs[<span class="org-string">'size'</span>].values.ravel()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/llr.org/ipsc-ENSG00000013364.png" alt="ipsc-ENSG00000013364.png">
+</p>
+</div>
+
+<p>
+Fit candidate expression models, and report the log likelihood.
 </p>
 
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">fit</span> = {
+  <span class="org-string">'Gamma'</span>: scmodes.ebpm.ebpm_gamma(x, s),
+  <span class="org-string">'Unimodal (halfuniform)'</span>: scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist=<span class="org-string">'halfuniform'</span>),
+  <span class="org-string">'Unimodal (uniform)'</span>: scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist=<span class="org-string">'uniform'</span>),
+}
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">pd.Series({
+  k: fit[k][-1] <span class="org-keyword">if</span> <span class="org-builtin">isinstance</span>(fit[k], <span class="org-builtin">tuple</span>) <span class="org-keyword">else</span> fit[k].rx2(<span class="org-string">'loglik'</span>)[0]
+  <span class="org-keyword">for</span> k <span class="org-keyword">in</span> fit
+})
+</pre>
+</div>
+
+<pre class="example">
+Gamma                    -4916.603271
+Unimodal (halfuniform)   -5312.792661
+Unimodal (uniform)       -4911.814471
+dtype: float64
+</pre>
+
 <p>
-Sarkar and Stephens,
-<a href="https://dx.doi.org/10.1101/2020.04.07.030007">&ldquo;Separating measurement and
-expression models clarifies confusion in single cell RNA-seq analysis.&rdquo;</a>
-<i>BioRxiv</i> 2020.
+Look at the estimated unimodal models.
 </p>
 
-<div id="outline-container-org7b1d935" class="outline-2">
-<h2 id="org7b1d935">Empirical results</h2>
-<div class="outline-text-2" id="text-org7b1d935">
-<ul class="org-ul">
-<li><a href="gof.html">Goodness of fit of deconvolved distributions</a> (<a href="http://shiny.stephenslab.uchicago.edu:5009/gof">interactive browser</a>)</li>
-<li><a href="lra.html">Low rank approximation</a></li>
-<li><a href="fitted-values.html">Comparison of fitted values</a></li>
-<li><a href="mlcb.html">MLCB figures</a></li>
-<li><a href="figures.html">Manuscript figures</a></li>
-</ul>
-</div>
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">g0</span> = np.array(fit[<span class="org-string">'Unimodal (uniform)'</span>].rx2(<span class="org-string">'fitted_g'</span>))
+g0[:,g0[0] &gt; 1e-8]
+</pre>
 </div>
 
-<div id="outline-container-org819fb0c" class="outline-2">
-<h2 id="org819fb0c">Additional analyses</h2>
-<div class="outline-text-2" id="text-org819fb0c">
-<ul class="org-ul">
-<li><a href="deconvolution.html">Comparison of distribution deconvolution methods</a></li>
-<li><a href="deconv-examples.html">Distribution deconvolution examples</a></li>
-<li><a href="marker-genes.html">Marker genes in <i>in silico</i> mixtures</a>
-(<a href="http://shiny.stephenslab.uchicago.edu:5009/markers">interactive browser</a>)</li>
-<li><a href="immune-census.html">Expression variation in Census of Immune Cells</a></li>
-<li><a href="chromium3.html">Expression variation in 10X v3 PBMC data</a></li>
-<li><a href="brain-dronc-seq.html">Expression variation in human brain cells</a></li>
-<li><a href="retina.html">Expression variation in human retina cells</a></li>
-<li><a href="liver.html">Expression variation in human liver</a></li>
-<li><a href="imputation.html">Imputation of count matrices</a></li>
-<li><a href="llr.html">Marginal log likelihood comparison of expression models</a></li>
-</ul>
-</div>
+<pre class="example">
+array([[9.26338375e-01, 2.95804802e-02, 4.40811445e-02],
+[9.24285586e-06, 0.00000000e+00, 0.00000000e+00],
+[9.24285586e-06, 2.99375869e-05, 3.85096252e-05]])
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">g1</span> = np.array(fit[<span class="org-string">'Unimodal (halfuniform)'</span>].rx2(<span class="org-string">'fitted_g'</span>))
+g1[:,0]
+</pre>
 </div>
 
-<div id="outline-container-org012444b" class="outline-2">
-<h2 id="org012444b">Technical details</h2>
-<div class="outline-text-2" id="text-org012444b">
-<ul class="org-ul">
-<li><a href="pitfalls.html">Technical zero-generating mechanism in scRNA-seq data</a></li>
-<li><a href="modes.html">Estimating the number of modes</a></li>
-<li><a href="browser.html">Interactive simulations</a></li>
-<li><a href="capture.html">Effect of capture rate on sampling variation</a></li>
-<li><a href="ash-estmode.html">Speed up ash mode estimation</a></li>
-<li><a href="mix-nb.html">Mixture of negative binomials</a></li>
-<li><a href="gamma.html">Convergence of Gamma deconvolution</a></li>
-<li><a href="poisson.html">Deconvolution of near-Poisson data</a></li>
-<li><a href="validation.html">Validation set log likelihood comparison</a></li>
-<li><a href="npmle.html">NPMLE on C1 spike-in data</a></li>
-<li><a href="deconv-de.html">Differential expression from distribution deconvolution</a></li>
-<li><a href="ep.html">Posterior approximation for scRNA-seq data</a></li>
-<li><a href="link.html">Link functions in Poisson LRA</a></li>
-<li><a href="random-effect.html">Distributional assumptions in Poisson LRA</a></li>
-<li><a href="pois-truncnorm.html">Poisson-truncated normal data</a></li>
-<li><a href="gamma-mix.html">Poisson-unimodal Gamma mixture model</a></li>
-<li><a href="pois-gam-lik.html">Poisson-Gamma log likelihood surface</a></li>
-<li><a href="vae.html">Variational autoencoders for scRNA-seq data</a></li>
-<li><a href="wnbmf.html">Weighted Negative Binomial Matrix Factorization</a></li>
-<li><a href="ash-pois-log-link.html">Log link in Poisson ash</a></li>
-<li><a href="transforms.html">Transformations of deconvolved gene expression
-distributions</a></li>
-<li><a href="gaussian.html">Gaussian methods</a></li>
-<li><a href="quantiles.html">Randomized quantiles</a></li>
-<li><a href="independence.html">Relaxing the independence assumption on expression models</a></li>
-<li><a href="zinb-em.html">EM algorithm for point-Gamma expression model</a></li>
-<li><a href="npmle-grid.html">Iterative refinement of NPMLE grid in ashr</a></li>
-<li><a href="halfuniform.html">Uniform vs half-uniform mixture prior</a></li>
-</ul>
+<pre class="example">
+array([0.00000000e+00, 1.95308449e-05, 1.95308449e-05])
+
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">g1[:,g1[0] &gt; 1e-8]
+</pre>
+</div>
+
+<pre class="example">
+array([[1.00000000e+00],
+[1.28571551e-05],
+[1.95308449e-05]])
+</pre>
+
+<p>
+Look at the log likelihood as a function of the mode.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">grid</span> = np.linspace(0, 2e-5, 100)
+<span class="org-variable-name">llik0</span> = np.array([scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist=<span class="org-string">'uniform'</span>, mode=m).rx2(<span class="org-string">'loglik'</span>)[0] <span class="org-keyword">for</span> m <span class="org-keyword">in</span> grid])
+<span class="org-variable-name">llik1</span> = np.array([scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist=<span class="org-string">'halfuniform'</span>, mode=m).rx2(<span class="org-string">'loglik'</span>)[0] <span class="org-keyword">for</span> m <span class="org-keyword">in</span> grid])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(4, 2.5)
+<span class="org-keyword">for</span> i, (y, l) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>([llik0, llik1], [<span class="org-string">'Uniform'</span>, <span class="org-string">'Half-uniform'</span>])):
+  plt.plot(grid, y, c=cm(i), label=l, lw=1)
+  plt.axvline(grid[np.argmax(y)], c=cm(i), lw=1, ls=<span class="org-string">':'</span>, label=<span class="org-constant">None</span>)
+plt.legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+plt.xlabel(<span class="org-string">'Mode'</span>)
+plt.ylabel(<span class="org-string">'Log likelihood'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/halfuniform.org/ipsc-ENSG00000013364-mode.png" alt="ipsc-ENSG00000013364-mode.png">
+</p>
+</div>
+</div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-08-15 Sat 17:36</p>
+<p class="date">Created: 2020-08-15 Sat 17:55</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
