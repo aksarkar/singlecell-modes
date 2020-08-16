@@ -12,6 +12,7 @@ The minimal specification of the working environment is
   bokeh
   colorcet
   ipython
+  jedi=0.17.1
   jupyter_console
   matplotlib=3.0.3
   numpy
@@ -19,11 +20,12 @@ The minimal specification of the working environment is
   pytest
   python=3.6.9=h265db76_0
   pytorch
-  r-ashr
+  r-ashr=2.2.51.dev1
   r-base=3.5.1
   r-descend
   r-devtools
   r-expint
+  r-invgamma
   r-irlba
   r-mixsqp=0.3.45.dev1
   r-roxygen2
@@ -39,9 +41,9 @@ The minimal specification of the working environment is
   xargs -L100 python -m pip install <<EOF
   -e /project2/mstephens/aksarkar/projects/scmodes/
   git+https://github.com/aksarkar/wlra.git#egg=wlra
-  h5py==2.9.0
+  h5py==2.10.0
   rpy2==3.2.4
-  scanpy
+  scanpy==1.5.1
   EOF
 #+END_SRC
 
