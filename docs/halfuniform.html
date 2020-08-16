@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-08-16 Sun 12:02 -->
+<!-- 2020-08-16 Sun 16:10 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Uniform vs half-uniform mixture prior</title>
@@ -252,8 +252,9 @@ for the JavaScript code in this tag.
 <div class="outline-text-2" id="text-org532e87b">
 <p>
 We found cases where a unimodal expression model (half-uniform mixture) had a
-worse log likelihood than a Gamma expression model. Investigate what
-happened.
+worse log likelihood than a Gamma expression model. This happened due to a
+bug in a previous version of <code>ashr</code>. Verify that it was fixed in version
+<code>2.2-51</code>.
 </p>
 </div>
 </div>
@@ -336,7 +337,7 @@ Fit candidate expression models, and report the log likelihood.
 
 <pre class="example">
 Gamma                    -4916.603271
-Unimodal (halfuniform)   -5312.792661
+Unimodal (halfuniform)   -4911.743860
 Unimodal (uniform)       -4911.814471
 dtype: float64
 </pre>
@@ -352,9 +353,9 @@ g0[:,g0[0] &gt; 1e-8]
 </div>
 
 <pre class="example">
-array([[9.26338375e-01, 2.95804802e-02, 4.40811445e-02],
-[9.24285586e-06, 0.00000000e+00, 0.00000000e+00],
-[9.24285586e-06, 2.99375869e-05, 3.85096252e-05]])
+array([[9.26309463e-01, 2.96562998e-02, 4.40342371e-02],
+[9.24285849e-06, 0.00000000e+00, 0.00000000e+00],
+[9.24285849e-06, 2.99375891e-05, 3.85096272e-05]])
 </pre>
 
 <div class="org-src-container">
@@ -364,7 +365,7 @@ g1[:,0]
 </div>
 
 <pre class="example">
-array([0.00000000e+00, 1.95308449e-05, 1.95308449e-05])
+array([0.00000000e+00, 9.08008205e-06, 9.08008205e-06])
 
 </pre>
 
@@ -374,9 +375,9 @@ array([0.00000000e+00, 1.95308449e-05, 1.95308449e-05])
 </div>
 
 <pre class="example">
-array([[1.00000000e+00],
-[1.28571551e-05],
-[1.95308449e-05]])
+array([[4.53314869e-01, 4.74849764e-01, 5.27755773e-02, 1.90597899e-02],
+[8.16422384e-06, 9.08008205e-06, 9.08008205e-06, 9.08008205e-06],
+[9.08008205e-06, 9.72769161e-06, 2.98035879e-05, 3.83875450e-05]])
 </pre>
 
 <p>
@@ -418,8 +419,18 @@ likelihoods.
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">fit0</span> = scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist=<span class="org-string">'halfuniform'</span>, mode=grid[88])
 <span class="org-variable-name">fit1</span> = scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist=<span class="org-string">'halfuniform'</span>, mode=grid[89])
+pd.Series({
+  f<span class="org-string">'{grid[88]:.3g}'</span>: fit0.rx2(<span class="org-string">'loglik'</span>)[0],
+  f<span class="org-string">'{grid[89]:.3g}'</span>: fit1.rx2(<span class="org-string">'loglik'</span>)[0]
+})
 </pre>
 </div>
+
+<pre class="example">
+1.78e-05   -4930.230021
+1.8e-05    -4936.446796
+dtype: float64
+</pre>
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
@@ -490,7 +501,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-08-16 Sun 12:02</p>
+<p class="date">Created: 2020-08-16 Sun 16:10</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

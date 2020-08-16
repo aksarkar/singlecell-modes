@@ -4,8 +4,9 @@
 * Introduction
 
   We found cases where a unimodal expression model (half-uniform mixture) had a
-  worse log likelihood than a Gamma expression model. Investigate what
-  happened.
+  worse log likelihood than a Gamma expression model. This happened due to a
+  bug in a previous version of ~ashr~. Verify that it was fixed in version
+  ~2.2-51~.
 
 * Setup
   :PROPERTIES:
@@ -33,7 +34,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[35]:
+  # Out[6]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -45,7 +46,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[42]:
+  # Out[7]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -55,7 +56,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[10]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -66,7 +67,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[11]:
   :END:
 
 * Results
@@ -76,7 +77,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[12]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -87,7 +88,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[13]:
    :END:
 
    [[file:figure/llr.org/ipsc-ENSG00000013364.png]]
@@ -104,6 +105,7 @@
 
    #+RESULTS:
    :RESULTS:
+   # Out[14]:
    :END:
 
    #+BEGIN_SRC ipython
@@ -115,10 +117,10 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[14]:
+   # Out[15]:
    #+BEGIN_EXAMPLE
      Gamma                    -4916.603271
-     Unimodal (halfuniform)   -5312.792661
+     Unimodal (halfuniform)   -4911.743860
      Unimodal (uniform)       -4911.814471
      dtype: float64
    #+END_EXAMPLE
@@ -133,11 +135,11 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[17]:
+   # Out[16]:
    #+BEGIN_EXAMPLE
-     array([[9.26338375e-01, 2.95804802e-02, 4.40811445e-02],
-     [9.24285586e-06, 0.00000000e+00, 0.00000000e+00],
-     [9.24285586e-06, 2.99375869e-05, 3.85096252e-05]])
+     array([[9.26309463e-01, 2.96562998e-02, 4.40342371e-02],
+     [9.24285849e-06, 0.00000000e+00, 0.00000000e+00],
+     [9.24285849e-06, 2.99375891e-05, 3.85096272e-05]])
    #+END_EXAMPLE
    :END:
 
@@ -148,8 +150,8 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[25]:
-   : array([0.00000000e+00, 1.95308449e-05, 1.95308449e-05])
+   # Out[17]:
+   : array([0.00000000e+00, 9.08008205e-06, 9.08008205e-06])
    :END:
 
    #+BEGIN_SRC ipython
@@ -158,11 +160,11 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[26]:
+   # Out[18]:
    #+BEGIN_EXAMPLE
-     array([[1.00000000e+00],
-     [1.28571551e-05],
-     [1.95308449e-05]])
+     array([[4.53314869e-01, 4.74849764e-01, 5.27755773e-02, 1.90597899e-02],
+     [8.16422384e-06, 9.08008205e-06, 9.08008205e-06, 9.08008205e-06],
+     [9.08008205e-06, 9.72769161e-06, 2.98035879e-05, 3.83875450e-05]])
    #+END_EXAMPLE
    :END:
 
@@ -176,7 +178,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[19]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/halfuniform.org/ipsc-ENSG00000013364-mode.png
@@ -194,7 +196,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[29]:
+   # Out[20]:
    [[file:figure/halfuniform.org/ipsc-ENSG00000013364-mode.png]]
    :END:
 
@@ -204,11 +206,20 @@
    #+BEGIN_SRC ipython :async t
      fit0 = scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='halfuniform', mode=grid[88])
      fit1 = scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='halfuniform', mode=grid[89])
+     pd.Series({
+       f'{grid[88]:.3g}': fit0.rx2('loglik')[0],
+       f'{grid[89]:.3g}': fit1.rx2('loglik')[0]
+     })
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[39]:
+   # Out[21]:
+   #+BEGIN_EXAMPLE
+     1.78e-05   -4930.230021
+     1.8e-05    -4936.446796
+     dtype: float64
+   #+END_EXAMPLE
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -234,7 +245,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[55]:
+   # Out[22]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -246,7 +257,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[44]:
+   # Out[23]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/halfuniform.org/ipsc-ENSG00000013364-fit.png
@@ -278,6 +289,6 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[84]:
+   # Out[24]:
    [[file:figure/halfuniform.org/ipsc-ENSG00000013364-fit.png]]
    :END:
