@@ -28,11 +28,24 @@
     import numpy as np
     import pandas as pd
     import scmodes
+    import scipy.stats as st
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[35]:
+  :END:
+
+  #+BEGIN_SRC ipython
+    import rpy2.robjects.packages
+    import rpy2.robjects.pandas2ri
+    rpy2.robjects.pandas2ri.activate()
+    ashr = rpy2.robjects.packages.importr('ashr')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[42]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -74,7 +87,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[5]:
    :END:
 
    [[file:figure/llr.org/ipsc-ENSG00000013364.png]]
@@ -163,7 +176,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[56]:
+   # Out[6]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/halfuniform.org/ipsc-ENSG00000013364-mode.png
@@ -181,6 +194,90 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[57]:
+   # Out[29]:
    [[file:figure/halfuniform.org/ipsc-ENSG00000013364-mode.png]]
+   :END:
+
+   Look at the fits for two close choices of mode with very different log
+   likelihoods.
+
+   #+BEGIN_SRC ipython :async t
+     fit0 = scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='halfuniform', mode=grid[88])
+     fit1 = scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='halfuniform', mode=grid[89])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[39]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     pmf = dict()
+     y = np.arange(x.max() + 1)
+
+     g = np.array(fit0.rx2('fitted_g'))
+     g = g[:,g[0] > 1e-8]
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     comp_dens_conv[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+     pmf[grid[88]] = comp_dens_conv @ g[0]
+
+     g = np.array(fit1.rx2('fitted_g'))
+     g = g[:,g[0] > 1e-8]
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     comp_dens_conv[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+     pmf[grid[89]] = comp_dens_conv @ g[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[55]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     cdf = dict()
+     temp = np.linspace(0, 2e-5, 1000)
+     cdf[grid[88]] = np.array(ashr.cdf_ash(fit0, temp).rx2('y')).ravel()
+     cdf[grid[89]] = np.array(ashr.cdf_ash(fit1, temp).rx2('y')).ravel()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[44]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/halfuniform.org/ipsc-ENSG00000013364-fit.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(4.5, 4)
+
+     temp = np.arange(x.max() + 1)
+     ax[0].hist(x, bins=temp, color='0.7', density=True)
+     for i, m in enumerate([88, 89]):
+       ax[0].plot(temp + .5, pmf[grid[m]], lw=1, c=cm(i), label=f'Mode={grid[m]:.3g}')
+     gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
+     ax[0].plot(temp + .5, np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean() for k in temp]), lw=1, c=cm(2), label='Gamma')
+     ax[0].legend(frameon=False)
+     ax[0].set_xlabel('Number of molecules')
+     ax[0].set_ylabel('Density')
+
+     temp = np.linspace(0, 2e-5, 1000)
+     for i, m in enumerate([88, 89]):
+       ax[1].plot(temp, cdf[grid[m]], lw=1, c=cm(i), label=f'Mode={grid[m]:.3g}')
+     ax[1].plot(temp, st.gamma(a=np.exp(gamma_res[1]), scale=np.exp(gamma_res[0] - gamma_res[1])).cdf(temp), lw=1, c=cm(2), label='Gamma')
+     ax[1].legend(frameon=False)
+     ax[1].set_ylim(0, 1)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[84]:
+   [[file:figure/halfuniform.org/ipsc-ENSG00000013364-fit.png]]
    :END:
