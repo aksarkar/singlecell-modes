@@ -23,7 +23,7 @@
   #+RESULTS:
   : 5
 
-  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+BEGIN_SRC ipython
     import anndata
@@ -208,7 +208,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[9]:
+   # Out[4]:
    :END:
 
    Report the dimensions of each data set.
@@ -249,7 +249,7 @@
 
    #+NAME: main
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=24:00:00 -a 10,25,40,53,61,62
+     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=24:00:00 -a 45-58
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -270,16 +270,28 @@
    #+END_SRC
 
    #+RESULTS: main
-   : Submitted batch job 3482024
+   : Submitted batch job 3515623
+
+   Fit non-parametric expression models serially for control data, to avoid
+   memory issues.
+
+   #+BEGIN_SRC ipython :async t
+     for d in control:
+       (scmodes.benchmark.evaluate_llik(data[d](), methods=['npmle'], max_grid_updates=20, tol=1e-5)
+        .to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-npmle.txt.gz', compression='gzip', sep='\t'))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[11]:
+   :END:
 
    Shard data sets to fit unimodal/non-parametric expression models within the
    ~midway2~ time/memory limits.
 
-   # 48-66,67-96,103-126
-
    #+NAME: shard
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=4:00:00 -a 48
+     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=4:00:00 -a 0-146%16
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -300,7 +312,7 @@
    #+END_SRC
 
    #+RESULTS: shard
-   : Submitted batch job 3508856
+   : Submitted batch job 3527882
 
    Move the results to permanent storage.
 
@@ -345,7 +357,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[12]:
    :END:
 
 ** Application to control data sets
@@ -371,7 +383,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[47]:
+   # Out[13]:
    #+BEGIN_EXAMPLE
      method     gamma  point_gamma  unimodal  npmle
      dataset
@@ -404,7 +416,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[17]:
+   # Out[14]:
    #+BEGIN_EXAMPLE
      method     point  point_gamma  unimodal  npmle
      dataset
@@ -432,7 +444,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[24]:
+   # Out[15]:
    #+BEGIN_EXAMPLE
      method  dataset        gene        point        gamma  point_gamma  \
      0       dropseq  ERCC-00078  -765.076024  -279.353443  -264.522869
@@ -440,9 +452,9 @@
      2       gemcode  ERCC-00002 -6108.645264 -6148.879840 -6132.663007
 
      method     unimodal        npmle
-     0       -263.565367  -261.759913
-     1       -347.518213  -337.364384
-     2      -5944.693604 -5944.555342
+     0       -263.565367  -261.356008
+     1       -347.518213  -337.359459
+     2      -5944.693604 -5944.434618
    #+END_EXAMPLE
    :END:
 
@@ -451,8 +463,8 @@
      plt.clf()
      fig, ax = plt.subplots(1, 2)
      fig.set_size_inches(4, 2.5)
-     for (k, _), a in zip(query.iterrows(), ax):
-       y = x[:,x.var['index'] == k].X.A.ravel()
+     for (k, row), a in zip(query.iterrows(), ax):
+       y = x[:,x.var['index'] == row['gene']].X.A.ravel()
        a.hist(y, bins=np.arange(y.max() + 2), density=True, color='0.7')
        a.set_title(k)
      ax[0].set_ylabel('Density')
@@ -463,7 +475,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[155]:
+   # Out[20]:
    [[file:figure/llr.org/dropseq-point-gamma.png]]
    :END:
 
@@ -488,15 +500,15 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[25]:
+   # Out[21]:
    #+BEGIN_EXAMPLE
      method     point  gamma  point_gamma  npmle
      dataset
-     chromium1      0      0            0      0
-     chromium2      0      0            0      0
+     chromium1      4      4            4      4
+     chromium2      4      4            5      5
      dropseq        0      0            0      1
-     gemcode        0      0            0      0
-     indrops        0      0            0      0
+     gemcode        2      2            2      2
+     indrops        3      3            3      3
    #+END_EXAMPLE
    :END:
 
