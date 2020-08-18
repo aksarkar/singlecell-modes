@@ -249,7 +249,7 @@
 
    #+NAME: main
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=24:00:00 -a 45-58
+     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=30:00 -a 45-49
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -270,7 +270,7 @@
    #+END_SRC
 
    #+RESULTS: main
-   : Submitted batch job 3515623
+   : Submitted batch job 3554558
 
    Fit non-parametric expression models serially for control data, to avoid
    memory issues.
@@ -357,7 +357,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
+   # Out[5]:
    :END:
 
 ** Application to control data sets
@@ -383,7 +383,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[13]:
+   # Out[6]:
    #+BEGIN_EXAMPLE
      method     gamma  point_gamma  unimodal  npmle
      dataset
@@ -416,7 +416,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[14]:
+   # Out[7]:
    #+BEGIN_EXAMPLE
      method     point  point_gamma  unimodal  npmle
      dataset
@@ -444,7 +444,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[15]:
+   # Out[8]:
    #+BEGIN_EXAMPLE
      method  dataset        gene        point        gamma  point_gamma  \
      0       dropseq  ERCC-00078  -765.076024  -279.353443  -264.522869
@@ -500,15 +500,86 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[21]:
+   # Out[9]:
    #+BEGIN_EXAMPLE
      method     point  gamma  point_gamma  npmle
      dataset
      chromium1      4      4            4      4
-     chromium2      4      4            5      5
+     chromium2      7      7            8      8
      dropseq        0      0            0      1
-     gemcode        2      2            2      2
-     indrops        3      3            3      3
+     gemcode        0      0            0      0
+     indrops        0      0            0      0
+   #+END_EXAMPLE
+   :END:
+
+   Look at the cases where NPMLE did better than unimodal.
+
+   #+BEGIN_SRC ipython
+     temp = dict()
+     for k, g in llik[llik['dataset'].isin(control)].groupby('dataset'):
+       query = g.pivot_table(index='gene', columns='method', values='llik')
+       temp[k] = query.loc[query['npmle'] > query['unimodal'] + thresh]
+     query = (pd.concat(temp)
+              .reset_index()
+              .rename({'level_0': 'dataset'}, axis=1)
+              [['dataset', 'gene', 'point', 'gamma', 'point_gamma', 'unimodal', 'npmle']])
+     query
+
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[18]:
+   #+BEGIN_EXAMPLE
+     method    dataset        gene       point       gamma  point_gamma  \
+     0       chromium1  ERCC-00024  -45.460132  -45.477957   -45.478005
+     1       chromium1  ERCC-00069 -140.401215 -139.854752  -139.944119
+     2       chromium1  ERCC-00104  -71.913572  -71.246536   -69.867679
+     3       chromium1  ERCC-00154 -272.657972 -273.072955  -273.094156
+     4       chromium2  ERCC-00016  -44.980123  -44.980123   -44.995680
+     5       chromium2  ERCC-00041  -45.187759  -45.204457   -45.204466
+     6       chromium2  ERCC-00073 -144.039409 -137.072157  -141.523956
+     7       chromium2  ERCC-00075  -15.306939  -15.306939   -15.308376
+     8       chromium2  ERCC-00086  -43.580107  -43.610757   -43.611190
+     9       chromium2  ERCC-00116 -179.364459 -177.229879  -174.857339
+     10      chromium2  ERCC-00142  -28.006585  -28.006585   -28.011618
+     11      chromium2  ERCC-00164  -55.455464  -53.541417   -48.993924
+     12        dropseq  ERCC-00131 -723.520929 -356.755781  -341.742929
+
+     method    unimodal       npmle
+     0      -121.644443  -45.841260
+     1      -238.635997 -139.705769
+     2      -123.375871  -72.716830
+     3      -331.171738 -272.658181
+     4      -173.512727  -44.997467
+     5      -116.825209  -45.188332
+     6      -198.975064 -136.364247
+     7      -186.398614  -15.307474
+     8      -107.533467  -43.580519
+     9      -186.885089 -174.791905
+     10     -148.213405  -43.356179
+     11      -80.198402  -56.292263
+     12     -347.518213 -337.359459
+   #+END_EXAMPLE
+   :END:
+
+   Filter the cases where NPMLE did better than unimodal, retaining only genes
+   for which NPMLE also did better than Gamma.
+
+   #+BEGIN_SRC ipython
+     thresh = 10
+     query[query['npmle'] > query['gamma'] + thresh]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[19]:
+   #+BEGIN_EXAMPLE
+     method  dataset        gene       point       gamma  point_gamma    unimodal  \
+     12      dropseq  ERCC-00131 -723.520929 -356.755781  -341.742929 -347.518213
+
+     method       npmle
+     12     -337.359459
    #+END_EXAMPLE
    :END:
 
