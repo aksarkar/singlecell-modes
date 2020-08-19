@@ -292,3 +292,159 @@
    # Out[24]:
    [[file:figure/halfuniform.org/ipsc-ENSG00000013364-fit.png]]
    :END:
+
+** Chromium control data example
+
+   #+BEGIN_SRC ipython
+     dat = data['chromium1']()
+     x = dat[:,dat.var['index'] == 'ERCC-00024'].X.A.ravel()
+     s = dat.X.sum(axis=1).A.ravel()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[35]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     fit = {
+       'Gamma': scmodes.ebpm.ebpm_gamma(x, s),
+       'Unimodal (halfuniform)': scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='halfuniform'),
+       'Unimodal (uniform)': scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='uniform'),
+     }
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[36]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     pd.Series({
+       k: fit[k][-1] if isinstance(fit[k], tuple) else fit[k].rx2('loglik')[0]
+       for k in fit
+     })
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[37]:
+   #+BEGIN_EXAMPLE
+     Gamma                     -45.478005
+     Unimodal (halfuniform)   -121.644443
+     Unimodal (uniform)        -45.460142
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     pmf = dict()
+     y = np.arange(x.max() + 2)
+
+     pmf['Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=fit['Gamma'][0], log_phi=-fit['Gamma'][1]).mean() for k in y])
+
+     g = np.array(fit['Unimodal (halfuniform)'].rx2('fitted_g'))
+     g = g[:,g[0] > 1e-8]
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     comp_dens_conv[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+     pmf['Unimodal (halfuniform)'] = comp_dens_conv @ g[0]
+
+     g = np.array(fit['Unimodal (uniform)'].rx2('fitted_g'))
+     g = g[:,g[0] > 1e-8]
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     comp_dens_conv[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+     pmf['Unimodal (uniform)'] = comp_dens_conv @ g[0]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[50]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/halfuniform.org/chromium1-ERCC-00024.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2)
+     plt.hist(x, bins=y, color='0.7', density=True)
+     for i, (k, ls) in enumerate(zip(pmf, ['-', '-', (0, (3, 3))])):
+       plt.plot(y + .5, pmf[k], lw=1, ls=ls, c=cm(i), label=k)
+     plt.legend(frameon=False)
+     plt.xlabel('Number of molecules')
+     plt.ylabel('Density')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[57]:
+   [[file:figure/halfuniform.org/chromium1-ERCC-00024.png]]
+   :END:
+
+   Look at the fitted unimodal models.
+
+   #+BEGIN_SRC ipython
+     g = np.array(fit['Unimodal (halfuniform)'].rx2('fitted_g'))
+     g[:,g[0] > 1e-8]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[59]:
+   #+BEGIN_EXAMPLE
+     array([[1.00000000e+00],
+     [0.00000000e+00],
+     [7.55888146e-05]])
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython
+     g = np.array(fit['Unimodal (uniform)'].rx2('fitted_g'))
+     g[:,g[0] > 1e-8]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[60]:
+   #+BEGIN_EXAMPLE
+     array([[1.0000000e+00],
+     [2.5777149e-06],
+     [2.5777149e-06]])
+   #+END_EXAMPLE
+   :END:
+
+   Look at the mode search.
+
+   #+BEGIN_SRC ipython :async t
+     grid = np.linspace(0, 1e-5, 100)
+     llik0 = np.array([scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='uniform', mode=m).rx2('loglik')[0] for m in grid])
+     llik1 = np.array([scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='halfuniform', mode=m).rx2('loglik')[0] for m in grid])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[76]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/halfuniform.org/chromium1-ERCC-00024-mode.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2.5)
+     for i, (y, l) in enumerate(zip([llik0, llik1], ['Uniform', 'Half-uniform'])):
+       plt.plot(grid, y, c=cm(i), label=l, lw=1)
+       plt.axvline(grid[np.argmax(y)], c=cm(i), lw=1, ls=':', label=None)
+     plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xlabel('Mode')
+     plt.ylabel('Log likelihood')
+     plt.title('ERCC-00024')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[95]:
+   [[file:figure/halfuniform.org/chromium1-ERCC-00024-mode.png]]
+   :END:
