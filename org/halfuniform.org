@@ -22,19 +22,20 @@
   #+RESULTS:
   : 5
 
-  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+BEGIN_SRC ipython
     import anndata
     import numpy as np
     import pandas as pd
+    import scanpy as sc
     import scmodes
     import scipy.stats as st
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[6]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -46,7 +47,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[7]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -56,10 +57,12 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[10]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
+    import colorcet
+    import matplotlib
     import matplotlib.pyplot as plt
     plt.rcParams['figure.facecolor'] = 'w'
     plt.rcParams['font.family'] = 'Nimbus Sans'
@@ -67,7 +70,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[11]:
+  # Out[10]:
   :END:
 
 * Results
@@ -77,7 +80,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
+   # Out[5]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -303,7 +306,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[35]:
+   # Out[6]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -426,7 +429,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[76]:
+   # Out[10]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/halfuniform.org/chromium1-ERCC-00024-mode.png
@@ -445,6 +448,167 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[95]:
+   # Out[11]:
    [[file:figure/halfuniform.org/chromium1-ERCC-00024-mode.png]]
+   :END:
+
+   Look at the mode search over a larger range (coarser grid) of candidate
+   modes.
+
+   #+BEGIN_SRC ipython :async t
+     grid = np.linspace(0, 1e-4, 100)
+     llik0 = np.array([scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='uniform', mode=m).rx2('loglik')[0] for m in grid])
+     llik1 = np.array([scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='halfuniform', mode=m).rx2('loglik')[0] for m in grid])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[25]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/halfuniform.org/chromium1-ERCC-00024-mode-coarse.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2.5)
+     for i, (y, l) in enumerate(zip([llik0, llik1], ['Uniform', 'Half-uniform'])):
+       plt.plot(grid, y, c=cm(i), label=l, lw=1)
+       plt.axvline(grid[np.argmax(y)], c=cm(i), lw=1, ls=':', label=None)
+     plt.legend(frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xlabel('Mode')
+     plt.ylabel('Log likelihood')
+     plt.title('ERCC-00024')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[26]:
+   [[file:figure/halfuniform.org/chromium1-ERCC-00024-mode-coarse.png]]
+   :END:
+
+   Find points where the log likelihood does not decrease monotonically with
+   moving the candidate mode further from the optimum.
+
+   #+BEGIN_SRC ipython
+     np.where(np.diff(llik1) > 0)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[29]:
+   : (array([ 0,  2,  3,  4, 36, 38, 40, 47, 48, 54, 59, 64, 74]),)
+   :END:
+
+   #+BEGIN_SRC ipython
+     pd.Series({
+       grid[k]: llik1[k]
+        for k in (47, 48)
+     })
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[30]:
+   #+BEGIN_EXAMPLE
+     0.000047   -142.753761
+     0.000048   -124.794312
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Look at the effect of changing the granularity of the grid (tuning
+   ~gridmult~) on the solution.
+
+   #+NAME: nested-opt
+   #+BEGIN_SRC R :eval never
+     dat <- readRDS('/scratch/midway2/aksarkar/modes/chromium1-ERCC-00024.Rds')
+     x <- dat$x
+     s <- dat$s
+     print(ashr::ash_pois(x, s, mixcompdist='halfuniform', control=list(tol.svd=0), outputlevel='loglik')$loglik, digits=12)
+
+     opt <- stats::optimize(
+       function (mode) {
+         stats::optimize(
+           function(gridmult) {
+             -ashr::ash_pois(x, s, mixcompdist='halfuniform', mode=mode, gridmult=gridmult, outputlevel='loglik', control=list(tol.svd=0))$loglik
+           },
+           interval=c(1, 2),
+           tol=1e-2)$objective
+       },
+       interval=c(0, max(x / s)),
+       tol=max(x / s) * .Machine$double.eps^0.25)
+     print(opt, digits=12)
+   #+END_SRC
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/ :results output :exports both
+     source activate scmodes
+     srun --partition=mstephens R --quiet --no-save <<'EOF'
+     <<nested-opt>>
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   #+begin_example
+   > dat <- readRDS('/scratch/midway2/aksarkar/modes/chromium1-ERCC-00024.Rds')
+   > x <- dat$x
+   > s <- dat$s
+   > print(ashr::ash_pois(x, s, mixcompdist='halfuniform', control=list(tol.svd=0), outputlevel='loglik')$loglik, digits=12)
+   [1] -121.636120776
+   > 
+   > opt <- stats::optimize(
+   +   function (mode) {
+   +     stats::optimize(
+   +       function(gridmult) {
+   +         -ashr::ash_pois(x, s, mixcompdist='halfuniform', mode=mode, gridmult=gridmult, outputlevel='loglik', control=list(tol.svd=0))$loglik
+   +       },
+   +       interval=c(1, 2),
+   +       tol=1e-2)$objective
+   +   },
+   +   interval=c(0, max(x / s)),
+   +   tol=max(x / s) * .Machine$double.eps^0.25)
+   > print(opt, digits=12)
+   $minimum
+   [1] 5.13581372547e-06
+
+   $objective
+   [1] 45.4661257195
+
+   > 
+   #+end_example
+
+   Check whether the log likelihood varies smoothly with ~gridmult~.
+
+   #+BEGIN_SRC ipython :async t
+     modes = np.logspace(-8, -3, 50)
+     gridmults = np.linspace(1.1, 2, 10)
+     llik = np.array([[scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='halfuniform', mode=m, gridmult=gm).rx2('loglik')[0]
+                       for m in modes]
+                      for gm in gridmults])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[34]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/halfuniform.org/chromium1-ERCC-00024-gridmult.png
+     cm = colorcet.cm['bmy']
+     plt.clf()
+     plt.gcf().set_size_inches(3.5, 2.5)
+     plt.xscale('log')
+     plt.yscale('symlog')
+     for gm, l in zip(gridmults, llik):
+       plt.plot(modes, l, c=cm((gm - 1.1) / (2 - 1.1)), lw=1)
+     cb = plt.colorbar(matplotlib.cm.ScalarMappable(matplotlib.colors.Normalize(vmin=1.1, vmax=2), cmap=cm))
+     cb.set_label('gridmult')
+     plt.xlabel('Mode')
+     plt.ylabel('Log likelihood')
+     plt.title('ERCC-00024')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[36]:
+   [[file:figure/halfuniform.org/chromium1-ERCC-00024-gridmult.png]]
    :END:
