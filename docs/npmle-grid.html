@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-08-14 Fri 15:41 -->
+<!-- 2020-08-22 Sat 17:55 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Iterative refinement of NPMLE grid in ashr</title>
@@ -263,6 +263,7 @@ for the JavaScript code in this tag.
 <li><a href="#orgaf6a1cf">Results</a>
 <ul>
 <li><a href="#org312edf6">Control data example</a></li>
+<li><a href="#orge6053b5">B cell data example</a></li>
 </ul>
 </li>
 </ul>
@@ -349,6 +350,8 @@ Here, we investigate cases where this scheme fails.
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
 <span class="org-keyword">import</span> scanpy <span class="org-keyword">as</span> sc
 <span class="org-keyword">import</span> scmodes
+<span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
+<span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 </pre>
 </div>
 
@@ -616,11 +619,81 @@ non-trivial weight in the \(K=256\) solution.
 </p>
 </div>
 </div>
+
+<div id="outline-container-orge6053b5" class="outline-3">
+<h3 id="orge6053b5">B cell data example</h3>
+<div class="outline-text-3" id="text-orge6053b5">
+<p>
+Find a gene where the refinement procedure fails to terminate in a
+reasonable number of iterations.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">dat</span> = data[<span class="org-string">'b_cells'</span>](chunk=0)
+<span class="org-variable-name">x</span> = dat[:,dat.var[<span class="org-string">'gene'</span>] == <span class="org-string">'ENSG00000142676'</span>].X.A.ravel()
+<span class="org-variable-name">s</span> = dat.obs[<span class="org-string">'size'</span>]
+<span class="org-variable-name">gene</span> = dat.var.loc[dat.var[<span class="org-string">'gene'</span>] == <span class="org-string">'ENSG00000142676'</span>, <span class="org-string">'name'</span>][0]
+<span class="org-variable-name">y</span> = np.arange(x.<span class="org-builtin">max</span>() + 1)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
+
+<span class="org-variable-name">gamma_res</span> = scmodes.ebpm.ebpm_gamma(x, s)
+<span class="org-variable-name">pmf</span>[<span class="org-string">'Gamma'</span>] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean() <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+
+<span class="org-variable-name">npmle_res</span> = scmodes.ebpm.wrappers.ebpm_npmle(x, s, max_grid_updates=10, tol=1e-4, verbose=<span class="org-constant">True</span>)
+<span class="org-variable-name">g</span> = np.array(npmle_res.rx2(<span class="org-string">'fitted_g'</span>))
+<span class="org-variable-name">a</span> = np.fmin(g[1], g[2])
+<span class="org-variable-name">b</span> = np.fmax(g[1], g[2])
+<span class="org-variable-name">comp_dens_conv</span> = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-variable-name">comp_dens_conv</span>[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+<span class="org-variable-name">pmf</span>[<span class="org-string">'NPMLE'</span>] = comp_dens_conv @ g[0]
+
+<span class="org-variable-name">opt</span> = so.minimize_scalar(<span class="org-keyword">lambda</span> a: -scmodes.ebpm.ebpm_gamma(x, np.exp((1 - a) * np.log(s)))[-1], bracket=[0, 1], method=<span class="org-string">'brent'</span>)
+<span class="org-keyword">assert</span> opt.success
+<span class="org-variable-name">sa</span> = np.exp((1 - opt.x) * np.log(s))
+<span class="org-variable-name">gamma_alpha_res</span> = scmodes.ebpm.ebpm_gamma(x, sa)
+<span class="org-variable-name">pmf</span>[rf<span class="org-string">'Gamma ($\alpha$ = {opt.x:.3g})'</span>] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=sa.values.reshape(-1, 1), log_mu=gamma_alpha_res[0], log_phi=-gamma_alpha_res[1]).mean() <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+</pre>
+</div>
+
+<p>
+iter             obj    K
+   0  -27044.0962599  512
+   1  -27044.0948073   12
+   2   -27044.094779   10
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(4, 2)
+plt.hist(x, bins=y, color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(pmf):
+  plt.plot(y + .5, pmf[k], lw=1, c=cm(i), label=k)
+plt.legend(frameon=<span class="org-constant">False</span>)
+plt.xlim(0, y.<span class="org-builtin">max</span>())
+plt.xlabel(<span class="org-string">'Number of molecules'</span>)
+plt.ylabel(<span class="org-string">'Density'</span>)
+plt.title(gene)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/npmle-grid.org/b_cells-ENSG00000142676.png" alt="b_cells-ENSG00000142676.png">
+</p>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-08-14 Fri 15:41</p>
+<p class="date">Created: 2020-08-22 Sat 17:55</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

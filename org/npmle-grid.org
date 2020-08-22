@@ -65,7 +65,7 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+BEGIN_SRC ipython
     import anndata
@@ -75,11 +75,13 @@
     import pandas as pd
     import scanpy as sc
     import scmodes
+    import scipy.optimize as so
+    import scipy.stats as st
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -127,7 +129,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[33]:
+   # Out[3]:
    :END:
 
    #+BEGIN_SRC ipython
@@ -357,3 +359,71 @@
    have density wherever there was some underlying point mass, because the
    \(K=512\) solution put non-trivial weight on some segment that did not get
    non-trivial weight in the \(K=256\) solution.
+
+** B cell data example
+
+   Find a gene where the refinement procedure fails to terminate in a
+   reasonable number of iterations.
+
+   #+BEGIN_SRC ipython :async t
+     dat = data['b_cells'](chunk=0)
+     x = dat[:,dat.var['gene'] == 'ENSG00000142676'].X.A.ravel()
+     s = dat.obs['size']
+     gene = dat.var.loc[dat.var['gene'] == 'ENSG00000142676', 'name'][0]
+     y = np.arange(x.max() + 1)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t :results output drawer
+     pmf = dict()
+
+     gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
+     pmf['Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean() for k in y])
+
+     npmle_res = scmodes.ebpm.wrappers.ebpm_npmle(x, s, max_grid_updates=10, tol=1e-4, verbose=True)
+     g = np.array(npmle_res.rx2('fitted_g'))
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     comp_dens_conv[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+     pmf['NPMLE'] = comp_dens_conv @ g[0]
+
+     opt = so.minimize_scalar(lambda a: -scmodes.ebpm.ebpm_gamma(x, np.exp((1 - a) * np.log(s)))[-1], bracket=[0, 1], method='brent')
+     assert opt.success
+     sa = np.exp((1 - opt.x) * np.log(s))
+     gamma_alpha_res = scmodes.ebpm.ebpm_gamma(x, sa)
+     pmf[rf'Gamma ($\alpha$ = {opt.x:.3g})'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=sa.values.reshape(-1, 1), log_mu=gamma_alpha_res[0], log_phi=-gamma_alpha_res[1]).mean() for k in y])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   iter             obj    K
+      0  -27044.0962599  512
+      1  -27044.0948073   12
+      2   -27044.094779   10
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/npmle-grid.org/b_cells-ENSG00000142676.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2)
+     plt.hist(x, bins=y, color='0.7', density=True)
+     for i, k in enumerate(pmf):
+       plt.plot(y + .5, pmf[k], lw=1, c=cm(i), label=k)
+     plt.legend(frameon=False)
+     plt.xlim(0, y.max())
+     plt.xlabel('Number of molecules')
+     plt.ylabel('Density')
+     plt.title(gene)
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[31]:
+   [[file:figure/npmle-grid.org/b_cells-ENSG00000142676.png]]
+   :END:
