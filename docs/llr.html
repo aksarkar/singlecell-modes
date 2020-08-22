@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-08-18 Tue 12:29 -->
+<!-- 2020-08-22 Sat 17:55 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Marginal log likelihood comparison of expression models</title>
@@ -278,6 +278,14 @@ comparisons between expression models.
 </div>
 
 <div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> rpy2.robjects.packages
+<span class="org-keyword">import</span> rpy2.robjects.pandas2ri
+rpy2.robjects.pandas2ri.activate()
+<span class="org-variable-name">ashr</span> = rpy2.robjects.packages.importr(<span class="org-string">'ashr'</span>)
+</pre>
+</div>
+
+<div class="org-src-container">
 <pre class="src src-ipython">%matplotlib inline
 %config <span class="org-variable-name">InlineBackend.figure_formats</span> = <span class="org-builtin">set</span>([<span class="org-string">'retina'</span>])
 </pre>
@@ -304,7 +312,9 @@ Prepare the data in <code>h5ad</code>.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="orga462cce"><span class="org-keyword">def</span> <span class="org-function-name">read_chromium</span>(sample):
+<pre class="src src-ipython" id="orga462cce"><span class="org-keyword">import</span> functools <span class="org-keyword">as</span> ft
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_chromium</span>(sample):
   <span class="org-variable-name">x</span> = sc.read(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/svensson_chromium_control.h5ad'</span>)
   <span class="org-variable-name">x</span> = x[x.obs[<span class="org-string">'sample'</span>] == sample,x.var.<span class="org-builtin">filter</span>(like=<span class="org-string">'ERCC'</span>, axis=<span class="org-string">'index'</span>).index]
   sc.pp.filter_genes(x, min_cells=1)
@@ -332,11 +342,15 @@ Prepare the data in <code>h5ad</code>.
   <span class="org-variable-name">x.var</span> = x.var.reset_index()
   <span class="org-keyword">return</span> x
 
-<span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k, return_df=<span class="org-constant">False</span>, min_detect=0.01):
+<span class="org-keyword">def</span> <span class="org-function-name">_read_10x</span>(k, return_df=<span class="org-constant">False</span>, min_detect=0.01, chunk=<span class="org-constant">None</span>, chunksize=500):
   <span class="org-variable-name">x</span> = scmodes.dataset.read_10x(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/'</span>,
                                   return_adata=<span class="org-keyword">not</span> return_df, return_df=return_df, min_detect=min_detect)
   <span class="org-variable-name">x.var.columns</span> = [<span class="org-string">'gene'</span>, <span class="org-string">'name'</span>]
-  <span class="org-keyword">return</span> x
+  <span class="org-variable-name">x.obs</span>[<span class="org-string">'size'</span>] = x.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
+  <span class="org-keyword">if</span> chunk <span class="org-keyword">is</span> <span class="org-constant">None</span>:
+    <span class="org-keyword">return</span> x
+  <span class="org-keyword">else</span>:
+    <span class="org-keyword">return</span> x[:,chunk * chunksize:(chunk + 1) * chunksize]
 
 <span class="org-keyword">def</span> <span class="org-function-name">_mix_10x</span>(k1, k2, min_detect=0.01, return_y=<span class="org-constant">False</span>, chunk=<span class="org-constant">None</span>, chunksize=500):
   <span class="org-variable-name">x1</span> = _read_10x(k1, min_detect=0)
@@ -349,11 +363,11 @@ Prepare the data in <code>h5ad</code>.
   <span class="org-keyword">else</span>:
     <span class="org-keyword">return</span> x[:,chunk * chunksize:(chunk + 1) * chunksize]
 
-<span class="org-keyword">def</span> <span class="org-function-name">_cd8_cd19_mix</span>(**kwargs):
-  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'b_cells'</span>, **kwargs)
+<span class="org-keyword">def</span> <span class="org-function-name">_cd8_cd19_mix</span>(*args, **kwargs):
+  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'b_cells'</span>, *args, **kwargs)
 
-<span class="org-keyword">def</span> <span class="org-function-name">_cyto_naive_mix</span>(**kwargs):
-  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>, **kwargs)
+<span class="org-keyword">def</span> <span class="org-function-name">_cyto_naive_mix</span>(*args, **kwargs):
+  <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>, *args, **kwargs)
 
 <span class="org-keyword">def</span> <span class="org-function-name">read_ipsc</span>(chunk=<span class="org-constant">None</span>, chunksize=500):
   <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/ipsc/ipsc.h5ad'</span>)
@@ -414,8 +428,8 @@ Prepare the data in <code>h5ad</code>.
   <span class="org-string">'chromium1'</span>: <span class="org-keyword">lambda</span>: read_chromium(<span class="org-string">'20311'</span>),
   <span class="org-string">'chromium2'</span>: <span class="org-keyword">lambda</span>: read_chromium(<span class="org-string">'20312'</span>),
   <span class="org-string">'gemcode'</span>: read_gemcode,
-  <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'cytotoxic_t'</span>),
-  <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'b_cells'</span>),
+  <span class="org-string">'cytotoxic_t'</span>: ft.partial(_read_10x, k=<span class="org-string">'cytotoxic_t'</span>),
+  <span class="org-string">'b_cells'</span>: ft.partial(_read_10x, k=<span class="org-string">'b_cells'</span>),
   <span class="org-string">'ipsc'</span>: read_ipsc,
   <span class="org-string">'cytotoxic_t-b_cells'</span>: _cd8_cd19_mix,
   <span class="org-string">'cytotoxic_t-naive_t'</span>: _cyto_naive_mix,
@@ -428,7 +442,9 @@ Prepare the data in <code>h5ad</code>.
 
 <span class="org-variable-name">chunksize</span> = 500
 <span class="org-variable-name">chunks</span> = {
+  <span class="org-string">'b_cells'</span>: 6417 // chunksize,
   <span class="org-string">'brain'</span>: 11744 // chunksize,
+  <span class="org-string">'cytotoxic_t'</span>: 6530 // chunksize,
   <span class="org-string">'cytotoxic_t-b_cells'</span>: 6647 // chunksize,
   <span class="org-string">'cytotoxic_t-naive_t'</span>: 6246 // chunksize,
   <span class="org-string">'ipsc'</span>: 9957 // chunksize,
@@ -484,7 +500,7 @@ family of expression models.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh" id="org7e39abd">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=30:00 -a 45-49
+<pre class="src src-sh" id="org7e39abd">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=30:00 -a 0-48
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -495,7 +511,7 @@ python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
 <span class="org-sh-heredoc">tasks = [(m, d) for m in ('point', 'gamma', 'point_gamma', 'unimodal', 'npmle') </span>
 <span class="org-sh-heredoc">         for d in data</span>
-<span class="org-sh-heredoc">         if m not in ('unimodal', 'npmle') or d not in chunks]</span>
+<span class="org-sh-heredoc">         if not (m in ('unimodal', 'npmle') and d in chunks) and not (m == 'npmle' and d in control)]</span>
 <span class="org-sh-heredoc">m, d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
 <span class="org-sh-heredoc">with mp.Pool() as pool:</span>
 <span class="org-sh-heredoc">  x = data[d]()</span>
@@ -523,7 +539,7 @@ Shard data sets to fit unimodal/non-parametric expression models within the
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh" id="org5dd3f6d">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=4:00:00 -a 0-146%16
+<pre class="src src-sh" id="org5dd3f6d">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=4:00:00 -a 324-343
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -536,9 +552,12 @@ python &lt;&lt;EOF
 <span class="org-sh-heredoc">         for d in chunks</span>
 <span class="org-sh-heredoc">         for c in range(chunks[d])]</span>
 <span class="org-sh-heredoc">m, d, c = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
-<span class="org-sh-heredoc">with mp.Pool(maxtasksperchild=1) as pool:</span>
+<span class="org-sh-heredoc">kwargs = dict()</span>
+<span class="org-sh-heredoc">if m == 'npmle':</span>
+<span class="org-sh-heredoc">  kwargs = {'max_grid_updates': 20, 'tol': 1e-4}</span>
+<span class="org-sh-heredoc">with mp.Pool() as pool:</span>
 <span class="org-sh-heredoc">  x = data[d](chunk=c)</span>
-<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_llik(x, s=x.obs['size'], pool=pool, methods=[m])</span>
+<span class="org-sh-heredoc">  res = scmodes.benchmark.evaluate_llik(x, s=x.obs['size'], pool=pool, methods=[m], **kwargs)</span>
 <span class="org-sh-heredoc">  res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-{m}-{c}.txt.gz', compression='gzip', sep='\t')</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
@@ -597,18 +616,25 @@ over the point mass expression model.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
-<span class="org-variable-name">res</span> = <span class="org-builtin">dict</span>()
-<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(control)].groupby(<span class="org-string">'dataset'</span>):
-  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
-  <span class="org-variable-name">res</span>[k] = (query.sub(query[<span class="org-string">'point'</span>], axis=0) &gt; thresh).<span class="org-builtin">sum</span>(axis=0)
-<span class="org-variable-name">res</span> = (pd.concat(res)
-       .reset_index()
-       .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
-       .pivot_table(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
-       [0])
-<span class="org-keyword">del</span> res[<span class="org-string">'point'</span>]
-res[[<span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]]
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">compare</span>(llik, baseline, thresh=10, agg=<span class="org-builtin">sum</span>):
+  <span class="org-variable-name">labels</span> = [<span class="org-string">'point'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]
+  <span class="org-keyword">assert</span> baseline <span class="org-keyword">in</span> labels
+  <span class="org-variable-name">res</span> = <span class="org-builtin">dict</span>()
+  <span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik.groupby(<span class="org-string">'dataset'</span>):
+    <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
+    <span class="org-variable-name">res</span>[k] = (query.sub(query[baseline], axis=0) &gt; thresh).agg(agg, axis=0)
+  <span class="org-variable-name">res</span> = (pd.concat(res)
+         .reset_index()
+         .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
+         .pivot_table(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
+         [0])
+  <span class="org-keyword">del</span> res[baseline]
+  <span class="org-keyword">return</span> res[[x <span class="org-keyword">for</span> x <span class="org-keyword">in</span> labels <span class="org-keyword">if</span> x != baseline]]
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'point'</span>)
 </pre>
 </div>
 
@@ -629,18 +655,7 @@ over the Gamma expression model.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
-<span class="org-variable-name">res</span> = <span class="org-builtin">dict</span>()
-<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(control)].groupby(<span class="org-string">'dataset'</span>):
-  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
-  <span class="org-variable-name">res</span>[k] = (query.sub(query[<span class="org-string">'gamma'</span>], axis=0) &gt; thresh).<span class="org-builtin">sum</span>(axis=0)
-<span class="org-variable-name">res</span> = (pd.concat(res)
-       .reset_index()
-       .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
-       .pivot_table(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
-       [0])
-<span class="org-keyword">del</span> res[<span class="org-string">'gamma'</span>]
-res[[<span class="org-string">'point'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]]
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'gamma'</span>)
 </pre>
 </div>
 
@@ -672,10 +687,10 @@ query
 </div>
 
 <pre class="example">
-method  dataset        gene        point        gamma  point_gamma  \
-0       dropseq  ERCC-00078  -765.076024  -279.353443  -264.522869
-1       dropseq  ERCC-00131  -723.520929  -356.755781  -341.742929
-2       gemcode  ERCC-00002 -6108.645264 -6148.879840 -6132.663007
+method  dataset  dataset        gene        point        gamma  point_gamma  \
+0       dropseq  dropseq  ERCC-00078  -765.076024  -279.353443  -264.522869
+1       dropseq  dropseq  ERCC-00131  -723.520929  -356.755781  -341.742929
+2       gemcode  gemcode  ERCC-00002 -6108.645264 -6148.879840 -6132.663007
 
 method     unimodal        npmle
 0       -263.565367  -261.356008
@@ -691,7 +706,7 @@ fig.set_size_inches(4, 2.5)
 <span class="org-keyword">for</span> (k, row), a <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(query.iterrows(), ax):
   <span class="org-variable-name">y</span> = x[:,x.var[<span class="org-string">'index'</span>] == row[<span class="org-string">'gene'</span>]].X.A.ravel()
   a.hist(y, bins=np.arange(y.<span class="org-builtin">max</span>() + 2), density=<span class="org-constant">True</span>, color=<span class="org-string">'0.7'</span>)
-  a.set_title(k)
+  a.set_title(row[<span class="org-string">'gene'</span>])
 ax[0].set_ylabel(<span class="org-string">'Density'</span>)
 <span class="org-variable-name">a</span> = fig.add_subplot(111, frameon=<span class="org-constant">False</span>, xticks=[], yticks=[])
 a.set_xlabel(<span class="org-string">'Number of molecules'</span>, labelpad=16)
@@ -712,18 +727,7 @@ over the unimodal expression model.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
-<span class="org-variable-name">res</span> = <span class="org-builtin">dict</span>()
-<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(control)].groupby(<span class="org-string">'dataset'</span>):
-  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
-  <span class="org-variable-name">res</span>[k] = (query.sub(query[<span class="org-string">'unimodal'</span>], axis=0) &gt; thresh).<span class="org-builtin">sum</span>(axis=0)
-<span class="org-variable-name">res</span> = (pd.concat(res)
-       .reset_index()
-       .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
-       .pivot_table(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
-       [0])
-<span class="org-keyword">del</span> res[<span class="org-string">'unimodal'</span>]
-res[[<span class="org-string">'point'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'npmle'</span>]]
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'unimodal'</span>)
 </pre>
 </div>
 
@@ -751,7 +755,6 @@ Look at the cases where NPMLE did better than unimodal.
          .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
          [[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>, <span class="org-string">'point'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]])
 query
-
 </pre>
 </div>
 
@@ -805,6 +808,81 @@ method  dataset        gene       point       gamma  point_gamma    unimodal  \
 method       npmle
 12     -337.359459
 </pre>
+
+<p>
+For each control data set, for each expression model, report the number of
+genes which have improvement in marginal log likelihood above some threshold
+over the non-parametric expression model.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'npmle'</span>)
+</pre>
+</div>
+
+<pre class="example">
+method     point  gamma  point_gamma  unimodal
+dataset
+chromium1      0      1            0         2
+chromium2      1      1            1         0
+dropseq        0      0            0         0
+gemcode        0      0            0         0
+indrops        0      0            0         0
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
+<span class="org-variable-name">temp</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(control)].groupby(<span class="org-string">'dataset'</span>):
+  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
+  <span class="org-variable-name">temp</span>[k] = query.loc[(query.sub(query[<span class="org-string">'npmle'</span>], axis=0) &gt; thresh).<span class="org-builtin">apply</span>(<span class="org-builtin">any</span>, axis=1)]
+<span class="org-variable-name">query</span> = (pd.concat(temp)
+         .reset_index()
+         .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
+         [[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>, <span class="org-string">'point'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]])
+query
+</pre>
+</div>
+
+<pre class="example">
+method    dataset        gene       point       gamma  point_gamma  \
+0       chromium1  ERCC-00054 -140.374338 -139.785657  -139.403474
+1       chromium1  ERCC-00116 -110.987988 -103.145967  -108.102592
+2       chromium2  ERCC-00142  -28.006585  -28.006585   -28.011618
+
+method    unimodal       npmle
+0      -139.360976 -149.364211
+1      -102.207858 -115.402711
+2      -148.213405  -43.356179
+</pre>
+
+<p>
+These cases can be explained by not starting the iterative refinement
+procedure with a fine enough grid.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">temp</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> query.groupby(<span class="org-string">'dataset'</span>):
+  <span class="org-variable-name">dat</span> = data[k]()
+  <span class="org-keyword">for</span> _, row <span class="org-keyword">in</span> g.iterrows():
+    temp[(k, row[<span class="org-string">'gene'</span>])] = scmodes.ebpm.ebpm_npmle(
+      dat[:,dat.var.iloc[:,0] == row[<span class="org-string">'gene'</span>]].X.A.ravel(),
+      dat.X.<span class="org-builtin">sum</span>(axis=1).A.ravel(),
+      K=1024,
+      max_grid_updates=10,
+      tol=1e-5,
+      verbose=<span class="org-constant">True</span>).rx2(<span class="org-string">'loglik'</span>)[0]
+pd.Series(temp).reset_index().rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>, <span class="org-string">'level_1'</span>: <span class="org-string">'gene'</span>, 0: <span class="org-string">'npmle'</span>}, axis=1)
+</pre>
+</div>
+
+<pre class="example">
+dataset        gene       npmle
+0  chromium1  ERCC-00054 -139.356572
+1  chromium1  ERCC-00116 -102.119712
+2  chromium2  ERCC-00142  -28.282124
+</pre>
 </div>
 </div>
 
@@ -812,197 +890,113 @@ method       npmle
 <h3 id="orgfb7d234">Application to biological data sets</h3>
 <div class="outline-text-3" id="text-orgfb7d234">
 <p>
-For each data set, for each expression model, report the number of
+For each data set, for each expression model, report the fraction of
 genes which have improvement in marginal log likelihood above some threshold
 over the Gamma expression model.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
-<span class="org-variable-name">res</span> = <span class="org-builtin">dict</span>()
-<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)].groupby(<span class="org-string">'dataset'</span>):
-  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
-  <span class="org-variable-name">res</span>[k] = (query.sub(query[<span class="org-string">'gamma'</span>], axis=0) &gt; thresh).mean(axis=0)
-<span class="org-variable-name">res</span> = (pd.concat(res)
-       .reset_index()
-       .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
-       .pivot_table(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
-       [0]
-       [[<span class="org-string">'point'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]])
-res
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)], baseline=<span class="org-string">'gamma'</span>, agg=<span class="org-string">'mean'</span>)
 </pre>
 </div>
 
 <pre class="example">
 method                  point  point_gamma  unimodal     npmle
 dataset
-b_cells              0.003740     0.009974  0.097242  0.097709
-brain                0.000000     0.025800  0.090003  0.079275
-cytotoxic_t          0.003216     0.012711  0.108729  0.109648
-cytotoxic_t-b_cells  0.003912     0.038965  0.220099  0.220852
-cytotoxic_t-naive_t  0.003522     0.029779  0.224304  0.227666
-ipsc                 0.000501     0.004308  0.483370  0.000000
-kidney               0.000000     0.013791  0.440890  0.120954
-liver-caudate-lobe   0.000000     0.001825  0.000000  0.002272
-pbmc_10k_v3          0.009717     0.042902       NaN       NaN
-retina               0.016323     0.034836  0.163930  0.165622
+b_cells              0.003740     0.009974  0.090541  0.092255
+brain                0.000000     0.025800  0.088130  0.084128
+cytotoxic_t          0.003216     0.012711  0.106432  0.107657
+cytotoxic_t-b_cells  0.003912     0.038965  0.221453  0.223860
+cytotoxic_t-naive_t  0.003522     0.029779  0.227986  0.228786
+ipsc                 0.000502     0.004319  0.465703  0.479261
+kidney               0.000000     0.013791  0.113934  0.120457
+liver-caudate-lobe   0.000000     0.001825  0.002309  0.002272
+pbmc_10k_v3          0.009717     0.042902  0.130352  0.131670
+retina               0.016323     0.034836  0.162735  0.169503
 </pre>
 
 <p>
-For each data set, for each expression model, report the number of genes
+For each data set, for each expression model, report the fraction of genes
 which have improvement in marginal log likelihood above some threshold over
 the unimodal expression model.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
-<span class="org-variable-name">res</span> = <span class="org-builtin">dict</span>()
-<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)].groupby(<span class="org-string">'dataset'</span>):
-  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
-  <span class="org-keyword">if</span> <span class="org-string">'unimodal'</span> <span class="org-keyword">in</span> query:
-    <span class="org-variable-name">res</span>[k] = (query.sub(query[<span class="org-string">'unimodal'</span>], axis=0) &gt; thresh).mean(axis=0)
-<span class="org-variable-name">res</span> = (pd.concat(res)
-       .reset_index()
-       .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
-       .pivot_table(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
-       [0]
-       [[<span class="org-string">'point'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'npmle'</span>]])
-res
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)], baseline=<span class="org-string">'unimodal'</span>, agg=<span class="org-string">'mean'</span>)
 </pre>
 </div>
 
 <pre class="example">
 method                  point     gamma  point_gamma     npmle
 dataset
-b_cells              0.000000  0.000000     0.000000  0.000156
-brain                0.000000  0.000000     0.000085  0.000937
-cytotoxic_t          0.000000  0.000000     0.000000  0.000000
-cytotoxic_t-b_cells  0.016398  0.017301     0.018655  0.019859
-cytotoxic_t-naive_t  0.042747  0.043228     0.043388  0.040346
-ipsc                 0.005410  0.006412     0.006512  0.000000
-kidney               0.000000  0.047027     0.046903  0.046779
-liver-caudate-lobe   0.000000  0.000000     0.000000  0.000000
-retina               0.000000  0.000000     0.001095  0.012840
+b_cells              0.036933  0.039582     0.040829  0.031011
+brain                0.004343  0.010048     0.011410  0.014390
+cytotoxic_t          0.107963  0.113017     0.114089  0.105054
+cytotoxic_t-b_cells  0.028283  0.033699     0.036558  0.030239
+cytotoxic_t-naive_t  0.057637  0.063721     0.065642  0.055395
+ipsc                 0.000000  0.000000     0.000100  0.001908
+kidney               0.000000  0.002796     0.002920  0.005032
+liver-caudate-lobe   0.000000  0.035275     0.035424  0.033413
+pbmc_10k_v3          0.023551  0.028162     0.028821  0.040431
+retina               0.000000  0.005474     0.006768  0.015328
 </pre>
 
 <p>
-Look at some examples where Gamma did better than unimodal.
+Find all genes where a simpler expression model (point, Gamma, point-Gamma)
+did better than a unimodal expression model.
 </p>
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">temp</span> = <span class="org-builtin">dict</span>()
 <span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)].groupby(<span class="org-string">'dataset'</span>):
   <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
-  <span class="org-keyword">if</span> <span class="org-string">'unimodal'</span> <span class="org-keyword">in</span> query:
-    <span class="org-variable-name">temp</span>[k] = query.loc[query[<span class="org-string">'gamma'</span>] &gt; query[<span class="org-string">'unimodal'</span>] + thresh]
+  <span class="org-variable-name">temp</span>[k] = query.loc[(query.sub(query[<span class="org-string">'unimodal'</span>], axis=0)[[<span class="org-string">'point'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>]] &gt; thresh).<span class="org-builtin">apply</span>(<span class="org-builtin">any</span>, axis=1)]
 <span class="org-variable-name">query</span> = (pd.concat(temp)
          .reset_index()
          .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
          [[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>, <span class="org-string">'point'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]])
-query.head()
+query.shape
 </pre>
 </div>
 
 <pre class="example">
-method              dataset             gene         point         gamma  \
-0       cytotoxic_t-b_cells  ENSG00000002586 -18259.939115 -17790.249936
-1       cytotoxic_t-b_cells  ENSG00000008952 -17087.606931 -17025.500512
-2       cytotoxic_t-b_cells  ENSG00000013288  -1329.833528  -1323.691783
-3       cytotoxic_t-b_cells  ENSG00000031003  -1286.253859  -1286.253859
-4       cytotoxic_t-b_cells  ENSG00000039123  -1318.144540  -1316.522524
+(3253, 7)
 
-method   point_gamma      unimodal         npmle
-0      -17790.251826 -17824.162043 -17787.074655
-1      -17025.166654 -17271.800610 -17019.154144
-2       -1323.740052  -1491.807276  -1382.215672
-3       -1284.796148  -1441.539937  -1337.188734
-4       -1316.529063  -1463.892207  -1378.415557
 </pre>
 
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">dat</span> = data[<span class="org-string">'cytotoxic_t-b_cells'</span>]()
-<span class="org-variable-name">x</span> = dat[:,dat.var[<span class="org-string">'gene'</span>] == <span class="org-string">'ENSG00000002586'</span>].X.A.ravel()
-<span class="org-variable-name">s</span> = dat.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
-<span class="org-variable-name">y</span> = np.arange(x.<span class="org-builtin">max</span>() + 1)
-<span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
-
-<span class="org-variable-name">gamma_res</span> = scmodes.ebpm.ebpm_gamma(x, s)
-<span class="org-variable-name">pmf</span>[<span class="org-string">'Gamma'</span>] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean() <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
-
-<span class="org-variable-name">unimodal_res</span> = scmodes.ebpm.ebpm_unimodal(x, s)
-<span class="org-variable-name">g</span> = np.array(unimodal_res.rx2(<span class="org-string">'fitted_g'</span>))
-<span class="org-variable-name">g</span> = g[:,g[0] &gt; 1e-8]
-<span class="org-variable-name">a</span> = np.fmin(g[1], g[2])
-<span class="org-variable-name">b</span> = np.fmax(g[1], g[2])
-<span class="org-variable-name">comp_dens_conv</span> = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
-<span class="org-variable-name">comp_dens_conv</span>[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
-<span class="org-variable-name">pmf</span>[<span class="org-string">'Unimodal'</span>] = comp_dens_conv @ g[0]
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
-plt.clf()
-plt.gcf().set_size_inches(4, 2)
-plt.hist(x, bins=y, color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
-<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(pmf):
-  plt.plot(y + 0.5, pmf[k], lw=1, c=cm(i), label=k)
-plt.legend(frameon=<span class="org-constant">False</span>)
-plt.xlabel(<span class="org-string">'Number of molecules'</span>)
-plt.ylabel(<span class="org-string">'Density'</span>)
-plt.title(dat.var.loc[dat.var[<span class="org-string">'gene'</span>] == <span class="org-string">'ENSG00000002586'</span>,<span class="org-string">'name'</span>][0])
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/llr.org/cytotoxic_t-b_cells-ENSG00000002586.png" alt="cytotoxic_t-b_cells-ENSG00000002586.png">
+<p>
+The unimodal model sometimes
+<a href="halfuniform.html#orgf28a0b8">does worse
+than expected</a> due to not optimizing over the granularity of the grid
+jointly with the mode. For these genes, try the more expensive procedure.
 </p>
-</div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">dat</span> = data[<span class="org-string">'ipsc'</span>]()
-<span class="org-variable-name">x</span> = dat[:,dat.var[<span class="org-string">'index'</span>] == <span class="org-string">'ENSG00000013364'</span>].X.A.ravel()
-<span class="org-variable-name">s</span> = dat.obs[<span class="org-string">'size'</span>].values.ravel()
-<span class="org-variable-name">y</span> = np.arange(x.<span class="org-builtin">max</span>() + 1)
-<span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
+<pre class="src src-ipython"><span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
 
-<span class="org-variable-name">gamma_res</span> = scmodes.ebpm.ebpm_gamma(x, s)
-<span class="org-variable-name">pmf</span>[<span class="org-string">'Gamma'</span>] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean() <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-keyword">def</span> <span class="org-function-name">ebpm_unimodal</span>(x, s):
+  <span class="org-variable-name">x</span> = pd.Series(x)
+  <span class="org-variable-name">s</span> = pd.Series(s)
 
-<span class="org-variable-name">unimodal_res</span> = scmodes.ebpm.ebpm_unimodal(x, s)
-<span class="org-variable-name">g</span> = np.array(unimodal_res.rx2(<span class="org-string">'fitted_g'</span>))
-<span class="org-variable-name">g</span> = g[:,g[0] &gt; 1e-8]
-<span class="org-variable-name">a</span> = np.fmin(g[1], g[2])
-<span class="org-variable-name">b</span> = np.fmax(g[1], g[2])
-<span class="org-variable-name">comp_dens_conv</span> = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
-<span class="org-variable-name">comp_dens_conv</span>[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
-<span class="org-variable-name">pmf</span>[<span class="org-string">'Unimodal'</span>] = comp_dens_conv @ g[0]
+  <span class="org-keyword">def</span> <span class="org-function-name">_loss_gridmult</span>(gridmult, mode, x, s):
+    <span class="org-keyword">return</span> -ashr.ash_pois(x, s, mixcompdist=<span class="org-string">'halfuniform'</span>, mode=mode, gridmult=gridmult, outputlevel=<span class="org-string">'loglik'</span>, control=rpy2.robjects.ListVector({<span class="org-string">'tol.svd'</span>: 0})).rx2(<span class="org-string">'loglik'</span>)[0]
+
+  <span class="org-keyword">def</span> <span class="org-function-name">_loss_mode</span>(mode, x, s):
+    <span class="org-variable-name">opt</span> = so.minimize_scalar(_loss_gridmult, bracket=[1.1, 2], bounds=[1, 2], method=<span class="org-string">'bounded'</span>, args=(mode, x, s), tol=1e-2)
+    <span class="org-keyword">assert</span> opt.success
+    <span class="org-keyword">return</span> opt.fun
+
+  <span class="org-variable-name">opt</span> = so.minimize_scalar(_loss_mode, bracket=[0, (x / s).<span class="org-builtin">max</span>()], bounds=[0, (x / s).<span class="org-builtin">max</span>()], method=<span class="org-string">'bounded'</span>, args=(x, s))
+  <span class="org-variable-name">mode</span> = opt.x
+  <span class="org-keyword">assert</span> opt.success
+  <span class="org-variable-name">opt</span> = so.minimize_scalar(_loss_gridmult, bracket=[1.1, 2], bounds=[1, 2], method=<span class="org-string">'bounded'</span>, args=(opt.x, x, s))
+  <span class="org-keyword">assert</span> opt.success
+  <span class="org-variable-name">gridmult</span> = opt.x
+
+  <span class="org-variable-name">res</span> = ashr.ash_pois(x, s, mixcompdist=<span class="org-string">'halfuniform'</span>, mode=mode, gridmult=gridmult, control=rpy2.robjects.ListVector({<span class="org-string">'tol.svd'</span>: 0}))
+  <span class="org-keyword">return</span> res
 </pre>
 </div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
-plt.clf()
-plt.gcf().set_size_inches(4, 2)
-plt.hist(x, bins=y, color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
-<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(pmf):
-  plt.plot(y + 0.5, pmf[k], lw=1, c=cm(i), label=k)
-plt.legend(frameon=<span class="org-constant">False</span>)
-plt.xlabel(<span class="org-string">'Number of molecules'</span>)
-plt.ylabel(<span class="org-string">'Density'</span>)
-plt.title(dat.var.loc[dat.var[<span class="org-string">'index'</span>] == <span class="org-string">'ENSG00000013364'</span>,<span class="org-string">'name'</span>][0])
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/llr.org/ipsc-ENSG00000013364.png" alt="ipsc-ENSG00000013364.png">
-</p>
-</div>
-
 
 <p>
 For each data set, for each expression model, report the number of genes
@@ -1011,34 +1005,23 @@ the non-parametric expression model.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
-<span class="org-variable-name">res</span> = <span class="org-builtin">dict</span>()
-<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)].groupby(<span class="org-string">'dataset'</span>):
-  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
-  <span class="org-variable-name">res</span>[k] = (query.sub(query[<span class="org-string">'npmle'</span>], axis=0) &gt; thresh).mean(axis=0)
-<span class="org-variable-name">res</span> = (pd.concat(res)
-       .reset_index()
-       .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
-       .pivot_table(index=<span class="org-string">'dataset'</span>, columns=<span class="org-string">'method'</span>)
-       [0]
-       [[<span class="org-string">'point'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>]])
-res
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)], baseline=<span class="org-string">'npmle'</span>, agg=<span class="org-string">'mean'</span>)
 </pre>
 </div>
 
 <pre class="example">
 method                  point     gamma  point_gamma  unimodal
 dataset
-b_cells              0.155680  0.167524     0.168147  0.172666
-brain                0.110184  0.158123     0.163403  0.172599
-cytotoxic_t          0.147779  0.154364     0.154977  0.157580
-cytotoxic_t-b_cells  0.167444  0.184294     0.186099  0.181736
-cytotoxic_t-naive_t  0.000000  0.003682     0.003682  0.005443
+b_cells              0.106436  0.116254     0.116098  0.093657
+brain                0.067439  0.103713     0.108396  0.112568
+cytotoxic_t          0.096325  0.101378     0.101378  0.058499
+cytotoxic_t-b_cells  0.113886  0.129081     0.130886  0.115390
+cytotoxic_t-naive_t  0.124560  0.133045     0.134806  0.100865
 ipsc                 0.000000  0.000000     0.000000  0.000000
-kidney               0.000000  0.020687     0.020936  0.434305
-liver-caudate-lobe   0.000000  0.000074     0.000186  0.000000
-pbmcs_68k            0.000000  0.141956     0.209782  0.358351
-retina               0.000199  0.017916     0.019011  0.039514
+kidney               0.000000  0.017705     0.018140  0.018761
+liver-caudate-lobe   0.000000  0.021605     0.021716  0.017582
+pbmc_10k_v3          0.018281  0.034091     0.036397  0.037961
+retina               0.000299  0.035334     0.036031  0.033841
 </pre>
 </div>
 </div>
@@ -1046,7 +1029,7 @@ retina               0.000199  0.017916     0.019011  0.039514
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-08-18 Tue 12:29</p>
+<p class="date">Created: 2020-08-22 Sat 17:55</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

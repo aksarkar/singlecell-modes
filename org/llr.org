@@ -23,7 +23,7 @@
   #+RESULTS:
   : 5
 
-  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+BEGIN_SRC ipython
     import anndata
@@ -40,6 +40,18 @@
   # Out[1]:
   :END:
 
+  #+BEGIN_SRC ipython
+    import rpy2.robjects.packages
+    import rpy2.robjects.pandas2ri
+    rpy2.robjects.pandas2ri.activate()
+    ashr = rpy2.robjects.packages.importr('ashr')
+  #+END_SRC
+
+  #+RESULTS:
+  :RESULTS:
+  # Out[104]:
+  :END:
+  
   #+BEGIN_SRC ipython
     %matplotlib inline
     %config InlineBackend.figure_formats = set(['retina'])
@@ -68,6 +80,8 @@
 
    #+NAME: data
    #+BEGIN_SRC ipython
+     import functools as ft
+
      def read_chromium(sample):
        x = sc.read('/project2/mstephens/aksarkar/projects/singlecell-modes/data/negative-controls/svensson_chromium_control.h5ad')
        x = x[x.obs['sample'] == sample,x.var.filter(like='ERCC', axis='index').index]
@@ -96,11 +110,15 @@
        x.var = x.var.reset_index()
        return x
 
-     def _read_10x(k, return_df=False, min_detect=0.01):
+     def _read_10x(k, return_df=False, min_detect=0.01, chunk=None, chunksize=500):
        x = scmodes.dataset.read_10x(f'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/10xgenomics/{k}/filtered_matrices_mex/hg19/',
                                        return_adata=not return_df, return_df=return_df, min_detect=min_detect)
        x.var.columns = ['gene', 'name']
-       return x
+       x.obs['size'] = x.X.sum(axis=1).A.ravel()
+       if chunk is None:
+         return x
+       else:
+         return x[:,chunk * chunksize:(chunk + 1) * chunksize]
 
      def _mix_10x(k1, k2, min_detect=0.01, return_y=False, chunk=None, chunksize=500):
        x1 = _read_10x(k1, min_detect=0)
@@ -113,11 +131,11 @@
        else:
          return x[:,chunk * chunksize:(chunk + 1) * chunksize]
 
-     def _cd8_cd19_mix(**kwargs):
-       return _mix_10x('cytotoxic_t', 'b_cells', **kwargs)
+     def _cd8_cd19_mix(*args, **kwargs):
+       return _mix_10x('cytotoxic_t', 'b_cells', *args, **kwargs)
 
-     def _cyto_naive_mix(**kwargs):
-       return _mix_10x('cytotoxic_t', 'naive_t', **kwargs)
+     def _cyto_naive_mix(*args, **kwargs):
+       return _mix_10x('cytotoxic_t', 'naive_t', *args, **kwargs)
 
      def read_ipsc(chunk=None, chunksize=500):
        x = anndata.read_h5ad('/project2/mstephens/aksarkar/projects/singlecell-ideas/data/ipsc/ipsc.h5ad')
@@ -178,8 +196,8 @@
        'chromium1': lambda: read_chromium('20311'),
        'chromium2': lambda: read_chromium('20312'),
        'gemcode': read_gemcode,
-       'cytotoxic_t': lambda: _read_10x('cytotoxic_t'),
-       'b_cells': lambda: _read_10x('b_cells'),
+       'cytotoxic_t': ft.partial(_read_10x, k='cytotoxic_t'),
+       'b_cells': ft.partial(_read_10x, k='b_cells'),
        'ipsc': read_ipsc,
        'cytotoxic_t-b_cells': _cd8_cd19_mix,
        'cytotoxic_t-naive_t': _cyto_naive_mix,
@@ -192,7 +210,9 @@
 
      chunksize = 500
      chunks = {
+       'b_cells': 6417 // chunksize,
        'brain': 11744 // chunksize,
+       'cytotoxic_t': 6530 // chunksize,
        'cytotoxic_t-b_cells': 6647 // chunksize,
        'cytotoxic_t-naive_t': 6246 // chunksize,
        'ipsc': 9957 // chunksize,
@@ -249,7 +269,7 @@
 
    #+NAME: main
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=30:00 -a 45-49
+     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=30:00 -a 0-48
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -260,7 +280,7 @@
      <<data>>
      tasks = [(m, d) for m in ('point', 'gamma', 'point_gamma', 'unimodal', 'npmle') 
               for d in data
-              if m not in ('unimodal', 'npmle') or d not in chunks]
+              if not (m in ('unimodal', 'npmle') and d in chunks) and not (m == 'npmle' and d in control)]
      m, d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      with mp.Pool() as pool:
        x = data[d]()
@@ -291,7 +311,7 @@
 
    #+NAME: shard
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=4:00:00 -a 0-146%16
+     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=4:00:00 -a 324-343
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -304,15 +324,18 @@
               for d in chunks
               for c in range(chunks[d])]
      m, d, c = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-     with mp.Pool(maxtasksperchild=1) as pool:
+     kwargs = dict()
+     if m == 'npmle':
+       kwargs = {'max_grid_updates': 20, 'tol': 1e-4}
+     with mp.Pool() as pool:
        x = data[d](chunk=c)
-       res = scmodes.benchmark.evaluate_llik(x, s=x.obs['size'], pool=pool, methods=[m])
+       res = scmodes.benchmark.evaluate_llik(x, s=x.obs['size'], pool=pool, methods=[m], **kwargs)
        res.to_csv(f'/scratch/midway2/aksarkar/modes/llik/{d}-{m}-{c}.txt.gz', compression='gzip', sep='\t')
      EOF
    #+END_SRC
 
    #+RESULTS: shard
-   : Submitted batch job 3527882
+   : Submitted batch job 3694772
 
    Move the results to permanent storage.
 
@@ -337,7 +360,7 @@
 
    #+RESULTS: combine
    :RESULTS:
-   # Out[5]:
+   # Out[6]:
    :END:
 
    Read the results.
@@ -357,7 +380,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[7]:
    :END:
 
 ** Application to control data sets
@@ -367,23 +390,34 @@
    over the point mass expression model.
 
    #+BEGIN_SRC ipython
-     thresh = 10
-     res = dict()
-     for k, g in llik[llik['dataset'].isin(control)].groupby('dataset'):
-       query = g.pivot_table(index='gene', columns='method', values='llik')
-       res[k] = (query.sub(query['point'], axis=0) > thresh).sum(axis=0)
-     res = (pd.concat(res)
-            .reset_index()
-            .rename({'level_0': 'dataset'}, axis=1)
-            .pivot_table(index='dataset', columns='method')
-            [0])
-     del res['point']
-     res[['gamma', 'point_gamma', 'unimodal', 'npmle']]
+     def compare(llik, baseline, thresh=10, agg=sum):
+       labels = ['point', 'gamma', 'point_gamma', 'unimodal', 'npmle']
+       assert baseline in labels
+       res = dict()
+       for k, g in llik.groupby('dataset'):
+         query = g.pivot_table(index='gene', columns='method', values='llik')
+         res[k] = (query.sub(query[baseline], axis=0) > thresh).agg(agg, axis=0)
+       res = (pd.concat(res)
+              .reset_index()
+              .rename({'level_0': 'dataset'}, axis=1)
+              .pivot_table(index='dataset', columns='method')
+              [0])
+       del res[baseline]
+       return res[[x for x in labels if x != baseline]]
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[88]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     compare(llik[llik['dataset'].isin(control)], baseline='point')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[89]:
    #+BEGIN_EXAMPLE
      method     gamma  point_gamma  unimodal  npmle
      dataset
@@ -400,23 +434,12 @@
    over the Gamma expression model.
 
    #+BEGIN_SRC ipython
-     thresh = 10
-     res = dict()
-     for k, g in llik[llik['dataset'].isin(control)].groupby('dataset'):
-       query = g.pivot_table(index='gene', columns='method', values='llik')
-       res[k] = (query.sub(query['gamma'], axis=0) > thresh).sum(axis=0)
-     res = (pd.concat(res)
-            .reset_index()
-            .rename({'level_0': 'dataset'}, axis=1)
-            .pivot_table(index='dataset', columns='method')
-            [0])
-     del res['gamma']
-     res[['point', 'point_gamma', 'unimodal', 'npmle']]
+     compare(llik[llik['dataset'].isin(control)], baseline='gamma')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[41]:
    #+BEGIN_EXAMPLE
      method     point  point_gamma  unimodal  npmle
      dataset
@@ -444,12 +467,12 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[38]:
    #+BEGIN_EXAMPLE
-     method  dataset        gene        point        gamma  point_gamma  \
-     0       dropseq  ERCC-00078  -765.076024  -279.353443  -264.522869
-     1       dropseq  ERCC-00131  -723.520929  -356.755781  -341.742929
-     2       gemcode  ERCC-00002 -6108.645264 -6148.879840 -6132.663007
+     method  dataset  dataset        gene        point        gamma  point_gamma  \
+     0       dropseq  dropseq  ERCC-00078  -765.076024  -279.353443  -264.522869
+     1       dropseq  dropseq  ERCC-00131  -723.520929  -356.755781  -341.742929
+     2       gemcode  gemcode  ERCC-00002 -6108.645264 -6148.879840 -6132.663007
 
      method     unimodal        npmle
      0       -263.565367  -261.356008
@@ -466,7 +489,7 @@
      for (k, row), a in zip(query.iterrows(), ax):
        y = x[:,x.var['index'] == row['gene']].X.A.ravel()
        a.hist(y, bins=np.arange(y.max() + 2), density=True, color='0.7')
-       a.set_title(k)
+       a.set_title(row['gene'])
      ax[0].set_ylabel('Density')
      a = fig.add_subplot(111, frameon=False, xticks=[], yticks=[])
      a.set_xlabel('Number of molecules', labelpad=16)
@@ -475,7 +498,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[20]:
+   # Out[11]:
    [[file:figure/llr.org/dropseq-point-gamma.png]]
    :END:
 
@@ -484,23 +507,12 @@
    over the unimodal expression model.
 
    #+BEGIN_SRC ipython
-     thresh = 10
-     res = dict()
-     for k, g in llik[llik['dataset'].isin(control)].groupby('dataset'):
-       query = g.pivot_table(index='gene', columns='method', values='llik')
-       res[k] = (query.sub(query['unimodal'], axis=0) > thresh).sum(axis=0)
-     res = (pd.concat(res)
-            .reset_index()
-            .rename({'level_0': 'dataset'}, axis=1)
-            .pivot_table(index='dataset', columns='method')
-            [0])
-     del res['unimodal']
-     res[['point', 'gamma', 'point_gamma', 'npmle']]
+     compare(llik[llik['dataset'].isin(control)], baseline='unimodal')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[9]:
+   # Out[34]:
    #+BEGIN_EXAMPLE
      method     point  gamma  point_gamma  npmle
      dataset
@@ -524,12 +536,11 @@
               .rename({'level_0': 'dataset'}, axis=1)
               [['dataset', 'gene', 'point', 'gamma', 'point_gamma', 'unimodal', 'npmle']])
      query
-
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[18]:
+   # Out[50]:
    #+BEGIN_EXAMPLE
      method    dataset        gene       point       gamma  point_gamma  \
      0       chromium1  ERCC-00024  -45.460132  -45.477957   -45.478005
@@ -583,244 +594,222 @@
    #+END_EXAMPLE
    :END:
 
+   For each control data set, for each expression model, report the number of
+   genes which have improvement in marginal log likelihood above some threshold
+   over the non-parametric expression model.
+
+   #+BEGIN_SRC ipython
+     compare(llik[llik['dataset'].isin(control)], baseline='npmle')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[42]:
+   #+BEGIN_EXAMPLE
+     method     point  gamma  point_gamma  unimodal
+     dataset
+     chromium1      0      1            0         2
+     chromium2      1      1            1         0
+     dropseq        0      0            0         0
+     gemcode        0      0            0         0
+     indrops        0      0            0         0
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython
+     thresh = 10
+     temp = dict()
+     for k, g in llik[llik['dataset'].isin(control)].groupby('dataset'):
+       query = g.pivot_table(index='gene', columns='method', values='llik')
+       temp[k] = query.loc[(query.sub(query['npmle'], axis=0) > thresh).apply(any, axis=1)]
+     query = (pd.concat(temp)
+              .reset_index()
+              .rename({'level_0': 'dataset'}, axis=1)
+              [['dataset', 'gene', 'point', 'gamma', 'point_gamma', 'unimodal', 'npmle']])
+     query
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[73]:
+   #+BEGIN_EXAMPLE
+     method    dataset        gene       point       gamma  point_gamma  \
+     0       chromium1  ERCC-00054 -140.374338 -139.785657  -139.403474
+     1       chromium1  ERCC-00116 -110.987988 -103.145967  -108.102592
+     2       chromium2  ERCC-00142  -28.006585  -28.006585   -28.011618
+
+     method    unimodal       npmle
+     0      -139.360976 -149.364211
+     1      -102.207858 -115.402711
+     2      -148.213405  -43.356179
+   #+END_EXAMPLE
+   :END:
+
+   These cases can be explained by not starting the iterative refinement
+   procedure with a fine enough grid.
+
+   #+BEGIN_SRC ipython :async t
+     temp = dict()
+     for k, g in query.groupby('dataset'):
+       dat = data[k]()
+       for _, row in g.iterrows():
+         temp[(k, row['gene'])] = scmodes.ebpm.ebpm_npmle(
+           dat[:,dat.var.iloc[:,0] == row['gene']].X.A.ravel(),
+           dat.X.sum(axis=1).A.ravel(),
+           K=1024,
+           max_grid_updates=10,
+           tol=1e-5,
+           verbose=True).rx2('loglik')[0]
+     pd.Series(temp).reset_index().rename({'level_0': 'dataset', 'level_1': 'gene', 0: 'npmle'}, axis=1)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[83]:
+   #+BEGIN_EXAMPLE
+     dataset        gene       npmle
+     0  chromium1  ERCC-00054 -139.356572
+     1  chromium1  ERCC-00116 -102.119712
+     2  chromium2  ERCC-00142  -28.282124
+   #+END_EXAMPLE
+   :END:
+
 ** Application to biological data sets
 
-   For each data set, for each expression model, report the number of
+   For each data set, for each expression model, report the fraction of
    genes which have improvement in marginal log likelihood above some threshold
    over the Gamma expression model.
 
    #+BEGIN_SRC ipython :async t
-     thresh = 10
-     res = dict()
-     for k, g in llik[llik['dataset'].isin(non_control)].groupby('dataset'):
-       query = g.pivot_table(index='gene', columns='method', values='llik')
-       res[k] = (query.sub(query['gamma'], axis=0) > thresh).mean(axis=0)
-     res = (pd.concat(res)
-            .reset_index()
-            .rename({'level_0': 'dataset'}, axis=1)
-            .pivot_table(index='dataset', columns='method')
-            [0]
-            [['point', 'point_gamma', 'unimodal', 'npmle']])
-     res
+     compare(llik[llik['dataset'].isin(non_control)], baseline='gamma', agg='mean')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[91]:
    #+BEGIN_EXAMPLE
      method                  point  point_gamma  unimodal     npmle
      dataset
-     b_cells              0.003740     0.009974  0.097242  0.097709
-     brain                0.000000     0.025800  0.090003  0.079275
-     cytotoxic_t          0.003216     0.012711  0.108729  0.109648
-     cytotoxic_t-b_cells  0.003912     0.038965  0.220099  0.220852
-     cytotoxic_t-naive_t  0.003522     0.029779  0.224304  0.227666
-     ipsc                 0.000501     0.004308  0.483370  0.000000
-     kidney               0.000000     0.013791  0.440890  0.120954
-     liver-caudate-lobe   0.000000     0.001825  0.000000  0.002272
-     pbmc_10k_v3          0.009717     0.042902       NaN       NaN
-     retina               0.016323     0.034836  0.163930  0.165622
+     b_cells              0.003740     0.009974  0.090541  0.092255
+     brain                0.000000     0.025800  0.088130  0.084128
+     cytotoxic_t          0.003216     0.012711  0.106432  0.107657
+     cytotoxic_t-b_cells  0.003912     0.038965  0.221453  0.223860
+     cytotoxic_t-naive_t  0.003522     0.029779  0.227986  0.228786
+     ipsc                 0.000502     0.004319  0.465703  0.479261
+     kidney               0.000000     0.013791  0.113934  0.120457
+     liver-caudate-lobe   0.000000     0.001825  0.002309  0.002272
+     pbmc_10k_v3          0.009717     0.042902  0.130352  0.131670
+     retina               0.016323     0.034836  0.162735  0.169503
    #+END_EXAMPLE
    :END:
 
-   For each data set, for each expression model, report the number of genes
+   For each data set, for each expression model, report the fraction of genes
    which have improvement in marginal log likelihood above some threshold over
    the unimodal expression model.
 
    #+BEGIN_SRC ipython
-     thresh = 10
-     res = dict()
-     for k, g in llik[llik['dataset'].isin(non_control)].groupby('dataset'):
-       query = g.pivot_table(index='gene', columns='method', values='llik')
-       if 'unimodal' in query:
-         res[k] = (query.sub(query['unimodal'], axis=0) > thresh).mean(axis=0)
-     res = (pd.concat(res)
-            .reset_index()
-            .rename({'level_0': 'dataset'}, axis=1)
-            .pivot_table(index='dataset', columns='method')
-            [0]
-            [['point', 'gamma', 'point_gamma', 'npmle']])
-     res
+     compare(llik[llik['dataset'].isin(non_control)], baseline='unimodal', agg='mean')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[40]:
+   # Out[92]:
    #+BEGIN_EXAMPLE
      method                  point     gamma  point_gamma     npmle
      dataset
-     b_cells              0.000000  0.000000     0.000000  0.000156
-     brain                0.000000  0.000000     0.000085  0.000937
-     cytotoxic_t          0.000000  0.000000     0.000000  0.000000
-     cytotoxic_t-b_cells  0.016398  0.017301     0.018655  0.019859
-     cytotoxic_t-naive_t  0.042747  0.043228     0.043388  0.040346
-     ipsc                 0.005410  0.006412     0.006512  0.000000
-     kidney               0.000000  0.047027     0.046903  0.046779
-     liver-caudate-lobe   0.000000  0.000000     0.000000  0.000000
-     retina               0.000000  0.000000     0.001095  0.012840
+     b_cells              0.036933  0.039582     0.040829  0.031011
+     brain                0.004343  0.010048     0.011410  0.014390
+     cytotoxic_t          0.107963  0.113017     0.114089  0.105054
+     cytotoxic_t-b_cells  0.028283  0.033699     0.036558  0.030239
+     cytotoxic_t-naive_t  0.057637  0.063721     0.065642  0.055395
+     ipsc                 0.000000  0.000000     0.000100  0.001908
+     kidney               0.000000  0.002796     0.002920  0.005032
+     liver-caudate-lobe   0.000000  0.035275     0.035424  0.033413
+     pbmc_10k_v3          0.023551  0.028162     0.028821  0.040431
+     retina               0.000000  0.005474     0.006768  0.015328
    #+END_EXAMPLE
    :END:
 
-   Look at some examples where Gamma did better than unimodal.
+   Find all genes where a simpler expression model (point, Gamma, point-Gamma)
+   did better than a unimodal expression model.
 
    #+BEGIN_SRC ipython
      temp = dict()
      for k, g in llik[llik['dataset'].isin(non_control)].groupby('dataset'):
        query = g.pivot_table(index='gene', columns='method', values='llik')
-       if 'unimodal' in query:
-         temp[k] = query.loc[query['gamma'] > query['unimodal'] + thresh]
+       temp[k] = query.loc[(query.sub(query['unimodal'], axis=0)[['point', 'gamma', 'point_gamma']] > thresh).apply(any, axis=1)]
      query = (pd.concat(temp)
               .reset_index()
               .rename({'level_0': 'dataset'}, axis=1)
               [['dataset', 'gene', 'point', 'gamma', 'point_gamma', 'unimodal', 'npmle']])
-     query.head()
+     query.shape
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[43]:
-   #+BEGIN_EXAMPLE
-     method              dataset             gene         point         gamma  \
-     0       cytotoxic_t-b_cells  ENSG00000002586 -18259.939115 -17790.249936
-     1       cytotoxic_t-b_cells  ENSG00000008952 -17087.606931 -17025.500512
-     2       cytotoxic_t-b_cells  ENSG00000013288  -1329.833528  -1323.691783
-     3       cytotoxic_t-b_cells  ENSG00000031003  -1286.253859  -1286.253859
-     4       cytotoxic_t-b_cells  ENSG00000039123  -1318.144540  -1316.522524
-
-     method   point_gamma      unimodal         npmle
-     0      -17790.251826 -17824.162043 -17787.074655
-     1      -17025.166654 -17271.800610 -17019.154144
-     2       -1323.740052  -1491.807276  -1382.215672
-     3       -1284.796148  -1441.539937  -1337.188734
-     4       -1316.529063  -1463.892207  -1378.415557
-   #+END_EXAMPLE
+   # Out[102]:
+   : (3253, 7)
    :END:
 
-   #+BEGIN_SRC ipython :async t
-     dat = data['cytotoxic_t-b_cells']()
-     x = dat[:,dat.var['gene'] == 'ENSG00000002586'].X.A.ravel()
-     s = dat.X.sum(axis=1).A.ravel()
-     y = np.arange(x.max() + 1)
-     pmf = dict()
+   The unimodal model sometimes
+   [[file:halfuniform.org::*Chromium%20control%20data%20example][does worse
+   than expected]] due to not optimizing over the granularity of the grid
+   jointly with the mode. For these genes, try the more expensive procedure.
 
-     gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
-     pmf['Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean() for k in y])
+   #+BEGIN_SRC ipython
+     import scipy.optimize as so
 
-     unimodal_res = scmodes.ebpm.ebpm_unimodal(x, s)
-     g = np.array(unimodal_res.rx2('fitted_g'))
-     g = g[:,g[0] > 1e-8]
-     a = np.fmin(g[1], g[2])
-     b = np.fmax(g[1], g[2])
-     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
-     comp_dens_conv[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
-     pmf['Unimodal'] = comp_dens_conv @ g[0]
+     def ebpm_unimodal(x, s):
+       x = pd.Series(x)
+       s = pd.Series(s)
+
+       def _loss_gridmult(gridmult, mode, x, s):
+         return -ashr.ash_pois(x, s, mixcompdist='halfuniform', mode=mode, gridmult=gridmult, outputlevel='loglik', control=rpy2.robjects.ListVector({'tol.svd': 0})).rx2('loglik')[0]
+
+       def _loss_mode(mode, x, s):
+         opt = so.minimize_scalar(_loss_gridmult, bracket=[1.1, 2], bounds=[1, 2], method='bounded', args=(mode, x, s), tol=1e-2)
+         assert opt.success
+         return opt.fun
+
+       opt = so.minimize_scalar(_loss_mode, bracket=[0, (x / s).max()], bounds=[0, (x / s).max()], method='bounded', args=(x, s))
+       mode = opt.x
+       assert opt.success
+       opt = so.minimize_scalar(_loss_gridmult, bracket=[1.1, 2], bounds=[1, 2], method='bounded', args=(opt.x, x, s))
+       assert opt.success
+       gridmult = opt.x
+
+       res = ashr.ash_pois(x, s, mixcompdist='halfuniform', mode=mode, gridmult=gridmult, control=rpy2.robjects.ListVector({'tol.svd': 0}))
+       return res
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[125]:
    :END:
-
-   #+BEGIN_SRC ipython :ipyfile figure/llr.org/cytotoxic_t-b_cells-ENSG00000002586.png
-     cm = plt.get_cmap('Dark2')
-     plt.clf()
-     plt.gcf().set_size_inches(4, 2)
-     plt.hist(x, bins=y, color='0.7', density=True)
-     for i, k in enumerate(pmf):
-       plt.plot(y + 0.5, pmf[k], lw=1, c=cm(i), label=k)
-     plt.legend(frameon=False)
-     plt.xlabel('Number of molecules')
-     plt.ylabel('Density')
-     plt.title(dat.var.loc[dat.var['gene'] == 'ENSG00000002586','name'][0])
-     plt.tight_layout()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[8]:
-   [[file:figure/llr.org/cytotoxic_t-b_cells-ENSG00000002586.png]]
-   :END:
-
-   #+BEGIN_SRC ipython :async t
-     dat = data['ipsc']()
-     x = dat[:,dat.var['index'] == 'ENSG00000013364'].X.A.ravel()
-     s = dat.obs['size'].values.ravel()
-     y = np.arange(x.max() + 1)
-     pmf = dict()
-
-     gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
-     pmf['Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean() for k in y])
-
-     unimodal_res = scmodes.ebpm.ebpm_unimodal(x, s)
-     g = np.array(unimodal_res.rx2('fitted_g'))
-     g = g[:,g[0] > 1e-8]
-     a = np.fmin(g[1], g[2])
-     b = np.fmax(g[1], g[2])
-     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
-     comp_dens_conv[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
-     pmf['Unimodal'] = comp_dens_conv @ g[0]
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[55]:
-   :END:
-
-   #+BEGIN_SRC ipython :ipyfile figure/llr.org/ipsc-ENSG00000013364.png
-     cm = plt.get_cmap('Dark2')
-     plt.clf()
-     plt.gcf().set_size_inches(4, 2)
-     plt.hist(x, bins=y, color='0.7', density=True)
-     for i, k in enumerate(pmf):
-       plt.plot(y + 0.5, pmf[k], lw=1, c=cm(i), label=k)
-     plt.legend(frameon=False)
-     plt.xlabel('Number of molecules')
-     plt.ylabel('Density')
-     plt.title(dat.var.loc[dat.var['index'] == 'ENSG00000013364','name'][0])
-     plt.tight_layout()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[58]:
-   [[file:figure/llr.org/ipsc-ENSG00000013364.png]]
-   :END:
-
 
    For each data set, for each expression model, report the number of genes
    which have improvement in marginal log likelihood above some threshold over
    the non-parametric expression model.
 
    #+BEGIN_SRC ipython
-     thresh = 10
-     res = dict()
-     for k, g in llik[llik['dataset'].isin(non_control)].groupby('dataset'):
-       query = g.pivot_table(index='gene', columns='method', values='llik')
-       res[k] = (query.sub(query['npmle'], axis=0) > thresh).mean(axis=0)
-     res = (pd.concat(res)
-            .reset_index()
-            .rename({'level_0': 'dataset'}, axis=1)
-            .pivot_table(index='dataset', columns='method')
-            [0]
-            [['point', 'gamma', 'point_gamma', 'unimodal']])
-     res
+     compare(llik[llik['dataset'].isin(non_control)], baseline='npmle', agg='mean')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[32]:
+   # Out[93]:
    #+BEGIN_EXAMPLE
      method                  point     gamma  point_gamma  unimodal
      dataset
-     b_cells              0.155680  0.167524     0.168147  0.172666
-     brain                0.110184  0.158123     0.163403  0.172599
-     cytotoxic_t          0.147779  0.154364     0.154977  0.157580
-     cytotoxic_t-b_cells  0.167444  0.184294     0.186099  0.181736
-     cytotoxic_t-naive_t  0.000000  0.003682     0.003682  0.005443
+     b_cells              0.106436  0.116254     0.116098  0.093657
+     brain                0.067439  0.103713     0.108396  0.112568
+     cytotoxic_t          0.096325  0.101378     0.101378  0.058499
+     cytotoxic_t-b_cells  0.113886  0.129081     0.130886  0.115390
+     cytotoxic_t-naive_t  0.124560  0.133045     0.134806  0.100865
      ipsc                 0.000000  0.000000     0.000000  0.000000
-     kidney               0.000000  0.020687     0.020936  0.434305
-     liver-caudate-lobe   0.000000  0.000074     0.000186  0.000000
-     pbmcs_68k            0.000000  0.141956     0.209782  0.358351
-     retina               0.000199  0.017916     0.019011  0.039514
+     kidney               0.000000  0.017705     0.018140  0.018761
+     liver-caudate-lobe   0.000000  0.021605     0.021716  0.017582
+     pbmc_10k_v3          0.018281  0.034091     0.036397  0.037961
+     retina               0.000299  0.035334     0.036031  0.033841
    #+END_EXAMPLE
    :END:
