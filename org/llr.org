@@ -31,8 +31,10 @@
     import os
     import pandas as pd
     import scanpy as sc
-    import scmodes
+    import scipy.optimize as so
+    import scipy.special as sp
     import scipy.stats as st
+    import scmodes
   #+END_SRC
 
   #+RESULTS:
@@ -49,7 +51,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[104]:
+  # Out[2]:
   :END:
   
   #+BEGIN_SRC ipython
@@ -59,7 +61,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -70,7 +72,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[4]:
   :END:
 
 * Results
@@ -228,7 +230,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[4]:
+   # Out[5]:
    :END:
 
    Report the dimensions of each data set.
@@ -479,27 +481,6 @@
      1       -347.518213  -337.359459
      2      -5944.693604 -5944.434618
    #+END_EXAMPLE
-   :END:
-
-   #+BEGIN_SRC ipython :ipyfile figure/llr.org/dropseq-point-gamma.png
-     x = data['dropseq']()
-     plt.clf()
-     fig, ax = plt.subplots(1, 2)
-     fig.set_size_inches(4, 2.5)
-     for (k, row), a in zip(query.iterrows(), ax):
-       y = x[:,x.var['index'] == row['gene']].X.A.ravel()
-       a.hist(y, bins=np.arange(y.max() + 2), density=True, color='0.7')
-       a.set_title(row['gene'])
-     ax[0].set_ylabel('Density')
-     a = fig.add_subplot(111, frameon=False, xticks=[], yticks=[])
-     a.set_xlabel('Number of molecules', labelpad=16)
-     fig.tight_layout()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[11]:
-   [[file:figure/llr.org/dropseq-point-gamma.png]]
    :END:
 
    For each control data set, for each expression model, report the number of
@@ -756,35 +737,79 @@
    than expected]] due to not optimizing over the granularity of the grid
    jointly with the mode. For these genes, try the more expensive procedure.
 
+   #+NAME: tune-gridmult
    #+BEGIN_SRC ipython
-     import scipy.optimize as so
-
-     def ebpm_unimodal(x, s):
+     def ebpm_unimodal_tune(x, s):
        x = pd.Series(x)
        s = pd.Series(s)
 
        def _loss_gridmult(gridmult, mode, x, s):
-         return -ashr.ash_pois(x, s, mixcompdist='halfuniform', mode=mode, gridmult=gridmult, outputlevel='loglik', control=rpy2.robjects.ListVector({'tol.svd': 0})).rx2('loglik')[0]
+         llik = ashr.ash_pois(x, s, mixcompdist='halfuniform', mode=mode,
+                              gridmult=gridmult, outputlevel='loglik',
+                              control=rpy2.robjects.ListVector({'tol.svd': 0})).rx2('loglik')[0]
+         print(f'{mode:>9.6g} {gridmult:>9.6g} {llik:>9.6g}')
+         return -llik
 
        def _loss_mode(mode, x, s):
-         opt = so.minimize_scalar(_loss_gridmult, bracket=[1.1, 2], bounds=[1, 2], method='bounded', args=(mode, x, s), tol=1e-2)
+         print(f'{"mode":>9s} {"gridmult":>9s} {"llik":>9s}')
+         opt = so.minimize_scalar(_loss_gridmult, bracket=[1.1, 2], bounds=[1, 2],
+                                  method='bounded', args=(mode, x, s), tol=1e-2)
          assert opt.success
          return opt.fun
 
-       opt = so.minimize_scalar(_loss_mode, bracket=[0, (x / s).max()], bounds=[0, (x / s).max()], method='bounded', args=(x, s))
+       opt = so.minimize_scalar(_loss_mode, bracket=[0, (x / s).max()],
+                                bounds=[0, (x / s).max()], method='bounded', args=(x, s),
+                                tol=1e-5)
        mode = opt.x
        assert opt.success
-       opt = so.minimize_scalar(_loss_gridmult, bracket=[1.1, 2], bounds=[1, 2], method='bounded', args=(opt.x, x, s))
+       print(f'Converged to mode={mode:>9.6g}')
+
+       opt = so.minimize_scalar(_loss_gridmult, bracket=[1.1, 2], bounds=[1, 2],
+                                method='bounded', args=(mode, x, s), tol=1e-2)
        assert opt.success
        gridmult = opt.x
+       print(f'Converged to {gridmult:>9.6g}')
 
        res = ashr.ash_pois(x, s, mixcompdist='halfuniform', mode=mode, gridmult=gridmult, control=rpy2.robjects.ListVector({'tol.svd': 0}))
        return res
    #+END_SRC
 
+   #+RESULTS: tune-gridmult
+   :RESULTS:
+   # Out[13]:
+   :END:
+
+   Report the fraction of genes for which NPMLE did better than unimodal, but
+   Gamma did not.
+
+   #+BEGIN_SRC ipython :async t
+     thresh = 10
+     temp = dict()
+     for k, g in llik[llik['dataset'].isin(non_control)].groupby('dataset'):
+       query = g.pivot_table(index='gene', columns='method', values='llik')
+       temp[k] = ((query['npmle'] > query['unimodal'] + thresh) & (query['gamma'] <= query['unimodal'] + thresh)).mean(axis=0)
+     res = (pd.Series(temp)
+              .reset_index()
+              .rename({'index': 'dataset', 0: 'npmle'}, axis=1))
+     res
+   #+END_SRC
+
    #+RESULTS:
    :RESULTS:
-   # Out[125]:
+   # Out[144]:
+   #+BEGIN_EXAMPLE
+     dataset     npmle
+     0              b_cells  0.001091
+     1                brain  0.004939
+     2          cytotoxic_t  0.001991
+     3  cytotoxic_t-b_cells  0.006620
+     4  cytotoxic_t-naive_t  0.003522
+     5                 ipsc  0.001908
+     6               kidney  0.003479
+     7   liver-caudate-lobe  0.000074
+     8          pbmc_10k_v3  0.012516
+     9               retina  0.014134
+   #+END_EXAMPLE
    :END:
 
    For each data set, for each expression model, report the number of genes
@@ -812,4 +837,88 @@
      pbmc_10k_v3          0.018281  0.034091     0.036397  0.037961
      retina               0.000299  0.035334     0.036031  0.033841
    #+END_EXAMPLE
+   :END:
+
+** Drop-Seq spike-in gene
+
+   #+BEGIN_SRC ipython
+     dat = data['dropseq']()
+     x = dat[:,dat.var.iloc[:,0] == 'ERCC-00131'].X.A.ravel()
+     s = dat.X.sum(axis=1).A.ravel()
+     y = np.arange(x.max() + 1)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     grid = np.linspace(0, (x / s).max(), 1000)
+
+     pmf = dict()
+     cdf = dict()
+
+     gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
+     pmf['Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean()
+                              for k in y])
+     cdf['Gamma'] = st.gamma(a=np.exp(gamma_res[1]), scale=np.exp(gamma_res[0] - gamma_res[1])).cdf(grid)
+
+     point_gamma_res = scmodes.ebpm.ebpm_point_gamma(x, s)
+     cdf['ZIG'] = sp.expit(point_gamma_res[2]) + sp.expit(-point_gamma_res[2]) * st.gamma(a=np.exp(point_gamma_res[1]), scale=np.exp(point_gamma_res[0] - point_gamma_res[1])).cdf(grid)
+     pmf['ZIG'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]).mean()
+                            for k in y])
+
+     # Important: tune gridmult
+     unimodal_res = ebpm_unimodal_tune(x, s)
+     g = np.array(unimodal_res.rx2('fitted_g'))
+     g = g[:,g[0] > 1e-8]
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     comp_dens_conv[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+     pmf['Unimodal'] = comp_dens_conv @ g[0]
+     cdf['Unimodal'] = ashr.cdf_ash(unimodal_res, grid).rx2('y').ravel()
+
+     npmle_res = scmodes.ebpm.ebpm_npmle(x, s, max_grid_updates=5, tol=1e-5)
+     g = np.array(npmle_res.rx2('fitted_g'))
+     g = g[:,g[0] > 1e-8]
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     pmf['NPMLE'] = comp_dens_conv @ g[0]
+     cdf['NPMLE'] = ashr.cdf_ash(npmle_res, grid).rx2('y').ravel()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   1 - f4fd818b-e60b-4cc1-9c8b-69cfa67ba463
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/llr.org/dropseq-ERCC-00131.png
+     cm = plt.get_cmap('Paired')
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(4.5, 4)
+
+     ax[0].hist(x, bins=y, color='0.7', density=True)
+     for i, k in enumerate(pmf):
+       ax[0].plot(y + .5, pmf[k], lw=1, c=cm(i))
+     ax[0].set_xlabel('Number of molecules')
+     ax[0].set_ylabel('Density')
+     ax[0].set_title('ERCC-00131')
+
+     for i, k in enumerate(pmf):
+       ax[1].plot(grid, cdf[k], lw=1, c=cm(i), label=k)
+     ax[1].legend(frameon=False)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[18]:
+   [[file:figure/llr.org/dropseq-ERCC-00131.png]]
    :END:
