@@ -382,7 +382,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[6]:
    :END:
 
 ** Application to control data sets
@@ -779,15 +779,16 @@
    # Out[13]:
    :END:
 
-   Report the fraction of genes for which NPMLE did better than unimodal, but
-   Gamma did not.
+   Report the fraction of genes for which NPMLE did better than the best of
+   point mass, Gamma, and unimodal.
 
    #+BEGIN_SRC ipython :async t
      thresh = 10
      temp = dict()
      for k, g in llik[llik['dataset'].isin(non_control)].groupby('dataset'):
        query = g.pivot_table(index='gene', columns='method', values='llik')
-       temp[k] = ((query['npmle'] > query['unimodal'] + thresh) & (query['gamma'] <= query['unimodal'] + thresh)).mean(axis=0)
+       baseline = query[['point', 'gamma', 'unimodal']].max(axis=1)
+       temp[k] = (query['npmle'] > baseline + thresh).mean(axis=0)
      res = (pd.Series(temp)
               .reset_index()
               .rename({'index': 'dataset', 0: 'npmle'}, axis=1))
@@ -796,19 +797,19 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[144]:
+   # Out[9]:
    #+BEGIN_EXAMPLE
      dataset     npmle
-     0              b_cells  0.001091
-     1                brain  0.004939
-     2          cytotoxic_t  0.001991
-     3  cytotoxic_t-b_cells  0.006620
-     4  cytotoxic_t-naive_t  0.003522
+     0              b_cells  0.000156
+     1                brain  0.001448
+     2          cytotoxic_t  0.000766
+     3  cytotoxic_t-b_cells  0.003460
+     4  cytotoxic_t-naive_t  0.001441
      5                 ipsc  0.001908
-     6               kidney  0.003479
+     6               kidney  0.003293
      7   liver-caudate-lobe  0.000074
-     8          pbmc_10k_v3  0.012516
-     9               retina  0.014134
+     8          pbmc_10k_v3  0.010293
+     9               retina  0.013935
    #+END_EXAMPLE
    :END:
 
