@@ -22,7 +22,8 @@ expression models clarifies confusion in single cell RNA-seq analysis."]]
 
 * Empirical results
 
-- [[file:gof.org][Goodness of fit of deconvolved distributions]] ([[http://shiny.stephenslab.uchicago.edu:5009/gof][interactive browser]])
+- [[file:llr.org][Marginal log likelihood comparison of expression models]]
+- [[file:ebnbm.org][Negative binomial measurement model]]
 - [[file:lra.org][Low rank approximation]]
 - [[file:fitted-values.org][Comparison of fitted values]]
 - [[file:mlcb.org][MLCB figures]]
@@ -32,6 +33,7 @@ expression models clarifies confusion in single cell RNA-seq analysis."]]
 
 - [[file:deconvolution.org][Comparison of distribution deconvolution methods]]
 - [[file:deconv-examples.org][Distribution deconvolution examples]]
+- [[file:gof.org][Goodness of fit of deconvolved distributions]] ([[http://shiny.stephenslab.uchicago.edu:5009/gof][interactive browser]])
 - [[file:marker-genes.org][Marker genes in /in silico/ mixtures]]
   ([[http://shiny.stephenslab.uchicago.edu:5009/markers][interactive browser]])
 - [[file:immune-census.org][Expression variation in Census of Immune Cells]]
@@ -40,7 +42,6 @@ expression models clarifies confusion in single cell RNA-seq analysis."]]
 - [[file:retina.org][Expression variation in human retina cells]]
 - [[file:liver.org][Expression variation in human liver]]
 - [[file:imputation.org][Imputation of count matrices]]
-- [[file:llr.org][Marginal log likelihood comparison of expression models]]
 
 * Technical details
 
