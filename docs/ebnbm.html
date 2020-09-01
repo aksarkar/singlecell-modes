@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-01 Tue 15:44 -->
+<!-- 2020-09-01 Tue 16:49 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Negative binomial measurement model</title>
@@ -471,7 +471,7 @@ ground truth values.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">x</span>, <span class="org-variable-name">s</span>, <span class="org-variable-name">lam</span>, <span class="org-variable-name">u</span>, <span class="org-variable-name">log_mean</span>, <span class="org-variable-name">log_inv_disp</span>, <span class="org-variable-name">theta</span> = simulate_nb_gamma(n=1000, p=1, theta=0.2, seed=1)
+<pre class="src src-ipython"><span class="org-variable-name">x</span>, <span class="org-variable-name">s</span>, <span class="org-variable-name">lam</span>, <span class="org-variable-name">u</span>, <span class="org-variable-name">log_mean</span>, <span class="org-variable-name">log_inv_disp</span>, <span class="org-variable-name">theta</span> = simulate_nb_gamma(n=1000, p=5, theta=0.2, seed=1)
 <span class="org-variable-name">log_mean_hat</span>, <span class="org-variable-name">log_inv_disp_hat</span>, <span class="org-variable-name">log_theta_hat</span>, <span class="org-variable-name">alpha</span>, <span class="org-variable-name">beta</span>, <span class="org-variable-name">gamma</span>, <span class="org-variable-name">delta</span>, <span class="org-variable-name">elbo</span> = scmodes.ebnbm.ebnbm_gamma(
   x,
   s,
@@ -483,15 +483,15 @@ ground truth values.
 
 <span class="org-comment-delimiter"># </span><span class="org-comment">Poisson measurement =&gt; NB observation</span>
 <span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
-<span class="org-variable-name">pmf</span>[<span class="org-string">'Poisson'</span>] = st.nbinom(n=np.exp(log_inv_disp), p=1 / (1 + (s * np.exp(log_mean - log_inv_disp)))).pmf(y).mean(axis=0)
+<span class="org-variable-name">pmf</span>[<span class="org-string">'Poisson'</span>] = st.nbinom(n=np.exp(log_inv_disp[:,0]), p=1 / (1 + (s * np.exp(log_mean[:,0] - log_inv_disp[:,0])))).pmf(y).mean(axis=0)
 
 <span class="org-comment-delimiter"># </span><span class="org-comment">NB measurement =&gt; Monte Carlo integral</span>
 <span class="org-variable-name">n_samples</span> = 1000
-<span class="org-variable-name">G</span> = st.gamma(a=np.exp(log_inv_disp), scale=np.exp(log_mean - log_inv_disp))
+<span class="org-variable-name">G</span> = st.gamma(a=np.exp(log_inv_disp[:,0]), scale=np.exp(log_mean[:,0] - log_inv_disp[:,0]))
 <span class="org-variable-name">temp</span> = G.rvs(size=(n_samples, y.shape[0], 1))
 <span class="org-variable-name">pmf</span>[rf<span class="org-string">'NB ($\theta$ = {theta:.2g})'</span>] = st.nbinom(n=1 / theta, p=1 / (1 + s[0] * temp * theta)).pmf(y.reshape(-1, 1)).mean(axis=0)
 
-<span class="org-variable-name">Ghat</span> = st.gamma(a=np.exp(log_inv_disp_hat), scale=np.exp(log_mean_hat - log_inv_disp_hat))
+<span class="org-variable-name">Ghat</span> = st.gamma(a=np.exp(log_inv_disp_hat[:,0]), scale=np.exp(log_mean_hat[:,0] - log_inv_disp_hat[:,0]))
 <span class="org-variable-name">temp</span> = Ghat.rvs(size=(n_samples, y.shape[0], 1))
 <span class="org-variable-name">pmf</span>[rf<span class="org-string">'NB ($\hat\theta$ = {np.exp(log_theta_hat):.2g})'</span>] = st.nbinom(n=np.exp(-log_theta_hat), p=1 / (1 + s[0] * temp * np.exp(log_theta_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
 
@@ -569,13 +569,198 @@ fig.tight_layout()
 <p><img src="figure/ebnbm.org/sim-ex2.png" alt="sim-ex2.png">
 </p>
 </div>
+
+<p>
+Now, fit the model initialized at the ground truth.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">log_mean_hat</span>, <span class="org-variable-name">log_inv_disp_hat</span>, <span class="org-variable-name">log_theta_hat</span>, <span class="org-variable-name">alpha</span>, <span class="org-variable-name">beta</span>, <span class="org-variable-name">gamma</span>, <span class="org-variable-name">delta</span>, <span class="org-variable-name">elbo</span> = scmodes.ebnbm.ebnbm_gamma(
+  x,
+  s,
+  init=np.hstack([np.exp(log_inv_disp).ravel(), np.exp(-log_mean + log_inv_disp).ravel(), theta]),
+  tol=1e-3, 
+  fix_theta=<span class="org-constant">False</span>)
+
+<span class="org-variable-name">y</span> = np.arange(x[:,0].<span class="org-builtin">max</span>() + 1)
+
+<span class="org-comment-delimiter"># </span><span class="org-comment">Poisson measurement =&gt; NB observation</span>
+<span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
+<span class="org-variable-name">pmf</span>[<span class="org-string">'Poisson'</span>] = st.nbinom(n=np.exp(log_inv_disp[:,0]), p=1 / (1 + (s * np.exp(log_mean[:,0] - log_inv_disp[:,0])))).pmf(y).mean(axis=0)
+
+<span class="org-comment-delimiter"># </span><span class="org-comment">NB measurement =&gt; Monte Carlo integral</span>
+<span class="org-variable-name">n_samples</span> = 1000
+<span class="org-variable-name">G</span> = st.gamma(a=np.exp(log_inv_disp[:,0]), scale=np.exp(log_mean[:,0] - log_inv_disp[:,0]))
+<span class="org-variable-name">temp</span> = G.rvs(size=(n_samples, y.shape[0], 1))
+<span class="org-variable-name">pmf</span>[rf<span class="org-string">'NB ($\theta$ = {theta:.2g})'</span>] = st.nbinom(n=1 / theta, p=1 / (1 + s[0] * temp * theta)).pmf(y.reshape(-1, 1)).mean(axis=0)
+
+<span class="org-variable-name">Ghat</span> = st.gamma(a=np.exp(log_inv_disp_hat[:,0]), scale=np.exp(log_mean_hat[:,0] - log_inv_disp_hat[:,0]))
+<span class="org-variable-name">temp</span> = Ghat.rvs(size=(n_samples, y.shape[0], 1))
+<span class="org-variable-name">pmf</span>[rf<span class="org-string">'NB ($\hat\theta$ = {np.exp(log_theta_hat):.2g})'</span>] = st.nbinom(n=np.exp(-log_theta_hat), p=1 / (1 + s[0] * temp * np.exp(log_theta_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
+
+<span class="org-variable-name">cdf</span> = <span class="org-builtin">dict</span>()
+<span class="org-variable-name">grid</span> = np.linspace(0, (x / s).<span class="org-builtin">max</span>(), 1000)
+<span class="org-variable-name">cdf</span>[<span class="org-string">'Estimated'</span>] = Ghat.cdf(grid).ravel()
+<span class="org-variable-name">cdf</span>[<span class="org-string">'Ground truth'</span>] = G.cdf(grid).ravel()
+</pre>
+</div>
+
+<p>
+Plot the fitted models against the observed data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
+fig.set_size_inches(4.5, 4)
+
+ax[0].hist(x[:,0], bins=y, color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(pmf):
+  ax[0].plot(y + .5, pmf[k], c=cm(i), lw=1, label=k)
+ax[0].legend(title=<span class="org-string">'Measurement model'</span>, frameon=<span class="org-constant">False</span>)
+ax[0].set_xlim(0, x[:,0].<span class="org-builtin">max</span>())
+ax[0].set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[0].set_ylabel(<span class="org-string">'Density'</span>)
+
+<span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Paired'</span>)
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(cdf):
+  ax[1].plot(grid, cdf[k], c=cm(i), lw=1, label=k)
+ax[1].legend(title=<span class="org-string">'Expression model'</span>, frameon=<span class="org-constant">False</span>)
+ax[1].set_xlim(0, 1.5e-4)
+ax[1].set_xticks([0, 5e-5, 1e-4, 1.5e-4])
+ax[1].set_xlabel(<span class="org-string">'True gene expression level'</span>)
+ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ebnbm.org/sim-ex3.png" alt="sim-ex3.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">y</span> = np.arange(x[:,1].<span class="org-builtin">max</span>() + 1)
+
+<span class="org-comment-delimiter"># </span><span class="org-comment">Poisson measurement =&gt; NB observation</span>
+<span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
+<span class="org-variable-name">pmf</span>[<span class="org-string">'Poisson'</span>] = st.nbinom(n=np.exp(log_inv_disp[:,1]), p=1 / (1 + (s * np.exp(log_mean[:,1] - log_inv_disp[:,1])))).pmf(y).mean(axis=0)
+
+<span class="org-comment-delimiter"># </span><span class="org-comment">NB measurement =&gt; Monte Carlo integral</span>
+<span class="org-variable-name">n_samples</span> = 1000
+<span class="org-variable-name">G</span> = st.gamma(a=np.exp(log_inv_disp[:,1]), scale=np.exp(log_mean[:,1] - log_inv_disp[:,1]))
+<span class="org-variable-name">temp</span> = G.rvs(size=(n_samples, y.shape[0], 1))
+<span class="org-variable-name">pmf</span>[rf<span class="org-string">'NB ($\theta$ = {theta:.2g})'</span>] = st.nbinom(n=1 / theta, p=1 / (1 + s[0] * temp * theta)).pmf(y.reshape(-1, 1)).mean(axis=0)
+
+<span class="org-variable-name">Ghat</span> = st.gamma(a=np.exp(log_inv_disp_hat[:,1]), scale=np.exp(log_mean_hat[:,1] - log_inv_disp_hat[:,1]))
+<span class="org-variable-name">temp</span> = Ghat.rvs(size=(n_samples, y.shape[0], 1))
+<span class="org-variable-name">pmf</span>[rf<span class="org-string">'NB ($\hat\theta$ = {np.exp(log_theta_hat):.2g})'</span>] = st.nbinom(n=np.exp(-log_theta_hat), p=1 / (1 + s[0] * temp * np.exp(log_theta_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
+
+<span class="org-variable-name">cdf</span> = <span class="org-builtin">dict</span>()
+<span class="org-variable-name">grid</span> = np.linspace(0, (x / s).<span class="org-builtin">max</span>(), 1000)
+<span class="org-variable-name">cdf</span>[<span class="org-string">'Estimated'</span>] = Ghat.cdf(grid).ravel()
+<span class="org-variable-name">cdf</span>[<span class="org-string">'Ground truth'</span>] = G.cdf(grid).ravel()
+
+<span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1)
+fig.set_size_inches(4.5, 4)
+
+ax[0].hist(x[:,1], bins=y, color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(pmf):
+  ax[0].plot(y + .5, pmf[k], c=cm(i), lw=1, label=k)
+ax[0].legend(title=<span class="org-string">'Measurement model'</span>, frameon=<span class="org-constant">False</span>)
+ax[0].set_xlim(0, y.<span class="org-builtin">max</span>())
+ax[0].set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[0].set_ylabel(<span class="org-string">'Density'</span>)
+
+<span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Paired'</span>)
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(cdf):
+  ax[1].plot(grid, cdf[k], c=cm(i), lw=1, label=k)
+ax[1].legend(title=<span class="org-string">'Expression model'</span>, frameon=<span class="org-constant">False</span>)
+ax[1].set_xlabel(<span class="org-string">'True gene expression level'</span>)
+ax[1].set_ylabel(<span class="org-string">'CDF'</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ebnbm.org/sim-ex3-2.png" alt="sim-ex3-2.png">
+</p>
+</div>
+
+<p>
+Compare the true posterior against the variational approximation.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2)
+fig.set_size_inches(5, 2.5)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a.set_aspect(<span class="org-string">'equal'</span>, adjustable=<span class="org-string">'datalim'</span>)
+
+ax[0].set_xscale(<span class="org-string">'log'</span>)
+ax[0].set_yscale(<span class="org-string">'log'</span>)
+ax[0].scatter(((x + np.exp(log_inv_disp)) / (s * u + np.exp(log_inv_disp - log_mean))).ravel(), (alpha / beta).ravel(), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[0].set_xlabel(r<span class="org-string">'$\mathrm{E}[\lambda \mid x, u]$'</span>)
+ax[0].set_ylabel(r<span class="org-string">'$\mathrm{E}_q[\lambda]$'</span>)
+
+ax[1].scatter(((x + theta) / (s * lam + theta)), (gamma / delta).ravel(), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
+ax[1].set_xlabel(r<span class="org-string">'$\mathrm{E}[u \mid x, \mu]$'</span>)
+ax[1].set_ylabel(r<span class="org-string">'$\mathrm{E}_q[u]$'</span>)
+
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ebnbm.org/sim-ex4.png" alt="sim-ex4.png">
+</p>
+</div>
+
+<p>
+Compare the estimated expression models against the ground truth.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2)
+fig.set_size_inches(5, 2.5)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a.set_aspect(<span class="org-string">'equal'</span>, <span class="org-string">'datalim'</span>)
+ax[0].scatter(log_mean, log_mean_hat, s=4, c=<span class="org-string">'k'</span>)
+<span class="org-variable-name">lim</span> = ax[0].get_xlim()
+ax[0].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[0].set_xlabel(<span class="org-string">'$\ln(\mu)$'</span>)
+ax[0].set_ylabel(<span class="org-string">'$\ln(\hat\mu)$'</span>)
+ax[1].scatter(log_inv_disp, log_inv_disp_hat, s=4, c=<span class="org-string">'k'</span>)
+<span class="org-variable-name">lim</span> = ax[1].get_xlim()
+ax[1].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[1].set_xlabel(<span class="org-string">'$\ln(\phi)$'</span>)
+ax[1].set_ylabel(<span class="org-string">'$\ln(\hat\phi)$'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ebnbm.org/sim-ex5.png" alt="sim-ex5.png">
+</p>
+</div>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-01 Tue 15:44</p>
+<p class="date">Created: 2020-09-01 Tue 16:49</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

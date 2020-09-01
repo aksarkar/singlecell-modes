@@ -192,7 +192,7 @@
    ground truth values.
 
    #+BEGIN_SRC ipython :async t
-     x, s, lam, u, log_mean, log_inv_disp, theta = simulate_nb_gamma(n=1000, p=1, theta=0.2, seed=1)
+     x, s, lam, u, log_mean, log_inv_disp, theta = simulate_nb_gamma(n=1000, p=5, theta=0.2, seed=1)
      log_mean_hat, log_inv_disp_hat, log_theta_hat, alpha, beta, gamma, delta, elbo = scmodes.ebnbm.ebnbm_gamma(
        x,
        s,
@@ -204,15 +204,15 @@
 
      # Poisson measurement => NB observation
      pmf = dict()
-     pmf['Poisson'] = st.nbinom(n=np.exp(log_inv_disp), p=1 / (1 + (s * np.exp(log_mean - log_inv_disp)))).pmf(y).mean(axis=0)
+     pmf['Poisson'] = st.nbinom(n=np.exp(log_inv_disp[:,0]), p=1 / (1 + (s * np.exp(log_mean[:,0] - log_inv_disp[:,0])))).pmf(y).mean(axis=0)
 
      # NB measurement => Monte Carlo integral
      n_samples = 1000
-     G = st.gamma(a=np.exp(log_inv_disp), scale=np.exp(log_mean - log_inv_disp))
+     G = st.gamma(a=np.exp(log_inv_disp[:,0]), scale=np.exp(log_mean[:,0] - log_inv_disp[:,0]))
      temp = G.rvs(size=(n_samples, y.shape[0], 1))
      pmf[rf'NB ($\theta$ = {theta:.2g})'] = st.nbinom(n=1 / theta, p=1 / (1 + s[0] * temp * theta)).pmf(y.reshape(-1, 1)).mean(axis=0)
 
-     Ghat = st.gamma(a=np.exp(log_inv_disp_hat), scale=np.exp(log_mean_hat - log_inv_disp_hat))
+     Ghat = st.gamma(a=np.exp(log_inv_disp_hat[:,0]), scale=np.exp(log_mean_hat[:,0] - log_inv_disp_hat[:,0]))
      temp = Ghat.rvs(size=(n_samples, y.shape[0], 1))
      pmf[rf'NB ($\hat\theta$ = {np.exp(log_theta_hat):.2g})'] = st.nbinom(n=np.exp(-log_theta_hat), p=1 / (1 + s[0] * temp * np.exp(log_theta_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
 
@@ -224,7 +224,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[162]:
+   # Out[194]:
    :END:
 
    Make sure we didn't mess up the parameterization.
@@ -257,7 +257,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[163]:
+   # Out[195]:
    [[file:figure/ebnbm.org/sim-ex.png]]
    :END:
 
@@ -285,6 +285,183 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[191]:
+   # Out[196]:
    [[file:figure/ebnbm.org/sim-ex2.png]]
+   :END:
+
+   Now, fit the model initialized at the ground truth.
+
+   #+BEGIN_SRC ipython
+     log_mean_hat, log_inv_disp_hat, log_theta_hat, alpha, beta, gamma, delta, elbo = scmodes.ebnbm.ebnbm_gamma(
+       x,
+       s,
+       init=np.hstack([np.exp(log_inv_disp).ravel(), np.exp(-log_mean + log_inv_disp).ravel(), theta]),
+       tol=1e-3, 
+       fix_theta=False)
+
+     y = np.arange(x[:,0].max() + 1)
+
+     # Poisson measurement => NB observation
+     pmf = dict()
+     pmf['Poisson'] = st.nbinom(n=np.exp(log_inv_disp[:,0]), p=1 / (1 + (s * np.exp(log_mean[:,0] - log_inv_disp[:,0])))).pmf(y).mean(axis=0)
+
+     # NB measurement => Monte Carlo integral
+     n_samples = 1000
+     G = st.gamma(a=np.exp(log_inv_disp[:,0]), scale=np.exp(log_mean[:,0] - log_inv_disp[:,0]))
+     temp = G.rvs(size=(n_samples, y.shape[0], 1))
+     pmf[rf'NB ($\theta$ = {theta:.2g})'] = st.nbinom(n=1 / theta, p=1 / (1 + s[0] * temp * theta)).pmf(y.reshape(-1, 1)).mean(axis=0)
+
+     Ghat = st.gamma(a=np.exp(log_inv_disp_hat[:,0]), scale=np.exp(log_mean_hat[:,0] - log_inv_disp_hat[:,0]))
+     temp = Ghat.rvs(size=(n_samples, y.shape[0], 1))
+     pmf[rf'NB ($\hat\theta$ = {np.exp(log_theta_hat):.2g})'] = st.nbinom(n=np.exp(-log_theta_hat), p=1 / (1 + s[0] * temp * np.exp(log_theta_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
+
+     cdf = dict()
+     grid = np.linspace(0, (x / s).max(), 1000)
+     cdf['Estimated'] = Ghat.cdf(grid).ravel()
+     cdf['Ground truth'] = G.cdf(grid).ravel()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[205]:
+   :END:
+
+   Plot the fitted models against the observed data.
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-ex3.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(4.5, 4)
+
+     ax[0].hist(x[:,0], bins=y, color='0.7', density=True)
+     for i, k in enumerate(pmf):
+       ax[0].plot(y + .5, pmf[k], c=cm(i), lw=1, label=k)
+     ax[0].legend(title='Measurement model', frameon=False)
+     ax[0].set_xlim(0, x[:,0].max())
+     ax[0].set_xlabel('Number of molecules')
+     ax[0].set_ylabel('Density')
+
+     cm = plt.get_cmap('Paired')
+     for i, k in enumerate(cdf):
+       ax[1].plot(grid, cdf[k], c=cm(i), lw=1, label=k)
+     ax[1].legend(title='Expression model', frameon=False)
+     ax[1].set_xlim(0, 1.5e-4)
+     ax[1].set_xticks([0, 5e-5, 1e-4, 1.5e-4])
+     ax[1].set_xlabel('True gene expression level')
+     ax[1].set_ylabel('CDF')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[206]:
+   [[file:figure/ebnbm.org/sim-ex3.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-ex3-2.png
+     y = np.arange(x[:,1].max() + 1)
+
+     # Poisson measurement => NB observation
+     pmf = dict()
+     pmf['Poisson'] = st.nbinom(n=np.exp(log_inv_disp[:,1]), p=1 / (1 + (s * np.exp(log_mean[:,1] - log_inv_disp[:,1])))).pmf(y).mean(axis=0)
+
+     # NB measurement => Monte Carlo integral
+     n_samples = 1000
+     G = st.gamma(a=np.exp(log_inv_disp[:,1]), scale=np.exp(log_mean[:,1] - log_inv_disp[:,1]))
+     temp = G.rvs(size=(n_samples, y.shape[0], 1))
+     pmf[rf'NB ($\theta$ = {theta:.2g})'] = st.nbinom(n=1 / theta, p=1 / (1 + s[0] * temp * theta)).pmf(y.reshape(-1, 1)).mean(axis=0)
+
+     Ghat = st.gamma(a=np.exp(log_inv_disp_hat[:,1]), scale=np.exp(log_mean_hat[:,1] - log_inv_disp_hat[:,1]))
+     temp = Ghat.rvs(size=(n_samples, y.shape[0], 1))
+     pmf[rf'NB ($\hat\theta$ = {np.exp(log_theta_hat):.2g})'] = st.nbinom(n=np.exp(-log_theta_hat), p=1 / (1 + s[0] * temp * np.exp(log_theta_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
+
+     cdf = dict()
+     grid = np.linspace(0, (x / s).max(), 1000)
+     cdf['Estimated'] = Ghat.cdf(grid).ravel()
+     cdf['Ground truth'] = G.cdf(grid).ravel()
+
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(4.5, 4)
+
+     ax[0].hist(x[:,1], bins=y, color='0.7', density=True)
+     for i, k in enumerate(pmf):
+       ax[0].plot(y + .5, pmf[k], c=cm(i), lw=1, label=k)
+     ax[0].legend(title='Measurement model', frameon=False)
+     ax[0].set_xlim(0, y.max())
+     ax[0].set_xlabel('Number of molecules')
+     ax[0].set_ylabel('Density')
+
+     cm = plt.get_cmap('Paired')
+     for i, k in enumerate(cdf):
+       ax[1].plot(grid, cdf[k], c=cm(i), lw=1, label=k)
+     ax[1].legend(title='Expression model', frameon=False)
+     ax[1].set_xlabel('True gene expression level')
+     ax[1].set_ylabel('CDF')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[220]:
+   [[file:figure/ebnbm.org/sim-ex3-2.png]]
+   :END:
+
+   Compare the true posterior against the variational approximation.
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-ex4.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 2)
+     fig.set_size_inches(5, 2.5)
+     for a in ax:
+       a.set_aspect('equal', adjustable='datalim')
+
+     ax[0].set_xscale('log')
+     ax[0].set_yscale('log')
+     ax[0].scatter(((x + np.exp(log_inv_disp)) / (s * u + np.exp(log_inv_disp - log_mean))).ravel(), (alpha / beta).ravel(), s=1, c='k', alpha=0.1)
+     ax[0].set_xlabel(r'$\mathrm{E}[\lambda \mid x, u]$')
+     ax[0].set_ylabel(r'$\mathrm{E}_q[\lambda]$')
+
+     ax[1].scatter(((x + theta) / (s * lam + theta)), (gamma / delta).ravel(), s=1, c='k', alpha=0.1)
+     ax[1].set_xlabel(r'$\mathrm{E}[u \mid x, \mu]$')
+     ax[1].set_ylabel(r'$\mathrm{E}_q[u]$')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[201]:
+   [[file:figure/ebnbm.org/sim-ex4.png]]
+   :END:
+
+   Compare the estimated expression models against the ground truth.
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-ex5.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 2)
+     fig.set_size_inches(5, 2.5)
+     for a in ax:
+       a.set_aspect('equal', 'datalim')
+     ax[0].scatter(log_mean, log_mean_hat, s=4, c='k')
+     lim = ax[0].get_xlim()
+     ax[0].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[0].set_xlabel('$\ln(\mu)$')
+     ax[0].set_ylabel('$\ln(\hat\mu)$')
+     ax[1].scatter(log_inv_disp, log_inv_disp_hat, s=4, c='k')
+     lim = ax[1].get_xlim()
+     ax[1].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[1].set_xlabel('$\ln(\phi)$')
+     ax[1].set_ylabel('$\ln(\hat\phi)$')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[213]:
+   [[file:figure/ebnbm.org/sim-ex5.png]]
    :END:
