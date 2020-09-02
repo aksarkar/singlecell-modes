@@ -37,18 +37,19 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+BEGIN_SRC ipython
     import numpy as np
     import pandas as pd
+    import scipy.special as sp
     import scipy.stats as st
     import scmodes
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[177]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -58,7 +59,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -69,7 +70,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[4]:
   :END:
 
 * Results
@@ -185,7 +186,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[318]:
+   # Out[5]:
    :END:
 
    Simulate an example. Fit the model, first fixing the hyperparameters to the
@@ -193,11 +194,13 @@
 
    #+BEGIN_SRC ipython :async t
      x, s, lam, u, log_mean, log_inv_disp, theta = simulate_nb_gamma(n=1000, p=5, theta=0.2, seed=1)
-     log_mean_hat, log_inv_disp_hat, log_inv_meas_disp_hat, alpha, beta, gamma, delta, elbo = scmodes.ebnbm.ebnbm_gamma(
+     log_mean_hat, log_inv_disp_hat, log_meas_disp_hat, alpha, beta, gamma, delta, elbo = scmodes.ebnbm.ebnbm_gamma(
        x,
        s,
        init=np.hstack([np.exp(log_inv_disp).ravel(), np.exp(-log_mean + log_inv_disp).ravel(), theta]),
-       tol=1e-3,
+       tol=1e-5,
+       extrapolate=False,
+       verbose=True,
        fix_theta=True)
 
      y = np.arange(x[:,0].max() + 1)
@@ -214,7 +217,7 @@
 
      Ghat = st.gamma(a=np.exp(log_inv_disp_hat[:,0]), scale=np.exp(log_mean_hat[:,0] - log_inv_disp_hat[:,0]))
      temp = Ghat.rvs(size=(n_samples, y.shape[0], 1))
-     pmf[rf'NB ($\hat\theta$ = {np.exp(-log_inv_meas_disp_hat):.2g})'] = st.nbinom(n=np.exp(log_inv_meas_disp_hat), p=1 / (1 + s[0] * temp * np.exp(-log_inv_meas_disp_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
+     pmf[rf'NB ($\hat\theta$ = {np.exp(log_meas_disp_hat):.2g})'] = st.nbinom(n=np.exp(-log_meas_disp_hat), p=1 / (1 + s[0] * temp * np.exp(log_meas_disp_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
 
      cdf = dict()
      grid = np.linspace(0, (x / s).max(), 1000)
@@ -224,7 +227,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[261]:
+   # Out[191]:
    :END:
 
    Make sure we didn't mess up the parameterization.
@@ -257,7 +260,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[262]:
+   # Out[125]:
    [[file:figure/ebnbm.org/sim-ex.png]]
    :END:
 
@@ -285,19 +288,21 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[263]:
+   # Out[192]:
    [[file:figure/ebnbm.org/sim-ex2.png]]
    :END:
 
    Now, fit the model initialized at the ground truth.
 
    #+BEGIN_SRC ipython :async t
-     log_mean_hat, log_inv_disp_hat, log_inv_meas_disp_hat, alpha, beta, gamma, delta, elbo = scmodes.ebnbm.ebnbm_gamma(
+     log_mean_hat, log_inv_disp_hat, log_meas_disp_hat, alpha, beta, gamma, delta, elbo = scmodes.ebnbm.ebnbm_gamma(
        x,
        s,
        init=np.hstack([np.exp(log_inv_disp).ravel(), np.exp(-log_mean + log_inv_disp).ravel(), theta]),
        tol=1e-3, 
        max_iters=20000,
+       extrapolate=False,
+       verbose=True,
        fix_theta=False)
 
      y = np.arange(x[:,0].max() + 1)
@@ -314,7 +319,7 @@
 
      Ghat = st.gamma(a=np.exp(log_inv_disp_hat[:,0]), scale=np.exp(log_mean_hat[:,0] - log_inv_disp_hat[:,0]))
      temp = Ghat.rvs(size=(n_samples, y.shape[0], 1))
-     pmf[rf'NB ($\hat\theta$ = {np.exp(-log_inv_meas_disp_hat):.2g})'] = st.nbinom(n=np.exp(log_inv_meas_disp_hat), p=1 / (1 + s[0] * temp * np.exp(-log_inv_meas_disp_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
+     pmf[rf'NB ($\hat\theta$ = {np.exp(log_meas_disp_hat):.2g})'] = st.nbinom(n=np.exp(-log_meas_disp_hat), p=1 / (1 + s[0] * temp * np.exp(log_meas_disp_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
 
      cdf = dict()
      grid = np.linspace(0, (x / s).max(), 1000)
@@ -324,7 +329,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[264]:
+   # Out[194]:
    :END:
 
    Plot the fitted models against the observed data.
@@ -357,7 +362,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[265]:
+   # Out[135]:
    [[file:figure/ebnbm.org/sim-ex3.png]]
    :END:
 
@@ -376,7 +381,7 @@
 
      Ghat = st.gamma(a=np.exp(log_inv_disp_hat[:,1]), scale=np.exp(log_mean_hat[:,1] - log_inv_disp_hat[:,1]))
      temp = Ghat.rvs(size=(n_samples, y.shape[0], 1))
-     pmf[rf'NB ($\hat\theta$ = {np.exp(-log_theta_hat):.2g})'] = st.nbinom(n=np.exp(log_theta_hat), p=1 / (1 + s[0] * temp * np.exp(-log_theta_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
+     pmf[rf'NB ($\hat\theta$ = {np.exp(log_meas_disp_hat):.2g})'] = st.nbinom(n=np.exp(-log_meas_disp_hat), p=1 / (1 + s[0] * temp * np.exp(log_meas_disp_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
 
      cdf = dict()
      grid = np.linspace(0, (x / s).max(), 1000)
@@ -408,7 +413,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[266]:
+   # Out[136]:
    [[file:figure/ebnbm.org/sim-ex3-2.png]]
    :END:
 
@@ -436,7 +441,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[267]:
+   # Out[195]:
    [[file:figure/ebnbm.org/sim-ex4.png]]
    :END:
 
@@ -463,22 +468,22 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[268]:
+   # Out[138]:
    [[file:figure/ebnbm.org/sim-ex5.png]]
    :END:
 
-   Now fit the model initializing at the Poisson-Gamma solution, as a default.
+   Now initialize the expression models at the ground truth, and start the
+   measurement dispersion from close to zero.
 
    #+BEGIN_SRC ipython :async t
-     par = np.array([scmodes.ebpm.ebpm_gamma(x[:,j], s.ravel()) for j in range(x.shape[1])])
-     init = np.hstack([np.exp(par[:,1]), np.exp(par[:,1] - par[:,0]), 1])
-
-     log_mean_hat, log_inv_disp_hat, log_inv_meas_disp_hat, alpha, beta, gamma, delta, elbo = scmodes.ebnbm.ebnbm_gamma(
+     init = np.hstack([np.exp(log_inv_disp).ravel(), np.exp(-log_mean + log_inv_disp).ravel(), 1e-3])
+     log_mean_hat, log_inv_disp_hat, log_meas_disp_hat, alpha, beta, gamma, delta, elbo = scmodes.ebnbm.ebnbm_gamma(
        x,
        s,
        init=init,
        tol=1e-3, 
-       max_iters=20000,
+       extrapolate=False,
+       verbose=True,
        fix_theta=False)
 
      y = np.arange(x[:,0].max() + 1)
@@ -495,7 +500,7 @@
 
      Ghat = st.gamma(a=np.exp(log_inv_disp_hat[:,0]), scale=np.exp(log_mean_hat[:,0] - log_inv_disp_hat[:,0]))
      temp = Ghat.rvs(size=(n_samples, y.shape[0], 1))
-     pmf[rf'NB ($\hat\theta$ = {np.exp(-log_inv_meas_disp_hat):.2g})'] = st.nbinom(n=np.exp(log_inv_meas_disp_hat), p=1 / (1 + s[0] * temp * np.exp(-log_inv_meas_disp_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
+     pmf[rf'NB ($\hat\theta$ = {np.exp(log_meas_disp_hat):.2g})'] = st.nbinom(n=np.exp(-log_meas_disp_hat), p=1 / (1 + s[0] * temp * np.exp(log_meas_disp_hat))).pmf(y.reshape(-1, 1)).mean(axis=0)
 
      cdf = dict()
      grid = np.linspace(0, (x / s).max(), 1000)
@@ -505,12 +510,12 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[335]:
+   # Out[199]:
    :END:
 
    Plot the fit.
 
-   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-ex5.png
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-ex6.png
      cm = plt.get_cmap('Dark2')
      plt.clf()
      fig, ax = plt.subplots(2, 1)
@@ -535,3 +540,87 @@
 
      fig.tight_layout()
    #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[175]:
+   [[file:figure/ebnbm.org/sim-ex6.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-ex7.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 2)
+     fig.set_size_inches(5, 2.5)
+     for a in ax:
+       a.set_aspect('equal', 'datalim')
+     ax[0].scatter(log_mean, log_mean_hat, s=4, c='k')
+     lim = ax[0].get_xlim()
+     ax[0].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[0].set_xlabel('$\ln(\mu)$')
+     ax[0].set_ylabel('$\ln(\hat\mu)$')
+     ax[1].scatter(log_inv_disp, log_inv_disp_hat, s=4, c='k')
+     lim = ax[1].get_xlim()
+     ax[1].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[1].set_xlabel('$\ln(\phi)$')
+     ax[1].set_ylabel('$\ln(\hat\phi)$')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[148]:
+   [[file:figure/ebnbm.org/sim-ex7.png]]
+   :END:
+
+   Plot the line search for \(\eta\).
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-ex-eta.png
+     cm = plt.get_cmap('Dark2')
+     grid = np.linspace(0, 100, 1000)[1:]
+     plt.clf()
+     plt.gcf().set_size_inches(3, 3)
+     pm = (x + 1 / theta) / (s * lam + 1 / theta)
+     plm = sp.digamma(x + 1 / theta) - np.log(s * lam + 1 / theta)
+     plt.plot(grid, [-(a * np.log(a) + a * plm - a * pm - sp.gammaln(a)).sum() for a in grid], lw=1, c=cm(0), label='Ground truth')
+     pm = gamma / delta
+     plm = sp.digamma(gamma) - np.log(delta)
+     plt.plot(grid, [-(a * np.log(a) + a * plm - a * pm - sp.gammaln(a)).sum() for a in grid], lw=1, c=cm(1), label='Var. approx.')
+     plt.axvline(x=5, lw=1, ls=':', c='r')
+     plt.legend()
+     plt.xlabel(r'$\eta$')
+     plt.ylabel('Loss')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[203]:
+   [[file:figure/ebnbm.org/sim-ex-eta.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-ex8.png
+     plt.clf()
+     fig, ax = plt.subplots(1, 2)
+     fig.set_size_inches(5, 2.5)
+     for a in ax:
+       a.set_aspect('equal', adjustable='datalim')
+
+     ax[0].set_xscale('log')
+     ax[0].set_yscale('log')
+     ax[0].scatter(((x + np.exp(log_inv_disp)) / (s * u + np.exp(log_inv_disp - log_mean))).ravel(), (alpha / beta).ravel(), s=1, c='k', alpha=0.1)
+     ax[0].set_xlabel(r'$\mathrm{E}[\lambda \mid x, u]$')
+     ax[0].set_ylabel(r'$\mathrm{E}_q[\lambda]$')
+
+     ax[1].scatter(((x + theta) / (s * lam + theta)), (gamma / delta).ravel(), s=1, c='k', alpha=0.1)
+     ax[1].set_xlabel(r'$\mathrm{E}[u \mid x, \mu]$')
+     ax[1].set_ylabel(r'$\mathrm{E}_q[u]$')
+
+     fig.tight_layout()
+
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[204]:
+   [[file:figure/ebnbm.org/sim-ex8.png]]
+   :END:
