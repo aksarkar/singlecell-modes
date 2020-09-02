@@ -2,6 +2,9 @@
 #+SETUPFILE: setup.org
 
 * Introduction
+  :PROPERTIES:
+  :CUSTOM_ID: intro
+  :END:
 
   We previously used a [[file:gof.org][goodness of fit test]] and
   [[file:deconvolution.org][out-of-sample (marginal) log likelihood]] to assess
@@ -76,7 +79,13 @@
   :END:
 
 * Results
+  :PROPERTIES:
+  :CUSTOM_ID: results
+  :END:
 ** Data
+   :PROPERTIES:
+   :CUSTOM_ID: data
+   :END:
 
    Prepare the data in ~h5ad~.
 
@@ -265,6 +274,9 @@
    :END:
 
 ** Estimate marginal log likelihood
+   :PROPERTIES:
+   :CUSTOM_ID: estimate-marginal-llik
+   :END:
 
    Estimate the marginal likelihood for each data set, for each gene, for each
    family of expression models.
@@ -385,20 +397,29 @@
    # Out[6]:
    :END:
 
-** Application to control data sets
-
-   For each control data set, for each expression model, report the number of
-   genes which have improvement in marginal log likelihood above some threshold
-   over the point mass expression model.
+   Report the number (fraction) of genes that have likelihood ratio greater
+   than some threshold over some baseline. Ensure monotonicity post-hoc, to get
+   around an issue where the unimodal model sometimes
+   [[file:halfuniform.org::*Chromium%20control%20data%20example][does worse
+   than expected]] due to not optimizing over the granularity of the grid
+   jointly with the mode.
 
    #+BEGIN_SRC ipython
+     def fix_llik(llik):
+       llik['gamma'] = np.fmax(llik['gamma'], llik['point'])
+       llik['point_gamma'] = np.fmax(llik['point_gamma'], llik['gamma'])
+       llik['unimodal'] = np.fmax(llik['unimodal'], llik['gamma'])
+       llik['npmle'] = np.fmax.reduce([llik['npmle'], llik['unimodal'], llik['point_gamma']])
+       return llik
+
      def compare(llik, baseline, thresh=10, agg=sum):
        labels = ['point', 'gamma', 'point_gamma', 'unimodal', 'npmle']
        assert baseline in labels
        res = dict()
        for k, g in llik.groupby('dataset'):
          query = g.pivot_table(index='gene', columns='method', values='llik')
-         res[k] = (query.sub(query[baseline], axis=0) > thresh).agg(agg, axis=0)
+         query = fix_llik(query)
+         res[k] = (query.sub(query[baseline], axis=0) > np.log(thresh)).agg(agg, axis=0)
        res = (pd.concat(res)
               .reset_index()
               .rename({'level_0': 'dataset'}, axis=1)
@@ -410,8 +431,17 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[88]:
+   # Out[12]:
    :END:
+
+** Application to control data sets
+   :PROPERTIES:
+   :CUSTOM_ID: control-data
+   :END:
+
+   For each control data set, for each expression model, report the fraction of
+   genes better fit by a Gamma expression model than a point mass expression
+   model.
 
    #+BEGIN_SRC ipython
      compare(llik[llik['dataset'].isin(control)], baseline='point')
@@ -419,11 +449,11 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[89]:
+   # Out[11]:
    #+BEGIN_EXAMPLE
      method     gamma  point_gamma  unimodal  npmle
      dataset
-     chromium1     15           13        17     17
+     chromium1     15           15        17     17
      chromium2     48           48        51     52
      dropseq       77           77        78     78
      gemcode       52           52        56     56
@@ -656,59 +686,172 @@
    :END:
 
 ** Application to biological data sets
-
-   For each data set, for each expression model, report the fraction of
-   genes which have improvement in marginal log likelihood above some threshold
-   over the Gamma expression model.
-
-   #+BEGIN_SRC ipython :async t
-     compare(llik[llik['dataset'].isin(non_control)], baseline='gamma', agg='mean')
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[91]:
-   #+BEGIN_EXAMPLE
-     method                  point  point_gamma  unimodal     npmle
-     dataset
-     b_cells              0.003740     0.009974  0.090541  0.092255
-     brain                0.000000     0.025800  0.088130  0.084128
-     cytotoxic_t          0.003216     0.012711  0.106432  0.107657
-     cytotoxic_t-b_cells  0.003912     0.038965  0.221453  0.223860
-     cytotoxic_t-naive_t  0.003522     0.029779  0.227986  0.228786
-     ipsc                 0.000502     0.004319  0.465703  0.479261
-     kidney               0.000000     0.013791  0.113934  0.120457
-     liver-caudate-lobe   0.000000     0.001825  0.002309  0.002272
-     pbmc_10k_v3          0.009717     0.042902  0.130352  0.131670
-     retina               0.016323     0.034836  0.162735  0.169503
-   #+END_EXAMPLE
+   :PROPERTIES:
+   :CUSTOM_ID: biological-data
    :END:
 
-   For each data set, for each expression model, report the fraction of genes
-   which have improvement in marginal log likelihood above some threshold over
-   the unimodal expression model.
+   Implement a helper function to plot.
 
    #+BEGIN_SRC ipython
-     compare(llik[llik['dataset'].isin(non_control)], baseline='unimodal', agg='mean')
+     def _plot(llik, thresh):
+       query1 = compare(llik[llik['dataset'].isin(non_control)], baseline='gamma', thresh=thresh, agg='mean')
+       query2 = compare(llik[llik['dataset'].isin(non_control)], baseline='unimodal', thresh=thresh, agg='mean')
+       keys = ['b_cells', 'cytotoxic_t', 'ipsc', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'kidney', 'liver-caudate-lobe', 'pbmc_10k_v3', 'brain', 'retina']
+       labels = ['B cell', 'T cell', 'iPSC', 'T cell/B cell', 'Cyto/naive T', 'Kidney', 'Liver', 'PBMC', 'Brain', 'Retina']
+       plt.clf()
+       fig, ax = plt.subplots(1, 3)
+       fig.set_size_inches(7.5, 3)
+       ax[0].bar(range(query1.shape[0]), query1.loc[keys, 'point_gamma'], color='k')
+       ax[0].set_xticks(range(query1.shape[0]))
+       ax[0].set_xticklabels(labels, rotation=90)
+       ax[0].set_title('Point-Gamma vs. Gamma')
+       ax[0].set_ylabel(f'Fraction of genes with\nlikelihood ratio > {thresh}')
+       ax[1].bar(range(query1.shape[0]), query1.loc[keys, 'unimodal'], color='k')
+       ax[1].set_xticks(range(query1.shape[0]))
+       ax[1].set_xticklabels(labels, rotation=90)
+       ax[1].set_title('Unimodal vs. Gamma')
+       ax[1].set_xlabel('Dataset')
+       ax[2].bar(range(query2.shape[0]), query2.loc[keys, 'npmle'], color='k')
+       ax[2].set_xticks(range(query2.shape[0]))
+       ax[2].set_xticklabels(labels, rotation=90)
+       ax[2].set_title('Non-parametric vs. Unimodal')
+       fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[92]:
-   #+BEGIN_EXAMPLE
-     method                  point     gamma  point_gamma     npmle
-     dataset
-     b_cells              0.036933  0.039582     0.040829  0.031011
-     brain                0.004343  0.010048     0.011410  0.014390
-     cytotoxic_t          0.107963  0.113017     0.114089  0.105054
-     cytotoxic_t-b_cells  0.028283  0.033699     0.036558  0.030239
-     cytotoxic_t-naive_t  0.057637  0.063721     0.065642  0.055395
-     ipsc                 0.000000  0.000000     0.000100  0.001908
-     kidney               0.000000  0.002796     0.002920  0.005032
-     liver-caudate-lobe   0.000000  0.035275     0.035424  0.033413
-     pbmc_10k_v3          0.023551  0.028162     0.028821  0.040431
-     retina               0.000000  0.005474     0.006768  0.015328
-   #+END_EXAMPLE
+   # Out[59]:
+   :END:
+
+   Report the fraction of genes with likelihood ratio > 10 in favor of the more
+   complex expression model.
+
+   #+BEGIN_SRC ipython :ipyfile figure/llr.org/biological-point_gamma-gamma-10.png
+     _plot(llik, thresh=10)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[60]:
+   [[file:figure/llr.org/biological-point_gamma-gamma-10.png]]
+   :END:
+
+   Report the fraction of genes with likelihood ratio > 50 in favor of the more
+   complex expression model.
+
+   #+BEGIN_SRC ipython :ipyfile figure/llr.org/biological-point_gamma-gamma-50.png
+     _plot(llik, thresh=50)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[61]:
+   [[file:figure/llr.org/biological-point_gamma-gamma-50.png]]
+   :END:
+
+   Report the fraction of genes with likelihood ratio > 100 in favor of the
+   more complex expression model.
+
+   #+BEGIN_SRC ipython :ipyfile figure/llr.org/biological-point_gamma-gamma-100.png
+     _plot(llik, thresh=100)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[62]:
+   [[file:figure/llr.org/biological-point_gamma-gamma-100.png]]
+   :END:
+
+** Drop-Seq spike-in gene
+   :PROPERTIES:
+   :CUSTOM_ID: drop-seq
+   :END:
+
+   #+BEGIN_SRC ipython
+     dat = data['dropseq']()
+     x = dat[:,dat.var.iloc[:,0] == 'ERCC-00131'].X.A.ravel()
+     s = dat.X.sum(axis=1).A.ravel()
+     y = np.arange(x.max() + 1)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     grid = np.linspace(0, (x / s).max(), 1000)
+
+     pmf = dict()
+     cdf = dict()
+
+     gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
+     pmf['Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean()
+                              for k in y])
+     cdf['Gamma'] = st.gamma(a=np.exp(gamma_res[1]), scale=np.exp(gamma_res[0] - gamma_res[1])).cdf(grid)
+
+     point_gamma_res = scmodes.ebpm.ebpm_point_gamma(x, s)
+     cdf['ZIG'] = sp.expit(point_gamma_res[2]) + sp.expit(-point_gamma_res[2]) * st.gamma(a=np.exp(point_gamma_res[1]), scale=np.exp(point_gamma_res[0] - point_gamma_res[1])).cdf(grid)
+     pmf['ZIG'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]).mean()
+                            for k in y])
+
+     # Important: tune gridmult
+     unimodal_res = ebpm_unimodal_tune(x, s)
+     g = np.array(unimodal_res.rx2('fitted_g'))
+     g = g[:,g[0] > 1e-8]
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     comp_dens_conv[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+     pmf['Unimodal'] = comp_dens_conv @ g[0]
+     cdf['Unimodal'] = ashr.cdf_ash(unimodal_res, grid).rx2('y').ravel()
+
+     npmle_res = scmodes.ebpm.ebpm_npmle(x, s, max_grid_updates=5, tol=1e-5)
+     g = np.array(npmle_res.rx2('fitted_g'))
+     g = g[:,g[0] > 1e-8]
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     pmf['NPMLE'] = comp_dens_conv @ g[0]
+     cdf['NPMLE'] = ashr.cdf_ash(npmle_res, grid).rx2('y').ravel()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   1 - f4fd818b-e60b-4cc1-9c8b-69cfa67ba463
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/llr.org/dropseq-ERCC-00131.png
+     cm = plt.get_cmap('Paired')
+     plt.clf()
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(4.5, 4)
+
+     ax[0].hist(x, bins=y, color='0.7', density=True)
+     for i, k in enumerate(pmf):
+       ax[0].plot(y + .5, pmf[k], lw=1, c=cm(i))
+     ax[0].set_xlabel('Number of molecules')
+     ax[0].set_ylabel('Density')
+     ax[0].set_title('ERCC-00131')
+
+     for i, k in enumerate(pmf):
+       ax[1].plot(grid, cdf[k], lw=1, c=cm(i), label=k)
+     ax[1].legend(frameon=False)
+     ax[1].set_xlabel('Latent gene expression')
+     ax[1].set_ylabel('CDF')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[18]:
+   [[file:figure/llr.org/dropseq-ERCC-00131.png]]
+   :END:
+
+** Issue in ash
+   :PROPERTIES:
+   :CUSTOM_ID: ash
    :END:
 
    Find all genes where a simpler expression model (point, Gamma, point-Gamma)
@@ -731,11 +874,6 @@
    # Out[102]:
    : (3253, 7)
    :END:
-
-   The unimodal model sometimes
-   [[file:halfuniform.org::*Chromium%20control%20data%20example][does worse
-   than expected]] due to not optimizing over the granularity of the grid
-   jointly with the mode. For these genes, try the more expensive procedure.
 
    #+NAME: tune-gridmult
    #+BEGIN_SRC ipython
@@ -840,86 +978,3 @@
    #+END_EXAMPLE
    :END:
 
-** Drop-Seq spike-in gene
-
-   #+BEGIN_SRC ipython
-     dat = data['dropseq']()
-     x = dat[:,dat.var.iloc[:,0] == 'ERCC-00131'].X.A.ravel()
-     s = dat.X.sum(axis=1).A.ravel()
-     y = np.arange(x.max() + 1)
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[6]:
-   :END:
-
-   #+BEGIN_SRC ipython :async t
-     grid = np.linspace(0, (x / s).max(), 1000)
-
-     pmf = dict()
-     cdf = dict()
-
-     gamma_res = scmodes.ebpm.ebpm_gamma(x, s)
-     pmf['Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=gamma_res[0], log_phi=-gamma_res[1]).mean()
-                              for k in y])
-     cdf['Gamma'] = st.gamma(a=np.exp(gamma_res[1]), scale=np.exp(gamma_res[0] - gamma_res[1])).cdf(grid)
-
-     point_gamma_res = scmodes.ebpm.ebpm_point_gamma(x, s)
-     cdf['ZIG'] = sp.expit(point_gamma_res[2]) + sp.expit(-point_gamma_res[2]) * st.gamma(a=np.exp(point_gamma_res[1]), scale=np.exp(point_gamma_res[0] - point_gamma_res[1])).cdf(grid)
-     pmf['ZIG'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]).mean()
-                            for k in y])
-
-     # Important: tune gridmult
-     unimodal_res = ebpm_unimodal_tune(x, s)
-     g = np.array(unimodal_res.rx2('fitted_g'))
-     g = g[:,g[0] > 1e-8]
-     a = np.fmin(g[1], g[2])
-     b = np.fmax(g[1], g[2])
-     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
-     comp_dens_conv[:,0] = st.poisson(mu=s.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
-     pmf['Unimodal'] = comp_dens_conv @ g[0]
-     cdf['Unimodal'] = ashr.cdf_ash(unimodal_res, grid).rx2('y').ravel()
-
-     npmle_res = scmodes.ebpm.ebpm_npmle(x, s, max_grid_updates=5, tol=1e-5)
-     g = np.array(npmle_res.rx2('fitted_g'))
-     g = g[:,g[0] > 1e-8]
-     a = np.fmin(g[1], g[2])
-     b = np.fmax(g[1], g[2])
-     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
-     pmf['NPMLE'] = comp_dens_conv @ g[0]
-     cdf['NPMLE'] = ashr.cdf_ash(npmle_res, grid).rx2('y').ravel()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   1 - f4fd818b-e60b-4cc1-9c8b-69cfa67ba463
-   :END:
-
-   #+BEGIN_SRC ipython :ipyfile figure/llr.org/dropseq-ERCC-00131.png
-     cm = plt.get_cmap('Paired')
-     plt.clf()
-     fig, ax = plt.subplots(2, 1)
-     fig.set_size_inches(4.5, 4)
-
-     ax[0].hist(x, bins=y, color='0.7', density=True)
-     for i, k in enumerate(pmf):
-       ax[0].plot(y + .5, pmf[k], lw=1, c=cm(i))
-     ax[0].set_xlabel('Number of molecules')
-     ax[0].set_ylabel('Density')
-     ax[0].set_title('ERCC-00131')
-
-     for i, k in enumerate(pmf):
-       ax[1].plot(grid, cdf[k], lw=1, c=cm(i), label=k)
-     ax[1].legend(frameon=False)
-     ax[1].set_xlabel('Latent gene expression')
-     ax[1].set_ylabel('CDF')
-
-     fig.tight_layout()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[18]:
-   [[file:figure/llr.org/dropseq-ERCC-00131.png]]
-   :END:
