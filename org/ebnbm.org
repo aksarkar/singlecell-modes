@@ -63,6 +63,8 @@
   :END:
 
   #+BEGIN_SRC ipython
+    import colorcet
+    import matplotlib
     import matplotlib.pyplot as plt
     plt.rcParams['figure.facecolor'] = 'w'
     plt.rcParams['font.family'] = 'Nimbus Sans'
@@ -70,7 +72,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[121]:
   :END:
 
 * Results
@@ -413,8 +415,8 @@
          x,
          s,
          init=np.hstack([np.exp(par[:,1]), np.exp(par[:,1] - par[:,0]), theta]),
-         tol=1e-3,
-         max_iters=20_000,
+         tol=1e-4,
+         max_iters=100_000,
          extrapolate=True,
          fix_g=False,
          fix_theta=True)
@@ -426,7 +428,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[89]:
+   0 - 3cc20e97-b0b3-424c-b95c-80b5b334a358
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-elbo.png
@@ -444,4 +446,82 @@
    :RESULTS:
    # Out[90]:
    [[file:figure/ebnbm.org/sim-elbo.png]]
+   :END:
+
+   Look at what's happening for small \(\theta\), by comparing the estimated
+   expression models.
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-ex6.png
+     cm = colorcet.cm['bmy']
+     plt.clf()
+     fig, ax = plt.subplots(1, 2)
+     fig.set_size_inches(6, 2.5)
+     for a in ax:
+       a.set_aspect('equal', 'datalim')
+
+     for theta, fit in zip(grid, fits):
+       c = (np.log(theta) - np.log(1e-2)) / (np.log(10) - np.log(1e-2))
+       ax[0].scatter(log_mean, fit[0], s=4, c=np.array(cm(c)).reshape(1, -1))
+       ax[1].scatter(log_inv_disp, fit[1], s=16, c=np.array(cm(c)).reshape(1, -1))
+
+     lim = ax[0].get_xlim()
+     ax[0].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[0].set_xlabel('$\ln(\mu)$')
+     ax[0].set_ylabel('$\ln(\hat\mu)$')
+
+     lim = ax[1].get_ylim()
+     ax[1].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[1].set_xlabel('$\ln(\phi)$')
+     ax[1].set_ylabel('$\ln(\hat\phi)$')
+
+     cb = plt.colorbar(matplotlib.cm.ScalarMappable(matplotlib.colors.LogNorm(vmin=1e-2, vmax=10), cmap=cm),
+                       fraction=0.05, shrink=0.5)
+     cb.set_label(r'Dispersion $\theta$')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[152]:
+   [[file:figure/ebnbm.org/sim-ex6.png]]
+   :END:
+
+   Compare the estimated observation models.
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-ex7.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     fig, ax = plt.subplots(1, 5, sharey=True)
+     fig.set_size_inches(8, 2)
+
+     for i, a in enumerate(ax):
+       y = np.arange(x[:,i].max() + 1)
+       # Poisson measurement => NB observation
+       pmf = dict()
+       pmf['Poisson'] = st.nbinom(n=np.exp(log_inv_disp[:,i]), p=1 / (1 + (s * np.exp(log_mean[:,i] - log_inv_disp[:,i])))).pmf(y).mean(axis=0)
+
+       # NB measurement => Monte Carlo integral
+       n_samples = 1000
+       for j in (2, 4):
+         Ghat = st.gamma(a=np.exp(fits[j][1][:,i]), scale=np.exp(fits[j][0][:,i] - fits[j][1][:,i]))
+         temp = Ghat.rvs(size=(n_samples, y.shape[0], 1))
+         pmf[rf'NB ($\theta$ = {grid[j]:.2g})'] = st.nbinom(n=1 / grid[j], p=1 / (1 + s[0] * temp * grid[j])).pmf(y.reshape(-1, 1)).mean(axis=0)
+
+       ax[i].hist(x[:,i], bins=y, color='0.7', density=True)
+       for j, k in enumerate(pmf):
+         ax[i].plot(y + .5, pmf[k], c=cm(j), lw=1, label=k)
+       ax[i].set_title(f'Gene {i+1}')
+       ax[i].set_xlim(0, x[:,i].max())
+
+     ax[0].set_ylabel('Density')
+     ax[-1].legend(title='Measurement model', frameon=False, bbox_to_anchor=(1, .5), loc='center left')
+     a = fig.add_subplot(111, frameon=False, xticks=[], yticks=[])
+     a.set_xlabel('Number of molecules', labelpad=24)
+     fig.tight_layout(pad=0.5)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[156]:
+   [[file:figure/ebnbm.org/sim-ex7.png]]
    :END:

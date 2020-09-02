@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-02 Wed 16:52 -->
+<!-- 2020-09-02 Wed 17:53 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Negative binomial measurement model</title>
@@ -319,7 +319,9 @@ where the NB distribution is parameterized by mean and dispersion.
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
+<pre class="src src-ipython"><span class="org-keyword">import</span> colorcet
+<span class="org-keyword">import</span> matplotlib
+<span class="org-keyword">import</span> matplotlib.pyplot <span class="org-keyword">as</span> plt
 <span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'figure.facecolor'</span>] = <span class="org-string">'w'</span>
 <span class="org-variable-name">plt.rcParams</span>[<span class="org-string">'font.family'</span>] = <span class="org-string">'Nimbus Sans'</span>
 </pre>
@@ -701,8 +703,8 @@ Plot the ELBO as a function of \(\theta\).
     x,
     s,
     init=np.hstack([np.exp(par[:,1]), np.exp(par[:,1] - par[:,0]), theta]),
-    tol=1e-3,
-    max_iters=20_000,
+    tol=1e-4,
+    max_iters=100_000,
     extrapolate=<span class="org-constant">True</span>,
     fix_g=<span class="org-constant">False</span>,
     fix_theta=<span class="org-constant">True</span>)
@@ -712,6 +714,10 @@ Plot the ELBO as a function of \(\theta\).
 <span class="org-variable-name">elbo</span> = np.array([f[-1] <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits])
 </pre>
 </div>
+
+<p>
+0 - 3cc20e97-b0b3-424c-b95c-80b5b334a358
+</p>
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
@@ -730,13 +736,97 @@ plt.tight_layout()
 <p><img src="figure/ebnbm.org/sim-elbo.png" alt="sim-elbo.png">
 </p>
 </div>
+
+<p>
+Look at what&rsquo;s happening for small \(\theta\), by comparing the estimated
+expression models.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = colorcet.cm[<span class="org-string">'bmy'</span>]
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2)
+fig.set_size_inches(6, 2.5)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a.set_aspect(<span class="org-string">'equal'</span>, <span class="org-string">'datalim'</span>)
+
+<span class="org-keyword">for</span> theta, fit <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(grid, fits):
+  <span class="org-variable-name">c</span> = (np.log(theta) - np.log(1e-2)) / (np.log(10) - np.log(1e-2))
+  ax[0].scatter(log_mean, fit[0], s=4, c=np.array(cm(c)).reshape(1, -1))
+  ax[1].scatter(log_inv_disp, fit[1], s=16, c=np.array(cm(c)).reshape(1, -1))
+
+<span class="org-variable-name">lim</span> = ax[0].get_xlim()
+ax[0].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[0].set_xlabel(<span class="org-string">'$\ln(\mu)$'</span>)
+ax[0].set_ylabel(<span class="org-string">'$\ln(\hat\mu)$'</span>)
+
+<span class="org-variable-name">lim</span> = ax[1].get_ylim()
+ax[1].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[1].set_xlabel(<span class="org-string">'$\ln(\phi)$'</span>)
+ax[1].set_ylabel(<span class="org-string">'$\ln(\hat\phi)$'</span>)
+
+<span class="org-variable-name">cb</span> = plt.colorbar(matplotlib.cm.ScalarMappable(matplotlib.colors.LogNorm(vmin=1e-2, vmax=10), cmap=cm),
+                  fraction=0.05, shrink=0.5)
+cb.set_label(r<span class="org-string">'Dispersion $\theta$'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ebnbm.org/sim-ex6.png" alt="sim-ex6.png">
+</p>
+</div>
+
+<p>
+Compare the estimated observation models.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 5, sharey=<span class="org-constant">True</span>)
+fig.set_size_inches(8, 2)
+
+<span class="org-keyword">for</span> i, a <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(ax):
+  <span class="org-variable-name">y</span> = np.arange(x[:,i].<span class="org-builtin">max</span>() + 1)
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Poisson measurement =&gt; NB observation</span>
+  <span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
+  <span class="org-variable-name">pmf</span>[<span class="org-string">'Poisson'</span>] = st.nbinom(n=np.exp(log_inv_disp[:,i]), p=1 / (1 + (s * np.exp(log_mean[:,i] - log_inv_disp[:,i])))).pmf(y).mean(axis=0)
+
+  <span class="org-comment-delimiter"># </span><span class="org-comment">NB measurement =&gt; Monte Carlo integral</span>
+  <span class="org-variable-name">n_samples</span> = 1000
+  <span class="org-keyword">for</span> j <span class="org-keyword">in</span> (2, 4):
+    <span class="org-variable-name">Ghat</span> = st.gamma(a=np.exp(fits[j][1][:,i]), scale=np.exp(fits[j][0][:,i] - fits[j][1][:,i]))
+    <span class="org-variable-name">temp</span> = Ghat.rvs(size=(n_samples, y.shape[0], 1))
+    pmf[rf<span class="org-string">'NB ($\theta$ = {grid[j]:.2g})'</span>] = st.nbinom(n=1 / grid[j], p=1 / (1 + s[0] * temp * grid[j])).pmf(y.reshape(-1, 1)).mean(axis=0)
+
+  ax[i].hist(x[:,i], bins=y, color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">True</span>)
+  <span class="org-keyword">for</span> j, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(pmf):
+    ax[i].plot(y + .5, pmf[k], c=cm(j), lw=1, label=k)
+  ax[i].set_title(f<span class="org-string">'Gene {i+1}'</span>)
+  ax[i].set_xlim(0, x[:,i].<span class="org-builtin">max</span>())
+
+ax[0].set_ylabel(<span class="org-string">'Density'</span>)
+ax[-1].legend(title=<span class="org-string">'Measurement model'</span>, frameon=<span class="org-constant">False</span>, bbox_to_anchor=(1, .5), loc=<span class="org-string">'center left'</span>)
+<span class="org-variable-name">a</span> = fig.add_subplot(111, frameon=<span class="org-constant">False</span>, xticks=[], yticks=[])
+a.set_xlabel(<span class="org-string">'Number of molecules'</span>, labelpad=24)
+fig.tight_layout(pad=0.5)
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ebnbm.org/sim-ex7.png" alt="sim-ex7.png">
+</p>
+</div>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-02 Wed 16:52</p>
+<p class="date">Created: 2020-09-02 Wed 17:53</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
