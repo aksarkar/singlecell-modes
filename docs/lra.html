@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-07-26 Sun 12:20 -->
+<!-- 2020-09-02 Wed 16:15 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Low rank approximation</title>
@@ -349,10 +349,12 @@ the estimate using the log likelihood of \(\tilde{\my}\).
 <h2 id="org5889bba">Setup</h2>
 <div class="outline-text-2" id="text-org5889bba">
 <div class="org-src-container">
-<pre class="src src-ipython" id="org5d4dd9b"><span class="org-keyword">import</span> collections
+<pre class="src src-ipython" id="org5d4dd9b"><span class="org-keyword">import</span> anndata
+<span class="org-keyword">import</span> collections
 <span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> os.path
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scanpy <span class="org-keyword">as</span> sc
 <span class="org-keyword">import</span> scmodes
 </pre>
 </div>
@@ -400,13 +402,49 @@ iPSC data, this is all 9,957 genes, so take a random sample of 500 genes.
 <span class="org-keyword">def</span> <span class="org-function-name">_cyto_naive_mix</span>(**kwargs):
   <span class="org-keyword">return</span> _mix_10x(<span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'naive_t'</span>, **kwargs)
 
+<span class="org-keyword">def</span> <span class="org-function-name">read_liver</span>(min_detect=0.25, n_cells=1000, seed=1):
+  <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/liver-caudate-lobe/liver-caudate-lobe.h5ad'</span>)
+  sc.pp.filter_genes(x, min_counts=min_detect * x.shape[0])
+  sc.pp.subsample(x, n_obs=n_cells, random_state=seed)
+  <span class="org-keyword">return</span> x.X
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_kidney</span>(min_detect=0.25, n_cells=1000, n_genes=500, seed=1):
+  <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/kidney/kidney.h5ad'</span>)
+  sc.pp.filter_genes(x, min_counts=min_detect * x.shape[0])
+  sc.pp.subsample(x, n_obs=n_cells, random_state=seed)
+  <span class="org-keyword">return</span> x.X[:,np.random.choice(x.shape[1], size=n_genes)]
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_brain</span>(min_detect=0.25, n_cells=1000, seed=1):
+  <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/gtex-droncseq/gtex-droncseq.h5ad'</span>)
+  sc.pp.filter_genes(x, min_counts=min_detect * x.shape[0])
+  sc.pp.subsample(x, n_obs=n_cells, random_state=seed)
+  <span class="org-keyword">return</span> x.X
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_retina</span>(min_detect=0.25, n_cells=1000, seed=1):
+  <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-ideas/data/human-cell-atlas/adult-retina/adult-retina.h5ad'</span>)
+  <span class="org-variable-name">query</span> = x.obs[<span class="org-string">'donor_organism.provenance.document_id'</span>] == <span class="org-string">'427c0a62-9baf-42ab-a3a3-f48d10544280'</span>
+  <span class="org-variable-name">y</span> = x[query]
+  sc.pp.filter_genes(y, min_cells=min_detect * y.shape[0])
+  sc.pp.subsample(y, n_obs=n_cells, random_state=seed)
+  <span class="org-keyword">return</span> y.X
+
+<span class="org-keyword">def</span> <span class="org-function-name">read_pbmc_10k_v3</span>(min_detect=0.25, n_cells=1000, n_genes=500, seed=1):
+  <span class="org-variable-name">x</span> = anndata.read_h5ad(<span class="org-string">'/scratch/midway2/aksarkar/modes/10k_pbmc_v3.h5ad'</span>)
+  sc.pp.filter_genes(x, min_counts=min_detect * x.shape[0])
+  sc.pp.subsample(x, n_obs=n_cells, random_state=seed)
+  <span class="org-keyword">return</span> x.X[:,np.random.choice(x.shape[1], size=n_genes)]
+
 <span class="org-variable-name">data</span> = {
   <span class="org-string">'cytotoxic_t'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'cytotoxic_t'</span>),
   <span class="org-string">'b_cells'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'b_cells'</span>),
   <span class="org-string">'ipsc'</span>: <span class="org-keyword">lambda</span>: scmodes.dataset.ipsc(<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-qtl/data/'</span>, return_df=<span class="org-constant">True</span>).sample(n=1000, axis=0, random_state=1).sample(n=500, axis=1, random_state=2),
   <span class="org-string">'cytotoxic_t-b_cells'</span>: _cd8_cd19_mix,
   <span class="org-string">'cytotoxic_t-naive_t'</span>: _cyto_naive_mix,
-  <span class="org-string">'pbmcs_68k'</span>: <span class="org-keyword">lambda</span>: _read_10x(<span class="org-string">'fresh_68k_pbmc_donor_a'</span>),
+  <span class="org-string">'kidney'</span>: read_kidney,
+  <span class="org-string">'liver-caudate-lobe'</span>: read_liver,
+  <span class="org-string">'pbmc_10k_v3'</span>: read_pbmc_10k_v3,
+  <span class="org-string">'brain'</span>: read_brain,
+  <span class="org-string">'retina'</span>: read_retina,
 }
 </pre>
 </div>
@@ -429,7 +467,11 @@ b_cells                   1000        375
 ipsc                      1000        500
 cytotoxic_t-b_cells       1000        404
 cytotoxic_t-naive_t       1000        419
-pbmcs_68k                 1000        404
+pbmc_10k_v3               1000        500
+liver-caudate-lobe        1000        173
+kidney                    1000        500
+brain                     1000        430
+retina                    1000        285
 </pre>
 
 <p>
@@ -437,7 +479,7 @@ Report the proportion of zeros.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">pd.Series({k: (data[k]() == 0).values.mean() <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data})
+<pre class="src src-ipython">pd.Series({k: (data[k]() == 0).mean().mean() <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data})
 </pre>
 </div>
 
@@ -447,7 +489,11 @@ b_cells                0.416360
 ipsc                   0.301654
 cytotoxic_t-b_cells    0.430270
 cytotoxic_t-naive_t    0.437422
-pbmcs_68k              0.444396
+pbmc_10k_v3            0.611776
+liver-caudate-lobe     0.579526
+kidney                 0.750420
+brain                  0.719600
+retina                 0.549053
 dtype: float64
 </pre>
 </div>
@@ -461,7 +507,7 @@ Run the CPU methods.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -n1 --mem=10G --time=24:00:00 --job-name=lra-generalization -a 31,39
+<pre class="src src-sh">sbatch --partition=broadwl -n1 --mem=10G --time=24:00:00 --job-name=lra-generalization -a 41-79
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -484,7 +530,7 @@ Run the GPU methods.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=60:00 --job-name=lra-generalization -a 0-47%4
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=60:00 --job-name=lra-generalization -a 41-79%4
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -534,15 +580,15 @@ Plot the results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">titles</span> = [<span class="org-string">'T cell'</span>, <span class="org-string">'B cell'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cytotoxic/naive T'</span>, <span class="org-string">'PBMC'</span>]
+<pre class="src src-ipython"><span class="org-variable-name">titles</span> = [<span class="org-string">'T cell'</span>, <span class="org-string">'B cell'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/\nB cell'</span>, <span class="org-string">'Cytotoxic/\nnaive T'</span>, <span class="org-string">'Kidney'</span>, <span class="org-string">'Liver'</span>, <span class="org-string">'PBMC'</span>, <span class="org-string">'Brain'</span>, <span class="org-string">'Retina'</span>]
 </pre>
 </div>
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, <span class="org-builtin">len</span>(titles), sharey=<span class="org-constant">True</span>)
 fig.set_size_inches(8, 2.5)
-<span class="org-keyword">for</span> a, (k, g), t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), pois_thin_res.xs(1, level=1)[<span class="org-string">'validation'</span>].groupby(level=0), titles):
+<span class="org-keyword">for</span> a, (k, g), t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), pois_thin_res.xs(1, level=1)[<span class="org-string">'validation'</span>].groupby(level=0, sort=<span class="org-constant">False</span>), titles):
   <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(g.columns):
     a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c=<span class="org-string">'k'</span>, zorder=3)
   a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
@@ -552,7 +598,7 @@ fig.set_size_inches(8, 2.5)
   a.set_xlabel(<span class="org-string">'Method'</span>)
   a.set_title(t)
 ax[0].set_ylabel(<span class="org-string">'Log likelihood of\nheld-out molecules'</span>)
-fig.tight_layout()
+fig.tight_layout(pad=0.5)
 </pre>
 </div>
 
@@ -564,9 +610,9 @@ fig.tight_layout()
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, <span class="org-builtin">len</span>(titles), sharey=<span class="org-constant">True</span>)
 fig.set_size_inches(8, 2.5)
-<span class="org-keyword">for</span> a, (k, g), t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), pois_thin_res.xs(2, level=1)[<span class="org-string">'validation'</span>].groupby(level=0), titles):
+<span class="org-keyword">for</span> a, (k, g), t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), pois_thin_res.xs(2, level=1)[<span class="org-string">'validation'</span>].groupby(level=0, sort=<span class="org-constant">False</span>), titles):
   <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(g.columns):
     a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c=<span class="org-string">'k'</span>, zorder=3)
   a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
@@ -576,7 +622,7 @@ fig.set_size_inches(8, 2.5)
   a.set_xlabel(<span class="org-string">'Method'</span>)
   a.set_title(t)
 ax[0].set_ylabel(<span class="org-string">'Log likelihood of\nheld-out molecules'</span>)
-fig.tight_layout()
+fig.tight_layout(pad=0.5)
 </pre>
 </div>
 
@@ -588,9 +634,9 @@ fig.tight_layout()
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, <span class="org-builtin">len</span>(titles), sharey=<span class="org-constant">True</span>)
 fig.set_size_inches(8, 2.5)
-<span class="org-keyword">for</span> a, (k, g), t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), pois_thin_res.xs(4, level=1)[<span class="org-string">'validation'</span>].groupby(level=0), titles):
+<span class="org-keyword">for</span> a, (k, g), t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), pois_thin_res.xs(4, level=1)[<span class="org-string">'validation'</span>].groupby(level=0, sort=<span class="org-constant">False</span>), titles):
   <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(g.columns):
     a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c=<span class="org-string">'k'</span>, zorder=3)
   a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
@@ -600,7 +646,7 @@ fig.set_size_inches(8, 2.5)
   a.set_xlabel(<span class="org-string">'Method'</span>)
   a.set_title(t)
 ax[0].set_ylabel(<span class="org-string">'Log likelihood of\nheld-out molecules'</span>)
-fig.tight_layout()
+fig.tight_layout(pad=0.5)
 </pre>
 </div>
 
@@ -612,9 +658,9 @@ fig.tight_layout()
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, <span class="org-builtin">len</span>(titles), sharey=<span class="org-constant">True</span>)
 fig.set_size_inches(8, 2.5)
-<span class="org-keyword">for</span> a, (k, g), t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), pois_thin_res.xs(8, level=1)[<span class="org-string">'validation'</span>].groupby(level=0), titles):
+<span class="org-keyword">for</span> a, (k, g), t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), pois_thin_res.xs(8, level=1)[<span class="org-string">'validation'</span>].groupby(level=0, sort=<span class="org-constant">False</span>), titles):
   <span class="org-keyword">for</span> x, m <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(g.columns):
     a.scatter(x + np.random.normal(scale=0.1, size=g.shape[0]), g[m].values, s=4, c=<span class="org-string">'k'</span>, zorder=3)
   a.grid(c=<span class="org-string">'0.8'</span>, lw=1, axis=<span class="org-string">'x'</span>)
@@ -624,7 +670,7 @@ fig.set_size_inches(8, 2.5)
   a.set_xlabel(<span class="org-string">'Method'</span>)
   a.set_title(t)
 ax[0].set_ylabel(<span class="org-string">'Log likelihood of\nheld-out molecules'</span>)
-fig.tight_layout()
+fig.tight_layout(pad=0.5)
 </pre>
 </div>
 
@@ -639,7 +685,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-07-26 Sun 12:20</p>
+<p class="date">Created: 2020-09-02 Wed 16:15</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
