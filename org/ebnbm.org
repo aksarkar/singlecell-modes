@@ -12,6 +12,7 @@
   \DeclareMathOperator\Pois{Poisson}
   \DeclareMathOperator\Gam{Gamma}
   \DeclareMathOperator\NB{NB}
+  \DeclareMathOperator\V{V}
   \newcommand\const{\mathrm{const}}
   \newcommand\lnb{l_{\mathrm{NB}}}
   \newcommand\E[1]{\left\langle #1 \right\rangle}
@@ -22,7 +23,8 @@
     \lambda_{ij} \mid a_j, b_j &\sim \Gam(a_j, b_j),
   \end{align}
 
-  where the NB distribution is parameterized by mean and dispersion. 
+  where the NB distribution is parameterized by mean and dispersion, and the
+  Gamma distribution is parameterized by shape and rate.
 
 * Setup
   :PROPERTIES:
@@ -38,11 +40,12 @@
   #+RESULTS:
   : 6
 
-  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+BEGIN_SRC ipython
     import numpy as np
     import pandas as pd
+    import pickle
     import scipy.special as sp
     import scipy.stats as st
     import scmodes
@@ -77,6 +80,22 @@
   :END:
 
 * Results
+** Total variance under NB measurement
+   :PROPERTIES:
+   :CUSTOM_ID: total-var
+   :END:
+
+   Consider gene \(j\), and assume \(a = \phi^{-1}\), \(b =
+   \mu^{-1}\phi^{-1}\). Then,
+
+   \begin{align}
+     \E{\lambda_i} &= \mu\\
+     \V[\lambda_i] &= \mu^2\phi\\
+     \V[x_i] &= \E{\V[x_i \mid \lambda_i]} + \V[\E{x_i \mid \lambda_i}]\\
+     &= \E{s_i \lambda_i + (s_i \lambda_i)^2 \theta} + \V[s_i \lambda_i]\\
+     &= s_i \mu + s_i^2 \mu^2 (\phi + \theta + \phi\theta)
+   \end{align}
+
 ** VBEM algorithm for Gamma expression model
 
    To estimate \(a_1, \ldots, a_p, b_1, \ldots, b_p, \theta\) from observed
@@ -532,49 +551,78 @@
 
    Fit the model to each control data set.
 
-   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=4G -a 0
-     #!/bin/bash
-     source activate scmodes
-     python <<EOF
-     <<imports>>
-     import anndata
-     import pickle
-     import os
-     <<data>>
-     tasks = [d for d in data if d in control]
-     d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
-     x = data[d]()
-     s = x.X.sum(axis=1).A
-     grid = np.logspace(-2, 1, 10)
-     par = np.array([scmodes.ebpm.ebpm_gamma(x.X[:,j].A.ravel(), s.ravel()) for j in range(x.shape[1])])
-     fits = dict()
-     for theta in grid:
-       print(f'fitting theta={theta:.3g}')
-       fits[theta] = scmodes.ebnbm.ebnbm_gamma(
-         x.X.A,
+   #+NAME: fit
+   #+BEGIN_SRC ipython :eval never
+     def _init(j, x, s):
+       return scmodes.ebpm.ebpm_gamma(x[:,j].ravel(), s.ravel())
+
+     def _fit(theta, x, s, par):
+       return scmodes.ebnbm.ebnbm_gamma(
+         x,
          s,
          init=np.hstack([np.exp(par[:,1]), np.exp(par[:,1] - par[:,0]), theta]),
-         tol=1e-4,
+         tol=1e-3,
          max_iters=100_000,
          extrapolate=True,
          fix_g=False,
          fix_theta=True)
-       # Warm start
-       par = np.vstack(fits[theta][:2]).T
+
+     tasks = [d for d in data if d in control]
+     d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     with mp.Pool() as pool:
+       x = data[d]()
+       s = x.X.sum(axis=1).A
+       par = pool.map(ft.partial(_init, x=x, s=s), range(x.shape[1]))
+       par = np.array(par)
+       grid = np.logspace(-3, 1, 20)
+       fits = pool.map(ft.partial(_fit, x=x.X.A, s=s, par=par), grid)
      with open(f'/scratch/midway2/aksarkar/modes/ebnbm-{d}.pkl', 'wb') as f:
-       pickle.dump(fit, f)
+       pickle.dump(dict(zip(grid, fits)), f)
+   #+END_SRC
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -n1 -c28 --exclusive --time=24:00:00 -a 0
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     import multiprocessing as mp
+     import pickle
+     import os
+     <<data>>
+     <<fit>>
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 4287557
+   : Submitted batch job 4299431
 
    Read the fitted models.
 
    #+BEGIN_SRC ipython
-     import pickle
      d = 'dropseq'
      with open(f'/scratch/midway2/aksarkar/modes/ebnbm-{d}.pkl', 'rb') as f:
        fits = pickle.load(f)
    #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/ebnbm-control.png
+     plt.clf()
+     plt.gcf().set_size_inches(3, 2.5)
+     plt.xscale('log')
+     plt.plot(fits.keys(), [fits[k][-1] for k in fits], lw=1, c='k')
+     plt.xticks([1e-2, .1, 1, 10])
+     plt.xlabel(r'Measurement dispersion $\theta$')
+     plt.ylabel('ELBO')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   [[file:figure/ebnbm.org/ebnbm-control.png]]
+   :END:

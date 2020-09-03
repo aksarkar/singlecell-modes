@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-03 Thu 00:18 -->
+<!-- 2020-09-03 Thu 12:08 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Negative binomial measurement model</title>
@@ -262,6 +262,7 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#orgf3cc87c">Results</a>
 <ul>
+<li><a href="#total-var">Total variance under NB measurement</a></li>
 <li><a href="#org72a0851">VBEM algorithm for Gamma expression model</a></li>
 <li><a href="#org1a493b0">Simulation</a></li>
 <li><a href="#org9a061c5">Application to control data</a></li>
@@ -284,6 +285,7 @@ Gamma expression model \(
   \DeclareMathOperator\Pois{Poisson}
   \DeclareMathOperator\Gam{Gamma}
   \DeclareMathOperator\NB{NB}
+  \DeclareMathOperator\V{V}
   \newcommand\const{\mathrm{const}}
   \newcommand\lnb{l_{\mathrm{NB}}}
   \newcommand\E[1]{\left\langle #1 \right\rangle}
@@ -296,7 +298,8 @@ Gamma expression model \(
 \end{align}
 
 <p>
-where the NB distribution is parameterized by mean and dispersion. 
+where the NB distribution is parameterized by mean and dispersion, and the
+Gamma distribution is parameterized by shape and rate.
 </p>
 </div>
 </div>
@@ -307,6 +310,7 @@ where the NB distribution is parameterized by mean and dispersion.
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> pickle
 <span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 <span class="org-keyword">import</span> scmodes
@@ -334,6 +338,24 @@ where the NB distribution is parameterized by mean and dispersion.
 <h2 id="orgf3cc87c">Results</h2>
 <div class="outline-text-2" id="text-orgf3cc87c">
 </div>
+<div id="outline-container-org1de4fd0" class="outline-3">
+<h3 id="total-var"><a id="org1de4fd0"></a>Total variance under NB measurement</h3>
+<div class="outline-text-3" id="text-total-var">
+<p>
+Consider gene \(j\), and assume \(a = \phi^{-1}\), \(b =
+   \mu^{-1}\phi^{-1}\). Then,
+</p>
+
+\begin{align}
+  \E{\lambda_i} &= \mu\\
+  \V[\lambda_i] &= \mu^2\phi\\
+  \V[x_i] &= \E{\V[x_i \mid \lambda_i]} + \V[\E{x_i \mid \lambda_i}]\\
+  &= \E{s_i \lambda_i + (s_i \lambda_i)^2 \theta} + \V[s_i \lambda_i]\\
+  &= s_i \mu + s_i^2 \mu^2 (\phi + \theta + \phi\theta)
+\end{align}
+</div>
+</div>
+
 <div id="outline-container-org72a0851" class="outline-3">
 <h3 id="org72a0851">VBEM algorithm for Gamma expression model</h3>
 <div class="outline-text-3" id="text-org72a0851">
@@ -829,37 +851,45 @@ Fit the model to each control data set.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=4G -a 0
+<pre class="src src-ipython" id="orga8877d5"><span class="org-keyword">def</span> <span class="org-function-name">_init</span>(j, x, s):
+  <span class="org-keyword">return</span> scmodes.ebpm.ebpm_gamma(x[:,j].ravel(), s.ravel())
+
+<span class="org-keyword">def</span> <span class="org-function-name">_fit</span>(theta, x, s, par):
+  <span class="org-keyword">return</span> scmodes.ebnbm.ebnbm_gamma(
+    x,
+    s,
+    init=np.hstack([np.exp(par[:,1]), np.exp(par[:,1] - par[:,0]), theta]),
+    tol=1e-3,
+    max_iters=100_000,
+    extrapolate=<span class="org-constant">True</span>,
+    fix_g=<span class="org-constant">False</span>,
+    fix_theta=<span class="org-constant">True</span>)
+
+<span class="org-variable-name">tasks</span> = [d <span class="org-keyword">for</span> d <span class="org-keyword">in</span> data <span class="org-keyword">if</span> d <span class="org-keyword">in</span> control]
+<span class="org-variable-name">d</span> = tasks[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
+<span class="org-keyword">with</span> mp.Pool() <span class="org-keyword">as</span> pool:
+  <span class="org-variable-name">x</span> = data[d]()
+  <span class="org-variable-name">s</span> = x.X.<span class="org-builtin">sum</span>(axis=1).A
+  <span class="org-variable-name">par</span> = pool.<span class="org-builtin">map</span>(ft.partial(_init, x=x, s=s), <span class="org-builtin">range</span>(x.shape[1]))
+  <span class="org-variable-name">par</span> = np.array(par)
+  <span class="org-variable-name">grid</span> = np.logspace(-3, 1, 20)
+  <span class="org-variable-name">fits</span> = pool.<span class="org-builtin">map</span>(ft.partial(_fit, x=x.X.A, s=s, par=par), grid)
+<span class="org-keyword">with</span> <span class="org-builtin">open</span>(f<span class="org-string">'/scratch/midway2/aksarkar/modes/ebnbm-{d}.pkl'</span>, <span class="org-string">'wb'</span>) <span class="org-keyword">as</span> f:
+  pickle.dump(<span class="org-builtin">dict</span>(<span class="org-builtin">zip</span>(grid, fits)), f)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive --time=24:00:00 -a 0
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-<span class="org-sh-heredoc">import anndata</span>
+<span class="org-sh-heredoc">import multiprocessing as mp</span>
 <span class="org-sh-heredoc">import pickle</span>
 <span class="org-sh-heredoc">import os</span>
 <span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
-<span class="org-sh-heredoc">tasks = [d for d in data if d in control]</span>
-<span class="org-sh-heredoc">d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
-<span class="org-sh-heredoc">x = data[d]()</span>
-<span class="org-sh-heredoc">s = x.X.sum(axis=1).A</span>
-<span class="org-sh-heredoc">grid = np.logspace(-2, 1, 10)</span>
-<span class="org-sh-heredoc">par = np.array([scmodes.ebpm.ebpm_gamma(x.X[:,j].A.ravel(), s.ravel()) for j in range(x.shape[1])])</span>
-<span class="org-sh-heredoc">fits = dict()</span>
-<span class="org-sh-heredoc">for theta in grid:</span>
-<span class="org-sh-heredoc">  print(f'fitting theta={theta:.3g}')</span>
-<span class="org-sh-heredoc">  fits[theta] = scmodes.ebnbm.ebnbm_gamma(</span>
-<span class="org-sh-heredoc">    x.X.A,</span>
-<span class="org-sh-heredoc">    s,</span>
-<span class="org-sh-heredoc">    init=np.hstack([np.exp(par[:,1]), np.exp(par[:,1] - par[:,0]), theta]),</span>
-<span class="org-sh-heredoc">    tol=1e-4,</span>
-<span class="org-sh-heredoc">    max_iters=100_000,</span>
-<span class="org-sh-heredoc">    extrapolate=True,</span>
-<span class="org-sh-heredoc">    fix_g=False,</span>
-<span class="org-sh-heredoc">    fix_theta=True)</span>
-<span class="org-sh-heredoc">  # Warm start</span>
-<span class="org-sh-heredoc">  par = np.vstack(fits[theta][:2]).T</span>
-<span class="org-sh-heredoc">with open(f'/scratch/midway2/aksarkar/modes/ebnbm-{d}.pkl', 'wb') as f:</span>
-<span class="org-sh-heredoc">  pickle.dump(fit, f)</span>
+<span class="org-sh-heredoc">&lt;&lt;fit&gt;&gt;</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
 </div>
@@ -869,11 +899,28 @@ Read the fitted models.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> pickle
-<span class="org-variable-name">d</span> = <span class="org-string">'dropseq'</span>
+<pre class="src src-ipython"><span class="org-variable-name">d</span> = <span class="org-string">'dropseq'</span>
 <span class="org-keyword">with</span> <span class="org-builtin">open</span>(f<span class="org-string">'/scratch/midway2/aksarkar/modes/ebnbm-{d}.pkl'</span>, <span class="org-string">'rb'</span>) <span class="org-keyword">as</span> f:
   <span class="org-variable-name">fits</span> = pickle.load(f)
 </pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(3, 2.5)
+plt.xscale(<span class="org-string">'log'</span>)
+plt.plot(fits.keys(), [fits[k][-1] <span class="org-keyword">for</span> k <span class="org-keyword">in</span> fits], lw=1, c=<span class="org-string">'k'</span>)
+plt.xticks([1e-2, .1, 1, 10])
+plt.xlabel(r<span class="org-string">'Measurement dispersion $\theta$'</span>)
+plt.ylabel(<span class="org-string">'ELBO'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ebnbm.org/ebnbm-control.png" alt="ebnbm-control.png">
+</p>
 </div>
 </div>
 </div>
@@ -881,7 +928,7 @@ Read the fitted models.
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-03 Thu 00:18</p>
+<p class="date">Created: 2020-09-03 Thu 12:08</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
