@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-02 Wed 17:53 -->
+<!-- 2020-09-03 Thu 00:18 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Negative binomial measurement model</title>
@@ -264,6 +264,7 @@ for the JavaScript code in this tag.
 <ul>
 <li><a href="#org72a0851">VBEM algorithm for Gamma expression model</a></li>
 <li><a href="#org1a493b0">Simulation</a></li>
+<li><a href="#org9a061c5">Application to control data</a></li>
 </ul>
 </li>
 </ul>
@@ -355,7 +356,7 @@ original NB-Gamma compound model of interest. The log joint
 
 \begin{multline}
   \ln p(x_{ij} \mid \lambda_{ij}, u_{ij}, a_j, b_j, \theta) = x_{ij} \ln (s_i \lambda_{ij} u_{ij}) - s_i \lambda_{ij} u_{ij} - \ln\Gamma(x_{ij} + 1)\\
-  + (a_j - 1) \ln \lambda_{ij} - b_j \lambda_{ij} + a_j \ln b_j - \ln\Gamma(a_j) + (\theta^{-1} - 1) \ln u_{ij} - \theta^{-1} u_{ij} + \theta^{-1}\ln\theta^{-1} - \ln\Gamma(\theta^{-1}),
+  + (a_j - 1) \ln \lambda_{ij} - b_j \lambda_{ij} + a_j \ln b_j - \ln\Gamma(a_j) + (\theta^{-1} - 1) \ln u_{ij} - \theta^{-1} u_{ij} + \theta^{-1}\ln(\theta^{-1}) - \ln\Gamma(\theta^{-1}),
 \end{multline}
 
 <p>
@@ -391,7 +392,7 @@ The evidence lower bound
 
 \begin{multline}
   \ell = \sum_{i, j} \left[ (x_{ij} + a_j - \alpha_{ij}) \E{\ln \lambda_{ij}} - (b_j - \beta_{ij}) \E{\lambda_{ij}} + (x_{ij} + \theta^{-1} - \gamma_{ij}) \E{\ln u_{ij}} - (\theta^{-1} - \delta_{ij}) \E{u_{ij}} - s_i \E{\lambda_{ij}} \E{u_{ij}}\right.\\
-    + \left. a_j \ln b_j + \theta^{-1}\ln\theta^{-1} - \alpha_{ij} \ln \beta_{ij} - \gamma_{ij} \ln \delta_{ij} - \ln\Gamma(a_j) - \ln\Gamma(\theta^{-1}) + \ln\Gamma(\alpha_{ij}) + \ln\Gamma(\gamma_{ij})\right] + \const,
+    + \left. a_j \ln b_j + \theta^{-1}\ln(\theta^{-1}) - \alpha_{ij} \ln \beta_{ij} - \gamma_{ij} \ln \delta_{ij} - \ln\Gamma(a_j) - \ln\Gamma(\theta^{-1}) + \ln\Gamma(\alpha_{ij}) + \ln\Gamma(\gamma_{ij})\right] + \const,
 \end{multline}
 
 <p>
@@ -691,7 +692,7 @@ fig.tight_layout()
 </div>
 
 <p>
-Plot the ELBO as a function of \(\theta\).
+Compute the ELBO as a function of \(\theta\).
 </p>
 
 <div class="org-src-container">
@@ -699,6 +700,7 @@ Plot the ELBO as a function of \(\theta\).
 <span class="org-variable-name">par</span> = np.array([scmodes.ebpm.ebpm_gamma(x[:,j], s.ravel()) <span class="org-keyword">for</span> j <span class="org-keyword">in</span> <span class="org-builtin">range</span>(x.shape[1])])
 <span class="org-variable-name">fits</span> = []
 <span class="org-keyword">for</span> theta <span class="org-keyword">in</span> grid:
+  <span class="org-keyword">print</span>(f<span class="org-string">'fitting theta={theta:.3g}'</span>)
   <span class="org-variable-name">fit</span> = scmodes.ebnbm.ebnbm_gamma(
     x,
     s,
@@ -714,10 +716,6 @@ Plot the ELBO as a function of \(\theta\).
 <span class="org-variable-name">elbo</span> = np.array([f[-1] <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits])
 </pre>
 </div>
-
-<p>
-0 - 3cc20e97-b0b3-424c-b95c-80b5b334a358
-</p>
 
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
@@ -822,11 +820,68 @@ fig.tight_layout(pad=0.5)
 </div>
 </div>
 </div>
+
+<div id="outline-container-org9a061c5" class="outline-3">
+<h3 id="org9a061c5">Application to control data</h3>
+<div class="outline-text-3" id="text-org9a061c5">
+<p>
+Fit the model to each control data set.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=4G -a 0
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+<span class="org-sh-heredoc">import anndata</span>
+<span class="org-sh-heredoc">import pickle</span>
+<span class="org-sh-heredoc">import os</span>
+<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
+<span class="org-sh-heredoc">tasks = [d for d in data if d in control]</span>
+<span class="org-sh-heredoc">d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]</span>
+<span class="org-sh-heredoc">x = data[d]()</span>
+<span class="org-sh-heredoc">s = x.X.sum(axis=1).A</span>
+<span class="org-sh-heredoc">grid = np.logspace(-2, 1, 10)</span>
+<span class="org-sh-heredoc">par = np.array([scmodes.ebpm.ebpm_gamma(x.X[:,j].A.ravel(), s.ravel()) for j in range(x.shape[1])])</span>
+<span class="org-sh-heredoc">fits = dict()</span>
+<span class="org-sh-heredoc">for theta in grid:</span>
+<span class="org-sh-heredoc">  print(f'fitting theta={theta:.3g}')</span>
+<span class="org-sh-heredoc">  fits[theta] = scmodes.ebnbm.ebnbm_gamma(</span>
+<span class="org-sh-heredoc">    x.X.A,</span>
+<span class="org-sh-heredoc">    s,</span>
+<span class="org-sh-heredoc">    init=np.hstack([np.exp(par[:,1]), np.exp(par[:,1] - par[:,0]), theta]),</span>
+<span class="org-sh-heredoc">    tol=1e-4,</span>
+<span class="org-sh-heredoc">    max_iters=100_000,</span>
+<span class="org-sh-heredoc">    extrapolate=True,</span>
+<span class="org-sh-heredoc">    fix_g=False,</span>
+<span class="org-sh-heredoc">    fix_theta=True)</span>
+<span class="org-sh-heredoc">  # Warm start</span>
+<span class="org-sh-heredoc">  par = np.vstack(fits[theta][:2]).T</span>
+<span class="org-sh-heredoc">with open(f'/scratch/midway2/aksarkar/modes/ebnbm-{d}.pkl', 'wb') as f:</span>
+<span class="org-sh-heredoc">  pickle.dump(fit, f)</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<p>
+Read the fitted models.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> pickle
+<span class="org-variable-name">d</span> = <span class="org-string">'dropseq'</span>
+<span class="org-keyword">with</span> <span class="org-builtin">open</span>(f<span class="org-string">'/scratch/midway2/aksarkar/modes/ebnbm-{d}.pkl'</span>, <span class="org-string">'rb'</span>) <span class="org-keyword">as</span> f:
+  <span class="org-variable-name">fits</span> = pickle.load(f)
+</pre>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-02 Wed 17:53</p>
+<p class="date">Created: 2020-09-03 Thu 00:18</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

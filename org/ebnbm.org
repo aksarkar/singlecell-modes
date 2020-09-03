@@ -32,12 +32,13 @@
   #+BEGIN_SRC emacs-lisp :exports none
     (add-to-list 'python-shell-completion-native-disabled-interpreters "jupyter")
     (org-babel-lob-ingest "/home/aksarkar/.emacs.d/org-templates/library.org")
+    (org-babel-lob-ingest "llr.org")
   #+END_SRC
 
   #+RESULTS:
-  : 1
+  : 6
 
-  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+BEGIN_SRC ipython
     import numpy as np
@@ -49,7 +50,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[25]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -59,7 +60,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -72,7 +73,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[121]:
+  # Out[3]:
   :END:
 
 * Results
@@ -93,7 +94,7 @@
 
    \begin{multline}
      \ln p(x_{ij} \mid \lambda_{ij}, u_{ij}, a_j, b_j, \theta) = x_{ij} \ln (s_i \lambda_{ij} u_{ij}) - s_i \lambda_{ij} u_{ij} - \ln\Gamma(x_{ij} + 1)\\
-     + (a_j - 1) \ln \lambda_{ij} - b_j \lambda_{ij} + a_j \ln b_j - \ln\Gamma(a_j) + (\theta^{-1} - 1) \ln u_{ij} - \theta^{-1} u_{ij} + \theta^{-1}\ln\theta^{-1} - \ln\Gamma(\theta^{-1}),
+     + (a_j - 1) \ln \lambda_{ij} - b_j \lambda_{ij} + a_j \ln b_j - \ln\Gamma(a_j) + (\theta^{-1} - 1) \ln u_{ij} - \theta^{-1} u_{ij} + \theta^{-1}\ln(\theta^{-1}) - \ln\Gamma(\theta^{-1}),
    \end{multline}
 
    and the posteriors
@@ -123,7 +124,7 @@
 
    \begin{multline}
      \ell = \sum_{i, j} \left[ (x_{ij} + a_j - \alpha_{ij}) \E{\ln \lambda_{ij}} - (b_j - \beta_{ij}) \E{\lambda_{ij}} + (x_{ij} + \theta^{-1} - \gamma_{ij}) \E{\ln u_{ij}} - (\theta^{-1} - \delta_{ij}) \E{u_{ij}} - s_i \E{\lambda_{ij}} \E{u_{ij}}\right.\\
-       + \left. a_j \ln b_j + \theta^{-1}\ln\theta^{-1} - \alpha_{ij} \ln \beta_{ij} - \gamma_{ij} \ln \delta_{ij} - \ln\Gamma(a_j) - \ln\Gamma(\theta^{-1}) + \ln\Gamma(\alpha_{ij}) + \ln\Gamma(\gamma_{ij})\right] + \const,
+       + \left. a_j \ln b_j + \theta^{-1}\ln(\theta^{-1}) - \alpha_{ij} \ln \beta_{ij} - \gamma_{ij} \ln \delta_{ij} - \ln\Gamma(a_j) - \ln\Gamma(\theta^{-1}) + \ln\Gamma(\alpha_{ij}) + \ln\Gamma(\gamma_{ij})\right] + \const,
    \end{multline}
 
    where
@@ -172,7 +173,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[31]:
+   # Out[4]:
    :END:
 
    Fit the model to a simulated example, fixing the hyperparameters to the
@@ -192,7 +193,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[33]:
+   # Out[5]:
    :END:
 
    Make sure we didn't mess up the parameterization.
@@ -404,13 +405,14 @@
    [[file:figure/ebnbm.org/sim-ex5.png]]
    :END:
 
-   Plot the ELBO as a function of \(\theta\).
+   Compute the ELBO as a function of \(\theta\).
 
    #+BEGIN_SRC ipython :async t
      grid = np.logspace(-2, 1, 10)
      par = np.array([scmodes.ebpm.ebpm_gamma(x[:,j], s.ravel()) for j in range(x.shape[1])])
      fits = []
      for theta in grid:
+       print(f'fitting theta={theta:.3g}')
        fit = scmodes.ebnbm.ebnbm_gamma(
          x,
          s,
@@ -428,7 +430,7 @@
 
    #+RESULTS:
    :RESULTS:
-   0 - 3cc20e97-b0b3-424c-b95c-80b5b334a358
+   # Out[6]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-elbo.png
@@ -444,7 +446,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[90]:
+   # Out[7]:
    [[file:figure/ebnbm.org/sim-elbo.png]]
    :END:
 
@@ -482,7 +484,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[152]:
+   # Out[8]:
    [[file:figure/ebnbm.org/sim-ex6.png]]
    :END:
 
@@ -522,6 +524,57 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[156]:
+   # Out[9]:
    [[file:figure/ebnbm.org/sim-ex7.png]]
    :END:
+
+** Application to control data
+
+   Fit the model to each control data set.
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=4G -a 0
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     import anndata
+     import pickle
+     import os
+     <<data>>
+     tasks = [d for d in data if d in control]
+     d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     x = data[d]()
+     s = x.X.sum(axis=1).A
+     grid = np.logspace(-2, 1, 10)
+     par = np.array([scmodes.ebpm.ebpm_gamma(x.X[:,j].A.ravel(), s.ravel()) for j in range(x.shape[1])])
+     fits = dict()
+     for theta in grid:
+       print(f'fitting theta={theta:.3g}')
+       fits[theta] = scmodes.ebnbm.ebnbm_gamma(
+         x.X.A,
+         s,
+         init=np.hstack([np.exp(par[:,1]), np.exp(par[:,1] - par[:,0]), theta]),
+         tol=1e-4,
+         max_iters=100_000,
+         extrapolate=True,
+         fix_g=False,
+         fix_theta=True)
+       # Warm start
+       par = np.vstack(fits[theta][:2]).T
+     with open(f'/scratch/midway2/aksarkar/modes/ebnbm-{d}.pkl', 'wb') as f:
+       pickle.dump(fit, f)
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 4287557
+
+   Read the fitted models.
+
+   #+BEGIN_SRC ipython
+     import pickle
+     d = 'dropseq'
+     with open(f'/scratch/midway2/aksarkar/modes/ebnbm-{d}.pkl', 'rb') as f:
+       fits = pickle.load(f)
+   #+END_SRC
