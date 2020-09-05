@@ -81,6 +81,27 @@
   :END:
 
 * Results
+** Simulate from the NB measurement model
+
+   Simulate data from the model.
+
+   #+BEGIN_SRC ipython
+     def simulate_nb_gamma(n, p, theta, seed=0):
+       np.random.seed(seed)
+       log_mean = np.random.uniform(low=-12, high=-8, size=(1, p))
+       log_disp = np.random.uniform(low=-6, high=0, size=(1, p))
+       s = 1e5 * np.ones((n, 1))
+       lam = st.gamma(a=np.exp(-log_disp), scale=np.exp(log_mean + log_disp)).rvs(size=(n, p))
+       u = st.gamma(a=1 / theta, scale=theta).rvs(size=(n, p))
+       x = st.poisson(s * lam * u).rvs()
+       return x, s, lam, u, log_mean, -log_disp, theta
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[4]:
+   :END:
+
 ** Total variance under NB measurement
    :PROPERTIES:
    :CUSTOM_ID: total-var
@@ -96,6 +117,60 @@
      &= \E{s_i \lambda_i + (s_i \lambda_i)^2 \theta} + \V[s_i \lambda_i]\\
      &= s_i \mu + s_i^2 \mu^2 (\phi + \theta + \phi\theta)
    \end{align}
+
+   This result suggests a heuristic approach to characterize the profile
+   likelihood of the data with respect to \(\theta\). The key question is: what
+   does the profile likelihood look like for data consistent with \(\theta=0\)?
+
+   #+BEGIN_SRC ipython :async t
+     import scipy.optimize as so
+
+     def _loss(par, x, s, theta0):
+       mu, phi = np.exp(par)
+       theta = phi + theta0 + phi * theta0
+       return -st.nbinom(n=1 / theta, p=1 / (1 + s * np.exp(log_mu) / theta)).logpmf(x).mean()
+
+     np.random.seed(1)
+     log_mu = -10
+     s = 1e5
+     n = 100
+     theta0 = 0.2
+
+     fits = dict()
+     grid = np.logspace(-3, 1, 100)
+     for log_phi in (-4, -2, 0):
+       lam = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
+       u = st.gamma(a=1 / theta0, scale=theta0).rvs(n)
+       x = st.poisson(s * lam * u).rvs(n)
+       fits[log_phi] = [so.minimize(_loss, x0=[log_mu, log_phi], args=(x, s, theta), method='Nelder-Mead')
+                        for theta in grid]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[78]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/var-heuristic.png
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(2.5, 2.5)
+     plt.xscale('log')
+     for i, k in enumerate(fits):
+       temp = n * np.array([-f.fun for f in fits[k]])
+       plt.plot(grid, temp - temp.max(), lw=1, c=cm(i), label=rf'$\phi$ = {np.exp(k):.2g}')
+     plt.axvline(x=theta0, c='k', lw=1, ls=':')
+     plt.legend()
+     plt.xlabel(r'Measurement dispersion $\theta$')
+     plt.ylabel('Diff log lik from best')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[90]:
+   [[file:figure/ebnbm.org/var-heuristic.png]]
+   :END:
 
 ** VBEM algorithm for Gamma expression model
 
@@ -175,26 +250,7 @@
 
    where \(\psi^{(1)}\) denotes the trigamma function.
 
-** Simulation
-
-   Simulate data from the model.
-
-   #+BEGIN_SRC ipython
-     def simulate_nb_gamma(n, p, theta, seed=0):
-       np.random.seed(seed)
-       log_mean = np.random.uniform(low=-12, high=-8, size=(1, p))
-       log_disp = np.random.uniform(low=-6, high=0, size=(1, p))
-       s = 1e5 * np.ones((n, 1))
-       lam = st.gamma(a=np.exp(-log_disp), scale=np.exp(log_mean + log_disp)).rvs(size=(n, p))
-       u = st.gamma(a=1 / theta, scale=theta).rvs(size=(n, p))
-       x = st.poisson(s * lam * u).rvs()
-       return x, s, lam, u, log_mean, -log_disp, theta
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[4]:
-   :END:
+** Simulated example
 
    Fit the model to a simulated example, fixing the hyperparameters to the
    ground truth values. (This only updates the variational approximation.) As a
@@ -470,31 +526,46 @@
 
    Compute the ELBO as a function of \(\theta\).
 
-   #+BEGIN_SRC ipython :async t
-     grid = np.logspace(-3, 0, 40)
-     par = np.array([scmodes.ebpm.ebpm_gamma(x[:,j], s.ravel()) for j in range(x.shape[1])])
-     fits = []
-     for theta in grid:
-       print(f'fitting theta={theta:.3g}')
-       fit = scmodes.ebnbm.ebnbm_gamma(
-         x,
-         s,
-         init=np.hstack([np.exp(par[:,1]), np.exp(par[:,1] - par[:,0]), theta]),
-         tol=1e-4,
-         max_iters=100_000,
-         extrapolate=True,
-         fix_g=False,
-         fix_theta=True)
-       # Warm start
-       par = np.vstack(fit[:2]).T
-       fits.append(fit)
-     elbo = np.array([f[-1] for f in fits])
+   #+NAME: map-ebnbm-gamma
+   #+BEGIN_SRC ipython
+     def map_ebnbm_gamma(x, s, grid):
+       print('initializing')
+       par = np.array([scmodes.ebpm.ebpm_gamma(x[:,j], s.ravel()) for j in range(x.shape[1])])
+       # exp(20) is finite and large enough
+       par = np.ma.masked_invalid(par).filled(20)
+       fits = []
+       for theta in grid:
+         print(f'fitting theta={theta:.3g}')
+         fit = scmodes.ebnbm.ebnbm_gamma(
+           x,
+           s,
+           init=np.hstack([np.exp(par[:,1]), np.exp(par[:,1] - par[:,0]), theta]),
+           tol=1e-4,
+           max_iters=100_000,
+           extrapolate=True,
+           fix_g=False,
+           fix_theta=True)
+         # Warm start
+         par = np.vstack(fit[:2]).T
+         fits.append(fit)
+       return fits
    #+END_SRC
+
+   #+RESULTS: map-ebnbm-gamma
+   :RESULTS:
+   # Out[6]:
+   :END:
 
    #+RESULTS:
    :RESULTS:
-   # Out[100]:
+   # Out[21]:
    :END:
+
+   #+BEGIN_SRC ipython
+     grid = np.logspace(-3, 0, 40)
+     fits = map_ebnbm_gamma(x, s, grid)
+     elbo = np.array([f[-1] for f in fits])
+   #+END_SRC
 
    #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-elbo.png
      plt.clf()
@@ -649,6 +720,70 @@
    [[file:figure/ebnbm.org/sim-ex7.png]]
    :END:
 
+   Try again for a different simulated data set.
+
+   #+BEGIN_SRC ipython :async t
+     theta0 = 0.5
+     x, s, lam, u, log_mean, log_inv_disp, theta = simulate_nb_gamma(n=100, p=5, theta=theta0, seed=10)
+     grid = np.logspace(-3, 0, 100)
+     fits = map_ebnbm_gamma(x, s, grid)
+     elbo = np.array([f[-1] for f in fits])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-elbo-theta=0.5-seed=10.png
+     plt.clf()
+     plt.gcf().set_size_inches(2.5, 2.5)
+     plt.xscale('log')
+     plt.plot(grid, elbo, lw=1, c='k')
+     plt.axvline(x=theta0, lw=1, ls=':', c='r')
+     plt.xticks(np.logspace(-3, 0, 4))
+     plt.xlabel(r'Measurement dispersion $\theta$')
+     plt.ylabel('ELBO')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[8]:
+   [[file:figure/ebnbm.org/sim-elbo-theta=0.5-seed=10.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :async t
+     theta0 = 0.1
+     x, s, lam, u, log_mean, log_inv_disp, theta = simulate_nb_gamma(n=100, p=5, theta=theta0, seed=10)
+     grid = np.logspace(-3, 0, 100)
+     fits = map_ebnbm_gamma(x, s, grid)
+     elbo = np.array([f[-1] for f in fits])
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[91]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-elbo-theta=0.1-seed=10.png
+     plt.clf()
+     plt.gcf().set_size_inches(2.5, 2.5)
+     plt.xscale('log')
+     plt.plot(grid, elbo, lw=1, c='k')
+     plt.axvline(x=theta0, lw=1, ls=':', c='r')
+     plt.xticks(np.logspace(-3, 0, 4))
+     plt.xlabel(r'Measurement dispersion $\theta$')
+     plt.ylabel('ELBO')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[92]:
+   [[file:figure/ebnbm.org/sim-elbo-theta=0.1-seed=10.png]]
+   :END:
+
 ** Application to control data
 
    Fit the model to each control data set.
@@ -712,7 +847,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[94]:
    :END:
 
    #+BEGIN_SRC ipython :async t

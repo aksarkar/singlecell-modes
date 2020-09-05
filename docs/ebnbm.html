@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-03 Thu 22:38 -->
+<!-- 2020-09-05 Sat 13:56 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Negative binomial measurement model</title>
@@ -262,9 +262,10 @@ for the JavaScript code in this tag.
 <li><a href="#setup">Setup</a></li>
 <li><a href="#orgf3cc87c">Results</a>
 <ul>
+<li><a href="#org1469cfa">Simulate from the NB measurement model</a></li>
 <li><a href="#total-var">Total variance under NB measurement</a></li>
 <li><a href="#org72a0851">VBEM algorithm for Gamma expression model</a></li>
-<li><a href="#org1a493b0">Simulation</a></li>
+<li><a href="#org0473663">Simulated example</a></li>
 <li><a href="#org9a061c5">Application to control data</a></li>
 </ul>
 </li>
@@ -339,6 +340,28 @@ Gamma distribution is parameterized by shape and rate.
 <h2 id="orgf3cc87c">Results</h2>
 <div class="outline-text-2" id="text-orgf3cc87c">
 </div>
+<div id="outline-container-org1469cfa" class="outline-3">
+<h3 id="org1469cfa">Simulate from the NB measurement model</h3>
+<div class="outline-text-3" id="text-org1469cfa">
+<p>
+Simulate data from the model.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">simulate_nb_gamma</span>(n, p, theta, seed=0):
+  np.random.seed(seed)
+  <span class="org-variable-name">log_mean</span> = np.random.uniform(low=-12, high=-8, size=(1, p))
+  <span class="org-variable-name">log_disp</span> = np.random.uniform(low=-6, high=0, size=(1, p))
+  <span class="org-variable-name">s</span> = 1e5 * np.ones((n, 1))
+  <span class="org-variable-name">lam</span> = st.gamma(a=np.exp(-log_disp), scale=np.exp(log_mean + log_disp)).rvs(size=(n, p))
+  <span class="org-variable-name">u</span> = st.gamma(a=1 / theta, scale=theta).rvs(size=(n, p))
+  <span class="org-variable-name">x</span> = st.poisson(s * lam * u).rvs()
+  <span class="org-keyword">return</span> x, s, lam, u, log_mean, -log_disp, theta
+</pre>
+</div>
+</div>
+</div>
+
 <div id="outline-container-org1de4fd0" class="outline-3">
 <h3 id="total-var"><a id="org1de4fd0"></a>Total variance under NB measurement</h3>
 <div class="outline-text-3" id="text-total-var">
@@ -354,6 +377,59 @@ Consider gene \(j\), and assume \(a = \phi^{-1}\), \(b =
   &= \E{s_i \lambda_i + (s_i \lambda_i)^2 \theta} + \V[s_i \lambda_i]\\
   &= s_i \mu + s_i^2 \mu^2 (\phi + \theta + \phi\theta)
 \end{align}
+
+<p>
+This result suggests a heuristic approach to characterize the profile
+likelihood of the data with respect to \(\theta\). The key question is: what
+does the profile likelihood look like for data consistent with \(\theta=0\)?
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
+
+<span class="org-keyword">def</span> <span class="org-function-name">_loss</span>(par, x, s, theta0):
+  <span class="org-variable-name">mu</span>, <span class="org-variable-name">phi</span> = np.exp(par)
+  <span class="org-variable-name">theta</span> = phi + theta0 + phi * theta0
+  <span class="org-keyword">return</span> -st.nbinom(n=1 / theta, p=1 / (1 + s * np.exp(log_mu) / theta)).logpmf(x).mean()
+
+np.random.seed(1)
+<span class="org-variable-name">log_mu</span> = -10
+<span class="org-variable-name">s</span> = 1e5
+<span class="org-variable-name">n</span> = 100
+<span class="org-variable-name">theta0</span> = 0.2
+
+<span class="org-variable-name">fits</span> = <span class="org-builtin">dict</span>()
+<span class="org-variable-name">grid</span> = np.logspace(-3, 1, 100)
+<span class="org-keyword">for</span> log_phi <span class="org-keyword">in</span> (-4, -2, 0):
+  <span class="org-variable-name">lam</span> = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
+  <span class="org-variable-name">u</span> = st.gamma(a=1 / theta0, scale=theta0).rvs(n)
+  <span class="org-variable-name">x</span> = st.poisson(s * lam * u).rvs(n)
+  <span class="org-variable-name">fits</span>[log_phi] = [so.minimize(_loss, x0=[log_mu, log_phi], args=(x, s, theta), method=<span class="org-string">'Nelder-Mead'</span>)
+                   <span class="org-keyword">for</span> theta <span class="org-keyword">in</span> grid]
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(2.5, 2.5)
+plt.xscale(<span class="org-string">'log'</span>)
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(fits):
+  <span class="org-variable-name">temp</span> = n * np.array([-f.fun <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits[k]])
+  plt.plot(grid, temp - temp.<span class="org-builtin">max</span>(), lw=1, c=cm(i), label=rf<span class="org-string">'$\phi$ = {np.exp(k):.2g}'</span>)
+plt.axvline(x=theta0, c=<span class="org-string">'k'</span>, lw=1, ls=<span class="org-string">':'</span>)
+plt.legend()
+plt.xlabel(r<span class="org-string">'Measurement dispersion $\theta$'</span>)
+plt.ylabel(<span class="org-string">'Diff log lik from best'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ebnbm.org/var-heuristic.png" alt="var-heuristic.png">
+</p>
+</div>
 </div>
 </div>
 
@@ -456,26 +532,9 @@ where \(\psi^{(1)}\) denotes the trigamma function.
 </div>
 </div>
 
-<div id="outline-container-org1a493b0" class="outline-3">
-<h3 id="org1a493b0">Simulation</h3>
-<div class="outline-text-3" id="text-org1a493b0">
-<p>
-Simulate data from the model.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">simulate_nb_gamma</span>(n, p, theta, seed=0):
-  np.random.seed(seed)
-  <span class="org-variable-name">log_mean</span> = np.random.uniform(low=-12, high=-8, size=(1, p))
-  <span class="org-variable-name">log_disp</span> = np.random.uniform(low=-6, high=0, size=(1, p))
-  <span class="org-variable-name">s</span> = 1e5 * np.ones((n, 1))
-  <span class="org-variable-name">lam</span> = st.gamma(a=np.exp(-log_disp), scale=np.exp(log_mean + log_disp)).rvs(size=(n, p))
-  <span class="org-variable-name">u</span> = st.gamma(a=1 / theta, scale=theta).rvs(size=(n, p))
-  <span class="org-variable-name">x</span> = st.poisson(s * lam * u).rvs()
-  <span class="org-keyword">return</span> x, s, lam, u, log_mean, -log_disp, theta
-</pre>
-</div>
-
+<div id="outline-container-org0473663" class="outline-3">
+<h3 id="org0473663">Simulated example</h3>
+<div class="outline-text-3" id="text-org0473663">
 <p>
 Fit the model to a simulated example, fixing the hyperparameters to the
 ground truth values. (This only updates the variational approximation.) As a
@@ -751,23 +810,33 @@ Compute the ELBO as a function of \(\theta\).
 </p>
 
 <div class="org-src-container">
+<pre class="src src-ipython" id="org558c104"><span class="org-keyword">def</span> <span class="org-function-name">map_ebnbm_gamma</span>(x, s, grid):
+  <span class="org-keyword">print</span>(<span class="org-string">'initializing'</span>)
+  <span class="org-variable-name">par</span> = np.array([scmodes.ebpm.ebpm_gamma(x[:,j], s.ravel()) <span class="org-keyword">for</span> j <span class="org-keyword">in</span> <span class="org-builtin">range</span>(x.shape[1])])
+  <span class="org-comment-delimiter"># </span><span class="org-comment">exp(20) is finite and large enough</span>
+  <span class="org-variable-name">par</span> = np.ma.masked_invalid(par).filled(20)
+  <span class="org-variable-name">fits</span> = []
+  <span class="org-keyword">for</span> theta <span class="org-keyword">in</span> grid:
+    <span class="org-keyword">print</span>(f<span class="org-string">'fitting theta={theta:.3g}'</span>)
+    <span class="org-variable-name">fit</span> = scmodes.ebnbm.ebnbm_gamma(
+      x,
+      s,
+      init=np.hstack([np.exp(par[:,1]), np.exp(par[:,1] - par[:,0]), theta]),
+      tol=1e-4,
+      max_iters=100_000,
+      extrapolate=<span class="org-constant">True</span>,
+      fix_g=<span class="org-constant">False</span>,
+      fix_theta=<span class="org-constant">True</span>)
+    <span class="org-comment-delimiter"># </span><span class="org-comment">Warm start</span>
+    <span class="org-variable-name">par</span> = np.vstack(fit[:2]).T
+    fits.append(fit)
+  <span class="org-keyword">return</span> fits
+</pre>
+</div>
+
+<div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">grid</span> = np.logspace(-3, 0, 40)
-<span class="org-variable-name">par</span> = np.array([scmodes.ebpm.ebpm_gamma(x[:,j], s.ravel()) <span class="org-keyword">for</span> j <span class="org-keyword">in</span> <span class="org-builtin">range</span>(x.shape[1])])
-<span class="org-variable-name">fits</span> = []
-<span class="org-keyword">for</span> theta <span class="org-keyword">in</span> grid:
-  <span class="org-keyword">print</span>(f<span class="org-string">'fitting theta={theta:.3g}'</span>)
-  <span class="org-variable-name">fit</span> = scmodes.ebnbm.ebnbm_gamma(
-    x,
-    s,
-    init=np.hstack([np.exp(par[:,1]), np.exp(par[:,1] - par[:,0]), theta]),
-    tol=1e-4,
-    max_iters=100_000,
-    extrapolate=<span class="org-constant">True</span>,
-    fix_g=<span class="org-constant">False</span>,
-    fix_theta=<span class="org-constant">True</span>)
-  <span class="org-comment-delimiter"># </span><span class="org-comment">Warm start</span>
-  <span class="org-variable-name">par</span> = np.vstack(fit[:2]).T
-  fits.append(fit)
+<span class="org-variable-name">fits</span> = map_ebnbm_gamma(x, s, grid)
 <span class="org-variable-name">elbo</span> = np.array([f[-1] <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits])
 </pre>
 </div>
@@ -935,6 +1004,66 @@ fig.tight_layout(pad=0.5)
 
 <div class="figure">
 <p><img src="figure/ebnbm.org/sim-ex7.png" alt="sim-ex7.png">
+</p>
+</div>
+
+<p>
+Try again for a different simulated data set.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">theta0</span> = 0.5
+<span class="org-variable-name">x</span>, <span class="org-variable-name">s</span>, <span class="org-variable-name">lam</span>, <span class="org-variable-name">u</span>, <span class="org-variable-name">log_mean</span>, <span class="org-variable-name">log_inv_disp</span>, <span class="org-variable-name">theta</span> = simulate_nb_gamma(n=100, p=5, theta=theta0, seed=10)
+<span class="org-variable-name">grid</span> = np.logspace(-3, 0, 100)
+<span class="org-variable-name">fits</span> = map_ebnbm_gamma(x, s, grid)
+<span class="org-variable-name">elbo</span> = np.array([f[-1] <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(2.5, 2.5)
+plt.xscale(<span class="org-string">'log'</span>)
+plt.plot(grid, elbo, lw=1, c=<span class="org-string">'k'</span>)
+plt.axvline(x=theta0, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+plt.xticks(np.logspace(-3, 0, 4))
+plt.xlabel(r<span class="org-string">'Measurement dispersion $\theta$'</span>)
+plt.ylabel(<span class="org-string">'ELBO'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ebnbm.org/sim-elbo-theta=0.5-seed=10.png" alt="sim-elbo-theta=0.5-seed=10.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">theta0</span> = 0.1
+<span class="org-variable-name">x</span>, <span class="org-variable-name">s</span>, <span class="org-variable-name">lam</span>, <span class="org-variable-name">u</span>, <span class="org-variable-name">log_mean</span>, <span class="org-variable-name">log_inv_disp</span>, <span class="org-variable-name">theta</span> = simulate_nb_gamma(n=100, p=5, theta=theta0, seed=10)
+<span class="org-variable-name">grid</span> = np.logspace(-3, 0, 100)
+<span class="org-variable-name">fits</span> = map_ebnbm_gamma(x, s, grid)
+<span class="org-variable-name">elbo</span> = np.array([f[-1] <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits])
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(2.5, 2.5)
+plt.xscale(<span class="org-string">'log'</span>)
+plt.plot(grid, elbo, lw=1, c=<span class="org-string">'k'</span>)
+plt.axvline(x=theta0, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+plt.xticks(np.logspace(-3, 0, 4))
+plt.xlabel(r<span class="org-string">'Measurement dispersion $\theta$'</span>)
+plt.ylabel(<span class="org-string">'ELBO'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ebnbm.org/sim-elbo-theta=0.1-seed=10.png" alt="sim-elbo-theta=0.1-seed=10.png">
 </p>
 </div>
 </div>
@@ -1176,7 +1305,7 @@ array([[1000.46281987, 1189.87776639, 1009.26697384, ..., 1000.62982057,
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-03 Thu 22:38</p>
+<p class="date">Created: 2020-09-05 Sat 13:56</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
