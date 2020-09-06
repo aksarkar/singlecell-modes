@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-05 Sat 21:18 -->
+<!-- 2020-09-06 Sun 12:39 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Negative binomial measurement model</title>
@@ -354,7 +354,10 @@ Simulate data from the model.
   <span class="org-variable-name">log_disp</span> = np.random.uniform(low=-6, high=0, size=(1, p))
   <span class="org-variable-name">s</span> = 1e5 * np.ones((n, 1))
   <span class="org-variable-name">lam</span> = st.gamma(a=np.exp(-log_disp), scale=np.exp(log_mean + log_disp)).rvs(size=(n, p))
-  <span class="org-variable-name">u</span> = st.gamma(a=1 / theta, scale=theta).rvs(size=(n, p))
+  <span class="org-keyword">if</span> theta &gt; 0:
+    <span class="org-variable-name">u</span> = st.gamma(a=1 / theta, scale=theta).rvs(size=(n, p))
+  <span class="org-keyword">else</span>:
+    <span class="org-variable-name">u</span> = 1
   <span class="org-variable-name">x</span> = st.poisson(s * lam * u).rvs()
   <span class="org-keyword">return</span> x, s, lam, u, log_mean, -log_disp, theta
 </pre>
@@ -1008,62 +1011,82 @@ fig.tight_layout(pad=0.5)
 </div>
 
 <p>
-Try again for a different simulated data set.
+Look at the ELBO as a function of \(\theta\), for data simulated under
+several different choices of \(\theta\).
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">theta0</span> = 0.5
-<span class="org-variable-name">x</span>, <span class="org-variable-name">s</span>, <span class="org-variable-name">lam</span>, <span class="org-variable-name">u</span>, <span class="org-variable-name">log_mean</span>, <span class="org-variable-name">log_inv_disp</span>, <span class="org-variable-name">theta</span> = simulate_nb_gamma(n=100, p=5, theta=theta0, seed=10)
+<pre class="src src-ipython"><span class="org-variable-name">elbo</span> = <span class="org-builtin">dict</span>()
 <span class="org-variable-name">grid</span> = np.logspace(-3, 0, 100)
-<span class="org-variable-name">fits</span> = map_ebnbm_gamma(x, s, grid)
-<span class="org-variable-name">elbo</span> = np.array([f[-1] <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits])
+<span class="org-keyword">for</span> theta0 <span class="org-keyword">in</span> (0, 1e-3, 1e-2, 0.1, 1):
+  <span class="org-keyword">print</span>(f<span class="org-string">'theta0 = {theta0:.3g}'</span>)
+  <span class="org-variable-name">x</span>, <span class="org-variable-name">s</span>, <span class="org-variable-name">lam</span>, <span class="org-variable-name">u</span>, <span class="org-variable-name">log_mean</span>, <span class="org-variable-name">log_inv_disp</span>, <span class="org-variable-name">theta</span> = simulate_nb_gamma(n=100, p=5, theta=theta0, seed=10)
+  <span class="org-variable-name">fits</span> = map_ebnbm_gamma(x, s, grid)
+  <span class="org-variable-name">elbo</span>[theta0] = np.array([f[-1] <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits])
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(2.5, 2.5)
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = colorcet.cm[<span class="org-string">'bmy'</span>]
+plt.clf()
+plt.gcf().set_size_inches(3, 3)
 plt.xscale(<span class="org-string">'log'</span>)
-plt.plot(grid, elbo, lw=1, c=<span class="org-string">'k'</span>)
-plt.axvline(x=theta0, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(elbo):
+  <span class="org-keyword">if</span> k &gt; 0:
+    <span class="org-variable-name">z</span> = (np.log(k) - np.log(1e-5)) / (1 - np.log(1e-5))
+  <span class="org-keyword">else</span>:
+    <span class="org-variable-name">z</span> = 0
+  plt.plot(grid, elbo[k] - elbo[k].<span class="org-builtin">max</span>(), lw=1, c=cm(z), label=rf<span class="org-string">'$\theta$ = {k:.3g}'</span>)
 plt.xticks(np.logspace(-3, 0, 4))
+plt.legend(frameon=<span class="org-constant">False</span>)
 plt.xlabel(r<span class="org-string">'Measurement dispersion $\theta$'</span>)
-plt.ylabel(<span class="org-string">'ELBO'</span>)
+plt.ylabel(<span class="org-string">'Diff ELBO from best'</span>)
 plt.tight_layout()
 </pre>
 </div>
 
 
 <div class="figure">
-<p><img src="figure/ebnbm.org/sim-elbo-theta=0.5-seed=10.png" alt="sim-elbo-theta=0.5-seed=10.png">
+<p><img src="figure/ebnbm.org/sim-elbo-theta-seed=10.png" alt="sim-elbo-theta-seed=10.png">
 </p>
 </div>
 
+<p>
+Look more closely at the &ldquo;phase change&rdquo; between \(\theta = 0.01\) and
+\(\theta = 0.1\)
+</p>
+
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">theta0</span> = 0.1
-<span class="org-variable-name">x</span>, <span class="org-variable-name">s</span>, <span class="org-variable-name">lam</span>, <span class="org-variable-name">u</span>, <span class="org-variable-name">log_mean</span>, <span class="org-variable-name">log_inv_disp</span>, <span class="org-variable-name">theta</span> = simulate_nb_gamma(n=100, p=5, theta=theta0, seed=10)
+<pre class="src src-ipython"><span class="org-variable-name">elbo</span> = <span class="org-builtin">dict</span>()
 <span class="org-variable-name">grid</span> = np.logspace(-3, 0, 100)
-<span class="org-variable-name">fits</span> = map_ebnbm_gamma(x, s, grid)
-<span class="org-variable-name">elbo</span> = np.array([f[-1] <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits])
+<span class="org-keyword">for</span> theta0 <span class="org-keyword">in</span> np.logspace(-2, -1, 5):
+  <span class="org-keyword">print</span>(f<span class="org-string">'theta0 = {theta0:.3g}'</span>)
+  <span class="org-variable-name">x</span>, <span class="org-variable-name">s</span>, <span class="org-variable-name">lam</span>, <span class="org-variable-name">u</span>, <span class="org-variable-name">log_mean</span>, <span class="org-variable-name">log_inv_disp</span>, <span class="org-variable-name">theta</span> = simulate_nb_gamma(n=100, p=5, theta=theta0, seed=10)
+  <span class="org-variable-name">fits</span> = map_ebnbm_gamma(x, s, grid)
+  <span class="org-variable-name">elbo</span>[theta0] = np.array([f[-1] <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits])
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(2.5, 2.5)
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = colorcet.cm[<span class="org-string">'bmy'</span>]
+plt.clf()
+plt.gcf().set_size_inches(3, 3)
 plt.xscale(<span class="org-string">'log'</span>)
-plt.plot(grid, elbo, lw=1, c=<span class="org-string">'k'</span>)
-plt.axvline(x=theta0, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(elbo):
+  <span class="org-variable-name">z</span> = (np.log(k) - np.log(1e-2)) / (np.log(.1) - np.log(1e-2))
+  plt.plot(grid, elbo[k] - elbo[k].<span class="org-builtin">max</span>(), lw=1, c=cm(z), label=rf<span class="org-string">'$\theta$ = {k:.3g}'</span>)
 plt.xticks(np.logspace(-3, 0, 4))
+plt.legend(frameon=<span class="org-constant">False</span>)
 plt.xlabel(r<span class="org-string">'Measurement dispersion $\theta$'</span>)
-plt.ylabel(<span class="org-string">'ELBO'</span>)
+plt.ylabel(<span class="org-string">'Diff ELBO from best'</span>)
+plt.ylim(-50, 0)
 plt.tight_layout()
 </pre>
 </div>
 
 
 <div class="figure">
-<p><img src="figure/ebnbm.org/sim-elbo-theta=0.1-seed=10.png" alt="sim-elbo-theta=0.1-seed=10.png">
+<p><img src="figure/ebnbm.org/sim-theta-elbo-seed=10-inset.png" alt="sim-theta-elbo-seed=10-inset.png">
 </p>
 </div>
 </div>
@@ -1168,7 +1191,7 @@ plt.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-05 Sat 21:18</p>
+<p class="date">Created: 2020-09-06 Sun 12:39</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

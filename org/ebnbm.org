@@ -92,7 +92,10 @@
        log_disp = np.random.uniform(low=-6, high=0, size=(1, p))
        s = 1e5 * np.ones((n, 1))
        lam = st.gamma(a=np.exp(-log_disp), scale=np.exp(log_mean + log_disp)).rvs(size=(n, p))
-       u = st.gamma(a=1 / theta, scale=theta).rvs(size=(n, p))
+       if theta > 0:
+         u = st.gamma(a=1 / theta, scale=theta).rvs(size=(n, p))
+       else:
+         u = 1
        x = st.poisson(s * lam * u).rvs()
        return x, s, lam, u, log_mean, -log_disp, theta
    #+END_SRC
@@ -553,7 +556,7 @@
 
    #+RESULTS: map-ebnbm-gamma
    :RESULTS:
-   # Out[6]:
+   # Out[5]:
    :END:
 
    #+RESULTS:
@@ -720,68 +723,85 @@
    [[file:figure/ebnbm.org/sim-ex7.png]]
    :END:
 
-   Try again for a different simulated data set.
+   Look at the ELBO as a function of \(\theta\), for data simulated under
+   several different choices of \(\theta\).
 
    #+BEGIN_SRC ipython :async t
-     theta0 = 0.5
-     x, s, lam, u, log_mean, log_inv_disp, theta = simulate_nb_gamma(n=100, p=5, theta=theta0, seed=10)
+     elbo = dict()
      grid = np.logspace(-3, 0, 100)
-     fits = map_ebnbm_gamma(x, s, grid)
-     elbo = np.array([f[-1] for f in fits])
+     for theta0 in (0, 1e-3, 1e-2, 0.1, 1):
+       print(f'theta0 = {theta0:.3g}')
+       x, s, lam, u, log_mean, log_inv_disp, theta = simulate_nb_gamma(n=100, p=5, theta=theta0, seed=10)
+       fits = map_ebnbm_gamma(x, s, grid)
+       elbo[theta0] = np.array([f[-1] for f in fits])
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[9]:
+   # Out[6]:
    :END:
 
-   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-elbo-theta=0.5-seed=10.png
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-elbo-theta-seed=10.png
+     cm = colorcet.cm['bmy']
      plt.clf()
-     plt.gcf().set_size_inches(2.5, 2.5)
+     plt.gcf().set_size_inches(3, 3)
      plt.xscale('log')
-     plt.plot(grid, elbo, lw=1, c='k')
-     plt.axvline(x=theta0, lw=1, ls=':', c='r')
+     for i, k in enumerate(elbo):
+       if k > 0:
+         z = (np.log(k) - np.log(1e-5)) / (1 - np.log(1e-5))
+       else:
+         z = 0
+       plt.plot(grid, elbo[k] - elbo[k].max(), lw=1, c=cm(z), label=rf'$\theta$ = {k:.3g}')
      plt.xticks(np.logspace(-3, 0, 4))
+     plt.legend(frameon=False)
      plt.xlabel(r'Measurement dispersion $\theta$')
-     plt.ylabel('ELBO')
+     plt.ylabel('Diff ELBO from best')
      plt.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
-   [[file:figure/ebnbm.org/sim-elbo-theta=0.5-seed=10.png]]
+   # Out[19]:
+   [[file:figure/ebnbm.org/sim-elbo-theta-seed=10.png]]
    :END:
 
+   Look more closely at the "phase change" between \(\theta = 0.01\) and
+   \(\theta = 0.1\)
+
    #+BEGIN_SRC ipython :async t
-     theta0 = 0.1
-     x, s, lam, u, log_mean, log_inv_disp, theta = simulate_nb_gamma(n=100, p=5, theta=theta0, seed=10)
+     elbo = dict()
      grid = np.logspace(-3, 0, 100)
-     fits = map_ebnbm_gamma(x, s, grid)
-     elbo = np.array([f[-1] for f in fits])
+     for theta0 in np.logspace(-2, -1, 5):
+       print(f'theta0 = {theta0:.3g}')
+       x, s, lam, u, log_mean, log_inv_disp, theta = simulate_nb_gamma(n=100, p=5, theta=theta0, seed=10)
+       fits = map_ebnbm_gamma(x, s, grid)
+       elbo[theta0] = np.array([f[-1] for f in fits])
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[91]:
    :END:
 
-   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-elbo-theta=0.1-seed=10.png
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/sim-theta-elbo-seed=10-inset.png
+     cm = colorcet.cm['bmy']
      plt.clf()
-     plt.gcf().set_size_inches(2.5, 2.5)
+     plt.gcf().set_size_inches(3, 3)
      plt.xscale('log')
-     plt.plot(grid, elbo, lw=1, c='k')
-     plt.axvline(x=theta0, lw=1, ls=':', c='r')
+     for i, k in enumerate(elbo):
+       z = (np.log(k) - np.log(1e-2)) / (np.log(.1) - np.log(1e-2))
+       plt.plot(grid, elbo[k] - elbo[k].max(), lw=1, c=cm(z), label=rf'$\theta$ = {k:.3g}')
      plt.xticks(np.logspace(-3, 0, 4))
+     plt.legend(frameon=False)
      plt.xlabel(r'Measurement dispersion $\theta$')
-     plt.ylabel('ELBO')
+     plt.ylabel('Diff ELBO from best')
+     plt.ylim(-50, 0)
      plt.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[92]:
-   [[file:figure/ebnbm.org/sim-elbo-theta=0.1-seed=10.png]]
+   # Out[24]:
+   [[file:figure/ebnbm.org/sim-theta-elbo-seed=10-inset.png]]
    :END:
 
 ** Application to control data
