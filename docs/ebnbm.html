@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-05 Sat 13:56 -->
+<!-- 2020-09-05 Sat 21:18 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Negative binomial measurement model</title>
@@ -1081,16 +1081,10 @@ Fit the model to each control data set.
   <span class="org-keyword">return</span> scmodes.ebpm.ebpm_gamma(x[:,j].ravel(), s.ravel())
 
 <span class="org-keyword">def</span> <span class="org-function-name">_fit</span>(theta, x, s, par):
-  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: ebpm_gamma can return np.inf is data is consistent with Poisson</span>
-  <span class="org-comment-delimiter"># </span><span class="org-comment">observation model</span>
-  <span class="org-variable-name">init</span> = np.ma.masked_invalid(np.hstack([
-    np.exp(par[:,1]),
-    np.exp(par[:,1] - par[:,0]),
-    1e-3])).filled(1e6)
   <span class="org-keyword">return</span> scmodes.ebnbm.ebnbm_gamma(
     x,
     s,
-    init=init,
+    init=np.hstack([np.exp(par[:,1]), np.exp(par[:,1] - par[:,0]), theta]),
     tol=1e-3,
     max_iters=100_000,
     extrapolate=<span class="org-constant">True</span>,
@@ -1104,16 +1098,18 @@ Fit the model to each control data set.
   <span class="org-variable-name">x</span> = dat.X.A
   <span class="org-variable-name">s</span> = x.<span class="org-builtin">sum</span>(axis=1, keepdims=<span class="org-constant">True</span>)
   <span class="org-variable-name">par</span> = pool.<span class="org-builtin">map</span>(ft.partial(_init, x=x, s=s), <span class="org-builtin">range</span>(x.shape[1]))
-  <span class="org-variable-name">par</span> = np.array(par)
+  <span class="org-comment-delimiter"># </span><span class="org-comment">Important: ebpm_gamma can return np.inf is data is consistent with Poisson</span>
+  <span class="org-comment-delimiter"># </span><span class="org-comment">observation model. exp(20) is finite and large enough.</span>
+  <span class="org-variable-name">par</span> = np.ma.masked_invalid(np.array(par)).filled(20)
   <span class="org-variable-name">grid</span> = np.logspace(-3, 1, 20)
   <span class="org-variable-name">fits</span> = pool.<span class="org-builtin">map</span>(ft.partial(_fit, x=x, s=s, par=par), grid)
-<span class="org-keyword">with</span> <span class="org-builtin">open</span>(f<span class="org-string">'/scratch/midway2/aksarkar/modes/ebnbm-{d}.pkl'</span>, <span class="org-string">'wb'</span>) <span class="org-keyword">as</span> f:
+<span class="org-keyword">with</span> <span class="org-builtin">open</span>(f<span class="org-string">'/scratch/midway2/aksarkar/modes/ebnbm/ebnbm-{d}.pkl'</span>, <span class="org-string">'wb'</span>) <span class="org-keyword">as</span> f:
   pickle.dump(<span class="org-builtin">dict</span>(<span class="org-builtin">zip</span>(grid, fits)), f)
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 -w midway2-gpu05 -n1 -c28 --exclusive --time=24:00:00 -a 2
+<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 -w midway2-gpu05 -n1 -c28 --exclusive -a 4
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -1134,8 +1130,8 @@ Read the fitted models.
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">elbo</span> = <span class="org-builtin">dict</span>()
 <span class="org-keyword">for</span> k <span class="org-keyword">in</span> data:
-  <span class="org-keyword">if</span> k <span class="org-keyword">in</span> control[:3]:
-    <span class="org-keyword">with</span> <span class="org-builtin">open</span>(f<span class="org-string">'/scratch/midway2/aksarkar/modes/ebnbm-{k}.pkl'</span>, <span class="org-string">'rb'</span>) <span class="org-keyword">as</span> f:
+  <span class="org-keyword">if</span> k <span class="org-keyword">in</span> control:
+    <span class="org-keyword">with</span> <span class="org-builtin">open</span>(f<span class="org-string">'/scratch/midway2/aksarkar/modes/ebnbm/ebnbm-{k}.pkl'</span>, <span class="org-string">'rb'</span>) <span class="org-keyword">as</span> f:
       <span class="org-variable-name">fits</span> = pickle.load(f)
       <span class="org-variable-name">elbo</span>[k] = pd.Series({theta: fits[theta][-1] <span class="org-keyword">for</span> theta <span class="org-keyword">in</span> fits})
 <span class="org-variable-name">elbo</span> = pd.DataFrame(elbo)
@@ -1143,16 +1139,20 @@ Read the fitted models.
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+<pre class="src src-ipython"><span class="org-variable-name">labels</span> = [<span class="org-string">'Chromium (1)'</span>, <span class="org-string">'Chromium (2)'</span>, <span class="org-string">'Drop-Seq'</span>, <span class="org-string">'GemCode'</span>, <span class="org-string">'InDrops'</span>]
+<span class="org-variable-name">keys</span> = [<span class="org-string">'chromium1'</span>, <span class="org-string">'chromium2'</span>, <span class="org-string">'dropseq'</span>, <span class="org-string">'gemcode'</span>, <span class="org-string">'indrops'</span>]
+<span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
 plt.clf()
-plt.gcf().set_size_inches(3.5, 2.5)
+plt.gcf().set_size_inches(4, 2.5)
 plt.xscale(<span class="org-string">'log'</span>)
-<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(elbo):
-  plt.plot(elbo.index, elbo[k], lw=1, label=k, c=cm(i))
+<span class="org-keyword">for</span> i, (k, l) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(keys, labels)):
+  <span class="org-variable-name">n</span>, <span class="org-variable-name">p</span> = data[k]().shape
+  <span class="org-variable-name">diff</span> = elbo[k] - elbo[k].<span class="org-builtin">max</span>()
+  plt.plot(elbo.index, diff / (n * p), lw=1, label=l, c=cm(i))
 plt.legend(title=<span class="org-string">'Dataset'</span>, frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
 plt.xticks(np.logspace(-3, 1, 5))
 plt.xlabel(r<span class="org-string">'Measurement dispersion'</span>)
-plt.ylabel(<span class="org-string">'ELBO'</span>)
+plt.ylabel(<span class="org-string">'Diff ELBO per obs\nfrom best'</span>)
 plt.tight_layout()
 </pre>
 </div>
@@ -1162,150 +1162,13 @@ plt.tight_layout()
 <p><img src="figure/ebnbm.org/ebnbm-control.png" alt="ebnbm-control.png">
 </p>
 </div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">dat</span> = data[<span class="org-string">'indrops'</span>]()
-<span class="org-variable-name">x</span> = dat.X.A
-<span class="org-variable-name">s</span> = x.<span class="org-builtin">sum</span>(axis=1, keepdims=<span class="org-constant">True</span>)
-<span class="org-variable-name">par</span> = np.array([scmodes.ebpm.ebpm_gamma(x[:,j].ravel(), s.ravel()) <span class="org-keyword">for</span> j <span class="org-keyword">in</span> <span class="org-builtin">range</span>(x.shape[1])])
-<span class="org-variable-name">init</span> = np.ma.masked_invalid(np.hstack([
-  np.exp(par[:,1]),
-  np.exp(par[:,1] - par[:,0]),
-  1e-3])).filled(1e6)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">scmodes.ebnbm.ebnbm_gamma(
-  x,
-  s,
-  init=init,
-  tol=1e-3,
-  max_iters=10_000,
-  extrapolate=<span class="org-constant">True</span>,
-  fix_g=<span class="org-constant">False</span>,
-  fix_theta=<span class="org-constant">True</span>)
-</pre>
-</div>
-
-<pre class="example">
-(array([[ -7.68382635,  -1.5705429 ,  -4.58972578,  -2.63851718,
--5.21957773,  -9.95775709,  -9.81933889,  -9.08314382,
--10.51619082,  -2.35643432,  -7.77202749,  -6.11786917,
--10.31275327,  -7.21591208,  -9.41571775,  -2.35630979,
--8.37087558,  -8.41229882,  -7.08600131,  -2.35635002,
--9.93933094,  -9.74746508,  -4.9705232 ,  -5.18101723,
--7.37724959,  -3.63488734, -10.34277823,  -8.36730388,
--7.81897768,  -8.92658867, -10.22498517,  -9.87807411,
--8.79815753,  -5.61995968, -10.17145429,  -6.77873833,
--9.85820406,  -9.60490723,  -7.47988098, -10.71682089,
--1.84622738,  -9.34387974,  -6.0342135 ,  -9.15560746,
--7.97769752,  -7.36090524, -10.67601457,  -8.77269377,
--9.26641854,  -2.35626478,  -8.55696946,  -5.74014758,
--6.39954691,  -1.60083926,  -9.51831321,  -9.78311964,
--7.9369963 ,  -8.40643658,  -4.66739956, -10.47866198,
--5.06157435,  -6.73060607,  -2.99941656,  -6.18652123,
--9.71459998, -10.67520539,  -9.491491  ,  -9.2356603 ,
--1.86246841,  -6.50037837,  -9.24566254,  -4.01088253,
--10.28286967,  -8.61689711,  -2.35654768,  -9.33359859,
--7.85608109,  -5.03634943,  -8.94335001,  -9.02204987,
--9.63860936,  -9.23410296, -11.40453947,  -8.54985618,
--8.29251574,  -8.71606401,  -7.19087004,  -8.64454098,
--9.11852604,  -7.06693715,  -9.40317986,  -7.87494295,
--3.95760172,  -5.95802193,  -7.92387825,  -6.62701893,
--7.22664171,  -7.78497944,  -7.14075238,  -8.09898103,
--7.24823516,  -6.40236003,  -7.50341165]]),
-array([[ 2.03922743e+00,  5.76706664e+00,  4.34078287e+00,
-5.46514384e+00,  3.93918688e+00,  7.07716330e-01,
-7.36383472e-01,  5.39368052e-01,  8.05801054e-06,
-1.38155106e+01,  1.90471782e+00,  3.07694138e+00,
-4.81909012e-01,  2.46797791e+00,  8.99334057e-01,
-1.38155106e+01,  1.78343462e+00,  3.84079404e-01,
-2.82732315e+00,  1.38155106e+01,  5.59378079e-01,
-4.29143607e-01,  3.90037695e+00,  3.53860787e+00,
-2.41609955e+00,  4.11675897e+00,  4.37803765e-01,
-1.97265392e+00,  1.79670777e+00,  1.74171688e+00,
-5.53525082e-01,  2.89913625e-01,  1.48547964e+00,
-3.28351554e+00,  1.07205457e+00,  2.63601544e+00,
-6.72554560e-01,  1.48582461e+00,  2.28684609e+00,
-2.48423873e-01,  4.79952530e+00,  1.47007182e+00,
-2.90990838e+00,  8.98320814e-01,  1.62996172e+00,
-2.13592621e+00, -1.16889209e-04,  1.84761683e+00,
-1.42729438e+00,  1.38155106e+01,  1.68000304e+00,
-3.28910435e+00,  2.77248656e+00,  6.28424480e+00,
-9.70176005e-01,  4.63133899e-02,  1.45622153e+00,
-1.71715066e+00,  4.22357888e+00, -9.62778629e-04,
-3.88837294e+00,  3.08437127e+00,  5.29905609e+00,
-3.16539814e+00,  6.16619614e-01, -1.08585424e-03,
-7.50459167e-01,  7.70626743e-01,  5.82929406e+00,
-2.71937828e+00,  7.30230007e-01,  4.50146543e+00,
-5.01365615e-01,  1.27335250e+00,  1.38155106e+01,
-2.83514714e-01,  2.35211647e+00,  3.92533158e+00,
-4.12571204e-01,  1.32810383e+00,  1.71989517e-04,
-6.77370876e-01, -2.69873002e+00,  3.32786554e-01,
-1.93832479e+00,  1.36946837e+00,  2.54074591e+00,
-1.64351009e+00,  8.09048289e-01,  2.62050499e+00,
-1.05433089e+00,  1.80842790e+00,  4.64728589e+00,
-3.28120756e+00,  2.42432625e+00,  2.84244306e+00,
-2.35615143e+00,  1.81219046e+00,  2.00685084e+00,
-1.84177346e+00,  2.38104267e+00,  3.03714986e+00,
-2.18607826e+00]]),
--6.907755278982137,
-array([[  8.68466997, 498.59885645,  83.76761507, ...,  10.81617468,
-21.84574527,   9.90024013],
-[ 11.68466997, 565.59885645,  94.76761507, ...,  11.81617468,
-25.84574527,   9.90024013],
-[ 10.68466997, 563.59885645,  86.76761507, ...,  10.81617468,
-20.84574527,   9.90024013],
-...,
-[  7.68466997, 551.59885645,  84.76761507, ...,  11.81617468,
-22.84574527,   8.90024013],
-[  8.68466997, 562.59885645,  86.76761507, ...,  14.81617468,
-21.84574527,   8.90024013],
-[  8.68466997, 537.59885645,  93.76761507, ...,  11.81617468,
-20.84574527,   9.90024013]]),
-array([[17638.80586169,  2468.34020627,  8497.00879257, ...,
-16143.01716081, 13515.14249644, 17087.60717035],
-[17994.38181152,  2815.00152311,  8856.44139851, ...,
-16495.7050647 , 13870.97171612, 17439.52351373],
-[17909.05257597,  2740.66801049,  8764.7824871 , ...,
-16410.64783482, 13781.42681954, 17355.55470231],
-...,
-[17819.75853656,  2658.18785377,  8677.83532918, ...,
-16325.81953106, 13697.7741546 , 17268.53091062],
-[17999.78521366,  2820.93333506,  8856.59341879, ...,
-16508.28947163, 13875.26899424, 17447.31653412],
-[17852.80705273,  2678.15200432,  8718.35073896, ...,
-16357.80071833, 13727.61134712, 17301.57108267]]),
-array([[1001., 1179., 1007., ..., 1000., 1001., 1001.],
-[1004., 1246., 1018., ..., 1001., 1005., 1001.],
-[1003., 1244., 1010., ..., 1000., 1000., 1001.],
-...,
-[1000., 1232., 1008., ..., 1001., 1002., 1000.],
-[1001., 1243., 1010., ..., 1004., 1001., 1000.],
-[1001., 1218., 1017., ..., 1001., 1000., 1001.]]),
-array([[1000.46281987, 1189.87776639, 1009.26697384, ..., 1000.62982057,
-1001.51940688, 1000.54461843],
-[1000.8389615 , 1259.59265618, 1013.82493861, ..., 1000.92548319,
-1002.40738022, 1000.73345526],
-[1000.72070151, 1248.41659624, 1011.9586857 , ..., 1000.79618667,
-1001.82721721, 1000.68908717],
-...,
-[1000.48385615, 1232.82550029, 1010.96002177, ..., 1000.81207243,
-1001.87132054, 1000.57828135],
-[1000.62771614, 1259.4677099 , 1012.74583374, ..., 1001.16764631,
-1002.04834332, 1000.66366724],
-[1000.56137442, 1231.64819597, 1012.41150202, ..., 1000.83360018,
-1001.75237989, 1000.66033755]]),
--549542.3630526108)
-</pre>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-05 Sat 13:56</p>
+<p class="date">Created: 2020-09-05 Sat 21:18</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
