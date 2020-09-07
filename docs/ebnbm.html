@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-06 Sun 12:39 -->
+<!-- 2020-09-07 Mon 14:23 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Negative binomial measurement model</title>
@@ -313,6 +313,7 @@ Gamma distribution is parameterized by shape and rate.
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
 <span class="org-keyword">import</span> pickle
 <span class="org-keyword">import</span> scanpy <span class="org-keyword">as</span> sc
+<span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
 <span class="org-keyword">import</span> scipy.special <span class="org-keyword">as</span> sp
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 <span class="org-keyword">import</span> scmodes
@@ -388,42 +389,48 @@ does the profile likelihood look like for data consistent with \(\theta=0\)?
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">import</span> scipy.optimize <span class="org-keyword">as</span> so
-
-<span class="org-keyword">def</span> <span class="org-function-name">_loss</span>(par, x, s, theta0):
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_loss</span>(par, x, s, theta0):
   <span class="org-variable-name">mu</span>, <span class="org-variable-name">phi</span> = np.exp(par)
   <span class="org-variable-name">theta</span> = phi + theta0 + phi * theta0
-  <span class="org-keyword">return</span> -st.nbinom(n=1 / theta, p=1 / (1 + s * np.exp(log_mu) / theta)).logpmf(x).mean()
+  <span class="org-keyword">return</span> -st.nbinom(n=1 / theta, p=1 / (1 + s * np.exp(log_mu) * theta)).logpmf(x).mean()
 
 np.random.seed(1)
-<span class="org-variable-name">log_mu</span> = -10
 <span class="org-variable-name">s</span> = 1e5
-<span class="org-variable-name">n</span> = 100
-<span class="org-variable-name">theta0</span> = 0.2
+<span class="org-variable-name">n</span> = 1000
+
+<span class="org-variable-name">log_mu</span> = -10
+<span class="org-variable-name">log_phi</span> = -6
+<span class="org-variable-name">lam</span> = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
 
 <span class="org-variable-name">fits</span> = <span class="org-builtin">dict</span>()
 <span class="org-variable-name">grid</span> = np.logspace(-3, 1, 100)
-<span class="org-keyword">for</span> log_phi <span class="org-keyword">in</span> (-4, -2, 0):
-  <span class="org-variable-name">lam</span> = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
+<span class="org-keyword">for</span> theta0 <span class="org-keyword">in</span> np.logspace(-4, 0, 5):
+  <span class="org-keyword">print</span>(f<span class="org-string">'fitting theta0 = {theta0:.1g}'</span>)
   <span class="org-variable-name">u</span> = st.gamma(a=1 / theta0, scale=theta0).rvs(n)
   <span class="org-variable-name">x</span> = st.poisson(s * lam * u).rvs(n)
-  <span class="org-variable-name">fits</span>[log_phi] = [so.minimize(_loss, x0=[log_mu, log_phi], args=(x, s, theta), method=<span class="org-string">'Nelder-Mead'</span>)
-                   <span class="org-keyword">for</span> theta <span class="org-keyword">in</span> grid]
+  <span class="org-variable-name">fits</span>[theta0] = [so.minimize(_loss, x0=[log_mu, log_phi], args=(x, s, theta), method=<span class="org-string">'Nelder-Mead'</span>)
+                  <span class="org-keyword">for</span> theta <span class="org-keyword">in</span> grid]
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = colorcet.cm[<span class="org-string">'bmy'</span>]
 plt.clf()
-plt.gcf().set_size_inches(2.5, 2.5)
+plt.gcf().set_size_inches(4, 2.5)
 plt.xscale(<span class="org-string">'log'</span>)
 <span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(fits):
   <span class="org-variable-name">temp</span> = n * np.array([-f.fun <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits[k]])
-  plt.plot(grid, temp - temp.<span class="org-builtin">max</span>(), lw=1, c=cm(i), label=rf<span class="org-string">'$\phi$ = {np.exp(k):.2g}'</span>)
-plt.axvline(x=theta0, c=<span class="org-string">'k'</span>, lw=1, ls=<span class="org-string">':'</span>)
-plt.legend()
-plt.xlabel(r<span class="org-string">'Measurement dispersion $\theta$'</span>)
-plt.ylabel(<span class="org-string">'Diff log lik from best'</span>)
+  <span class="org-variable-name">temp</span> -= temp.<span class="org-builtin">max</span>()
+  <span class="org-variable-name">c</span> = (np.log(k) - np.log(1e-4)) / (1 - np.log(1e-4))
+  <span class="org-variable-name">ls</span> = [<span class="org-string">'-.'</span>, <span class="org-string">'--'</span>, <span class="org-string">':'</span>][i % 3]
+  plt.plot(grid, temp, lw=1, c=cm(c), label=rf<span class="org-string">'$\theta$ = {k:.1g}'</span>)
+plt.axvline(x=np.exp(log_phi), lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.axhline(y=-np.log(10), lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.legend(title=r<span class="org-string">'True $\theta$'</span>, frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+plt.xticks(np.logspace(-3, 1, 5))
+plt.ylim(-10, 0)
+plt.xlabel(r<span class="org-string">'Assumed dispersion $\theta$'</span>)
+plt.ylabel(<span class="org-string">'Diff ln lik from best'</span>)
 plt.tight_layout()
 </pre>
 </div>
@@ -1191,7 +1198,7 @@ plt.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-06 Sun 12:39</p>
+<p class="date">Created: 2020-09-07 Mon 14:23</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

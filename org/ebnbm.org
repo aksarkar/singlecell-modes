@@ -47,6 +47,7 @@
     import pandas as pd
     import pickle
     import scanpy as sc
+    import scipy.optimize as so
     import scipy.special as sp
     import scipy.stats as st
     import scmodes
@@ -54,7 +55,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[56]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -64,7 +65,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[2]:
+  # Out[53]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -77,7 +78,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[54]:
   :END:
 
 * Results
@@ -102,7 +103,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[55]:
    :END:
 
 ** Total variance under NB measurement
@@ -126,52 +127,58 @@
    does the profile likelihood look like for data consistent with \(\theta=0\)?
 
    #+BEGIN_SRC ipython :async t
-     import scipy.optimize as so
-
      def _loss(par, x, s, theta0):
        mu, phi = np.exp(par)
        theta = phi + theta0 + phi * theta0
-       return -st.nbinom(n=1 / theta, p=1 / (1 + s * np.exp(log_mu) / theta)).logpmf(x).mean()
+       return -st.nbinom(n=1 / theta, p=1 / (1 + s * np.exp(log_mu) * theta)).logpmf(x).mean()
 
      np.random.seed(1)
-     log_mu = -10
      s = 1e5
-     n = 100
-     theta0 = 0.2
+     n = 1000
+
+     log_mu = -10
+     log_phi = -6
+     lam = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
 
      fits = dict()
      grid = np.logspace(-3, 1, 100)
-     for log_phi in (-4, -2, 0):
-       lam = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
+     for theta0 in np.logspace(-4, 0, 5):
+       print(f'fitting theta0 = {theta0:.1g}')
        u = st.gamma(a=1 / theta0, scale=theta0).rvs(n)
        x = st.poisson(s * lam * u).rvs(n)
-       fits[log_phi] = [so.minimize(_loss, x0=[log_mu, log_phi], args=(x, s, theta), method='Nelder-Mead')
-                        for theta in grid]
+       fits[theta0] = [so.minimize(_loss, x0=[log_mu, log_phi], args=(x, s, theta), method='Nelder-Mead')
+                       for theta in grid]
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[78]:
+   # Out[238]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/var-heuristic.png
-     cm = plt.get_cmap('Dark2')
+     cm = colorcet.cm['bmy']
      plt.clf()
-     plt.gcf().set_size_inches(2.5, 2.5)
+     plt.gcf().set_size_inches(4, 2.5)
      plt.xscale('log')
      for i, k in enumerate(fits):
        temp = n * np.array([-f.fun for f in fits[k]])
-       plt.plot(grid, temp - temp.max(), lw=1, c=cm(i), label=rf'$\phi$ = {np.exp(k):.2g}')
-     plt.axvline(x=theta0, c='k', lw=1, ls=':')
-     plt.legend()
-     plt.xlabel(r'Measurement dispersion $\theta$')
-     plt.ylabel('Diff log lik from best')
+       temp -= temp.max()
+       c = (np.log(k) - np.log(1e-4)) / (1 - np.log(1e-4))
+       ls = ['-.', '--', ':'][i % 3]
+       plt.plot(grid, temp, lw=1, c=cm(c), label=rf'$\theta$ = {k:.1g}')
+     plt.axvline(x=np.exp(log_phi), lw=1, ls=':', c='k')
+     plt.axhline(y=-np.log(10), lw=1, ls=':', c='k')
+     plt.legend(title=r'True $\theta$', frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xticks(np.logspace(-3, 1, 5))
+     plt.ylim(-10, 0)
+     plt.xlabel(r'Assumed dispersion $\theta$')
+     plt.ylabel('Diff ln lik from best')
      plt.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[90]:
+   # Out[240]:
    [[file:figure/ebnbm.org/var-heuristic.png]]
    :END:
 
