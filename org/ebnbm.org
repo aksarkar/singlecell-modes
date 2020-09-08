@@ -40,7 +40,7 @@
   #+RESULTS:
   : 6
 
-  #+CALL: ipython3(venv="scmodes",partition="gpu2",opts="--gres=gpu:1 -w midway2-gpu05",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="8G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+BEGIN_SRC ipython
     import numpy as np
@@ -55,7 +55,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[56]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -65,7 +65,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[53]:
+  # Out[2]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -78,7 +78,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[54]:
+  # Out[3]:
   :END:
 
 * Results
@@ -86,6 +86,7 @@
 
    Simulate data from the model.
 
+   #+NAME: simulate
    #+BEGIN_SRC ipython
      def simulate_nb_gamma(n, p, theta, seed=0):
        np.random.seed(seed)
@@ -101,85 +102,14 @@
        return x, s, lam, u, log_mean, -log_disp, theta
    #+END_SRC
 
+   #+RESULTS: simulate
+   :RESULTS:
+   # Out[4]:
+   :END:
+
    #+RESULTS:
    :RESULTS:
    # Out[55]:
-   :END:
-
-** Total variance under NB measurement
-   :PROPERTIES:
-   :CUSTOM_ID: total-var
-   :END:
-
-   Consider gene \(j\), and assume \(a = \phi^{-1}\), \(b =
-   \mu^{-1}\phi^{-1}\). Then,
-
-   \begin{align}
-     \E{\lambda_i} &= \mu\\
-     \V[\lambda_i] &= \mu^2\phi\\
-     \V[x_i] &= \E{\V[x_i \mid \lambda_i]} + \V[\E{x_i \mid \lambda_i}]\\
-     &= \E{s_i \lambda_i + (s_i \lambda_i)^2 \theta} + \V[s_i \lambda_i]\\
-     &= s_i \mu + s_i^2 \mu^2 (\phi + \theta + \phi\theta)
-   \end{align}
-
-   This result suggests a heuristic approach to characterize the profile
-   likelihood of the data with respect to \(\theta\). The key question is: what
-   does the profile likelihood look like for data consistent with \(\theta=0\)?
-
-   #+BEGIN_SRC ipython :async t
-     def _loss(par, x, s, theta0):
-       mu, phi = np.exp(par)
-       theta = phi + theta0 + phi * theta0
-       return -st.nbinom(n=1 / theta, p=1 / (1 + s * np.exp(log_mu) * theta)).logpmf(x).mean()
-
-     np.random.seed(1)
-     s = 1e5
-     n = 1000
-
-     log_mu = -10
-     log_phi = -6
-     lam = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
-
-     fits = dict()
-     grid = np.logspace(-3, 1, 100)
-     for theta0 in np.logspace(-4, 0, 5):
-       print(f'fitting theta0 = {theta0:.1g}')
-       u = st.gamma(a=1 / theta0, scale=theta0).rvs(n)
-       x = st.poisson(s * lam * u).rvs(n)
-       fits[theta0] = [so.minimize(_loss, x0=[log_mu, log_phi], args=(x, s, theta), method='Nelder-Mead')
-                       for theta in grid]
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[238]:
-   :END:
-
-   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/var-heuristic.png
-     cm = colorcet.cm['bmy']
-     plt.clf()
-     plt.gcf().set_size_inches(4, 2.5)
-     plt.xscale('log')
-     for i, k in enumerate(fits):
-       temp = n * np.array([-f.fun for f in fits[k]])
-       temp -= temp.max()
-       c = (np.log(k) - np.log(1e-4)) / (1 - np.log(1e-4))
-       ls = ['-.', '--', ':'][i % 3]
-       plt.plot(grid, temp, lw=1, c=cm(c), label=rf'$\theta$ = {k:.1g}')
-     plt.axvline(x=np.exp(log_phi), lw=1, ls=':', c='k')
-     plt.axhline(y=-np.log(10), lw=1, ls=':', c='k')
-     plt.legend(title=r'True $\theta$', frameon=False, loc='center left', bbox_to_anchor=(1, .5))
-     plt.xticks(np.logspace(-3, 1, 5))
-     plt.ylim(-10, 0)
-     plt.xlabel(r'Assumed dispersion $\theta$')
-     plt.ylabel('Diff ln lik from best')
-     plt.tight_layout()
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[240]:
-   [[file:figure/ebnbm.org/var-heuristic.png]]
    :END:
 
 ** VBEM algorithm for Gamma expression model
@@ -811,9 +741,85 @@
    [[file:figure/ebnbm.org/sim-theta-elbo-seed=10-inset.png]]
    :END:
 
+** Heuristic approach
+   :PROPERTIES:
+   :CUSTOM_ID: total-var
+   :END:
+
+   Consider gene \(j\), and assume \(a = \phi^{-1}\), \(b =
+   \mu^{-1}\phi^{-1}\). Then,
+
+   \begin{align}
+     \E{\lambda_i} &= \mu\\
+     \V[\lambda_i] &= \mu^2\phi\\
+     \V[x_i] &= \E{\V[x_i \mid \lambda_i]} + \V[\E{x_i \mid \lambda_i}]\\
+     &= \E{s_i \lambda_i + (s_i \lambda_i)^2 \theta} + \V[s_i \lambda_i]\\
+     &= s_i \mu + s_i^2 \mu^2 (\phi + \theta + \phi\theta)
+   \end{align}
+
+   This result suggests a heuristic approach to characterize the profile
+   likelihood of the data with respect to \(\theta\), that fits an NB model
+   with dispersion \(\phi + \theta + \phi\theta\).
+
+   #+BEGIN_SRC ipython :async t
+     def _loss(par, x, s, theta0):
+       mu, phi = np.exp(par)
+       theta = phi + theta0 + phi * theta0
+       return -st.nbinom(n=1 / theta, p=1 / (1 + s * mu * theta)).logpmf(x).mean()
+
+     np.random.seed(1)
+     s = 1e5
+     n = 1000
+
+     log_mu = -10
+     log_phi = -6
+     lam = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
+
+     fits = dict()
+     grid = np.logspace(-3, 1, 100)
+     for theta0 in np.logspace(-4, 0, 5):
+       print(f'fitting theta0 = {theta0:.1g}')
+       u = st.gamma(a=1 / theta0, scale=theta0).rvs(n)
+       x = st.poisson(s * lam * u).rvs(n)
+       fits[theta0] = [so.minimize(_loss, x0=[log_mu, log_phi], args=(x, s, theta), method='Nelder-Mead')
+                       for theta in grid]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[104]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/var-heuristic.png
+     cm = colorcet.cm['bmy']
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2.5)
+     plt.xscale('log')
+     for i, k in enumerate(fits):
+       temp = n * np.array([-f.fun for f in fits[k]])
+       temp -= temp.max()
+       c = (np.log(k) - np.log(1e-4)) / (1 - np.log(1e-4))
+       ls = ['-.', '--', ':'][i % 3]
+       plt.plot(grid, temp, lw=1, c=cm(c), label=rf'$\theta$ = {k:.1g}')
+     plt.axvline(x=np.exp(log_phi), lw=1, ls=':', c='k')
+     plt.axhline(y=-np.log(10), lw=1, ls=':', c='k')
+     plt.legend(title=r'True $\theta$', frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xticks(np.logspace(-3, 1, 5))
+     plt.ylim(-10, 0)
+     plt.xlabel(r'Assumed dispersion $\theta$')
+     plt.ylabel('Diff ln lik from best')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[105]:
+   [[file:figure/ebnbm.org/var-heuristic.png]]
+   :END:
+
 ** Application to control data
 
-   Fit the model to each control data set.
+   Fit the EBNBM model to each control data set.
 
    #+NAME: fit
    #+BEGIN_SRC ipython :eval never
@@ -911,3 +917,60 @@
    # Out[36]:
    [[file:figure/ebnbm.org/ebnbm-control.png]]
    :END:
+
+   Fit the heuristic to each data set.
+
+   #+NAME: fit-heuristic
+   #+BEGIN_SRC ipython
+     def _loss(par, x, s, theta0):
+       mu, phi = np.exp(par)
+       theta = phi + theta0 + phi * theta0
+       return -st.nbinom(n=1 / theta, p=1 / (1 + s * mu * theta)).logpmf(x).mean()
+
+     def _fit_one(x, s, theta0):
+       fit = so.minimize(
+         _loss,
+         x0=[np.log(x.sum()) - np.log(s.sum()), 0],
+         args=(x, s, theta0),
+         method='Nelder-Mead',
+         options={'maxiter': 30_000})
+       assert fit.success
+       return np.hstack([fit.x, x.shape[0] * fit.fun])
+
+     def _fit(theta0, x, s):
+       return np.vstack([_fit_one(x[:,j], s, theta0) for j in range(x.shape[1])])
+
+     tasks = control
+     d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     with mp.Pool() as pool:
+       dat = data[d]()
+       x = dat.X.A
+       s = x.sum(axis=1, keepdims=True)
+       grid = np.logspace(-3, 1, 20)
+       fits = pool.map(ft.partial(_fit, x=x, s=s), grid)
+       fits = np.stack(fits)
+       np.save(f'/scratch/midway2/aksarkar/modes/ebnbm/nb-heuristic-{d}.npy', fits)
+   #+END_SRC
+
+   #+RESULTS: fit-heuristic
+   :RESULTS:
+   # Out[14]:
+   :END:
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -n1 --exclusive -a 1-4
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     import multiprocessing as mp
+     import os
+     import scipy.optimize as so
+     import scipy.stats as st
+     <<data>>
+     <<fit-heuristic>>
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 4398718
