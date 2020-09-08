@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-08 Tue 10:49 -->
+<!-- 2020-09-08 Tue 15:30 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Negative binomial measurement model</title>
@@ -265,7 +265,7 @@ for the JavaScript code in this tag.
 <li><a href="#org1469cfa">Simulate from the NB measurement model</a></li>
 <li><a href="#org72a0851">VBEM algorithm for Gamma expression model</a></li>
 <li><a href="#org0473663">Simulated example</a></li>
-<li><a href="#total-var">Heuristic approach</a></li>
+<li><a href="#total-var">Moment-matching approximation</a></li>
 <li><a href="#org9a061c5">Application to control data</a></li>
 </ul>
 </li>
@@ -1022,8 +1022,8 @@ plt.tight_layout()
 </div>
 </div>
 
-<div id="outline-container-org40bde19" class="outline-3">
-<h3 id="total-var"><a id="org40bde19"></a>Heuristic approach</h3>
+<div id="outline-container-orgedab333" class="outline-3">
+<h3 id="total-var"><a id="orgedab333"></a>Moment-matching approximation</h3>
 <div class="outline-text-3" id="text-total-var">
 <p>
 Consider gene \(j\), and assume \(a = \phi^{-1}\), \(b =
@@ -1033,30 +1033,35 @@ Consider gene \(j\), and assume \(a = \phi^{-1}\), \(b =
 \begin{align}
   \E{\lambda_i} &= \mu\\
   \V[\lambda_i] &= \mu^2\phi\\
-  \V[x_i] &= \E{\V[x_i \mid \lambda_i]} + \V[\E{x_i \mid \lambda_i}]\\
+  \E{x_i} &= \E{\E{x_i \mid s_i, \lambda_i}} = s_i \mu\\
+  \V[x_i] &= \E{\V[x_i \mid s_i, \lambda_i]} + \V[\E{x_i \mid s_i \lambda_i}]\\
   &= \E{s_i \lambda_i + (s_i \lambda_i)^2 \theta} + \V[s_i \lambda_i]\\
   &= s_i \mu + s_i^2 \mu^2 (\phi + \theta + \phi\theta)
 \end{align}
 
 <p>
-This result suggests a heuristic approach to characterize the profile
-likelihood of the data with respect to \(\theta\), that fits an NB model
-with dispersion \(\phi + \theta + \phi\theta\).
+This result suggests an approximate approach to characterize the profile
+likelihood of the data with respect to \(\theta\), that uses an NB model
+with dispersion \(d = \phi + \theta + \phi\theta\). As a proof of concept,
+fit the model using the Nelder-Mead algorithm.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_loss</span>(par, x, s, theta0):
-  <span class="org-variable-name">mu</span>, <span class="org-variable-name">phi</span> = np.exp(par)
-  <span class="org-variable-name">theta</span> = phi + theta0 + phi * theta0
-  <span class="org-keyword">return</span> -st.nbinom(n=1 / theta, p=1 / (1 + s * mu * theta)).logpmf(x).mean()
-
-np.random.seed(1)
+<pre class="src src-ipython">np.random.seed(1)
 <span class="org-variable-name">s</span> = 1e5
 <span class="org-variable-name">n</span> = 1000
 
 <span class="org-variable-name">log_mu</span> = -10
 <span class="org-variable-name">log_phi</span> = -6
 <span class="org-variable-name">lam</span> = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_loss</span>(par, x, s, theta0):
+  <span class="org-variable-name">mu</span>, <span class="org-variable-name">phi</span> = np.exp(par)
+  <span class="org-variable-name">theta</span> = phi + theta0 + phi * theta0
+  <span class="org-keyword">return</span> -st.nbinom(n=1 / theta, p=1 / (1 + s * mu * theta)).logpmf(x).mean()
 
 <span class="org-variable-name">fits</span> = <span class="org-builtin">dict</span>()
 <span class="org-variable-name">grid</span> = np.logspace(-3, 1, 100)
@@ -1078,7 +1083,6 @@ plt.xscale(<span class="org-string">'log'</span>)
   <span class="org-variable-name">temp</span> = n * np.array([-f.fun <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits[k]])
   <span class="org-variable-name">temp</span> -= temp.<span class="org-builtin">max</span>()
   <span class="org-variable-name">c</span> = (np.log(k) - np.log(1e-4)) / (1 - np.log(1e-4))
-  <span class="org-variable-name">ls</span> = [<span class="org-string">'-.'</span>, <span class="org-string">'--'</span>, <span class="org-string">':'</span>][i % 3]
   plt.plot(grid, temp, lw=1, c=cm(c), label=rf<span class="org-string">'$\theta$ = {k:.1g}'</span>)
 plt.axvline(x=np.exp(log_phi), lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
 plt.axhline(y=-np.log(10), lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
@@ -1094,6 +1098,65 @@ plt.tight_layout()
 
 <div class="figure">
 <p><img src="figure/ebnbm.org/var-heuristic.png" alt="var-heuristic.png">
+</p>
+</div>
+
+<p>
+Now, fit the model in stages:
+</p>
+
+<ol class="org-ol">
+<li>Fit the NB model via unconstrained optimization, yielding MLE (\hat&mu;,
+\hat{d})</li>
+<li>If \(\hat\phi = (\hat{d} - \theta) / (1 + \theta) < 0\), then fit the NB
+model, fixing dispersion \(\theta\).</li>
+</ol>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_fit_one</span>(x, s, theta):
+  <span class="org-variable-name">fit</span> = scmodes.ebpm.wrappers.ebpm_gamma(x, s, tol=1e-7)
+  <span class="org-keyword">if</span> (np.exp(-fit[1]) - theta) / (1 + theta) &lt; 0:
+    <span class="org-variable-name">fit</span> = scmodes.ebpm.wrappers.ebpm_gamma(x, s, a=1 / theta, tol=1e-7)
+  <span class="org-keyword">return</span> fit
+
+<span class="org-variable-name">fits</span> = <span class="org-builtin">dict</span>()
+<span class="org-variable-name">grid</span> = np.logspace(-3, 1, 100)
+<span class="org-keyword">for</span> theta0 <span class="org-keyword">in</span> np.logspace(-4, 0, 5):
+  <span class="org-keyword">print</span>(f<span class="org-string">'fitting theta0 = {theta0:.1g}'</span>)
+  <span class="org-variable-name">u</span> = st.gamma(a=1 / theta0, scale=theta0).rvs(n)
+  <span class="org-variable-name">x</span> = st.poisson(s * lam * u).rvs(n)
+  <span class="org-variable-name">fits</span>[theta0] = [_fit_one(x, s, theta) <span class="org-keyword">for</span> theta <span class="org-keyword">in</span> grid]
+</pre>
+</div>
+
+<p>
+0 - bfe3756f-6624-4acf-b616-76446cb7e243
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = colorcet.cm[<span class="org-string">'bmy'</span>]
+plt.clf()
+plt.gcf().set_size_inches(4, 2.5)
+plt.xscale(<span class="org-string">'log'</span>)
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(fits):
+  <span class="org-variable-name">temp</span> = np.array([f[-1] <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits[k]])
+  <span class="org-variable-name">temp</span> -= temp.<span class="org-builtin">max</span>()
+  <span class="org-variable-name">c</span> = (np.log(k) - np.log(1e-4)) / (1 - np.log(1e-4))
+  plt.plot(grid, temp, lw=1, c=cm(c), label=rf<span class="org-string">'$\theta$ = {k:.1g}'</span>)
+plt.axvline(x=np.exp(log_phi), lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.axhline(y=-np.log(10), lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.legend(title=r<span class="org-string">'True $\theta$'</span>, frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+plt.xticks(np.logspace(-3, 1, 5))
+plt.ylim(-10, 0)
+plt.xlabel(r<span class="org-string">'Assumed dispersion $\theta$'</span>)
+plt.ylabel(<span class="org-string">'Diff ln lik from best'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ebnbm.org/var-heuristic-squarem.png" alt="var-heuristic-squarem.png">
 </p>
 </div>
 </div>
@@ -1250,7 +1313,7 @@ python &lt;&lt;EOF
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-08 Tue 10:49</p>
+<p class="date">Created: 2020-09-08 Tue 15:30</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
