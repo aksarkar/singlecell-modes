@@ -763,26 +763,19 @@
    with dispersion \(d = \phi + \theta + \phi\theta\). As a proof of concept,
    fit the model using the Nelder-Mead algorithm.
 
-   #+BEGIN_SRC ipython
-     np.random.seed(1)
-     s = 1e5
-     n = 1000
-
-     log_mu = -10
-     log_phi = -6
-     lam = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[5]:
-   :END:
-
    #+BEGIN_SRC ipython :async t
      def _loss(par, x, s, theta0):
        mu, phi = np.exp(par)
        theta = phi + theta0 + phi * theta0
        return -st.nbinom(n=1 / theta, p=1 / (1 + s * mu * theta)).logpmf(x).mean()
+
+     np.random.seed(1)
+     s = 1e5
+     n = 100
+
+     log_mu = -10
+     log_phi = -6
+     lam = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
 
      fits = dict()
      grid = np.logspace(-3, 1, 100)
@@ -827,30 +820,46 @@
 
    Now, fit the model in stages:
 
-   1. Fit the NB model via unconstrained optimization, yielding MLE (\hat\mu,
-      \hat{d})
+   1. Fit the NB model via unconstrained optimization, yielding MLE \(\hat\mu,
+      \hat{d}\)
    2. If \(\hat\phi = (\hat{d} - \theta) / (1 + \theta) < 0\), then fit the NB
       model, fixing dispersion \(\theta\).
 
    #+BEGIN_SRC ipython :async t
-     def _fit_one(x, s, theta):
-       fit = scmodes.ebpm.wrappers.ebpm_gamma(x, s, tol=1e-7)
+     def _fit_one(x, s, theta, tol=1e-7):
+       fit = scmodes.ebpm.wrappers.ebpm_gamma(x, s, tol=tol)
        if (np.exp(-fit[1]) - theta) / (1 + theta) < 0:
-         fit = scmodes.ebpm.wrappers.ebpm_gamma(x, s, a=1 / theta, tol=1e-7)
+         fit = scmodes.ebpm.wrappers.ebpm_gamma(x, s, a=1 / theta, tol=tol)
        return fit
 
+     def _fit(x, s, grid):
+       return np.array([_fit_one(x, s, theta) for theta in grid])
+
+     s = 1e5
+     n = 1600
+     log_mu = -10
+     log_phi = -6
+
+     np.random.seed(9)
+     lam = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
+     x = st.poisson(s * lam).rvs(n)
+
      fits = dict()
-     grid = np.logspace(-3, 1, 100)
-     for theta0 in np.logspace(-4, 0, 5):
+     grid = np.logspace(-3, 1, 40)
+
+     print(f'fitting theta0 = 0')
+     fits[0] = _fit(x, s, grid)
+     for i, theta0 in enumerate(np.logspace(-4, 0, 5)):
        print(f'fitting theta0 = {theta0:.1g}')
+       np.random.seed(i)
        u = st.gamma(a=1 / theta0, scale=theta0).rvs(n)
        x = st.poisson(s * lam * u).rvs(n)
-       fits[theta0] = [_fit_one(x, s, theta) for theta in grid]
+       fits[theta0] = _fit(x, s, grid)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   0 - bfe3756f-6624-4acf-b616-76446cb7e243
+   # Out[17]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/var-heuristic-squarem.png
@@ -859,10 +868,12 @@
      plt.gcf().set_size_inches(4, 2.5)
      plt.xscale('log')
      for i, k in enumerate(fits):
-       temp = np.array([f[-1] for f in fits[k]])
-       temp -= temp.max()
-       c = (np.log(k) - np.log(1e-4)) / (1 - np.log(1e-4))
-       plt.plot(grid, temp, lw=1, c=cm(c), label=rf'$\theta$ = {k:.1g}')
+       temp = fits[k][:,-1] - fits[k][:,-1].max()
+       if k > 0:
+         c = cm((np.log(k) - np.log(1e-4)) / (1 - np.log(1e-4)))
+       else:
+         c = 'k'
+       plt.plot(grid, temp, lw=1, c=c, label=rf'$\theta$ = {k:.1g}')
      plt.axvline(x=np.exp(log_phi), lw=1, ls=':', c='k')
      plt.axhline(y=-np.log(10), lw=1, ls=':', c='k')
      plt.legend(title=r'True $\theta$', frameon=False, loc='center left', bbox_to_anchor=(1, .5))
@@ -875,7 +886,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[10]:
+   # Out[19]:
    [[file:figure/ebnbm.org/var-heuristic-squarem.png]]
    :END:
 
@@ -938,7 +949,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[5]:
    :END:
 
    #+BEGIN_SRC ipython :async t
@@ -983,33 +994,23 @@
    Fit the heuristic to each data set.
 
    #+NAME: fit-heuristic
-   #+BEGIN_SRC ipython
-     def _loss(par, x, s, theta0):
-       mu, phi = np.exp(par)
-       theta = phi + theta0 + phi * theta0
-       return -st.nbinom(n=1 / theta, p=1 / (1 + s * mu * theta)).logpmf(x).mean()
-
-     def _fit_one(x, s, theta0):
-       fit = so.minimize(
-         _loss,
-         x0=[np.log(x.sum()) - np.log(s.sum()), 0],
-         args=(x, s, theta0),
-         method='Nelder-Mead',
-         options={'maxiter': 30_000})
-       assert fit.success
-       return np.hstack([fit.x, x.shape[0] * fit.fun])
-
-     def _fit(theta0, x, s):
-       return np.vstack([_fit_one(x[:,j], s, theta0) for j in range(x.shape[1])])
+   #+BEGIN_SRC ipython :eval never
+     def _fit_one(x, s, theta, tol=1e-7):
+       fit = scmodes.ebpm.wrappers.ebpm_gamma(x, s, tol=tol)
+       if (np.exp(-fit[1]) - theta) / (1 + theta) < 0:
+         fit = scmodes.ebpm.wrappers.ebpm_gamma(x, s, a=1 / theta, tol=tol)
+       return fit
 
      tasks = control
      d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
      with mp.Pool() as pool:
        dat = data[d]()
        x = dat.X.A
-       s = x.sum(axis=1, keepdims=True)
-       grid = np.logspace(-3, 1, 20)
-       fits = pool.map(ft.partial(_fit, x=x, s=s), grid)
+       s = x.sum(axis=1)
+       fits = []
+       for theta in np.logspace(-3, -2, 100):
+         _fit = ft.partial(_fit_one, s=s, theta=theta)
+         fits.append(pool.map(_fit, x.T))
        fits = np.stack(fits)
        np.save(f'/scratch/midway2/aksarkar/modes/ebnbm/nb-heuristic-{d}.npy', fits)
    #+END_SRC
@@ -1020,19 +1021,86 @@
    :END:
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 --exclusive -a 1-4
+     sbatch --partition=broadwl -n1 -c28 --exclusive -a 0-4
      #!/bin/bash
      source activate scmodes
      python <<EOF
      <<imports>>
      import multiprocessing as mp
      import os
-     import scipy.optimize as so
-     import scipy.stats as st
      <<data>>
      <<fit-heuristic>>
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 4398718
+   : Submitted batch job 4458892
+
+   Read the fitted models.
+
+   #+BEGIN_SRC ipython
+     fits = dict()
+     for k in control:
+       fits[k] = np.load(f'/scratch/midway2/aksarkar/modes/ebnbm/nb-heuristic-{k}.npy')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[6]:
+   :END:
+
+   Plot the profile likelihood.
+
+   #+BEGIN_SRC ipython :ipyfile figure/ebnbm.org/nb-heuristic-control.png
+     labels = ['Chromium (1)', 'Chromium (2)', 'Drop-Seq', 'GemCode', 'InDrops']
+     keys = ['chromium1', 'chromium2', 'dropseq', 'gemcode', 'indrops']
+
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2.5)
+     plt.xscale('log')
+     grid = np.logspace(-3, -2, 100)
+     for i, (k, l) in enumerate(zip(keys, labels)):
+       temp = fits[k][:,:,-1].sum(axis=1)
+       diff = temp - temp.max()
+       plt.plot(grid, diff, lw=1, label=l, c=cm(i))
+     plt.ylim(-20, 0)
+     plt.axhline(y=-np.log(10), lw=1, ls=':', c='k')
+     plt.legend(title='Dataset', frameon=False, loc='center left', bbox_to_anchor=(1, .5))
+     plt.xlabel(r'Assumed dispersion')
+     plt.ylabel('Difference in ln likelihood\nfrom best')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[10]:
+   [[file:figure/ebnbm.org/nb-heuristic-control.png]]
+   :END:
+
+   Report the smallest \(\theta\) for which the likelihood ratio is \(< 1/10\)
+   compared to the best \(\theta\).
+
+   #+BEGIN_SRC ipython
+     thresh = -np.log(10)
+     grid = np.logspace(-3, -2, 100)
+     thetahat = dict()
+     for k in keys:
+       l = fits[k][:,:,-1].sum(axis=1)
+       l -= l.max()
+       thetahat[k] = grid[np.where(l < thresh)[0][0]]
+     pd.Series(thetahat)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[11]:
+   #+BEGIN_EXAMPLE
+     chromium1    0.004863
+     chromium2    0.002477
+     dropseq      0.003199
+     gemcode      0.001024
+     indrops      0.001205
+     dtype: float64
+   #+END_EXAMPLE
+   :END:

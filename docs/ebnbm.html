@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-08 Tue 15:30 -->
+<!-- 2020-09-10 Thu 11:29 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Negative binomial measurement model</title>
@@ -1047,21 +1047,18 @@ fit the model using the Nelder-Mead algorithm.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">np.random.seed(1)
-<span class="org-variable-name">s</span> = 1e5
-<span class="org-variable-name">n</span> = 1000
-
-<span class="org-variable-name">log_mu</span> = -10
-<span class="org-variable-name">log_phi</span> = -6
-<span class="org-variable-name">lam</span> = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
-</pre>
-</div>
-
-<div class="org-src-container">
 <pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_loss</span>(par, x, s, theta0):
   <span class="org-variable-name">mu</span>, <span class="org-variable-name">phi</span> = np.exp(par)
   <span class="org-variable-name">theta</span> = phi + theta0 + phi * theta0
   <span class="org-keyword">return</span> -st.nbinom(n=1 / theta, p=1 / (1 + s * mu * theta)).logpmf(x).mean()
+
+np.random.seed(1)
+<span class="org-variable-name">s</span> = 1e5
+<span class="org-variable-name">n</span> = 100
+
+<span class="org-variable-name">log_mu</span> = -10
+<span class="org-variable-name">log_phi</span> = -6
+<span class="org-variable-name">lam</span> = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
 
 <span class="org-variable-name">fits</span> = <span class="org-builtin">dict</span>()
 <span class="org-variable-name">grid</span> = np.logspace(-3, 1, 100)
@@ -1106,32 +1103,44 @@ Now, fit the model in stages:
 </p>
 
 <ol class="org-ol">
-<li>Fit the NB model via unconstrained optimization, yielding MLE (\hat&mu;,
-\hat{d})</li>
+<li>Fit the NB model via unconstrained optimization, yielding MLE \(\hat\mu,
+      \hat{d}\)</li>
 <li>If \(\hat\phi = (\hat{d} - \theta) / (1 + \theta) < 0\), then fit the NB
 model, fixing dispersion \(\theta\).</li>
 </ol>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_fit_one</span>(x, s, theta):
-  <span class="org-variable-name">fit</span> = scmodes.ebpm.wrappers.ebpm_gamma(x, s, tol=1e-7)
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_fit_one</span>(x, s, theta, tol=1e-7):
+  <span class="org-variable-name">fit</span> = scmodes.ebpm.wrappers.ebpm_gamma(x, s, tol=tol)
   <span class="org-keyword">if</span> (np.exp(-fit[1]) - theta) / (1 + theta) &lt; 0:
-    <span class="org-variable-name">fit</span> = scmodes.ebpm.wrappers.ebpm_gamma(x, s, a=1 / theta, tol=1e-7)
+    <span class="org-variable-name">fit</span> = scmodes.ebpm.wrappers.ebpm_gamma(x, s, a=1 / theta, tol=tol)
   <span class="org-keyword">return</span> fit
 
+<span class="org-keyword">def</span> <span class="org-function-name">_fit</span>(x, s, grid):
+  <span class="org-keyword">return</span> np.array([_fit_one(x, s, theta) <span class="org-keyword">for</span> theta <span class="org-keyword">in</span> grid])
+
+<span class="org-variable-name">s</span> = 1e5
+<span class="org-variable-name">n</span> = 1600
+<span class="org-variable-name">log_mu</span> = -10
+<span class="org-variable-name">log_phi</span> = -6
+
+np.random.seed(9)
+<span class="org-variable-name">lam</span> = st.gamma(a=np.exp(-log_phi), scale=np.exp(log_mu + log_phi)).rvs(n)
+<span class="org-variable-name">x</span> = st.poisson(s * lam).rvs(n)
+
 <span class="org-variable-name">fits</span> = <span class="org-builtin">dict</span>()
-<span class="org-variable-name">grid</span> = np.logspace(-3, 1, 100)
-<span class="org-keyword">for</span> theta0 <span class="org-keyword">in</span> np.logspace(-4, 0, 5):
+<span class="org-variable-name">grid</span> = np.logspace(-3, 1, 40)
+
+<span class="org-keyword">print</span>(f<span class="org-string">'fitting theta0 = 0'</span>)
+<span class="org-variable-name">fits</span>[0] = _fit(x, s, grid)
+<span class="org-keyword">for</span> i, theta0 <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(np.logspace(-4, 0, 5)):
   <span class="org-keyword">print</span>(f<span class="org-string">'fitting theta0 = {theta0:.1g}'</span>)
+  np.random.seed(i)
   <span class="org-variable-name">u</span> = st.gamma(a=1 / theta0, scale=theta0).rvs(n)
   <span class="org-variable-name">x</span> = st.poisson(s * lam * u).rvs(n)
-  <span class="org-variable-name">fits</span>[theta0] = [_fit_one(x, s, theta) <span class="org-keyword">for</span> theta <span class="org-keyword">in</span> grid]
+  <span class="org-variable-name">fits</span>[theta0] = _fit(x, s, grid)
 </pre>
 </div>
-
-<p>
-0 - bfe3756f-6624-4acf-b616-76446cb7e243
-</p>
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">cm</span> = colorcet.cm[<span class="org-string">'bmy'</span>]
@@ -1139,10 +1148,12 @@ plt.clf()
 plt.gcf().set_size_inches(4, 2.5)
 plt.xscale(<span class="org-string">'log'</span>)
 <span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(fits):
-  <span class="org-variable-name">temp</span> = np.array([f[-1] <span class="org-keyword">for</span> f <span class="org-keyword">in</span> fits[k]])
-  <span class="org-variable-name">temp</span> -= temp.<span class="org-builtin">max</span>()
-  <span class="org-variable-name">c</span> = (np.log(k) - np.log(1e-4)) / (1 - np.log(1e-4))
-  plt.plot(grid, temp, lw=1, c=cm(c), label=rf<span class="org-string">'$\theta$ = {k:.1g}'</span>)
+  <span class="org-variable-name">temp</span> = fits[k][:,-1] - fits[k][:,-1].<span class="org-builtin">max</span>()
+  <span class="org-keyword">if</span> k &gt; 0:
+    <span class="org-variable-name">c</span> = cm((np.log(k) - np.log(1e-4)) / (1 - np.log(1e-4)))
+  <span class="org-keyword">else</span>:
+    <span class="org-variable-name">c</span> = <span class="org-string">'k'</span>
+  plt.plot(grid, temp, lw=1, c=c, label=rf<span class="org-string">'$\theta$ = {k:.1g}'</span>)
 plt.axvline(x=np.exp(log_phi), lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
 plt.axhline(y=-np.log(10), lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
 plt.legend(title=r<span class="org-string">'True $\theta$'</span>, frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
@@ -1261,59 +1272,116 @@ Fit the heuristic to each data set.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython" id="orgfae5bc5"><span class="org-keyword">def</span> <span class="org-function-name">_loss</span>(par, x, s, theta0):
-  <span class="org-variable-name">mu</span>, <span class="org-variable-name">phi</span> = np.exp(par)
-  <span class="org-variable-name">theta</span> = phi + theta0 + phi * theta0
-  <span class="org-keyword">return</span> -st.nbinom(n=1 / theta, p=1 / (1 + s * mu * theta)).logpmf(x).mean()
-
-<span class="org-keyword">def</span> <span class="org-function-name">_fit_one</span>(x, s, theta0):
-  <span class="org-variable-name">fit</span> = so.minimize(
-    _loss,
-    x0=[np.log(x.<span class="org-builtin">sum</span>()) - np.log(s.<span class="org-builtin">sum</span>()), 0],
-    args=(x, s, theta0),
-    method=<span class="org-string">'Nelder-Mead'</span>,
-    options={<span class="org-string">'maxiter'</span>: 30_000})
-  <span class="org-keyword">assert</span> fit.success
-  <span class="org-keyword">return</span> np.hstack([fit.x, x.shape[0] * fit.fun])
-
-<span class="org-keyword">def</span> <span class="org-function-name">_fit</span>(theta0, x, s):
-  <span class="org-keyword">return</span> np.vstack([_fit_one(x[:,j], s, theta0) <span class="org-keyword">for</span> j <span class="org-keyword">in</span> <span class="org-builtin">range</span>(x.shape[1])])
+<pre class="src src-ipython" id="orgfae5bc5"><span class="org-keyword">def</span> <span class="org-function-name">_fit_one</span>(x, s, theta, tol=1e-7):
+  <span class="org-variable-name">fit</span> = scmodes.ebpm.wrappers.ebpm_gamma(x, s, tol=tol)
+  <span class="org-keyword">if</span> (np.exp(-fit[1]) - theta) / (1 + theta) &lt; 0:
+    <span class="org-variable-name">fit</span> = scmodes.ebpm.wrappers.ebpm_gamma(x, s, a=1 / theta, tol=tol)
+  <span class="org-keyword">return</span> fit
 
 <span class="org-variable-name">tasks</span> = control
 <span class="org-variable-name">d</span> = tasks[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
 <span class="org-keyword">with</span> mp.Pool() <span class="org-keyword">as</span> pool:
   <span class="org-variable-name">dat</span> = data[d]()
   <span class="org-variable-name">x</span> = dat.X.A
-  <span class="org-variable-name">s</span> = x.<span class="org-builtin">sum</span>(axis=1, keepdims=<span class="org-constant">True</span>)
-  <span class="org-variable-name">grid</span> = np.logspace(-3, 1, 20)
-  <span class="org-variable-name">fits</span> = pool.<span class="org-builtin">map</span>(ft.partial(_fit, x=x, s=s), grid)
+  <span class="org-variable-name">s</span> = x.<span class="org-builtin">sum</span>(axis=1)
+  <span class="org-variable-name">fits</span> = []
+  <span class="org-keyword">for</span> theta <span class="org-keyword">in</span> np.logspace(-3, -2, 100):
+    <span class="org-variable-name">_fit</span> = ft.partial(_fit_one, s=s, theta=theta)
+    fits.append(pool.<span class="org-builtin">map</span>(_fit, x.T))
   <span class="org-variable-name">fits</span> = np.stack(fits)
   np.save(f<span class="org-string">'/scratch/midway2/aksarkar/modes/ebnbm/nb-heuristic-{d}.npy'</span>, fits)
 </pre>
 </div>
 
 <div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=broadwl -n1 --exclusive -a 1-4
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive -a 0-4
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
 <span class="org-sh-heredoc">import multiprocessing as mp</span>
 <span class="org-sh-heredoc">import os</span>
-<span class="org-sh-heredoc">import scipy.optimize as so</span>
-<span class="org-sh-heredoc">import scipy.stats as st</span>
 <span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
 <span class="org-sh-heredoc">&lt;&lt;fit-heuristic&gt;&gt;</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
 </div>
+
+<p>
+Read the fitted models.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">fits</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> k <span class="org-keyword">in</span> control:
+  <span class="org-variable-name">fits</span>[k] = np.load(f<span class="org-string">'/scratch/midway2/aksarkar/modes/ebnbm/nb-heuristic-{k}.npy'</span>)
+</pre>
+</div>
+
+<p>
+Plot the profile likelihood.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">labels</span> = [<span class="org-string">'Chromium (1)'</span>, <span class="org-string">'Chromium (2)'</span>, <span class="org-string">'Drop-Seq'</span>, <span class="org-string">'GemCode'</span>, <span class="org-string">'InDrops'</span>]
+<span class="org-variable-name">keys</span> = [<span class="org-string">'chromium1'</span>, <span class="org-string">'chromium2'</span>, <span class="org-string">'dropseq'</span>, <span class="org-string">'gemcode'</span>, <span class="org-string">'indrops'</span>]
+
+<span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+plt.gcf().set_size_inches(4, 2.5)
+plt.xscale(<span class="org-string">'log'</span>)
+<span class="org-variable-name">grid</span> = np.logspace(-3, -2, 100)
+<span class="org-keyword">for</span> i, (k, l) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(keys, labels)):
+  <span class="org-variable-name">temp</span> = fits[k][:,:,-1].<span class="org-builtin">sum</span>(axis=1)
+  <span class="org-variable-name">diff</span> = temp - temp.<span class="org-builtin">max</span>()
+  plt.plot(grid, diff, lw=1, label=l, c=cm(i))
+plt.ylim(-20, 0)
+plt.axhline(y=-np.log(10), lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
+plt.legend(title=<span class="org-string">'Dataset'</span>, frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5))
+plt.xlabel(r<span class="org-string">'Assumed dispersion'</span>)
+plt.ylabel(<span class="org-string">'Difference in ln likelihood\nfrom best'</span>)
+plt.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/ebnbm.org/nb-heuristic-control.png" alt="nb-heuristic-control.png">
+</p>
+</div>
+
+<p>
+Report the smallest \(\theta\) for which the likelihood ratio is \(< 1/10\)
+compared to the best \(\theta\).
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">thresh</span> = -np.log(10)
+<span class="org-variable-name">grid</span> = np.logspace(-3, -2, 100)
+<span class="org-variable-name">thetahat</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> k <span class="org-keyword">in</span> keys:
+  <span class="org-variable-name">l</span> = fits[k][:,:,-1].<span class="org-builtin">sum</span>(axis=1)
+  <span class="org-variable-name">l</span> -= l.<span class="org-builtin">max</span>()
+  <span class="org-variable-name">thetahat</span>[k] = grid[np.where(l &lt; thresh)[0][0]]
+pd.Series(thetahat)
+</pre>
+</div>
+
+<pre class="example">
+chromium1    0.004863
+chromium2    0.002477
+dropseq      0.003199
+gemcode      0.001024
+indrops      0.001205
+dtype: float64
+</pre>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-08 Tue 15:30</p>
+<p class="date">Created: 2020-09-10 Thu 11:29</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
