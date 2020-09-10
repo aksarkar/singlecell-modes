@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-10 Thu 11:29 -->
+<!-- 2020-09-10 Thu 21:27 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Negative binomial measurement model</title>
@@ -267,6 +267,7 @@ for the JavaScript code in this tag.
 <li><a href="#org0473663">Simulated example</a></li>
 <li><a href="#total-var">Moment-matching approximation</a></li>
 <li><a href="#org9a061c5">Application to control data</a></li>
+<li><a href="#org6fb331a">Comparing measurement dispersion to biological variability</a></li>
 </ul>
 </li>
 </ul>
@@ -1375,13 +1376,133 @@ gemcode      0.001024
 indrops      0.001205
 dtype: float64
 </pre>
+
+<p>
+Compare the bound on the measurement dispersion \(\theta\) to the level of
+total dispersion estimated in highly expressed genes in control data.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">count_thresh</span> = 10
+<span class="org-variable-name">dhat</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> k <span class="org-keyword">in</span> keys:
+  <span class="org-variable-name">dat</span> = data[k]()
+  <span class="org-variable-name">x</span> = dat.X.A
+  <span class="org-variable-name">s</span> = x.<span class="org-builtin">sum</span>(axis=1)
+  <span class="org-variable-name">x</span> = x[:,x.mean(axis=0) &gt; count_thresh]
+  <span class="org-variable-name">temp</span> = [scmodes.ebpm.ebpm_gamma(x[:,j], s) <span class="org-keyword">for</span> j <span class="org-keyword">in</span> <span class="org-builtin">range</span>(x.shape[1])]
+  <span class="org-keyword">if</span> temp:
+    <span class="org-variable-name">dhat</span>[k] = pd.DataFrame(np.array(temp), columns=[<span class="org-string">'log_mean'</span>, <span class="org-string">'log_inv_disp'</span>, <span class="org-string">'llik'</span>])
+<span class="org-variable-name">dhat</span> = pd.concat(dhat)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">(dhat
+ [<span class="org-string">'log_inv_disp'</span>]
+ .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: np.exp(-x))
+ .groupby(level=0)
+ .agg([np.mean, np.std, np.median]))
+</pre>
+</div>
+
+<pre class="example">
+mean       std    median
+chromium1  0.018258  0.013050  0.016499
+chromium2  0.021233  0.014184  0.022940
+dropseq    0.391793  0.567800  0.104669
+gemcode    0.031384  0.032980  0.017520
+indrops    0.003968  0.006656  0.000000
+</pre>
+</div>
+</div>
+
+<div id="outline-container-org6fb331a" class="outline-3">
+<h3 id="org6fb331a">Comparing measurement dispersion to biological variability</h3>
+<div class="outline-text-3" id="text-org6fb331a">
+<p>
+Fit an NB observation model to highly expressed genes (mean molecule count
+&gt; 10) in biological data sets.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython" id="org22cdcc8"><span class="org-variable-name">thresh</span> = 10
+
+<span class="org-keyword">def</span> <span class="org-function-name">_fit_one</span>(j, x, s):
+  <span class="org-keyword">return</span> scmodes.ebpm.ebpm_gamma(x[:,j].A.ravel(), s)
+
+<span class="org-variable-name">tasks</span> = non_control
+<span class="org-variable-name">d</span> = tasks[<span class="org-builtin">int</span>(os.environ[<span class="org-string">'SLURM_ARRAY_TASK_ID'</span>])]
+<span class="org-keyword">with</span> mp.Pool() <span class="org-keyword">as</span> pool:
+  <span class="org-variable-name">dat</span> = data[d]()
+  <span class="org-variable-name">s</span> = dat.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()
+  <span class="org-variable-name">x</span> = dat[:,dat.X.mean(axis=0) &gt; thresh].X
+  <span class="org-variable-name">_fit</span> = ft.partial(_fit_one, x=x, s=s)
+  <span class="org-variable-name">fits</span> = pool.<span class="org-builtin">map</span>(_fit, <span class="org-builtin">range</span>(x.shape[1]))
+  <span class="org-variable-name">fits</span> = np.array(fits)
+  np.save(f<span class="org-string">'/scratch/midway2/aksarkar/modes/ebnbm/nb-obs-{d}.npy'</span>, fits)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-sh">sbatch --partition=broadwl -n1 -c28 --exclusive -a 1-10
+<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
+<span class="org-builtin">source</span> activate scmodes
+python &lt;&lt;EOF
+<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
+<span class="org-sh-heredoc">import multiprocessing as mp</span>
+<span class="org-sh-heredoc">import os</span>
+<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
+<span class="org-sh-heredoc">&lt;&lt;fit-pois-gamma&gt;&gt;</span>
+<span class="org-sh-heredoc">EOF</span>
+</pre>
+</div>
+
+<p>
+Read the fitted models.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">fits</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> k <span class="org-keyword">in</span> non_control:
+  <span class="org-variable-name">f</span> = np.load(f<span class="org-string">'/scratch/midway2/aksarkar/modes/ebnbm/nb-obs-{k}.npy'</span>)
+  <span class="org-variable-name">fits</span>[k] = pd.DataFrame(f, columns=[<span class="org-string">'log_mean'</span>, <span class="org-string">'log_inv_disp'</span>, <span class="org-string">'llik'</span>])
+<span class="org-variable-name">fits</span> = pd.concat(fits)
+</pre>
+</div>
+
+<p>
+Look at the distribution of estimated dispersions.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">(fits[<span class="org-string">'log_inv_disp'</span>]
+ .<span class="org-builtin">apply</span>(<span class="org-keyword">lambda</span> x: np.exp(-x))
+ .groupby(level=0)
+ .agg([np.median, np.mean, np.std]))
+</pre>
+</div>
+
+<pre class="example">
+median      mean       std
+b_cells              0.020502  0.021608  0.023738
+brain                1.509569  1.509569  0.744572
+cytotoxic_t          0.020181  0.027366  0.026903
+cytotoxic_t-b_cells  0.024305  0.111044  0.474656
+cytotoxic_t-naive_t  0.023493  0.031068  0.027497
+ipsc                 0.054512  0.074847  0.134037
+kidney               0.115725  0.266653  0.387907
+liver-caudate-lobe   0.114579  0.138094  0.145873
+pbmc_10k_v3          0.237059  0.596076  1.495602
+retina               1.698007  2.088869  1.676650
+</pre>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-10 Thu 11:29</p>
+<p class="date">Created: 2020-09-10 Thu 21:27</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

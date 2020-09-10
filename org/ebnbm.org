@@ -1104,3 +1104,128 @@
      dtype: float64
    #+END_EXAMPLE
    :END:
+
+   Compare the bound on the measurement dispersion \(\theta\) to the level of
+   total dispersion estimated in highly expressed genes in control data.
+
+   #+BEGIN_SRC ipython :async t
+     count_thresh = 10
+     dhat = dict()
+     for k in keys:
+       dat = data[k]()
+       x = dat.X.A
+       s = x.sum(axis=1)
+       x = x[:,x.mean(axis=0) > count_thresh]
+       temp = [scmodes.ebpm.ebpm_gamma(x[:,j], s) for j in range(x.shape[1])]
+       if temp:
+         dhat[k] = pd.DataFrame(np.array(temp), columns=['log_mean', 'log_inv_disp', 'llik'])
+     dhat = pd.concat(dhat)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[34]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     (dhat
+      ['log_inv_disp']
+      .apply(lambda x: np.exp(-x))
+      .groupby(level=0)
+      .agg([np.mean, np.std, np.median]))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[40]:
+   #+BEGIN_EXAMPLE
+     mean       std    median
+     chromium1  0.018258  0.013050  0.016499
+     chromium2  0.021233  0.014184  0.022940
+     dropseq    0.391793  0.567800  0.104669
+     gemcode    0.031384  0.032980  0.017520
+     indrops    0.003968  0.006656  0.000000
+   #+END_EXAMPLE
+   :END:
+
+** Comparing measurement dispersion to biological variability
+
+   Fit an NB observation model to highly expressed genes (mean molecule count
+   > 10) in biological data sets.
+
+   #+NAME: fit-pois-gamma
+   #+BEGIN_SRC ipython
+     thresh = 10
+
+     def _fit_one(j, x, s):
+       return scmodes.ebpm.ebpm_gamma(x[:,j].A.ravel(), s)
+
+     tasks = non_control
+     d = tasks[int(os.environ['SLURM_ARRAY_TASK_ID'])]
+     with mp.Pool() as pool:
+       dat = data[d]()
+       s = dat.X.sum(axis=1).A.ravel()
+       x = dat[:,dat.X.mean(axis=0) > thresh].X
+       _fit = ft.partial(_fit_one, x=x, s=s)
+       fits = pool.map(_fit, range(x.shape[1]))
+       fits = np.array(fits)
+       np.save(f'/scratch/midway2/aksarkar/modes/ebnbm/nb-obs-{d}.npy', fits)
+   #+END_SRC
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -n1 -c28 --exclusive -a 1-10
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     import multiprocessing as mp
+     import os
+     <<data>>
+     <<fit-pois-gamma>>
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 4469904
+
+   Read the fitted models.
+
+   #+BEGIN_SRC ipython
+     fits = dict()
+     for k in non_control:
+       f = np.load(f'/scratch/midway2/aksarkar/modes/ebnbm/nb-obs-{k}.npy')
+       fits[k] = pd.DataFrame(f, columns=['log_mean', 'log_inv_disp', 'llik'])
+     fits = pd.concat(fits)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[17]:
+   :END:
+
+   Look at the distribution of estimated dispersions.
+
+   #+BEGIN_SRC ipython
+     (fits['log_inv_disp']
+      .apply(lambda x: np.exp(-x))
+      .groupby(level=0)
+      .agg([np.median, np.mean, np.std]))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[20]:
+   #+BEGIN_EXAMPLE
+     median      mean       std
+     b_cells              0.020502  0.021608  0.023738
+     brain                1.509569  1.509569  0.744572
+     cytotoxic_t          0.020181  0.027366  0.026903
+     cytotoxic_t-b_cells  0.024305  0.111044  0.474656
+     cytotoxic_t-naive_t  0.023493  0.031068  0.027497
+     ipsc                 0.054512  0.074847  0.134037
+     kidney               0.115725  0.266653  0.387907
+     liver-caudate-lobe   0.114579  0.138094  0.145873
+     pbmc_10k_v3          0.237059  0.596076  1.495602
+     retina               1.698007  2.088869  1.676650
+   #+END_EXAMPLE
+   :END:
