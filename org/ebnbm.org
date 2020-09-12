@@ -1036,6 +1036,12 @@
    #+RESULTS:
    : Submitted batch job 4458892
 
+   Copy the fitted models to permanent storage.
+
+   #+BEGIN_SRC sh :results none
+     rsync -au /scratch/midway2/aksarkar/modes/ebnbm/ /project2/mstephens/aksarkar/projects/singlecell-modes/data/ebnbm/
+   #+END_SRC
+
    Read the fitted models.
 
    #+BEGIN_SRC ipython

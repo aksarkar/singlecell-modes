@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-07 Mon 14:23 -->
+<!-- 2020-09-12 Sat 14:55 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Marginal log likelihood comparison of expression models</title>
@@ -595,7 +595,7 @@ Read the results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">llik</span> = (pd.concat(
+<pre class="src src-ipython" id="org4c7113b"><span class="org-variable-name">llik</span> = (pd.concat(
   {
     k: pd.concat([
       pd.read_csv(f<span class="org-string">'/project2/mstephens/aksarkar/projects/singlecell-modes/data/llik/{k}-{m}.txt.gz'</span>, index_col=0, sep=<span class="org-string">'\t'</span>)
@@ -618,7 +618,7 @@ jointly with the mode.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">fix_llik</span>(llik):
+<pre class="src src-ipython" id="org5405b6a"><span class="org-keyword">def</span> <span class="org-function-name">fix_llik</span>(llik):
   <span class="org-variable-name">llik</span>[<span class="org-string">'gamma'</span>] = np.fmax(llik[<span class="org-string">'gamma'</span>], llik[<span class="org-string">'point'</span>])
   <span class="org-variable-name">llik</span>[<span class="org-string">'point_gamma'</span>] = np.fmax(llik[<span class="org-string">'point_gamma'</span>], llik[<span class="org-string">'gamma'</span>])
   <span class="org-variable-name">llik</span>[<span class="org-string">'unimodal'</span>] = np.fmax(llik[<span class="org-string">'unimodal'</span>], llik[<span class="org-string">'gamma'</span>])
@@ -893,7 +893,7 @@ Implement a helper function to plot.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_plot</span>(llik, thresh):
+<pre class="src src-ipython" id="org3f2aef1"><span class="org-keyword">def</span> <span class="org-function-name">_plot</span>(llik, thresh):
   <span class="org-variable-name">query1</span> = compare(llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)], baseline=<span class="org-string">'gamma'</span>, thresh=thresh, agg=<span class="org-string">'mean'</span>)
   <span class="org-variable-name">query2</span> = compare(llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)], baseline=<span class="org-string">'unimodal'</span>, thresh=thresh, agg=<span class="org-string">'mean'</span>)
   <span class="org-variable-name">keys</span> = [<span class="org-string">'b_cells'</span>, <span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'ipsc'</span>, <span class="org-string">'cytotoxic_t-b_cells'</span>, <span class="org-string">'cytotoxic_t-naive_t'</span>, <span class="org-string">'kidney'</span>, <span class="org-string">'liver-caudate-lobe'</span>, <span class="org-string">'pbmc_10k_v3'</span>, <span class="org-string">'brain'</span>, <span class="org-string">'retina'</span>]
@@ -1180,7 +1180,7 @@ retina               0.000299  0.035334     0.036031  0.033841
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-07 Mon 14:23</p>
+<p class="date">Created: 2020-09-12 Sat 14:55</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

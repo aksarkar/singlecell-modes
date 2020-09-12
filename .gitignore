@@ -2,3 +2,5 @@ browser/browser.db
 org/figure/
 code/
 *.h5ad
+*.npy
+*.pkl

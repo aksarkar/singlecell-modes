@@ -379,6 +379,7 @@
 
    Read the results.
 
+   #+NAME: read-llr-results
    #+BEGIN_SRC ipython :async t
      llik = (pd.concat(
        {
@@ -404,6 +405,7 @@
    than expected]] due to not optimizing over the granularity of the grid
    jointly with the mode.
 
+   #+NAME: fix-llr-results
    #+BEGIN_SRC ipython
      def fix_llik(llik):
        llik['gamma'] = np.fmax(llik['gamma'], llik['point'])
@@ -692,6 +694,7 @@
 
    Implement a helper function to plot.
 
+   #+NAME: plot-llr-results
    #+BEGIN_SRC ipython
      def _plot(llik, thresh):
        query1 = compare(llik[llik['dataset'].isin(non_control)], baseline='gamma', thresh=thresh, agg='mean')
