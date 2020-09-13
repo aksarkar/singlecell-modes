@@ -22,15 +22,17 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="broadwl",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
   : Submitted batch job 66423771
 
   #+NAME: imports
   #+BEGIN_SRC ipython
+    import anndata
     import numpy as np
     import pandas as pd
+    import scanpy as sc
     import scipy.stats as st
     import scmodes
     import torch
@@ -72,7 +74,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[29]:
+   # Out[4]:
    :END:
 
 ** B cells
@@ -87,13 +89,13 @@
      # Important: this implicitly sets the random seed
      x = data['b_cells']()
      train, test = scmodes.benchmark.train_test_split(x)
-     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train', train.values)
-     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test', test.values)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train', train)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test', test)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[30]:
+   # Out[12]:
    :END:
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
@@ -114,7 +116,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 3204066
+   : Submitted batch job 4535478
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
      sbatch --partition=gpu2 --gres=gpu:1 --mem=8G
@@ -123,6 +125,7 @@
      python <<EOF
      <<imports>>
      train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')
+     torch.manual_seed(1)
      xt = torch.tensor(train, dtype=torch.float)
      m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=8).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)
      lam2 = m.denoise(xt, n_samples=100)
@@ -131,13 +134,15 @@
 
      m = scmodes.lra.NBVAE(input_dim=train.shape[1], latent_dim=8, disp_by_gene=True).fit(xt, test_size=0.1, lr=1e-3, max_epochs=400, trace=True)
      lam3 = m.denoise(xt, n_samples=100)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-log_inv_disp', 
+             m.log_inv_disp.detach().cpu().numpy())
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-lam', lam3)
      np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-trace', np.array(m.trace))
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 3216621
+   : Submitted batch job 4537060
 
    Examine the VAE optimization traces.
 
@@ -159,7 +164,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[4]:
+   # Out[56]:
    [[file:figure/fitted-values.org/b_cells-pvae-trace.png]]
    :END:
 
@@ -172,11 +177,12 @@
      lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-glmpca-lam.npy')
      lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam.npy')
      lam3 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-lam.npy')
+     nbvae_log_inv_disp = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-log_inv_disp.npy')
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[5]:
+   # Out[58]:
    :END:
 
    Compare the fitted values of each method against other.
@@ -206,7 +212,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[59]:
    [[file:figure/fitted-values.org/b_cells.png]]
    :END:
 
@@ -255,7 +261,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[57]:
+   # Out[60]:
    [[file:figure/fitted-values.org/b_cells-val-1.png]]
    :END:
 
@@ -303,7 +309,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[53]:
+   # Out[61]:
    [[file:figure/fitted-values.org/b_cells-val-0.png]]
    :END:
 
@@ -319,12 +325,12 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[62]:
    #+BEGIN_EXAMPLE
-     NMF      -1.038635
-     GLMPCA   -1.035292
-     PVAE     -1.055085
-     NBVAE    -0.829223
+     NMF      -1.038913
+     GLMPCA   -1.036029
+     PVAE     -1.062526
+     NBVAE    -0.830541
      dtype: float64
    #+END_EXAMPLE
    :END:
@@ -369,7 +375,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[9]:
+   # Out[63]:
    [[file:figure/fitted-values.org/b_cells-train-llik-diff.png]]
    :END:
 
@@ -406,7 +412,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[10]:
+   # Out[64]:
    [[file:figure/fitted-values.org/b_cells-train-sum-llik-diff.png]]
    :END:
 
@@ -414,7 +420,7 @@
 
    #+BEGIN_SRC ipython
      s = (test.sum(axis=1) / train.sum(axis=1)).reshape(-1, 1)
-     llik0 = np.ma.masked_invalid(st.poisson(s * lam0).logpmf(test))
+     llik0 = st.poisson(s * lam0).logpmf(test)
      llik1 = st.poisson(s * lam1).logpmf(test)
      llik2 = st.poisson(s * lam2).logpmf(test)
      llik3 = st.poisson(s * lam3).logpmf(test)
@@ -423,44 +429,13 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[11]:
+   # Out[65]:
    #+BEGIN_EXAMPLE
-     NMF      -1.190322
-     GLMPCA   -1.089458
-     PVAE     -1.070860
-     NBVAE    -1.129492
+     NMF      -1.132348
+     GLMPCA   -1.087027
+     PVAE     -1.071313
+     NBVAE    -1.129745
      dtype: float64
-   #+END_EXAMPLE
-   :END:
-
-   Report observations which are non-zero in the validation set, but the NMF estimate
-   \(\hat\lambda_{ij} = 0\).
-
-   #+BEGIN_SRC ipython
-     test[np.where(llik0.mask)]
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[35]:
-   #+BEGIN_EXAMPLE
-     array([1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-     1., 1., 1., 1., 1., 1., 1., 1.])
-   #+END_EXAMPLE
-   :END:
-
-   Report the corresponding observations in the training set.
-
-   #+BEGIN_SRC ipython
-     train[np.where(llik0.mask)]
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[36]:
-   #+BEGIN_EXAMPLE
-     array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-     0, 0, 0])
    #+END_EXAMPLE
    :END:
 
@@ -501,7 +476,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[13]:
+   # Out[66]:
    [[file:figure/fitted-values.org/b_cells-llik-diff.png]]
    :END:
 
@@ -535,7 +510,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[16]:
+   # Out[67]:
    [[file:figure/fitted-values.org/b_cells-sum-llik-diff.png]]
    :END:
 
@@ -547,8 +522,8 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[20]:
-   : 0.18916266666666667
+   # Out[68]:
+   : 0.187488
    :END:
 
    For observations which were equal to one in validation set, look at the
@@ -560,12 +535,12 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[21]:
+   # Out[69]:
    #+BEGIN_EXAMPLE
-     0    0.540092
-     1    0.252876
-     2    0.108506
-     3    0.050398
+     0    0.540323
+     1    0.254025
+     2    0.107712
+     3    0.050151
      dtype: float64
    #+END_EXAMPLE
    :END:
@@ -576,8 +551,14 @@
    #+BEGIN_SRC ipython :async t
      train_qs = []
      test_qs = []
-     for i, l in enumerate([lam0, lam1, lam2]):
+     for l in [lam0, lam1, lam2]:
        F = st.poisson(l)
+       q = np.sort((F.cdf(train - 1) + np.random.uniform(size=train.shape) * F.pmf(train)).ravel()[::10])
+       train_qs.append(q)
+       q = np.sort((F.cdf(test - 1) + np.random.uniform(size=test.shape) * F.pmf(test)).ravel()[::10])
+       test_qs.append(q)
+     for l in [lam3]:
+       F = st.nbinom(n=np.exp(nbvae_log_inv_disp), p=1 / (1 + l * np.exp(-nbvae_log_inv_disp)))
        q = np.sort((F.cdf(train - 1) + np.random.uniform(size=train.shape) * F.pmf(train)).ravel()[::10])
        train_qs.append(q)
        q = np.sort((F.cdf(test - 1) + np.random.uniform(size=test.shape) * F.pmf(test)).ravel()[::10])
@@ -586,7 +567,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[53]:
+   # Out[79]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/b_cells-rpp.png
@@ -594,16 +575,14 @@
      plt.clf()
      fig, ax = plt.subplots(1, 2, sharey=True)
      fig.set_size_inches(5.5, 3)
-     lim = [4e-7, 1]
+     lim = [0, 1]
      for a, qs, t in zip(ax.ravel(), [train_qs, test_qs], ['Training', 'Validation']):
-       a.set_xscale('log')
-       a.set_yscale('log')
-       for i, (q, k) in enumerate(zip(qs, ['NMF', 'GLMPCA', 'PVAE'])):
+       for i, (q, k) in enumerate(zip(qs, ['NMF', 'GLMPCA', 'PVAE', 'NBVAE'])):
          x = np.linspace(0, 1, q.shape[0] + 1)[1:]
          a.plot(x, np.sort(q), lw=1, c=cm(i), label=k)
          a.plot(lim, lim, lw=1, ls=':', c='0.7')
-         a.set_xlim(lim)
-         a.set_ylim(lim)
+       a.set_xlim(lim)
+       a.set_ylim(lim)
        a.set_xlabel('Theoretical quantile')
        a.set_title(t)
      ax[0].set_ylabel('Randomized quantile')
@@ -613,9 +592,11 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[56]:
+   # Out[85]:
    [[file:figure/fitted-values.org/b_cells-rpp.png]]
    :END:
+
+*** Weighted models                                                :noexport:
 
    Randomly mask 10% of the entries.
 
@@ -968,7 +949,7 @@
    : 6.651556782196484e+18
    :END:
 
-** T cells
+** T cells                                                         :noexport:
 
    #+BEGIN_SRC ipython :async t
      x = data['cytotoxic_t']()
@@ -1039,7 +1020,7 @@
    [[file:figure/fitted-values.org/t_cells.png]]
    :END:
 
-** iPSCs
+** iPSCs                                                           :noexport:
 
    #+BEGIN_SRC ipython :async t
      x = data['ipsc']()
@@ -1108,20 +1089,20 @@
 
 ** T cell/B cell
 
-   Split the data into training and validation sets using binomial thinning, then fit
-   NMF, GLMPCA, and PVAE.
+   Split the data into training and validation sets using binomial thinning,
+   then fit NMF, GLMPCA, and PVAE.
 
    #+BEGIN_SRC ipython :async t
      # Important: this implicitly sets the random seed
      x = data['cytotoxic_t-b_cells']()
      train, test = scmodes.benchmark.train_test_split(x)
-     np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-train', train.values)
-     np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-test', test.values)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-train', train)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-test', test)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[7]:
+   # Out[87]:
    :END:
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
@@ -1142,7 +1123,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66424054
+   : Submitted batch job 4537116
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
      sbatch --partition=gpu2 --gres=gpu:1 --mem=8G
@@ -1160,7 +1141,24 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66424053
+   : Submitted batch job 4537118
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-train.npy')
+     test = np.load('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-test.npy')
+     lam0 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-nmf-lam.npy')
+     lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-glmpca-lam.npy')
+     lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-pvae-lam.npy')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[89]:
+   :END:
+
+   Plot the results.
 
    #+BEGIN_SRC ipython :async t :ipyfile figure/fitted-values.org/cytotoxic_t-b_cells.png
      plt.clf()
@@ -1183,9 +1181,10 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[30]:
+   # Out[90]:
    [[file:figure/fitted-values.org/cytotoxic_t-b_cells.png]]
    :END:
+
 ** PBMC
 
    Split the data into training and validation sets using binomial thinning, then fit
@@ -1193,15 +1192,15 @@
 
    #+BEGIN_SRC ipython :async t
      # Important: this implicitly sets the random seed
-     x = data['pbmcs_68k']()
+     x = data['pbmc_10k_v3']()
      train, test = scmodes.benchmark.train_test_split(x)
-     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-train', train.values)
-     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-test', test.values)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-train', train)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-test', test)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[8]:
+   # Out[92]:
    :END:
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
@@ -1210,19 +1209,19 @@
      source activate scmodes
      python <<EOF
      <<imports>>
-     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-train.npy')
+     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-train.npy')
      l, f, _ = scmodes.lra.nmf(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)
      lam0 = l @ f.T
-     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-nmf-lam', lam0)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-nmf-lam', lam0)
 
      l, f, _ = scmodes.lra.glmpca(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)
      lam1 = np.exp(l @ f.T)
-     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-glmpca-lam', lam1)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-glmpca-lam', lam1)
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66424128
+   : Submitted batch job 4543033
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
      sbatch --partition=gpu2 --gres=gpu:1 --mem=8G
@@ -1230,39 +1229,57 @@
      source activate scmodes
      python <<EOF
      <<imports>>
-     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-train.npy')
+     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-train.npy')
      xt = torch.tensor(train, dtype=torch.float)
      m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=8).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)
      lam2 = m.denoise(xt, n_samples=100)
-     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-pvae-lam', lam2)
-     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-pvae-trace', np.array(m.trace))
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-pvae-lam', lam2)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-pvae-trace', np.array(m.trace))
      EOF
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 66424075
+   : Submitted batch job 4543035
 
-   #+BEGIN_SRC ipython :async t :ipyfile figure/fitted-values.org/pbmcs_68k.png
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-train.npy')
+     test = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-test.npy')
+     lam0 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-nmf-lam.npy')
+     lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-glmpca-lam.npy')
+     lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-pvae-lam.npy')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[7]:
+   :END:
+
+   Plot the results.
+
+   #+BEGIN_SRC ipython :async t :ipyfile figure/fitted-values.org/pbmcs_10k_v3.png
+     lim = [0, 3]
      plt.clf()
      fig, ax = plt.subplots(1, 2, sharey=True)
      fig.set_size_inches(4, 2.5)
 
      ax[0].scatter(np.sqrt(lam1.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c='k', alpha=0.1)
-     ax[0].plot([0, 10], [0, 10], lw=1, ls=':', c='r')
+     ax[0].plot(lim, lim, lw=1, ls=':', c='r')
      ax[0].set_xlabel(r'GLMPCA $\sqrt{\hat\lambda}$')
      ax[0].set_ylabel(r'NMF $\sqrt{\hat\lambda}$')
 
      ax[1].scatter(np.sqrt(lam2.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c='k', alpha=0.1)
-     ax[1].plot([0, 10], [0, 10], lw=1, ls=':', c='r')
+     ax[1].plot(lim, lim, lw=1, ls=':', c='r')
      ax[1].set_xlabel(r'PVAE $\sqrt{\hat\lambda}$')
 
      a = fig.add_subplot(111, frame_on=False, xticks=[], yticks=[])
-     a.set_title('T cell/B cell')
+     a.set_title('PBMC')
      fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[30]:
-   [[file:figure/fitted-values.org/pbmcs_68k.png]]
+   # Out[11]:
+   [[file:figure/fitted-values.org/pbmcs_10k_v3.png]]
    :END:

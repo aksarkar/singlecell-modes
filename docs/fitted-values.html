@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-07-27 Mon 10:06 -->
+<!-- 2020-09-13 Sun 18:37 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparison of fitted values</title>
@@ -228,28 +228,6 @@ for the JavaScript code in this tag.
  }
 /*]]>*///-->
 </script>
-<script type="text/x-mathjax-config">
-    MathJax.Hub.Config({
-        displayAlign: "center",
-        displayIndent: "0em",
-
-        "HTML-CSS": { scale: 100,
-                        linebreaks: { automatic: "false" },
-                        webFont: "TeX"
-                       },
-        SVG: {scale: 100,
-              linebreaks: { automatic: "false" },
-              font: "TeX"},
-        NativeMML: {scale: 100},
-        TeX: { equationNumbers: {autoNumber: "AMS"},
-               MultLineWidth: "85%",
-               TagSide: "right",
-               TagIndent: ".8em"
-             }
-});
-</script>
-<script type="text/javascript"
-        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS_HTML"></script>
 </head>
 <body>
 <div id="content">
@@ -264,8 +242,6 @@ for the JavaScript code in this tag.
 <ul>
 <li><a href="#org296c455">Datasets</a></li>
 <li><a href="#b-cells">B cells</a></li>
-<li><a href="#org4075a13">T cells</a></li>
-<li><a href="#org4757b63">iPSCs</a></li>
 <li><a href="#orgfd759d0">T cell/B cell</a></li>
 <li><a href="#orga214153">PBMC</a></li>
 </ul>
@@ -289,8 +265,10 @@ investigate the per-observation performance of these methods.
 <h2 id="setup"><a id="org782386a"></a>Setup</h2>
 <div class="outline-text-2" id="text-setup">
 <div class="org-src-container">
-<pre class="src src-ipython" id="org4264c3d"><span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
+<pre class="src src-ipython" id="org4264c3d"><span class="org-keyword">import</span> anndata
+<span class="org-keyword">import</span> numpy <span class="org-keyword">as</span> np
 <span class="org-keyword">import</span> pandas <span class="org-keyword">as</span> pd
+<span class="org-keyword">import</span> scanpy <span class="org-keyword">as</span> sc
 <span class="org-keyword">import</span> scipy.stats <span class="org-keyword">as</span> st
 <span class="org-keyword">import</span> scmodes
 <span class="org-keyword">import</span> torch
@@ -338,8 +316,8 @@ NMF, GLMPCA, and PVAE.
 <pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Important: this implicitly sets the random seed</span>
 <span class="org-variable-name">x</span> = data[<span class="org-string">'b_cells'</span>]()
 <span class="org-variable-name">train</span>, <span class="org-variable-name">test</span> = scmodes.benchmark.train_test_split(x)
-np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train'</span>, train.values)
-np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test'</span>, test.values)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train'</span>, train)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-test'</span>, test)
 </pre>
 </div>
 
@@ -368,6 +346,7 @@ python &lt;&lt;EOF
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
 <span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-train.npy')</span>
+<span class="org-sh-heredoc">torch.manual_seed(1)</span>
 <span class="org-sh-heredoc">xt = torch.tensor(train, dtype=torch.float)</span>
 <span class="org-sh-heredoc">m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=8).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)</span>
 <span class="org-sh-heredoc">lam2 = m.denoise(xt, n_samples=100)</span>
@@ -376,6 +355,8 @@ python &lt;&lt;EOF
 
 <span class="org-sh-heredoc">m = scmodes.lra.NBVAE(input_dim=train.shape[1], latent_dim=8, disp_by_gene=True).fit(xt, test_size=0.1, lr=1e-3, max_epochs=400, trace=True)</span>
 <span class="org-sh-heredoc">lam3 = m.denoise(xt, n_samples=100)</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-log_inv_disp', </span>
+<span class="org-sh-heredoc">        m.log_inv_disp.detach().cpu().numpy())</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-lam', lam3)</span>
 <span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-trace', np.array(m.trace))</span>
 <span class="org-sh-heredoc">EOF</span>
@@ -420,6 +401,7 @@ Read the results.
 <span class="org-variable-name">lam1</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-glmpca-lam.npy'</span>)
 <span class="org-variable-name">lam2</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam.npy'</span>)
 <span class="org-variable-name">lam3</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-lam.npy'</span>)
+<span class="org-variable-name">nbvae_log_inv_disp</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nbvae-log_inv_disp.npy'</span>)
 </pre>
 </div>
 
@@ -574,10 +556,10 @@ pd.Series({<span class="org-string">'NMF'</span>: llik0.mean(), <span class="org
 </div>
 
 <pre class="example">
-NMF      -1.038635
-GLMPCA   -1.035292
-PVAE     -1.055085
-NBVAE    -0.829223
+NMF      -1.038913
+GLMPCA   -1.036029
+PVAE     -1.062526
+NBVAE    -0.830541
 dtype: float64
 </pre>
 
@@ -674,7 +656,7 @@ Repeat the analysis for the validation data.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">s</span> = (test.<span class="org-builtin">sum</span>(axis=1) / train.<span class="org-builtin">sum</span>(axis=1)).reshape(-1, 1)
-<span class="org-variable-name">llik0</span> = np.ma.masked_invalid(st.poisson(s * lam0).logpmf(test))
+<span class="org-variable-name">llik0</span> = st.poisson(s * lam0).logpmf(test)
 <span class="org-variable-name">llik1</span> = st.poisson(s * lam1).logpmf(test)
 <span class="org-variable-name">llik2</span> = st.poisson(s * lam2).logpmf(test)
 <span class="org-variable-name">llik3</span> = st.poisson(s * lam3).logpmf(test)
@@ -683,40 +665,11 @@ pd.Series({<span class="org-string">'NMF'</span>: llik0.mean(), <span class="org
 </div>
 
 <pre class="example">
-NMF      -1.190322
-GLMPCA   -1.089458
-PVAE     -1.070860
-NBVAE    -1.129492
+NMF      -1.132348
+GLMPCA   -1.087027
+PVAE     -1.071313
+NBVAE    -1.129745
 dtype: float64
-</pre>
-
-<p>
-Report observations which are non-zero in the validation set, but the NMF estimate
-\(\hat\lambda_{ij} = 0\).
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">test[np.where(llik0.mask)]
-</pre>
-</div>
-
-<pre class="example">
-array([1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-1., 1., 1., 1., 1., 1., 1., 1.])
-</pre>
-
-<p>
-Report the corresponding observations in the training set.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">train[np.where(llik0.mask)]
-</pre>
-</div>
-
-<pre class="example">
-array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-0, 0, 0])
 </pre>
 
 <div class="org-src-container">
@@ -806,7 +759,7 @@ Count the fraction of observations equal to one in the validation set.
 </div>
 
 <pre class="example">
-0.18916266666666667
+0.187488
 
 </pre>
 
@@ -821,10 +774,10 @@ distribution of training set values.
 </div>
 
 <pre class="example">
-0    0.540092
-1    0.252876
-2    0.108506
-3    0.050398
+0    0.540323
+1    0.254025
+2    0.107712
+3    0.050151
 dtype: float64
 </pre>
 
@@ -836,8 +789,14 @@ each method.
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">train_qs</span> = []
 <span class="org-variable-name">test_qs</span> = []
-<span class="org-keyword">for</span> i, l <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>([lam0, lam1, lam2]):
+<span class="org-keyword">for</span> l <span class="org-keyword">in</span> [lam0, lam1, lam2]:
   <span class="org-variable-name">F</span> = st.poisson(l)
+  <span class="org-variable-name">q</span> = np.sort((F.cdf(train - 1) + np.random.uniform(size=train.shape) * F.pmf(train)).ravel()[::10])
+  train_qs.append(q)
+  <span class="org-variable-name">q</span> = np.sort((F.cdf(test - 1) + np.random.uniform(size=test.shape) * F.pmf(test)).ravel()[::10])
+  test_qs.append(q)
+<span class="org-keyword">for</span> l <span class="org-keyword">in</span> [lam3]:
+  <span class="org-variable-name">F</span> = st.nbinom(n=np.exp(nbvae_log_inv_disp), p=1 / (1 + l * np.exp(-nbvae_log_inv_disp)))
   <span class="org-variable-name">q</span> = np.sort((F.cdf(train - 1) + np.random.uniform(size=train.shape) * F.pmf(train)).ravel()[::10])
   train_qs.append(q)
   <span class="org-variable-name">q</span> = np.sort((F.cdf(test - 1) + np.random.uniform(size=test.shape) * F.pmf(test)).ravel()[::10])
@@ -850,16 +809,14 @@ each method.
 plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
 fig.set_size_inches(5.5, 3)
-<span class="org-variable-name">lim</span> = [4e-7, 1]
+<span class="org-variable-name">lim</span> = [0, 1]
 <span class="org-keyword">for</span> a, qs, t <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), [train_qs, test_qs], [<span class="org-string">'Training'</span>, <span class="org-string">'Validation'</span>]):
-  a.set_xscale(<span class="org-string">'log'</span>)
-  a.set_yscale(<span class="org-string">'log'</span>)
-  <span class="org-keyword">for</span> i, (q, k) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(qs, [<span class="org-string">'NMF'</span>, <span class="org-string">'GLMPCA'</span>, <span class="org-string">'PVAE'</span>])):
+  <span class="org-keyword">for</span> i, (q, k) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(qs, [<span class="org-string">'NMF'</span>, <span class="org-string">'GLMPCA'</span>, <span class="org-string">'PVAE'</span>, <span class="org-string">'NBVAE'</span>])):
     <span class="org-variable-name">x</span> = np.linspace(0, 1, q.shape[0] + 1)[1:]
     a.plot(x, np.sort(q), lw=1, c=cm(i), label=k)
     a.plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'0.7'</span>)
-    a.set_xlim(lim)
-    a.set_ylim(lim)
+  a.set_xlim(lim)
+  a.set_ylim(lim)
   a.set_xlabel(<span class="org-string">'Theoretical quantile'</span>)
   a.set_title(t)
 ax[0].set_ylabel(<span class="org-string">'Randomized quantile'</span>)
@@ -873,473 +830,6 @@ fig.tight_layout()
 <p><img src="figure/fitted-values.org/b_cells-rpp.png" alt="b_cells-rpp.png">
 </p>
 </div>
-
-<p>
-Randomly mask 10% of the entries.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">w</span> = scmodes.benchmark.imputation._mask_entries(x.values, frac=0.1, seed=0)
-np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-w'</span>, w)
-</pre>
-</div>
-
-<p>
-Fit WNMF, WGLMPCA, and WPVAE.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=mstephens -n1 -c8 --mem=8G --time=60:00
-<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
-<span class="org-builtin">source</span> activate scmodes
-python &lt;&lt;EOF
-<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
-<span class="org-sh-heredoc">train = data['b_cells']().values</span>
-<span class="org-sh-heredoc">w = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-w.npy')</span>
-<span class="org-sh-heredoc">l, f, _ = scmodes.lra.nmf(train, w=w, rank=8, tol=1e-4, max_iters=100000, verbose=True)</span>
-<span class="org-sh-heredoc">lam0 = l @ f.T</span>
-<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wnmf-lam', lam0)</span>
-
-<span class="org-sh-heredoc">l, f, _ = scmodes.lra.glmpca(train, w=w, rank=8, tol=1e-4, max_iters=100000, verbose=True)</span>
-<span class="org-sh-heredoc">lam1 = np.exp(l @ f.T)</span>
-<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wglmpca-lam', lam1)</span>
-<span class="org-sh-heredoc">EOF</span>
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-sh">sbatch --partition=gpu2 --gres=gpu:1 --mem=8G
-<span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
-<span class="org-builtin">source</span> activate scmodes
-python &lt;&lt;EOF
-<span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-<span class="org-sh-heredoc">&lt;&lt;data&gt;&gt;</span>
-<span class="org-sh-heredoc">train = data['b_cells']().values</span>
-<span class="org-sh-heredoc">w = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-w.npy')</span>
-<span class="org-sh-heredoc">xt = torch.tensor(train, dtype=torch.float)</span>
-<span class="org-sh-heredoc">wt = torch.tensor(w, dtype=torch.float)</span>
-<span class="org-sh-heredoc">m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=10).fit(xt, w=wt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)</span>
-<span class="org-sh-heredoc">lam2 = m.denoise(xt, n_samples=100)</span>
-<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wpvae-lam', lam2)</span>
-<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wpvae-trace', np.array(m.trace))</span>
-<span class="org-sh-heredoc">EOF</span>
-</pre>
-</div>
-
-<p>
-Examine the PVAE optimization trace.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
-plt.clf()
-plt.gcf().set_size_inches(4, 2)
-<span class="org-variable-name">trace</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wpvae-trace.npy'</span>)
-<span class="org-keyword">for</span> i, (t, s, k) <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(<span class="org-builtin">zip</span>(trace.T, [900, 100], [<span class="org-string">'Training'</span>, <span class="org-string">'Validation'</span>])):
-  plt.plot(np.log(t / s), lw=1, c=cm(i), label=k)
-plt.legend(frameon=<span class="org-constant">False</span>)
-plt.title(<span class="org-string">'Weighted PVAE'</span>)
-plt.xlabel(<span class="org-string">'Epoch'</span>)
-plt.ylabel(<span class="org-string">'Avg log neg ELBO'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/fitted-values.org/b_cells-wpvae-trace.png" alt="b_cells-wpvae-trace.png">
-</p>
-</div>
-
-<p>
-Read the results.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">train</span> = data[<span class="org-string">'b_cells'</span>]().values
-<span class="org-variable-name">w</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-w.npy'</span>)
-<span class="org-variable-name">lam0</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wnmf-lam.npy'</span>)
-<span class="org-variable-name">lam1</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wglmpca-lam.npy'</span>)
-<span class="org-variable-name">lam2</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-wpvae-lam.npy'</span>)
-<span class="org-variable-name">llik0</span> = st.poisson(lam0).logpmf(train)
-<span class="org-variable-name">llik1</span> = st.poisson(lam1).logpmf(train)
-<span class="org-variable-name">llik2</span> = st.poisson(lam2).logpmf(train)
-</pre>
-</div>
-
-<p>
-Report the log likelihood of masked entries.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">pd.Series({<span class="org-string">'NMF'</span>: llik0[~w].mean(), <span class="org-string">'GLMPCA'</span>: llik1[~w].mean(), <span class="org-string">'PVAE'</span>: llik2[~w].mean()})
-</pre>
-</div>
-
-<pre class="example">
-NMF      -0.259506
-GLMPCA   -0.256485
-PVAE     -0.262147
-dtype: float64
-</pre>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 1, sharex=<span class="org-constant">True</span>)
-fig.set_size_inches(7, 6)
-
-<span class="org-variable-name">grid</span> = np.arange(train.<span class="org-builtin">max</span>() + 1)
-<span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid:
-  ax[0].boxplot((llik1 - llik0)[np.logical_and(w, train == i)].ravel(), positions=[i], widths=[0.5], medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 2})
-ax[0].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
-ax[0].set_ylabel(<span class="org-string">'Improvement log lik\nover NMF'</span>)
-ax[0].set_title(<span class="org-string">'GLMPCA'</span>)
-
-<span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid:
-  ax[1].boxplot((llik2 - llik0)[np.logical_and(w, train == i)].ravel(), positions=[i], widths=[0.5], medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 2})
-ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
-ax[1].set_ylabel(<span class="org-string">'Improvement log lik\nover NMF'</span>)
-ax[1].set_title(<span class="org-string">'PVAE'</span>)
-
-<span class="org-variable-name">h</span>, <span class="org-variable-name">e</span> = np.histogram(train[w].ravel(), bins=grid, density=<span class="org-constant">True</span>)
-ax[2].bar(e[:-1], h, color=<span class="org-string">'k'</span>)
-ax[2].set_ylabel(<span class="org-string">'Relative frequency'</span>)
-ax[2].set_xticks(grid[::5])
-ax[2].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
-ax[2].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
-ax[2].set_xlabel(<span class="org-string">'Observation in unmasked data'</span>)
-
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/fitted-values.org/b_cells-unmasked-llik-diff.png" alt="b_cells-unmasked-llik-diff.png">
-</p>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1, sharex=<span class="org-constant">True</span>)
-fig.set_size_inches(7, 4)
-
-<span class="org-variable-name">grid</span> = np.arange(train.<span class="org-builtin">max</span>() + 1)
-ax[0].bar(grid, np.array([(llik1 - llik0)[np.logical_and(w, train == i)].<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid]), color=<span class="org-string">'k'</span>)
-ax[0].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>, zorder=-3)
-ax[0].set_ylabel(<span class="org-string">'Improvement log lik\nover NMF'</span>)
-ax[0].set_title(<span class="org-string">'GLMPCA'</span>)
-
-ax[1].bar(grid, np.array([(llik2 - llik0)[np.logical_and(w, train == i)].<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid]), color=<span class="org-string">'k'</span>)
-ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>, zorder=-3)
-ax[1].set_ylabel(<span class="org-string">'Improvement log lik\nover NMF'</span>)
-ax[1].set_title(<span class="org-string">'PVAE'</span>)
-ax[1].set_xticks(grid[::5])
-ax[1].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
-ax[1].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
-ax[1].set_xlabel(<span class="org-string">'Observation in unmasked data'</span>)
-
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/fitted-values.org/b_cells-unmasked-sum-llik-diff.png" alt="b_cells-unmasked-sum-llik-diff.png">
-</p>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 1, sharex=<span class="org-constant">True</span>)
-fig.set_size_inches(7, 6)
-
-<span class="org-variable-name">grid</span> = np.arange(train.<span class="org-builtin">max</span>() + 1)
-<span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid:
-  ax[0].boxplot((llik1 - llik0)[np.logical_and(~w, train == i)].ravel(), positions=[i], widths=[0.5], medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 2})
-ax[0].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
-ax[0].set_ylabel(<span class="org-string">'Improvement log lik\nover NMF'</span>)
-ax[0].set_title(<span class="org-string">'GLMPCA'</span>)
-
-<span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid:
-  ax[1].boxplot((llik2 - llik0)[np.logical_and(~w, train == i)].ravel(), positions=[i], widths=[0.5], medianprops={<span class="org-string">'color'</span>: <span class="org-string">'k'</span>}, flierprops={<span class="org-string">'marker'</span>: <span class="org-string">'.'</span>, <span class="org-string">'markersize'</span>: 2})
-ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>)
-ax[1].set_ylabel(<span class="org-string">'Improvement log lik\nover NMF'</span>)
-ax[1].set_title(<span class="org-string">'PVAE'</span>)
-
-<span class="org-variable-name">h</span>, <span class="org-variable-name">e</span> = np.histogram(train[~w].ravel(), bins=grid, density=<span class="org-constant">True</span>)
-ax[2].bar(e[:-1], h, color=<span class="org-string">'k'</span>)
-ax[2].set_ylabel(<span class="org-string">'Relative frequency'</span>)
-ax[2].set_xticks(grid[::5])
-ax[2].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
-ax[2].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
-ax[2].set_xlabel(<span class="org-string">'Observation in masked data'</span>)
-
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/fitted-values.org/b_cells-masked-llik-diff.png" alt="b_cells-masked-llik-diff.png">
-</p>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 1, sharex=<span class="org-constant">True</span>)
-fig.set_size_inches(7, 4)
-
-<span class="org-variable-name">grid</span> = np.arange(train.<span class="org-builtin">max</span>() + 1)
-ax[0].bar(grid, np.array([(llik1 - llik0)[np.logical_and(~w, train == i)].<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid]), color=<span class="org-string">'k'</span>)
-ax[0].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>, zorder=-3)
-ax[0].set_ylabel(<span class="org-string">'Improvement log lik\nover NMF'</span>)
-ax[0].set_title(<span class="org-string">'GLMPCA'</span>)
-
-ax[1].bar(grid, np.array([(llik2 - llik0)[np.logical_and(~w, train == i)].<span class="org-builtin">sum</span>() <span class="org-keyword">for</span> i <span class="org-keyword">in</span> grid]), color=<span class="org-string">'k'</span>)
-ax[1].axhline(y=0, ls=<span class="org-string">':'</span>, lw=1, c=<span class="org-string">'r'</span>, zorder=-3)
-ax[1].set_ylabel(<span class="org-string">'Improvement log lik\nover NMF'</span>)
-ax[1].set_title(<span class="org-string">'PVAE'</span>)
-ax[1].set_xticks(grid[::5])
-ax[1].set_xticklabels(grid[::5].astype(<span class="org-builtin">int</span>))
-ax[1].set_xlim(-.5, grid.<span class="org-builtin">max</span>() - .5)
-ax[1].set_xlabel(<span class="org-string">'Observation in masked data'</span>)
-
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/fitted-values.org/b_cells-masked-sum-llik-diff.png" alt="b_cells-masked-sum-llik-diff.png">
-</p>
-</div>
-
-<p>
-Examine the case where GLM-PCA appears to fail.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">train</span> = data[<span class="org-string">'b_cells'</span>]().values
-<span class="org-variable-name">w</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-w.npy'</span>)
-<span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.glmpca(train, w=w, rank=4, tol=1e-2, max_iters=10000, verbose=<span class="org-constant">True</span>)
-<span class="org-variable-name">lam</span> = np.exp(l @ f.T)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">-np.where(w, st.poisson(mu=lam).logpmf(train), 0).<span class="org-builtin">sum</span>()
-</pre>
-</div>
-
-<pre class="example">
-469460.7112869973
-
-</pre>
-
-<div class="org-src-container">
-<pre class="src src-ipython">-np.where(~w, st.poisson(mu=lam).logpmf(train), 0).mean()
-</pre>
-</div>
-
-<pre class="example">
-1.5974443522458214e+50
-
-</pre>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(3, 3)
-plt.scatter(train[~w].ravel(), lam[~w].ravel(), s=1, alpha=0.1, c=<span class="org-string">'k'</span>)
-plt.xlabel(<span class="org-string">'Masked value'</span>)
-plt.ylabel(<span class="org-string">'Fitted value'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/fitted-values.org/b_cells-wglmpca-4.png" alt="b_cells-wglmpca-4.png">
-</p>
-</div>
-
-<p>
-Find the outlier.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">np.where(lam == lam.<span class="org-builtin">max</span>()), train[np.where(lam == lam.<span class="org-builtin">max</span>())]
-</pre>
-</div>
-
-<pre class="example">
-((array([895]), array([353])), array([1.]))
-
-</pre>
-
-<div class="org-src-container">
-<pre class="src src-ipython">l[895], f[353]
-</pre>
-</div>
-
-<pre class="example">
-(array([ 0.40541451,  0.54979576,  0.95922746, -1.09842433]),
-array([ -3.27497815, 235.22646683,   5.0478365 ,   4.01345086]))
-</pre>
-
-<p>
-Look at the remainder of the fitted values.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-plt.gcf().set_size_inches(3, 3)
-<span class="org-variable-name">lim</span> = [0, 97]
-plt.scatter(train[~w].ravel(), lam[~w].ravel(), s=1, alpha=0.1, c=<span class="org-string">'k'</span>)
-plt.plot(lim, lim, c=<span class="org-string">'r'</span>, lw=1, ls=<span class="org-string">':'</span>)
-plt.xlim(lim)
-plt.ylim(lim)
-plt.xlabel(<span class="org-string">'Masked value'</span>)
-plt.ylabel(<span class="org-string">'Fitted value'</span>)
-plt.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/fitted-values.org/b_cells-wglmpca-4-inset.png" alt="b_cells-wglmpca-4-inset.png">
-</p>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">l1</span>, <span class="org-variable-name">f1</span>, <span class="org-variable-name">loss1</span> = scmodes.lra.glmpca(train, w=w, rank=4, tol=5e-2, max_iters=10000, verbose=<span class="org-constant">True</span>)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">-np.where(~w, st.poisson(mu=np.exp(l1 @ f1.T)).logpmf(train), 0).mean()
-</pre>
-</div>
-
-<pre class="example">
-6.651556782196484e+18
-
-</pre>
-</div>
-</div>
-
-<div id="outline-container-org4075a13" class="outline-3">
-<h3 id="org4075a13">T cells</h3>
-<div class="outline-text-3" id="text-org4075a13">
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">x</span> = data[<span class="org-string">'cytotoxic_t'</span>]()
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nmf(x.values, rank=3, verbose=<span class="org-constant">True</span>)
-<span class="org-variable-name">lam0</span> = l @ f.T
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.glmpca(x.values, rank=3, atol=.1, max_iters=500, verbose=<span class="org-constant">True</span>)
-<span class="org-variable-name">lam1</span> = np.exp(l @ f.T)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">xt</span> = torch.tensor(x.values, dtype=torch.<span class="org-builtin">float</span>)
-<span class="org-variable-name">m</span> = scmodes.lra.PVAE(input_dim=x.shape[1], latent_dim=5).fit(xt, lr=1e-3, max_epochs=2000, verbose=<span class="org-constant">True</span>)
-<span class="org-variable-name">lam2</span> = m.denoise(xt)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(4, 2.5)
-
-ax[0].scatter(np.sqrt(lam1.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
-ax[0].plot([0, 8], [0, 8], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
-ax[0].set_xticks([0, 4, 8])
-ax[0].set_yticks([0, 4, 8])
-ax[0].set_xlabel(r<span class="org-string">'GLMPCA $\sqrt{\hat\lambda}$'</span>)
-ax[0].set_ylabel(r<span class="org-string">'NMF $\sqrt{\hat\lambda}$'</span>)
-
-ax[1].scatter(np.sqrt(lam2.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
-ax[1].plot([0, 8], [0, 8], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
-ax[1].set_xticks([0, 4, 8])
-ax[1].set_yticks([0, 4, 8])
-ax[1].set_xlabel(r<span class="org-string">'PVAE $\sqrt{\hat\lambda}$'</span>)
-
-<span class="org-variable-name">a</span> = fig.add_subplot(111, frame_on=<span class="org-constant">False</span>, xticks=[], yticks=[])
-a.set_title(<span class="org-string">'T cell'</span>)
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/fitted-values.org/t_cells.png" alt="t_cells.png">
-</p>
-</div>
-</div>
-</div>
-
-<div id="outline-container-org4757b63" class="outline-3">
-<h3 id="org4757b63">iPSCs</h3>
-<div class="outline-text-3" id="text-org4757b63">
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">x</span> = data[<span class="org-string">'ipsc'</span>]()
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.nmf(x.values, rank=2, verbose=<span class="org-constant">True</span>)
-<span class="org-variable-name">lam0</span> = l @ f.T
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">l</span>, <span class="org-variable-name">f</span>, <span class="org-variable-name">_</span> = scmodes.lra.glmpca(x.values, rank=2, atol=.1, max_iters=500, verbose=<span class="org-constant">True</span>)
-<span class="org-variable-name">lam1</span> = np.exp(l @ f.T)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">xt</span> = torch.tensor(x.values, dtype=torch.<span class="org-builtin">float</span>)
-<span class="org-variable-name">m</span> = scmodes.lra.PVAE(input_dim=x.shape[1], latent_dim=5).fit(xt, lr=1e-3, max_epochs=2000, verbose=<span class="org-constant">True</span>)
-<span class="org-variable-name">lam2</span> = m.denoise(xt)
-</pre>
-</div>
-
-<div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
-fig.set_size_inches(4, 2.5)
-
-ax[0].scatter(np.sqrt(lam1.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
-ax[0].plot([0, 30], [0, 30], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
-ax[0].set_xlabel(r<span class="org-string">'GLMPCA $\sqrt{\hat\lambda}$'</span>)
-ax[0].set_ylabel(r<span class="org-string">'NMF $\sqrt{\hat\lambda}$'</span>)
-
-ax[1].scatter(np.sqrt(lam2.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
-ax[1].plot([0, 30], [0, 30], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
-ax[1].set_xlabel(r<span class="org-string">'PVAE $\sqrt{\hat\lambda}$'</span>)
-
-<span class="org-variable-name">a</span> = fig.add_subplot(111, frame_on=<span class="org-constant">False</span>, xticks=[], yticks=[])
-a.set_title(<span class="org-string">'iPSC'</span>)
-fig.tight_layout()
-</pre>
-</div>
-
-
-<div class="figure">
-<p><img src="figure/fitted-values.org/ipsc.png" alt="ipsc.png">
-</p>
-</div>
 </div>
 </div>
 
@@ -1347,16 +837,16 @@ fig.tight_layout()
 <h3 id="orgfd759d0">T cell/B cell</h3>
 <div class="outline-text-3" id="text-orgfd759d0">
 <p>
-Split the data into training and validation sets using binomial thinning, then fit
-NMF, GLMPCA, and PVAE.
+Split the data into training and validation sets using binomial thinning,
+then fit NMF, GLMPCA, and PVAE.
 </p>
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Important: this implicitly sets the random seed</span>
 <span class="org-variable-name">x</span> = data[<span class="org-string">'cytotoxic_t-b_cells'</span>]()
 <span class="org-variable-name">train</span>, <span class="org-variable-name">test</span> = scmodes.benchmark.train_test_split(x)
-np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-train'</span>, train.values)
-np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-test'</span>, test.values)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-train'</span>, train)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-test'</span>, test)
 </pre>
 </div>
 
@@ -1394,6 +884,23 @@ python &lt;&lt;EOF
 </pre>
 </div>
 
+<p>
+Read the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">train</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-train.npy'</span>)
+<span class="org-variable-name">test</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-test.npy'</span>)
+<span class="org-variable-name">lam0</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-nmf-lam.npy'</span>)
+<span class="org-variable-name">lam1</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-glmpca-lam.npy'</span>)
+<span class="org-variable-name">lam2</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/cytotoxic_t-b_cells-pvae-lam.npy'</span>)
+</pre>
+</div>
+
+<p>
+Plot the results.
+</p>
+
 <div class="org-src-container">
 <pre class="src src-ipython">plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
@@ -1421,6 +928,7 @@ fig.tight_layout()
 </div>
 </div>
 </div>
+
 <div id="outline-container-orga214153" class="outline-3">
 <h3 id="orga214153">PBMC</h3>
 <div class="outline-text-3" id="text-orga214153">
@@ -1431,10 +939,10 @@ NMF, GLMPCA, and PVAE.
 
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-comment-delimiter"># </span><span class="org-comment">Important: this implicitly sets the random seed</span>
-<span class="org-variable-name">x</span> = data[<span class="org-string">'pbmcs_68k'</span>]()
+<span class="org-variable-name">x</span> = data[<span class="org-string">'pbmc_10k_v3'</span>]()
 <span class="org-variable-name">train</span>, <span class="org-variable-name">test</span> = scmodes.benchmark.train_test_split(x)
-np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-train'</span>, train.values)
-np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-test'</span>, test.values)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-train'</span>, train)
+np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-test'</span>, test)
 </pre>
 </div>
 
@@ -1444,14 +952,14 @@ np.save(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-<span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-train.npy')</span>
+<span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-train.npy')</span>
 <span class="org-sh-heredoc">l, f, _ = scmodes.lra.nmf(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)</span>
 <span class="org-sh-heredoc">lam0 = l @ f.T</span>
-<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-nmf-lam', lam0)</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-nmf-lam', lam0)</span>
 
 <span class="org-sh-heredoc">l, f, _ = scmodes.lra.glmpca(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)</span>
 <span class="org-sh-heredoc">lam1 = np.exp(l @ f.T)</span>
-<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-glmpca-lam', lam1)</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-glmpca-lam', lam1)</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
 </div>
@@ -1462,39 +970,57 @@ python &lt;&lt;EOF
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
 <span class="org-sh-heredoc">&lt;&lt;imports&gt;&gt;</span>
-<span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-train.npy')</span>
+<span class="org-sh-heredoc">train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-train.npy')</span>
 <span class="org-sh-heredoc">xt = torch.tensor(train, dtype=torch.float)</span>
 <span class="org-sh-heredoc">m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=8).fit(xt, test_size=0.1, lr=1e-3, max_epochs=200, trace=True)</span>
 <span class="org-sh-heredoc">lam2 = m.denoise(xt, n_samples=100)</span>
-<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-pvae-lam', lam2)</span>
-<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-pvae-trace', np.array(m.trace))</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-pvae-lam', lam2)</span>
+<span class="org-sh-heredoc">np.save('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-pvae-trace', np.array(m.trace))</span>
 <span class="org-sh-heredoc">EOF</span>
 </pre>
 </div>
 
+<p>
+Read the results.
+</p>
+
 <div class="org-src-container">
-<pre class="src src-ipython">plt.clf()
+<pre class="src src-ipython"><span class="org-variable-name">train</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-train.npy'</span>)
+<span class="org-variable-name">test</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-test.npy'</span>)
+<span class="org-variable-name">lam0</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-nmf-lam.npy'</span>)
+<span class="org-variable-name">lam1</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-glmpca-lam.npy'</span>)
+<span class="org-variable-name">lam2</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-pvae-lam.npy'</span>)
+</pre>
+</div>
+
+<p>
+Plot the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">lim</span> = [0, 3]
+plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2, sharey=<span class="org-constant">True</span>)
 fig.set_size_inches(4, 2.5)
 
 ax[0].scatter(np.sqrt(lam1.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
-ax[0].plot([0, 10], [0, 10], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[0].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
 ax[0].set_xlabel(r<span class="org-string">'GLMPCA $\sqrt{\hat\lambda}$'</span>)
 ax[0].set_ylabel(r<span class="org-string">'NMF $\sqrt{\hat\lambda}$'</span>)
 
 ax[1].scatter(np.sqrt(lam2.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
-ax[1].plot([0, 10], [0, 10], lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
+ax[1].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
 ax[1].set_xlabel(r<span class="org-string">'PVAE $\sqrt{\hat\lambda}$'</span>)
 
 <span class="org-variable-name">a</span> = fig.add_subplot(111, frame_on=<span class="org-constant">False</span>, xticks=[], yticks=[])
-a.set_title(<span class="org-string">'T cell/B cell'</span>)
+a.set_title(<span class="org-string">'PBMC'</span>)
 fig.tight_layout()
 </pre>
 </div>
 
 
 <div class="figure">
-<p><img src="figure/fitted-values.org/pbmcs_68k.png" alt="pbmcs_68k.png">
+<p><img src="figure/fitted-values.org/pbmcs_10k_v3.png" alt="pbmcs_10k_v3.png">
 </p>
 </div>
 </div>
@@ -1503,7 +1029,7 @@ fig.tight_layout()
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-07-27 Mon 10:06</p>
+<p class="date">Created: 2020-09-13 Sun 18:37</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
