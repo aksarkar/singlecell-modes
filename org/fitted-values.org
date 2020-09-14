@@ -22,7 +22,7 @@
   #+RESULTS:
   : 1
 
-  #+CALL: ipython3(venv="scmodes",partition="broadwl",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
   : Submitted batch job 66423771
@@ -1282,4 +1282,173 @@
    :RESULTS:
    # Out[11]:
    [[file:figure/fitted-values.org/pbmcs_10k_v3.png]]
+   :END:
+** Liver
+
+   Split the data into training and validation sets using binomial thinning, then fit
+   NMF, GLMPCA, and PVAE.
+
+   #+BEGIN_SRC ipython :async t
+     # Important: this implicitly sets the random seed
+     x = data['liver-caudate-lobe']()
+     train, test = scmodes.benchmark.train_test_split(x)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-train', train)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-test', test)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[5]:
+   :END:
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=broadwl -n1 --mem=8G --time=2:00:00
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-train.npy')
+     l, f, _ = scmodes.lra.nmf(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)
+     lam0 = l @ f.T
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-nmf-lam', lam0)
+
+     l, f, _ = scmodes.lra.glmpca(train, rank=8, tol=1e-2, max_iters=100000, verbose=True)
+     lam1 = np.exp(l @ f.T)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-glmpca-lam', lam1)
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 4569679
+
+   #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=8G
+     #!/bin/bash
+     source activate scmodes
+     python <<EOF
+     <<imports>>
+     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-train.npy')
+     torch.manual_seed(1)
+     xt = torch.tensor(train, dtype=torch.float)
+     m = scmodes.lra.PVAE(input_dim=train.shape[1], latent_dim=8).fit(xt, test_size=0.1, lr=1e-3, max_epochs=1600, trace=True)
+     lam2 = m.denoise(xt, n_samples=100)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-pvae-lam', lam2)
+     np.save('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-pvae-trace', np.array(m.trace))
+     EOF
+   #+END_SRC
+
+   #+RESULTS:
+   : Submitted batch job 4585232
+
+   Examine the VAE optimization traces.
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/liver-caudate-lobe-pvae-trace.png
+     cm = plt.get_cmap('Paired')
+     plt.clf()
+     plt.gcf().set_size_inches(4, 2)
+     trace = np.load('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-pvae-trace.npy')
+     for i, (t, s, k) in enumerate(zip(trace.T, [900, 100], ['PVAE train', 'PVAE val'])):
+       plt.plot(np.log(t / s), lw=1, c=cm(i), label=k)
+     plt.legend(frameon=False)
+     plt.xlabel('Epoch')
+     plt.ylabel('Avg log neg ELBO')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[30]:
+   [[file:figure/fitted-values.org/liver-caudate-lobe-pvae-trace.png]]
+   :END:
+
+   Read the results.
+
+   #+BEGIN_SRC ipython
+     train = np.load('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-train.npy')
+     test = np.load('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-test.npy')
+     lam0 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-nmf-lam.npy')
+     lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-glmpca-lam.npy')
+     lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/liver-caudate-lobe-pvae-lam.npy')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[31]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     s = (test.sum(axis=1) / train.sum(axis=1)).reshape(-1, 1)
+     llik0 = st.poisson(s * lam0).logpmf(test)
+     llik1 = st.poisson(s * lam1).logpmf(test)
+     llik2 = st.poisson(s * lam2).logpmf(test)
+     pd.Series({'NMF': llik0.mean(), 'GLMPCA': llik1.mean(), 'PVAE': llik2.mean()})
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[32]:
+   #+BEGIN_EXAMPLE
+     NMF      -0.961543
+     GLMPCA   -0.940434
+     PVAE     -0.979979
+     dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Plot the results.
+
+   #+BEGIN_SRC ipython :ipyfile figure/fitted-values.org/liver-caudate-lobe-llik-diff.png
+     plt.clf()
+     fig, ax = plt.subplots(3, 1, sharex=True)
+     fig.set_size_inches(7, 4)
+
+     grid = np.arange(50)
+     ax[0].bar(grid, np.array([(llik1 - llik0)[test == i].sum() for i in grid]), color='k')
+     ax[0].axhline(y=0, ls=':', lw=1, c='r', zorder=-3)
+     ax[0].set_ylabel('Improvement val log lik\nover NMF')
+     ax[0].set_title('GLMPCA')
+
+     ax[1].bar(grid, np.array([(llik2 - llik0)[test == i].sum() for i in grid]), color='k')
+     ax[1].axhline(y=0, ls=':', lw=1, c='r', zorder=-3)
+     ax[1].set_ylabel('Improvement val log lik\nover NMF')
+     ax[1].set_title('PVAE')
+
+     ax[-1].set_xticks(grid[::5])
+     ax[-1].set_xticklabels(grid[::5].astype(int))
+     ax[-1].set_xlim(-.5, grid.max() - .5)
+     ax[-1].set_xlabel('Observation in validation set')
+
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[33]:
+   [[file:figure/fitted-values.org/liver-caudate-lobe-llik-diff.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :async t :ipyfile figure/fitted-values.org/liver-caudate-lobe.png
+     lim = [0, 30]
+     plt.clf()
+     fig, ax = plt.subplots(1, 2, sharey=True)
+     fig.set_size_inches(4, 2.5)
+
+     ax[0].scatter(np.sqrt(lam1.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c='k', alpha=0.1)
+     ax[0].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[0].set_xlabel(r'GLMPCA $\sqrt{\hat\lambda}$')
+     ax[0].set_ylabel(r'NMF $\sqrt{\hat\lambda}$')
+
+     ax[1].scatter(np.sqrt(lam2.ravel()[::50]), np.sqrt(lam0.ravel()[::50]), s=1, c='k', alpha=0.1)
+     ax[1].plot(lim, lim, lw=1, ls=':', c='r')
+     ax[1].set_xlabel(r'PVAE $\sqrt{\hat\lambda}$')
+
+     a = fig.add_subplot(111, frame_on=False, xticks=[], yticks=[])
+     a.set_title('Liver')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[34]:
+   [[file:figure/fitted-values.org/liver-caudate-lobe.png]]
    :END:
