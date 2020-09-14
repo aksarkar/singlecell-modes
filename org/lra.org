@@ -92,7 +92,7 @@
 
   #+RESULTS: imports
   :RESULTS:
-  # Out[1]:
+  # Out[36]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -268,7 +268,7 @@
    Run the GPU methods.
 
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=60:00 --job-name=lra-generalization -a 41-79%4
+     sbatch --partition=gpu2 --gres=gpu:1 --mem=16G --time=10:00 --job-name=lra-generalization -a 41-79%4
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -286,7 +286,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : Submitted batch job 4267472
+   : Submitted batch job 4588758
 
    Collect the results.
 
@@ -305,7 +305,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[12]:
+   # Out[37]:
    :END:
 
    Read the results.
@@ -327,7 +327,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[17]:
+   # Out[38]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/lra.org/lra-bench-1.png
@@ -349,7 +349,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[20]:
+   # Out[39]:
    [[file:figure/lra.org/lra-bench-1.png]]
    :END:
 
@@ -372,7 +372,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[21]:
+   # Out[40]:
    [[file:figure/lra.org/lra-bench-2.png]]
    :END:
 
@@ -395,7 +395,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[22]:
+   # Out[41]:
    [[file:figure/lra.org/lra-bench-4.png]]
    :END:
 
@@ -418,6 +418,6 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[24]:
+   # Out[42]:
    [[file:figure/lra.org/lra-bench-8.png]]
    :END:
