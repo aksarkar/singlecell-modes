@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-12 Sat 16:09 -->
+<!-- 2020-09-14 Mon 16:58 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Manuscript figures</title>
@@ -794,7 +794,7 @@ plt.xscale(<span class="org-string">'log'</span>)
 plt.ylim(-10, 0)
 plt.axhline(y=-1, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'k'</span>)
 plt.legend(title=<span class="org-string">'Dataset'</span>, frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'center left'</span>, bbox_to_anchor=(1, .5), ncol=2)
-plt.xlabel(r<span class="org-string">'Assumed dispersion'</span>)
+plt.xlabel(r<span class="org-string">'Measurement dispersion'</span>)
 plt.ylabel(<span class="org-string">'Difference log$_{10}$ likelihood\nfrom best'</span>)
 plt.tight_layout()
 </pre>
@@ -927,7 +927,7 @@ plt.clf()
 <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 6, sharey=<span class="org-constant">True</span>)
 fig.set_size_inches(8, 2)
 
-<span class="org-variable-name">lim</span> = [0, 7]
+<span class="org-variable-name">lim</span> = [0, 20]
 <span class="org-variable-name">lam0</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nmf-lam.npy'</span>)
 <span class="org-variable-name">lam1</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-glmpca-lam.npy'</span>)
 <span class="org-variable-name">lam2</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam.npy'</span>)
@@ -957,9 +957,9 @@ ax[3].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class
 ax[3].set_xlabel(r<span class="org-string">'PVAE $\sqrt{\hat\lambda}$'</span>)
 ax[3].set_title(<span class="org-string">'T cell/B cell'</span>)
 
-<span class="org-variable-name">lam0</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-nmf-lam.npy'</span>)
-<span class="org-variable-name">lam1</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-glmpca-lam.npy'</span>)
-<span class="org-variable-name">lam2</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-pvae-lam.npy'</span>)
+<span class="org-variable-name">lam0</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-nmf-lam.npy'</span>)
+<span class="org-variable-name">lam1</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-glmpca-lam.npy'</span>)
+<span class="org-variable-name">lam2</span> = np.load(<span class="org-string">'/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-pvae-lam.npy'</span>)
 
 ax[4].scatter(np.sqrt(lam1.ravel()), np.sqrt(lam0.ravel()), s=1, c=<span class="org-string">'k'</span>, alpha=0.1)
 ax[4].plot(lim, lim, lw=1, ls=<span class="org-string">':'</span>, c=<span class="org-string">'r'</span>)
@@ -980,7 +980,7 @@ plt.savefig(<span class="org-string">'/project2/mstephens/aksarkar/projects/sing
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-12 Sat 16:09</p>
+<p class="date">Created: 2020-09-14 Mon 16:58</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

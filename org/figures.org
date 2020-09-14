@@ -54,7 +54,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[48]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -584,7 +584,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[44]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/figures.org/nb-heuristic-control.svg
@@ -607,14 +607,14 @@
      plt.ylim(-10, 0)
      plt.axhline(y=-1, lw=1, ls=':', c='k')
      plt.legend(title='Dataset', frameon=False, loc='center left', bbox_to_anchor=(1, .5), ncol=2)
-     plt.xlabel(r'Assumed dispersion')
+     plt.xlabel(r'Measurement dispersion')
      plt.ylabel('Difference log$_{10}$ likelihood\nfrom best')
      plt.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[55]:
+   # Out[49]:
    [[file:figure/figures.org/nb-heuristic-control.svg]]
    :END:
 
@@ -663,7 +663,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[20]:
+  # Out[46]:
   :END:
 
   #+BEGIN_SRC ipython :ipyfile figure/figures.org/lra-bench-8.svg
@@ -685,7 +685,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[30]:
+  # Out[50]:
   [[file:figure/figures.org/lra-bench-8.svg]]
   :END:
   
@@ -701,7 +701,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[8]:
+  # Out[51]:
   :END:
 
    #+BEGIN_SRC ipython
@@ -713,7 +713,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[11]:
+   # Out[52]:
    :END:
 
    #+BEGIN_SRC ipython
@@ -756,7 +756,7 @@
      fig, ax = plt.subplots(1, 6, sharey=True)
      fig.set_size_inches(8, 2)
 
-     lim = [0, 7]
+     lim = [0, 20]
      lam0 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-nmf-lam.npy')
      lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-glmpca-lam.npy')
      lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/b_cells-pvae-lam.npy')
@@ -786,9 +786,9 @@
      ax[3].set_xlabel(r'PVAE $\sqrt{\hat\lambda}$')
      ax[3].set_title('T cell/B cell')
 
-     lam0 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-nmf-lam.npy')
-     lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-glmpca-lam.npy')
-     lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_68k-pvae-lam.npy')
+     lam0 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-nmf-lam.npy')
+     lam1 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-glmpca-lam.npy')
+     lam2 = np.load('/scratch/midway2/aksarkar/modes/fitted-values/pbmcs_10k_v3-pvae-lam.npy')
 
      ax[4].scatter(np.sqrt(lam1.ravel()), np.sqrt(lam0.ravel()), s=1, c='k', alpha=0.1)
      ax[4].plot(lim, lim, lw=1, ls=':', c='r')
@@ -806,5 +806,5 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[32]:
+   # Out[56]:
    :END:
