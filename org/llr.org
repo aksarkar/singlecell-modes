@@ -64,7 +64,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[76]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -75,7 +75,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[78]:
   :END:
 
 * Results
@@ -393,6 +393,11 @@
              .rename({'level_0': 'dataset'}, axis=1))
    #+END_SRC
 
+   #+RESULTS: read-llr-results
+   :RESULTS:
+   # Out[21]:
+   :END:
+
    #+RESULTS:
    :RESULTS:
    # Out[6]:
@@ -431,6 +436,11 @@
        return res[[x for x in labels if x != baseline]]
    #+END_SRC
 
+   #+RESULTS: fix-llr-results
+   :RESULTS:
+   # Out[22]:
+   :END:
+
    #+RESULTS:
    :RESULTS:
    # Out[12]:
@@ -446,20 +456,20 @@
    model.
 
    #+BEGIN_SRC ipython
-     compare(llik[llik['dataset'].isin(control)], baseline='point')
+     compare(llik[llik['dataset'].isin(control)], baseline='point', thresh=10)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[11]:
+   # Out[35]:
    #+BEGIN_EXAMPLE
      method     gamma  point_gamma  unimodal  npmle
      dataset
-     chromium1     15           15        17     17
-     chromium2     48           48        51     52
-     dropseq       77           77        78     78
-     gemcode       52           52        56     56
-     indrops        4            4         4      4
+     chromium1     23           26        30     31
+     chromium2     62           68        65     68
+     dropseq       79           79        80     80
+     gemcode       56           56        60     60
+     indrops        9           11        16     16
    #+END_EXAMPLE
    :END:
 
@@ -468,20 +478,20 @@
    over the Gamma expression model.
 
    #+BEGIN_SRC ipython
-     compare(llik[llik['dataset'].isin(control)], baseline='gamma')
+     compare(llik[llik['dataset'].isin(control)], baseline='gamma', thresh=10)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[41]:
+   # Out[36]:
    #+BEGIN_EXAMPLE
      method     point  point_gamma  unimodal  npmle
      dataset
-     chromium1      0            0         8      8
-     chromium2      0            0         4      5
-     dropseq        0            2         6     20
-     gemcode        1            1        53     53
-     indrops        1            0         2      2
+     chromium1      0            4        19     19
+     chromium2      0            8        17     23
+     dropseq        0           22        56     64
+     gemcode        0            0        58     58
+     indrops        0            0         7      7
    #+END_EXAMPLE
    :END:
 
@@ -491,28 +501,35 @@
      temp = dict()
      for k, g in llik[llik['dataset'].isin(control)].groupby('dataset'):
        query = g.pivot_table(index='gene', columns='method', values='llik')
-       temp[k] = query.loc[query['point_gamma'] > query['gamma'] + thresh]
+       query = fix_llik(query)
+       temp[k] = query.loc[query['point_gamma'] > query['gamma'] + np.log(10)]
      query = (pd.concat(temp)
               .reset_index()
               .rename({'level_0': 'dataset'}, axis=1)
               [['dataset', 'gene', 'point', 'gamma', 'point_gamma', 'unimodal', 'npmle']])
-     query
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[38]:
-   #+BEGIN_EXAMPLE
-     method  dataset  dataset        gene        point        gamma  point_gamma  \
-     0       dropseq  dropseq  ERCC-00078  -765.076024  -279.353443  -264.522869
-     1       dropseq  dropseq  ERCC-00131  -723.520929  -356.755781  -341.742929
-     2       gemcode  gemcode  ERCC-00002 -6108.645264 -6148.879840 -6132.663007
+   # Out[39]:
+   :END:
 
-     method     unimodal        npmle
-     0       -263.565367  -261.356008
-     1       -347.518213  -337.359459
-     2      -5944.693604 -5944.434618
-   #+END_EXAMPLE
+   Plot the distribution of likelihood ratios for unimodal vs. point-Gamma for
+   those genes.
+
+   #+BEGIN_SRC ipython :ipyfile figure/llr.org/control-unimodal-vs-zig-lr.png
+     plt.clf()
+     plt.gcf().set_size_inches(2.5, 2.5)
+     plt.hist((query['unimodal'] - query['point_gamma']) / np.log(10), np.linspace(-5, 105, 23), color='0.7', density=False)
+     plt.xlabel('log$_{10}$ likelihood ratio')
+     plt.ylabel('Number of genes')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[82]:
+   [[file:figure/llr.org/control-unimodal-vs-zig-lr.png]]
    :END:
 
    For each control data set, for each expression model, report the number of
@@ -525,14 +542,14 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[34]:
+   # Out[31]:
    #+BEGIN_EXAMPLE
      method     point  gamma  point_gamma  npmle
      dataset
-     chromium1      4      4            4      4
-     chromium2      7      7            8      8
-     dropseq        0      0            0      1
-     gemcode        0      0            0      0
+     chromium1      0      0            0      2
+     chromium2      0      0            3      3
+     dropseq        0      0            1     33
+     gemcode        0      0            0     11
      indrops        0      0            0      0
    #+END_EXAMPLE
    :END:
@@ -543,7 +560,8 @@
      temp = dict()
      for k, g in llik[llik['dataset'].isin(control)].groupby('dataset'):
        query = g.pivot_table(index='gene', columns='method', values='llik')
-       temp[k] = query.loc[query['npmle'] > query['unimodal'] + thresh]
+       query = fix_llik(query)
+       temp[k] = query.loc[query['npmle'] > query['unimodal'] + np.log(10)]
      query = (pd.concat(temp)
               .reset_index()
               .rename({'level_0': 'dataset'}, axis=1)
@@ -553,37 +571,109 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[50]:
+   # Out[33]:
    #+BEGIN_EXAMPLE
-     method    dataset        gene       point       gamma  point_gamma  \
-     0       chromium1  ERCC-00024  -45.460132  -45.477957   -45.478005
-     1       chromium1  ERCC-00069 -140.401215 -139.854752  -139.944119
-     2       chromium1  ERCC-00104  -71.913572  -71.246536   -69.867679
-     3       chromium1  ERCC-00154 -272.657972 -273.072955  -273.094156
-     4       chromium2  ERCC-00016  -44.980123  -44.980123   -44.995680
-     5       chromium2  ERCC-00041  -45.187759  -45.204457   -45.204466
-     6       chromium2  ERCC-00073 -144.039409 -137.072157  -141.523956
-     7       chromium2  ERCC-00075  -15.306939  -15.306939   -15.308376
-     8       chromium2  ERCC-00086  -43.580107  -43.610757   -43.611190
-     9       chromium2  ERCC-00116 -179.364459 -177.229879  -174.857339
-     10      chromium2  ERCC-00142  -28.006585  -28.006585   -28.011618
-     11      chromium2  ERCC-00164  -55.455464  -53.541417   -48.993924
-     12        dropseq  ERCC-00131 -723.520929 -356.755781  -341.742929
+     method    dataset        gene         point         gamma   point_gamma  \
+     0       chromium1  ERCC-00074 -10994.555832 -10026.776094 -10026.776094
+     1       chromium1  ERCC-00130 -10649.942268  -9570.443230  -9565.932365
+     2       chromium2  ERCC-00081    -22.939272    -21.457014    -17.679464
+     3       chromium2  ERCC-00116   -179.364459   -177.229879   -174.857339
+     4       chromium2  ERCC-00164    -55.455464    -53.541417    -48.993924
+     5         dropseq  ERCC-00002  -1266.423096   -611.402635   -611.394799
+     6         dropseq  ERCC-00003  -1030.362549   -500.306576   -500.306517
+     7         dropseq  ERCC-00004   -974.663055   -545.042159   -545.042159
+     8         dropseq  ERCC-00019   -503.467112   -228.309470   -224.000070
+     9         dropseq  ERCC-00025   -556.002790   -277.973395   -276.683859
+     10        dropseq  ERCC-00034   -697.362242   -193.063000   -186.044807
+     11        dropseq  ERCC-00039   -274.668122    -99.735102    -99.734779
+     12        dropseq  ERCC-00042  -1153.137413   -483.932271   -483.732803
+     13        dropseq  ERCC-00043  -1102.442375   -501.721756   -501.721753
+     14        dropseq  ERCC-00044   -828.876427   -376.808649   -375.842974
+     15        dropseq  ERCC-00053   -918.332827   -354.327829   -350.009082
+     16        dropseq  ERCC-00060   -799.485748   -456.121055   -456.110088
+     17        dropseq  ERCC-00062  -1155.604274   -370.017177   -369.687577
+     18        dropseq  ERCC-00071   -856.315238   -360.975674   -357.071140
+     19        dropseq  ERCC-00074  -1511.162109   -642.333522   -642.333522
+     20        dropseq  ERCC-00076   -767.107849   -406.689904   -406.689904
+     21        dropseq  ERCC-00079   -577.893220   -321.847139   -317.379547
+     22        dropseq  ERCC-00084   -609.794518   -253.338088   -244.021041
+     23        dropseq  ERCC-00085   -412.040273    -96.799237    -92.931414
+     24        dropseq  ERCC-00092  -1082.852468   -421.866830   -420.327480
+     25        dropseq  ERCC-00095   -683.153752   -381.605546   -381.578051
+     26        dropseq  ERCC-00096  -1237.653809   -617.412762   -617.412762
+     27        dropseq  ERCC-00108   -907.245140   -475.172703   -475.172647
+     28        dropseq  ERCC-00112   -761.993153   -382.114154   -381.777423
+     29        dropseq  ERCC-00113  -1074.117126   -538.694413   -538.694413
+     30        dropseq  ERCC-00116   -694.544499   -367.351234   -364.166669
+     31        dropseq  ERCC-00130  -1253.007568   -610.624357   -610.617778
+     32        dropseq  ERCC-00131   -723.520929   -356.755781   -341.742929
+     33        dropseq  ERCC-00144   -544.076984   -209.953994   -200.138600
+     34        dropseq  ERCC-00145   -878.956902   -454.270630   -454.176155
+     35        dropseq  ERCC-00160   -666.668557   -250.674782   -245.116842
+     36        dropseq  ERCC-00165   -988.263237   -338.511813   -333.741251
+     37        dropseq  ERCC-00168   -206.899650    -63.417678    -63.417678
+     38        gemcode  ERCC-00009  -4510.433970  -4118.285506  -4118.285506
+     39        gemcode  ERCC-00034  -1918.709922  -1755.789605  -1755.789560
+     40        gemcode  ERCC-00035  -2716.800175  -2629.744168  -2629.744168
+     41        gemcode  ERCC-00053  -2442.401288  -2282.002956  -2282.002774
+     42        gemcode  ERCC-00060  -3244.700606  -3121.574336  -3121.571758
+     43        gemcode  ERCC-00071  -3397.714914  -3153.035031  -3153.032709
+     44        gemcode  ERCC-00078  -3001.456071  -2780.138679  -2780.138464
+     45        gemcode  ERCC-00079  -3482.725608  -3123.857966  -3123.857966
+     46        gemcode  ERCC-00085  -1168.949499  -1017.629741  -1017.629741
+     47        gemcode  ERCC-00131  -2322.557758  -2232.505889  -2232.505889
+     48        gemcode  ERCC-00160  -2675.612720  -2483.744290  -2483.744290
 
-     method    unimodal       npmle
-     0      -121.644443  -45.841260
-     1      -238.635997 -139.705769
-     2      -123.375871  -72.716830
-     3      -331.171738 -272.658181
-     4      -173.512727  -44.997467
-     5      -116.825209  -45.188332
-     6      -198.975064 -136.364247
-     7      -186.398614  -15.307474
-     8      -107.533467  -43.580519
-     9      -186.885089 -174.791905
-     10     -148.213405  -43.356179
-     11      -80.198402  -56.292263
-     12     -347.518213 -337.359459
+     method     unimodal        npmle
+     0      -9842.350977 -9836.615070
+     1      -9517.260498 -9512.740669
+     2        -21.457014   -17.679464
+     3       -177.229879  -174.791905
+     4        -53.541417   -48.993924
+     5       -607.044232  -602.568171
+     6       -495.700019  -493.064685
+     7       -541.536046  -535.953133
+     8       -218.292515  -211.697691
+     9       -269.145382  -265.821108
+     10      -182.540192  -177.232823
+     11       -96.597446   -94.267453
+     12      -474.604140  -465.783799
+     13      -495.445359  -492.072696
+     14      -367.108223  -362.801161
+     15      -349.729527  -343.411482
+     16      -451.908588  -448.326980
+     17      -366.244318  -361.491025
+     18      -352.703587  -347.498260
+     19      -633.682726  -628.504607
+     20      -401.599442  -397.902139
+     21      -316.955326  -312.049294
+     22      -239.707689  -235.064641
+     23       -90.357506   -86.213971
+     24      -416.618139  -411.577139
+     25      -377.882827  -374.758270
+     26      -610.680517  -607.089068
+     27      -468.358776  -465.369989
+     28      -375.017848  -371.379920
+     29      -530.850285  -526.408639
+     30      -361.972045  -359.002267
+     31      -607.453443  -603.784909
+     32      -347.518213  -337.359459
+     33      -199.219463  -196.410539
+     34      -450.391125  -447.074294
+     35      -239.914256  -236.303790
+     36      -329.815130  -326.313666
+     37       -58.337531   -55.154366
+     38     -4077.611595 -4074.608323
+     39     -1642.184750 -1639.243826
+     40     -2524.676224 -2522.096733
+     41     -2144.102157 -2140.568698
+     42     -3029.049844 -3026.387906
+     43     -2987.354978 -2984.847676
+     44     -2637.040425 -2631.940091
+     45     -2924.518623 -2922.167038
+     46      -943.334301  -940.957160
+     47     -2141.876978 -2138.628185
+     48     -2348.491637 -2344.786146
    #+END_EXAMPLE
    :END:
 
@@ -687,43 +777,70 @@
    #+END_EXAMPLE
    :END:
 
-** Application to biological data sets
-   :PROPERTIES:
-   :CUSTOM_ID: biological-data
-   :END:
+   Plot the results.
 
-   Implement a helper function to plot.
-
-   #+NAME: plot-llr-results
    #+BEGIN_SRC ipython
-     def _plot(llik, thresh):
-       query1 = compare(llik[llik['dataset'].isin(non_control)], baseline='gamma', thresh=thresh, agg='mean')
-       query2 = compare(llik[llik['dataset'].isin(non_control)], baseline='unimodal', thresh=thresh, agg='mean')
-       keys = ['b_cells', 'cytotoxic_t', 'ipsc', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'kidney', 'liver-caudate-lobe', 'pbmc_10k_v3', 'brain', 'retina']
-       labels = ['B cell', 'T cell', 'iPSC', 'T cell/B cell', 'Cyto/naive T', 'Kidney', 'Liver', 'PBMC', 'Brain', 'Retina']
+     def _plot_control(llik, thresh=10):
+       query1 = compare(llik[llik['dataset'].isin(control)], baseline='gamma', thresh=thresh, agg='mean')
+       query2 = compare(llik[llik['dataset'].isin(control)], baseline='unimodal', thresh=thresh, agg='mean')
+
+       keys = ['chromium1', 'chromium2', 'dropseq', 'gemcode', 'indrops']
+       labels = ['Chromium (1)', 'Chromium (2)', 'Drop-Seq', 'GemCode', 'InDrops']
        plt.clf()
-       fig, ax = plt.subplots(1, 3)
-       fig.set_size_inches(7.5, 3)
+       fig, ax = plt.subplots(1, 2)
+       fig.set_size_inches(4.5, 3)
        ax[0].bar(range(query1.shape[0]), query1.loc[keys, 'point_gamma'], color='k')
        ax[0].set_xticks(range(query1.shape[0]))
        ax[0].set_xticklabels(labels, rotation=90)
-       ax[0].set_title('Point-Gamma vs. Gamma')
+       ax[0].set_title('Point-Gamma vs.\nGamma')
        ax[0].set_ylabel(f'Fraction of genes with\nlikelihood ratio > {thresh}')
-       ax[1].bar(range(query1.shape[0]), query1.loc[keys, 'unimodal'], color='k')
-       ax[1].set_xticks(range(query1.shape[0]))
+
+       ax[1].bar(range(query2.shape[0]), query2.loc[keys, 'npmle'], color='k')
+       ax[1].set_xticks(range(query2.shape[0]))
        ax[1].set_xticklabels(labels, rotation=90)
-       ax[1].set_title('Unimodal vs. Gamma')
-       ax[1].set_xlabel('Dataset')
-       ax[2].bar(range(query2.shape[0]), query2.loc[keys, 'npmle'], color='k')
-       ax[2].set_xticks(range(query2.shape[0]))
-       ax[2].set_xticklabels(labels, rotation=90)
-       ax[2].set_title('Non-parametric vs. Unimodal')
+       ax[1].set_title('Non-parametric vs.\nUnimodal')
+
        fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[59]:
+   # Out[69]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/llr.org/model-comparison-control-lr-10.png
+     _plot_control(llik, thresh=10)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[79]:
+   [[file:figure/llr.org/model-comparison-control-lr-10.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/llr.org/model-comparison-control-lr-50.png
+     _plot_control(llik, thresh=50)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[80]:
+   [[file:figure/llr.org/model-comparison-control-lr-50.png]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/llr.org/model-comparison-control-lr-100.png
+     _plot_control(llik, thresh=100)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[81]:
+   [[file:figure/llr.org/model-comparison-control-lr-100.png]]
+   :END:
+
+** Application to biological data sets
+   :PROPERTIES:
+   :CUSTOM_ID: biological-data
    :END:
 
    Report the fraction of genes with likelihood ratio > 10 in favor of the more

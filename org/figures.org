@@ -15,7 +15,7 @@
   #+RESULTS:
   : 9
 
-  #+CALL: ipython3(venv="scmodes",partition="broadwl",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
+  #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
   #+RESULTS:
   : Submitted batch job 66310303
@@ -32,7 +32,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[8]:
+  # Out[1]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -54,7 +54,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[48]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -584,7 +584,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[44]:
+   # Out[6]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/figures.org/nb-heuristic-control.svg
@@ -620,15 +620,40 @@
 
    Plot the model comparison results.
 
-   #+CALL: read-llr-results()
-
-   #+RESULTS:
+   #+CALL: read-llr-results() :results none
 
    #+CALL: fix-llr-results()
 
    #+RESULTS:
    :RESULTS:
-   # Out[10]:
+   # Out[9]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/figures.org/model-comparison-control-lr-10.svg
+     thresh = 10
+     query1 = compare(llik[llik['dataset'].isin(control)], baseline='gamma', thresh=thresh, agg='mean')
+     query2 = compare(llik[llik['dataset'].isin(control)], baseline='unimodal', thresh=thresh, agg='mean')
+     keys = ['chromium1', 'chromium2', 'dropseq', 'gemcode', 'indrops']
+     labels = ['Chromium (1)', 'Chromium (2)', 'Drop-Seq', 'GemCode', 'InDrops']
+     plt.clf()
+     fig, ax = plt.subplots(1, 2)
+     fig.set_size_inches(5, 3)
+     ax[0].bar(range(query1.shape[0]), query1.loc[keys, 'point_gamma'], color='k')
+     ax[0].set_xticks(range(query1.shape[0]))
+     ax[0].set_xticklabels(labels, rotation=90)
+     ax[0].set_title('Point-Gamma vs.\nGamma')
+     ax[0].set_ylabel(f'Fraction of genes with\nlikelihood ratio > {thresh}')
+     ax[1].bar(range(query1.shape[0]), query2.loc[keys, 'npmle'], color='k')
+     ax[1].set_xticks(range(query1.shape[0]))
+     ax[1].set_xticklabels(labels, rotation=90)
+     ax[1].set_title('Non-parametric vs.\nUnimodal')
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[37]:
+   [[file:figure/figures.org/model-comparison-control-lr-10.svg]]
    :END:
 
    #+CALL: plot-llr-results()

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-12 Sat 14:55 -->
+<!-- 2020-09-15 Tue 14:35 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Marginal log likelihood comparison of expression models</title>
@@ -655,18 +655,18 @@ model.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'point'</span>)
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'point'</span>, thresh=10)
 </pre>
 </div>
 
 <pre class="example">
 method     gamma  point_gamma  unimodal  npmle
 dataset
-chromium1     15           15        17     17
-chromium2     48           48        51     52
-dropseq       77           77        78     78
-gemcode       52           52        56     56
-indrops        4            4         4      4
+chromium1     23           26        30     31
+chromium2     62           68        65     68
+dropseq       79           79        80     80
+gemcode       56           56        60     60
+indrops        9           11        16     16
 </pre>
 
 <p>
@@ -676,18 +676,18 @@ over the Gamma expression model.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'gamma'</span>)
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'gamma'</span>, thresh=10)
 </pre>
 </div>
 
 <pre class="example">
 method     point  point_gamma  unimodal  npmle
 dataset
-chromium1      0            0         8      8
-chromium2      0            0         4      5
-dropseq        0            2         6     20
-gemcode        1            1        53     53
-indrops        1            0         2      2
+chromium1      0            4        19     19
+chromium2      0            8        17     23
+dropseq        0           22        56     64
+gemcode        0            0        58     58
+indrops        0            0         7      7
 </pre>
 
 <p>
@@ -698,26 +698,35 @@ Find the genes where a point-Gamma model improved over a Gamma model.
 <pre class="src src-ipython"><span class="org-variable-name">temp</span> = <span class="org-builtin">dict</span>()
 <span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(control)].groupby(<span class="org-string">'dataset'</span>):
   <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
-  <span class="org-variable-name">temp</span>[k] = query.loc[query[<span class="org-string">'point_gamma'</span>] &gt; query[<span class="org-string">'gamma'</span>] + thresh]
+  <span class="org-variable-name">query</span> = fix_llik(query)
+  <span class="org-variable-name">temp</span>[k] = query.loc[query[<span class="org-string">'point_gamma'</span>] &gt; query[<span class="org-string">'gamma'</span>] + np.log(10)]
 <span class="org-variable-name">query</span> = (pd.concat(temp)
          .reset_index()
          .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
          [[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>, <span class="org-string">'point'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]])
-query
 </pre>
 </div>
 
-<pre class="example">
-method  dataset  dataset        gene        point        gamma  point_gamma  \
-0       dropseq  dropseq  ERCC-00078  -765.076024  -279.353443  -264.522869
-1       dropseq  dropseq  ERCC-00131  -723.520929  -356.755781  -341.742929
-2       gemcode  gemcode  ERCC-00002 -6108.645264 -6148.879840 -6132.663007
+<p>
+Plot the distribution of likelihood ratios for unimodal vs. point-Gamma for
+those genes.
+</p>
 
-method     unimodal        npmle
-0       -263.565367  -261.356008
-1       -347.518213  -337.359459
-2      -5944.693604 -5944.434618
+<div class="org-src-container">
+<pre class="src src-ipython">plt.clf()
+plt.gcf().set_size_inches(2.5, 2.5)
+plt.hist((query[<span class="org-string">'unimodal'</span>] - query[<span class="org-string">'point_gamma'</span>]) / np.log(10), np.linspace(-5, 105, 23), color=<span class="org-string">'0.7'</span>, density=<span class="org-constant">False</span>)
+plt.xlabel(<span class="org-string">'log$_{10}$ likelihood ratio'</span>)
+plt.ylabel(<span class="org-string">'Number of genes'</span>)
+plt.tight_layout()
 </pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/llr.org/control-unimodal-vs-zig-lr.png" alt="control-unimodal-vs-zig-lr.png">
+</p>
+</div>
 
 <p>
 For each control data set, for each expression model, report the number of
@@ -733,10 +742,10 @@ over the unimodal expression model.
 <pre class="example">
 method     point  gamma  point_gamma  npmle
 dataset
-chromium1      4      4            4      4
-chromium2      7      7            8      8
-dropseq        0      0            0      1
-gemcode        0      0            0      0
+chromium1      0      0            0      2
+chromium2      0      0            3      3
+dropseq        0      0            1     33
+gemcode        0      0            0     11
 indrops        0      0            0      0
 </pre>
 
@@ -748,7 +757,8 @@ Look at the cases where NPMLE did better than unimodal.
 <pre class="src src-ipython"><span class="org-variable-name">temp</span> = <span class="org-builtin">dict</span>()
 <span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(control)].groupby(<span class="org-string">'dataset'</span>):
   <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
-  <span class="org-variable-name">temp</span>[k] = query.loc[query[<span class="org-string">'npmle'</span>] &gt; query[<span class="org-string">'unimodal'</span>] + thresh]
+  <span class="org-variable-name">query</span> = fix_llik(query)
+  <span class="org-variable-name">temp</span>[k] = query.loc[query[<span class="org-string">'npmle'</span>] &gt; query[<span class="org-string">'unimodal'</span>] + np.log(10)]
 <span class="org-variable-name">query</span> = (pd.concat(temp)
          .reset_index()
          .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
@@ -758,35 +768,107 @@ query
 </div>
 
 <pre class="example">
-method    dataset        gene       point       gamma  point_gamma  \
-0       chromium1  ERCC-00024  -45.460132  -45.477957   -45.478005
-1       chromium1  ERCC-00069 -140.401215 -139.854752  -139.944119
-2       chromium1  ERCC-00104  -71.913572  -71.246536   -69.867679
-3       chromium1  ERCC-00154 -272.657972 -273.072955  -273.094156
-4       chromium2  ERCC-00016  -44.980123  -44.980123   -44.995680
-5       chromium2  ERCC-00041  -45.187759  -45.204457   -45.204466
-6       chromium2  ERCC-00073 -144.039409 -137.072157  -141.523956
-7       chromium2  ERCC-00075  -15.306939  -15.306939   -15.308376
-8       chromium2  ERCC-00086  -43.580107  -43.610757   -43.611190
-9       chromium2  ERCC-00116 -179.364459 -177.229879  -174.857339
-10      chromium2  ERCC-00142  -28.006585  -28.006585   -28.011618
-11      chromium2  ERCC-00164  -55.455464  -53.541417   -48.993924
-12        dropseq  ERCC-00131 -723.520929 -356.755781  -341.742929
+method    dataset        gene         point         gamma   point_gamma  \
+0       chromium1  ERCC-00074 -10994.555832 -10026.776094 -10026.776094
+1       chromium1  ERCC-00130 -10649.942268  -9570.443230  -9565.932365
+2       chromium2  ERCC-00081    -22.939272    -21.457014    -17.679464
+3       chromium2  ERCC-00116   -179.364459   -177.229879   -174.857339
+4       chromium2  ERCC-00164    -55.455464    -53.541417    -48.993924
+5         dropseq  ERCC-00002  -1266.423096   -611.402635   -611.394799
+6         dropseq  ERCC-00003  -1030.362549   -500.306576   -500.306517
+7         dropseq  ERCC-00004   -974.663055   -545.042159   -545.042159
+8         dropseq  ERCC-00019   -503.467112   -228.309470   -224.000070
+9         dropseq  ERCC-00025   -556.002790   -277.973395   -276.683859
+10        dropseq  ERCC-00034   -697.362242   -193.063000   -186.044807
+11        dropseq  ERCC-00039   -274.668122    -99.735102    -99.734779
+12        dropseq  ERCC-00042  -1153.137413   -483.932271   -483.732803
+13        dropseq  ERCC-00043  -1102.442375   -501.721756   -501.721753
+14        dropseq  ERCC-00044   -828.876427   -376.808649   -375.842974
+15        dropseq  ERCC-00053   -918.332827   -354.327829   -350.009082
+16        dropseq  ERCC-00060   -799.485748   -456.121055   -456.110088
+17        dropseq  ERCC-00062  -1155.604274   -370.017177   -369.687577
+18        dropseq  ERCC-00071   -856.315238   -360.975674   -357.071140
+19        dropseq  ERCC-00074  -1511.162109   -642.333522   -642.333522
+20        dropseq  ERCC-00076   -767.107849   -406.689904   -406.689904
+21        dropseq  ERCC-00079   -577.893220   -321.847139   -317.379547
+22        dropseq  ERCC-00084   -609.794518   -253.338088   -244.021041
+23        dropseq  ERCC-00085   -412.040273    -96.799237    -92.931414
+24        dropseq  ERCC-00092  -1082.852468   -421.866830   -420.327480
+25        dropseq  ERCC-00095   -683.153752   -381.605546   -381.578051
+26        dropseq  ERCC-00096  -1237.653809   -617.412762   -617.412762
+27        dropseq  ERCC-00108   -907.245140   -475.172703   -475.172647
+28        dropseq  ERCC-00112   -761.993153   -382.114154   -381.777423
+29        dropseq  ERCC-00113  -1074.117126   -538.694413   -538.694413
+30        dropseq  ERCC-00116   -694.544499   -367.351234   -364.166669
+31        dropseq  ERCC-00130  -1253.007568   -610.624357   -610.617778
+32        dropseq  ERCC-00131   -723.520929   -356.755781   -341.742929
+33        dropseq  ERCC-00144   -544.076984   -209.953994   -200.138600
+34        dropseq  ERCC-00145   -878.956902   -454.270630   -454.176155
+35        dropseq  ERCC-00160   -666.668557   -250.674782   -245.116842
+36        dropseq  ERCC-00165   -988.263237   -338.511813   -333.741251
+37        dropseq  ERCC-00168   -206.899650    -63.417678    -63.417678
+38        gemcode  ERCC-00009  -4510.433970  -4118.285506  -4118.285506
+39        gemcode  ERCC-00034  -1918.709922  -1755.789605  -1755.789560
+40        gemcode  ERCC-00035  -2716.800175  -2629.744168  -2629.744168
+41        gemcode  ERCC-00053  -2442.401288  -2282.002956  -2282.002774
+42        gemcode  ERCC-00060  -3244.700606  -3121.574336  -3121.571758
+43        gemcode  ERCC-00071  -3397.714914  -3153.035031  -3153.032709
+44        gemcode  ERCC-00078  -3001.456071  -2780.138679  -2780.138464
+45        gemcode  ERCC-00079  -3482.725608  -3123.857966  -3123.857966
+46        gemcode  ERCC-00085  -1168.949499  -1017.629741  -1017.629741
+47        gemcode  ERCC-00131  -2322.557758  -2232.505889  -2232.505889
+48        gemcode  ERCC-00160  -2675.612720  -2483.744290  -2483.744290
 
-method    unimodal       npmle
-0      -121.644443  -45.841260
-1      -238.635997 -139.705769
-2      -123.375871  -72.716830
-3      -331.171738 -272.658181
-4      -173.512727  -44.997467
-5      -116.825209  -45.188332
-6      -198.975064 -136.364247
-7      -186.398614  -15.307474
-8      -107.533467  -43.580519
-9      -186.885089 -174.791905
-10     -148.213405  -43.356179
-11      -80.198402  -56.292263
-12     -347.518213 -337.359459
+method     unimodal        npmle
+0      -9842.350977 -9836.615070
+1      -9517.260498 -9512.740669
+2        -21.457014   -17.679464
+3       -177.229879  -174.791905
+4        -53.541417   -48.993924
+5       -607.044232  -602.568171
+6       -495.700019  -493.064685
+7       -541.536046  -535.953133
+8       -218.292515  -211.697691
+9       -269.145382  -265.821108
+10      -182.540192  -177.232823
+11       -96.597446   -94.267453
+12      -474.604140  -465.783799
+13      -495.445359  -492.072696
+14      -367.108223  -362.801161
+15      -349.729527  -343.411482
+16      -451.908588  -448.326980
+17      -366.244318  -361.491025
+18      -352.703587  -347.498260
+19      -633.682726  -628.504607
+20      -401.599442  -397.902139
+21      -316.955326  -312.049294
+22      -239.707689  -235.064641
+23       -90.357506   -86.213971
+24      -416.618139  -411.577139
+25      -377.882827  -374.758270
+26      -610.680517  -607.089068
+27      -468.358776  -465.369989
+28      -375.017848  -371.379920
+29      -530.850285  -526.408639
+30      -361.972045  -359.002267
+31      -607.453443  -603.784909
+32      -347.518213  -337.359459
+33      -199.219463  -196.410539
+34      -450.391125  -447.074294
+35      -239.914256  -236.303790
+36      -329.815130  -326.313666
+37       -58.337531   -55.154366
+38     -4077.611595 -4074.608323
+39     -1642.184750 -1639.243826
+40     -2524.676224 -2522.096733
+41     -2144.102157 -2140.568698
+42     -3029.049844 -3026.387906
+43     -2987.354978 -2984.847676
+44     -2637.040425 -2631.940091
+45     -2924.518623 -2922.167038
+46      -943.334301  -940.957160
+47     -2141.876978 -2138.628185
+48     -2348.491637 -2344.786146
 </pre>
 
 <p>
@@ -882,43 +964,74 @@ dataset        gene       npmle
 1  chromium1  ERCC-00116 -102.119712
 2  chromium2  ERCC-00142  -28.282124
 </pre>
+
+<p>
+Plot the results.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_plot_control</span>(llik, thresh=10):
+  <span class="org-variable-name">query1</span> = compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'gamma'</span>, thresh=thresh, agg=<span class="org-string">'mean'</span>)
+  <span class="org-variable-name">query2</span> = compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'unimodal'</span>, thresh=thresh, agg=<span class="org-string">'mean'</span>)
+
+  <span class="org-variable-name">keys</span> = [<span class="org-string">'chromium1'</span>, <span class="org-string">'chromium2'</span>, <span class="org-string">'dropseq'</span>, <span class="org-string">'gemcode'</span>, <span class="org-string">'indrops'</span>]
+  <span class="org-variable-name">labels</span> = [<span class="org-string">'Chromium (1)'</span>, <span class="org-string">'Chromium (2)'</span>, <span class="org-string">'Drop-Seq'</span>, <span class="org-string">'GemCode'</span>, <span class="org-string">'InDrops'</span>]
+  plt.clf()
+  <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2)
+  fig.set_size_inches(4.5, 3)
+  ax[0].bar(<span class="org-builtin">range</span>(query1.shape[0]), query1.loc[keys, <span class="org-string">'point_gamma'</span>], color=<span class="org-string">'k'</span>)
+  ax[0].set_xticks(<span class="org-builtin">range</span>(query1.shape[0]))
+  ax[0].set_xticklabels(labels, rotation=90)
+  ax[0].set_title(<span class="org-string">'Point-Gamma vs.\nGamma'</span>)
+  ax[0].set_ylabel(f<span class="org-string">'Fraction of genes with\nlikelihood ratio &gt; {thresh}'</span>)
+
+  ax[1].bar(<span class="org-builtin">range</span>(query2.shape[0]), query2.loc[keys, <span class="org-string">'npmle'</span>], color=<span class="org-string">'k'</span>)
+  ax[1].set_xticks(<span class="org-builtin">range</span>(query2.shape[0]))
+  ax[1].set_xticklabels(labels, rotation=90)
+  ax[1].set_title(<span class="org-string">'Non-parametric vs.\nUnimodal'</span>)
+
+  fig.tight_layout()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">_plot_control(llik, thresh=10)
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/llr.org/model-comparison-control-lr-10.png" alt="model-comparison-control-lr-10.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">_plot_control(llik, thresh=50)
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/llr.org/model-comparison-control-lr-50.png" alt="model-comparison-control-lr-50.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">_plot_control(llik, thresh=100)
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/llr.org/model-comparison-control-lr-100.png" alt="model-comparison-control-lr-100.png">
+</p>
+</div>
 </div>
 </div>
 
 <div id="outline-container-orgfb7d234" class="outline-3">
 <h3 id="biological-data"><a id="orgfb7d234"></a>Application to biological data sets</h3>
 <div class="outline-text-3" id="text-biological-data">
-<p>
-Implement a helper function to plot.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython" id="org3f2aef1"><span class="org-keyword">def</span> <span class="org-function-name">_plot</span>(llik, thresh):
-  <span class="org-variable-name">query1</span> = compare(llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)], baseline=<span class="org-string">'gamma'</span>, thresh=thresh, agg=<span class="org-string">'mean'</span>)
-  <span class="org-variable-name">query2</span> = compare(llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)], baseline=<span class="org-string">'unimodal'</span>, thresh=thresh, agg=<span class="org-string">'mean'</span>)
-  <span class="org-variable-name">keys</span> = [<span class="org-string">'b_cells'</span>, <span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'ipsc'</span>, <span class="org-string">'cytotoxic_t-b_cells'</span>, <span class="org-string">'cytotoxic_t-naive_t'</span>, <span class="org-string">'kidney'</span>, <span class="org-string">'liver-caudate-lobe'</span>, <span class="org-string">'pbmc_10k_v3'</span>, <span class="org-string">'brain'</span>, <span class="org-string">'retina'</span>]
-  <span class="org-variable-name">labels</span> = [<span class="org-string">'B cell'</span>, <span class="org-string">'T cell'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cyto/naive T'</span>, <span class="org-string">'Kidney'</span>, <span class="org-string">'Liver'</span>, <span class="org-string">'PBMC'</span>, <span class="org-string">'Brain'</span>, <span class="org-string">'Retina'</span>]
-  plt.clf()
-  <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 3)
-  fig.set_size_inches(7.5, 3)
-  ax[0].bar(<span class="org-builtin">range</span>(query1.shape[0]), query1.loc[keys, <span class="org-string">'point_gamma'</span>], color=<span class="org-string">'k'</span>)
-  ax[0].set_xticks(<span class="org-builtin">range</span>(query1.shape[0]))
-  ax[0].set_xticklabels(labels, rotation=90)
-  ax[0].set_title(<span class="org-string">'Point-Gamma vs. Gamma'</span>)
-  ax[0].set_ylabel(f<span class="org-string">'Fraction of genes with\nlikelihood ratio &gt; {thresh}'</span>)
-  ax[1].bar(<span class="org-builtin">range</span>(query1.shape[0]), query1.loc[keys, <span class="org-string">'unimodal'</span>], color=<span class="org-string">'k'</span>)
-  ax[1].set_xticks(<span class="org-builtin">range</span>(query1.shape[0]))
-  ax[1].set_xticklabels(labels, rotation=90)
-  ax[1].set_title(<span class="org-string">'Unimodal vs. Gamma'</span>)
-  ax[1].set_xlabel(<span class="org-string">'Dataset'</span>)
-  ax[2].bar(<span class="org-builtin">range</span>(query2.shape[0]), query2.loc[keys, <span class="org-string">'npmle'</span>], color=<span class="org-string">'k'</span>)
-  ax[2].set_xticks(<span class="org-builtin">range</span>(query2.shape[0]))
-  ax[2].set_xticklabels(labels, rotation=90)
-  ax[2].set_title(<span class="org-string">'Non-parametric vs. Unimodal'</span>)
-  fig.tight_layout()
-</pre>
-</div>
-
 <p>
 Report the fraction of genes with likelihood ratio &gt; 10 in favor of the more
 complex expression model.
@@ -1180,7 +1293,7 @@ retina               0.000299  0.035334     0.036031  0.033841
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-12 Sat 14:55</p>
+<p class="date">Created: 2020-09-15 Tue 14:35</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
