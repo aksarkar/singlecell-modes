@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-15 Tue 14:19 -->
+<!-- 2020-09-16 Wed 13:11 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Manuscript figures</title>
@@ -814,22 +814,15 @@ Plot the model comparison results.
 <div class="org-src-container">
 <pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
 <span class="org-variable-name">query1</span> = compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'gamma'</span>, thresh=thresh, agg=<span class="org-string">'mean'</span>)
-<span class="org-variable-name">query2</span> = compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'unimodal'</span>, thresh=thresh, agg=<span class="org-string">'mean'</span>)
 <span class="org-variable-name">keys</span> = [<span class="org-string">'chromium1'</span>, <span class="org-string">'chromium2'</span>, <span class="org-string">'dropseq'</span>, <span class="org-string">'gemcode'</span>, <span class="org-string">'indrops'</span>]
 <span class="org-variable-name">labels</span> = [<span class="org-string">'Chromium (1)'</span>, <span class="org-string">'Chromium (2)'</span>, <span class="org-string">'Drop-Seq'</span>, <span class="org-string">'GemCode'</span>, <span class="org-string">'InDrops'</span>]
 plt.clf()
-<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2)
-fig.set_size_inches(5, 3)
-ax[0].bar(<span class="org-builtin">range</span>(query1.shape[0]), query1.loc[keys, <span class="org-string">'point_gamma'</span>], color=<span class="org-string">'k'</span>)
-ax[0].set_xticks(<span class="org-builtin">range</span>(query1.shape[0]))
-ax[0].set_xticklabels(labels, rotation=90)
-ax[0].set_title(<span class="org-string">'Point-Gamma vs.\nGamma'</span>)
-ax[0].set_ylabel(f<span class="org-string">'Fraction of genes with\nlikelihood ratio &gt; {thresh}'</span>)
-ax[1].bar(<span class="org-builtin">range</span>(query1.shape[0]), query2.loc[keys, <span class="org-string">'npmle'</span>], color=<span class="org-string">'k'</span>)
-ax[1].set_xticks(<span class="org-builtin">range</span>(query1.shape[0]))
-ax[1].set_xticklabels(labels, rotation=90)
-ax[1].set_title(<span class="org-string">'Non-parametric vs.\nUnimodal'</span>)
-fig.tight_layout()
+plt.gcf().set_size_inches(2.5, 3)
+plt.bar(<span class="org-builtin">range</span>(query1.shape[0]), query1.loc[keys, <span class="org-string">'point_gamma'</span>], color=<span class="org-string">'k'</span>)
+plt.xticks(<span class="org-builtin">range</span>(query1.shape[0]), labels, rotation=90)
+plt.title(<span class="org-string">'Point-Gamma vs.\nGamma'</span>)
+plt.ylabel(f<span class="org-string">'Fraction of genes with\nlikelihood ratio &gt; {thresh}'</span>)
+plt.tight_layout()
 </pre>
 </div>
 
@@ -1009,7 +1002,7 @@ plt.savefig(<span class="org-string">'/project2/mstephens/aksarkar/projects/sing
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-15 Tue 14:19</p>
+<p class="date">Created: 2020-09-16 Wed 13:11</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

@@ -64,7 +64,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[76]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -75,7 +75,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[78]:
+  # Out[4]:
   :END:
 
 * Results
@@ -239,7 +239,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[5]:
+   # Out[6]:
    :END:
 
    Report the dimensions of each data set.
@@ -395,12 +395,7 @@
 
    #+RESULTS: read-llr-results
    :RESULTS:
-   # Out[21]:
-   :END:
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[6]:
+   # Out[7]:
    :END:
 
    Report the number (fraction) of genes that have likelihood ratio greater
@@ -438,12 +433,7 @@
 
    #+RESULTS: fix-llr-results
    :RESULTS:
-   # Out[22]:
-   :END:
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[12]:
+   # Out[8]:
    :END:
 
 ** Application to control data sets
@@ -456,20 +446,20 @@
    model.
 
    #+BEGIN_SRC ipython
-     compare(llik[llik['dataset'].isin(control)], baseline='point', thresh=10)
+     compare(llik[llik['dataset'].isin(control)], baseline='point', thresh=10, agg=np.mean)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[35]:
+   # Out[83]:
    #+BEGIN_EXAMPLE
-     method     gamma  point_gamma  unimodal  npmle
+     method        gamma  point_gamma  unimodal     npmle
      dataset
-     chromium1     23           26        30     31
-     chromium2     62           68        65     68
-     dropseq       79           79        80     80
-     gemcode       56           56        60     60
-     indrops        9           11        16     16
+     chromium1  0.261364     0.295455  0.340909  0.352273
+     chromium2  0.704545     0.772727  0.738636  0.772727
+     dropseq    0.975309     0.975309  0.987654  0.987654
+     gemcode    0.615385     0.615385  0.659341  0.659341
+     indrops    0.087379     0.106796  0.155340  0.155340
    #+END_EXAMPLE
    :END:
 
@@ -478,20 +468,20 @@
    over the Gamma expression model.
 
    #+BEGIN_SRC ipython
-     compare(llik[llik['dataset'].isin(control)], baseline='gamma', thresh=10)
+     compare(llik[llik['dataset'].isin(control)], baseline='gamma', thresh=10, agg=np.mean)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[36]:
+   # Out[9]:
    #+BEGIN_EXAMPLE
-     method     point  point_gamma  unimodal  npmle
+     method     point  point_gamma  unimodal     npmle
      dataset
-     chromium1      0            4        19     19
-     chromium2      0            8        17     23
-     dropseq        0           22        56     64
-     gemcode        0            0        58     58
-     indrops        0            0         7      7
+     chromium1    0.0     0.045455  0.215909  0.215909
+     chromium2    0.0     0.090909  0.193182  0.261364
+     dropseq      0.0     0.271605  0.691358  0.790123
+     gemcode      0.0     0.000000  0.637363  0.637363
+     indrops      0.0     0.000000  0.067961  0.067961
    #+END_EXAMPLE
    :END:
 
@@ -511,7 +501,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[39]:
+   # Out[10]:
    :END:
 
    Plot the distribution of likelihood ratios for unimodal vs. point-Gamma for
@@ -532,25 +522,65 @@
    [[file:figure/llr.org/control-unimodal-vs-zig-lr.png]]
    :END:
 
+   Of those genes, report the number of genes for which the likelihood ratio in
+   favor of the unimodal model is not greater than one.
+
+   #+BEGIN_SRC ipython
+     query[query['unimodal'] <= query['point_gamma']][['dataset', 'gene', 'point_gamma', 'unimodal', 'npmle']]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[13]:
+   #+BEGIN_EXAMPLE
+     method    dataset        gene  point_gamma     unimodal        npmle
+     7       chromium2  ERCC-00071 -2426.563183 -2426.598262 -2425.085059
+     8       chromium2  ERCC-00081   -17.679464   -21.457014   -17.679464
+     10      chromium2  ERCC-00116  -174.857339  -177.229879  -174.791905
+     11      chromium2  ERCC-00164   -48.993924   -53.541417   -48.993924
+     16        dropseq  ERCC-00067   -60.613728   -61.697041   -59.606760
+     18        dropseq  ERCC-00077  -142.917529  -143.542989  -142.729349
+     26        dropseq  ERCC-00131  -341.742929  -347.518213  -337.359459
+   #+END_EXAMPLE
+   :END:
+
    For each control data set, for each expression model, report the number of
    genes which have improvement in marginal log likelihood above some threshold
    over the unimodal expression model.
 
    #+BEGIN_SRC ipython
-     compare(llik[llik['dataset'].isin(control)], baseline='unimodal')
+     compare(llik[llik['dataset'].isin(control)], baseline='unimodal', thresh=10, agg=np.mean)
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[31]:
+   # Out[94]:
    #+BEGIN_EXAMPLE
-     method     point  gamma  point_gamma  npmle
+     method     point  gamma  point_gamma     npmle
      dataset
-     chromium1      0      0            0      2
-     chromium2      0      0            3      3
-     dropseq        0      0            1     33
-     gemcode        0      0            0     11
-     indrops        0      0            0      0
+     chromium1    0.0    0.0     0.000000  0.022727
+     chromium2    0.0    0.0     0.034091  0.034091
+     dropseq      0.0    0.0     0.012346  0.407407
+     gemcode      0.0    0.0     0.000000  0.120879
+     indrops      0.0    0.0     0.000000  0.000000
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython
+     compare(llik[llik['dataset'].isin(control)], baseline='unimodal', thresh=50, agg=np.mean)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[96]:
+   #+BEGIN_EXAMPLE
+     method     point  gamma  point_gamma     npmle
+     dataset
+     chromium1    0.0    0.0     0.000000  0.022727
+     chromium2    0.0    0.0     0.011364  0.011364
+     dropseq      0.0    0.0     0.012346  0.197531
+     gemcode      0.0    0.0     0.000000  0.010989
+     indrops      0.0    0.0     0.000000  0.000000
    #+END_EXAMPLE
    :END:
 
@@ -674,106 +704,6 @@
      46      -943.334301  -940.957160
      47     -2141.876978 -2138.628185
      48     -2348.491637 -2344.786146
-   #+END_EXAMPLE
-   :END:
-
-   Filter the cases where NPMLE did better than unimodal, retaining only genes
-   for which NPMLE also did better than Gamma.
-
-   #+BEGIN_SRC ipython
-     thresh = 10
-     query[query['npmle'] > query['gamma'] + thresh]
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[19]:
-   #+BEGIN_EXAMPLE
-     method  dataset        gene       point       gamma  point_gamma    unimodal  \
-     12      dropseq  ERCC-00131 -723.520929 -356.755781  -341.742929 -347.518213
-
-     method       npmle
-     12     -337.359459
-   #+END_EXAMPLE
-   :END:
-
-   For each control data set, for each expression model, report the number of
-   genes which have improvement in marginal log likelihood above some threshold
-   over the non-parametric expression model.
-
-   #+BEGIN_SRC ipython
-     compare(llik[llik['dataset'].isin(control)], baseline='npmle')
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[42]:
-   #+BEGIN_EXAMPLE
-     method     point  gamma  point_gamma  unimodal
-     dataset
-     chromium1      0      1            0         2
-     chromium2      1      1            1         0
-     dropseq        0      0            0         0
-     gemcode        0      0            0         0
-     indrops        0      0            0         0
-   #+END_EXAMPLE
-   :END:
-
-   #+BEGIN_SRC ipython
-     thresh = 10
-     temp = dict()
-     for k, g in llik[llik['dataset'].isin(control)].groupby('dataset'):
-       query = g.pivot_table(index='gene', columns='method', values='llik')
-       temp[k] = query.loc[(query.sub(query['npmle'], axis=0) > thresh).apply(any, axis=1)]
-     query = (pd.concat(temp)
-              .reset_index()
-              .rename({'level_0': 'dataset'}, axis=1)
-              [['dataset', 'gene', 'point', 'gamma', 'point_gamma', 'unimodal', 'npmle']])
-     query
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[73]:
-   #+BEGIN_EXAMPLE
-     method    dataset        gene       point       gamma  point_gamma  \
-     0       chromium1  ERCC-00054 -140.374338 -139.785657  -139.403474
-     1       chromium1  ERCC-00116 -110.987988 -103.145967  -108.102592
-     2       chromium2  ERCC-00142  -28.006585  -28.006585   -28.011618
-
-     method    unimodal       npmle
-     0      -139.360976 -149.364211
-     1      -102.207858 -115.402711
-     2      -148.213405  -43.356179
-   #+END_EXAMPLE
-   :END:
-
-   These cases can be explained by not starting the iterative refinement
-   procedure with a fine enough grid.
-
-   #+BEGIN_SRC ipython :async t
-     temp = dict()
-     for k, g in query.groupby('dataset'):
-       dat = data[k]()
-       for _, row in g.iterrows():
-         temp[(k, row['gene'])] = scmodes.ebpm.ebpm_npmle(
-           dat[:,dat.var.iloc[:,0] == row['gene']].X.A.ravel(),
-           dat.X.sum(axis=1).A.ravel(),
-           K=1024,
-           max_grid_updates=10,
-           tol=1e-5,
-           verbose=True).rx2('loglik')[0]
-     pd.Series(temp).reset_index().rename({'level_0': 'dataset', 'level_1': 'gene', 0: 'npmle'}, axis=1)
-   #+END_SRC
-
-   #+RESULTS:
-   :RESULTS:
-   # Out[83]:
-   #+BEGIN_EXAMPLE
-     dataset        gene       npmle
-     0  chromium1  ERCC-00054 -139.356572
-     1  chromium1  ERCC-00116 -102.119712
-     2  chromium2  ERCC-00142  -28.282124
    #+END_EXAMPLE
    :END:
 
@@ -1095,6 +1025,86 @@
      liver-caudate-lobe   0.000000  0.021605     0.021716  0.017582
      pbmc_10k_v3          0.018281  0.034091     0.036397  0.037961
      retina               0.000299  0.035334     0.036031  0.033841
+   #+END_EXAMPLE
+   :END:
+
+   For each control data set, for each expression model, report the number of
+   genes which have improvement in marginal log likelihood above some threshold
+   over the non-parametric expression model.
+
+   #+BEGIN_SRC ipython
+     compare(llik[llik['dataset'].isin(control)], baseline='npmle')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[42]:
+   #+BEGIN_EXAMPLE
+     method     point  gamma  point_gamma  unimodal
+     dataset
+     chromium1      0      1            0         2
+     chromium2      1      1            1         0
+     dropseq        0      0            0         0
+     gemcode        0      0            0         0
+     indrops        0      0            0         0
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython
+     thresh = 10
+     temp = dict()
+     for k, g in llik[llik['dataset'].isin(control)].groupby('dataset'):
+       query = g.pivot_table(index='gene', columns='method', values='llik')
+       temp[k] = query.loc[(query.sub(query['npmle'], axis=0) > thresh).apply(any, axis=1)]
+     query = (pd.concat(temp)
+              .reset_index()
+              .rename({'level_0': 'dataset'}, axis=1)
+              [['dataset', 'gene', 'point', 'gamma', 'point_gamma', 'unimodal', 'npmle']])
+     query
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[73]:
+   #+BEGIN_EXAMPLE
+     method    dataset        gene       point       gamma  point_gamma  \
+     0       chromium1  ERCC-00054 -140.374338 -139.785657  -139.403474
+     1       chromium1  ERCC-00116 -110.987988 -103.145967  -108.102592
+     2       chromium2  ERCC-00142  -28.006585  -28.006585   -28.011618
+
+     method    unimodal       npmle
+     0      -139.360976 -149.364211
+     1      -102.207858 -115.402711
+     2      -148.213405  -43.356179
+   #+END_EXAMPLE
+   :END:
+
+   These cases can be explained by not starting the iterative refinement
+   procedure with a fine enough grid.
+
+   #+BEGIN_SRC ipython :async t
+     temp = dict()
+     for k, g in query.groupby('dataset'):
+       dat = data[k]()
+       for _, row in g.iterrows():
+         temp[(k, row['gene'])] = scmodes.ebpm.ebpm_npmle(
+           dat[:,dat.var.iloc[:,0] == row['gene']].X.A.ravel(),
+           dat.X.sum(axis=1).A.ravel(),
+           K=1024,
+           max_grid_updates=10,
+           tol=1e-5,
+           verbose=True).rx2('loglik')[0]
+     pd.Series(temp).reset_index().rename({'level_0': 'dataset', 'level_1': 'gene', 0: 'npmle'}, axis=1)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[83]:
+   #+BEGIN_EXAMPLE
+     dataset        gene       npmle
+     0  chromium1  ERCC-00054 -139.356572
+     1  chromium1  ERCC-00116 -102.119712
+     2  chromium2  ERCC-00142  -28.282124
    #+END_EXAMPLE
    :END:
 

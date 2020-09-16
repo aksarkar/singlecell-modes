@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-15 Tue 14:35 -->
+<!-- 2020-09-16 Wed 12:59 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Marginal log likelihood comparison of expression models</title>
@@ -655,18 +655,18 @@ model.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'point'</span>, thresh=10)
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'point'</span>, thresh=10, agg=np.mean)
 </pre>
 </div>
 
 <pre class="example">
-method     gamma  point_gamma  unimodal  npmle
+method        gamma  point_gamma  unimodal     npmle
 dataset
-chromium1     23           26        30     31
-chromium2     62           68        65     68
-dropseq       79           79        80     80
-gemcode       56           56        60     60
-indrops        9           11        16     16
+chromium1  0.261364     0.295455  0.340909  0.352273
+chromium2  0.704545     0.772727  0.738636  0.772727
+dropseq    0.975309     0.975309  0.987654  0.987654
+gemcode    0.615385     0.615385  0.659341  0.659341
+indrops    0.087379     0.106796  0.155340  0.155340
 </pre>
 
 <p>
@@ -676,18 +676,18 @@ over the Gamma expression model.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'gamma'</span>, thresh=10)
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'gamma'</span>, thresh=10, agg=np.mean)
 </pre>
 </div>
 
 <pre class="example">
-method     point  point_gamma  unimodal  npmle
+method     point  point_gamma  unimodal     npmle
 dataset
-chromium1      0            4        19     19
-chromium2      0            8        17     23
-dropseq        0           22        56     64
-gemcode        0            0        58     58
-indrops        0            0         7      7
+chromium1    0.0     0.045455  0.215909  0.215909
+chromium2    0.0     0.090909  0.193182  0.261364
+dropseq      0.0     0.271605  0.691358  0.790123
+gemcode      0.0     0.000000  0.637363  0.637363
+indrops      0.0     0.000000  0.067961  0.067961
 </pre>
 
 <p>
@@ -729,24 +729,60 @@ plt.tight_layout()
 </div>
 
 <p>
+Of those genes, report the number of genes for which the likelihood ratio in
+favor of the unimodal model is not greater than one.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">query[query[<span class="org-string">'unimodal'</span>] &lt;= query[<span class="org-string">'point_gamma'</span>]][[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]]
+</pre>
+</div>
+
+<pre class="example">
+method    dataset        gene  point_gamma     unimodal        npmle
+7       chromium2  ERCC-00071 -2426.563183 -2426.598262 -2425.085059
+8       chromium2  ERCC-00081   -17.679464   -21.457014   -17.679464
+10      chromium2  ERCC-00116  -174.857339  -177.229879  -174.791905
+11      chromium2  ERCC-00164   -48.993924   -53.541417   -48.993924
+16        dropseq  ERCC-00067   -60.613728   -61.697041   -59.606760
+18        dropseq  ERCC-00077  -142.917529  -143.542989  -142.729349
+26        dropseq  ERCC-00131  -341.742929  -347.518213  -337.359459
+</pre>
+
+<p>
 For each control data set, for each expression model, report the number of
 genes which have improvement in marginal log likelihood above some threshold
 over the unimodal expression model.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'unimodal'</span>)
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'unimodal'</span>, thresh=10, agg=np.mean)
 </pre>
 </div>
 
 <pre class="example">
-method     point  gamma  point_gamma  npmle
+method     point  gamma  point_gamma     npmle
 dataset
-chromium1      0      0            0      2
-chromium2      0      0            3      3
-dropseq        0      0            1     33
-gemcode        0      0            0     11
-indrops        0      0            0      0
+chromium1    0.0    0.0     0.000000  0.022727
+chromium2    0.0    0.0     0.034091  0.034091
+dropseq      0.0    0.0     0.012346  0.407407
+gemcode      0.0    0.0     0.000000  0.120879
+indrops      0.0    0.0     0.000000  0.000000
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'unimodal'</span>, thresh=50, agg=np.mean)
+</pre>
+</div>
+
+<pre class="example">
+method     point  gamma  point_gamma     npmle
+dataset
+chromium1    0.0    0.0     0.000000  0.022727
+chromium2    0.0    0.0     0.011364  0.011364
+dropseq      0.0    0.0     0.012346  0.197531
+gemcode      0.0    0.0     0.000000  0.010989
+indrops      0.0    0.0     0.000000  0.000000
 </pre>
 
 <p>
@@ -869,100 +905,6 @@ method     unimodal        npmle
 46      -943.334301  -940.957160
 47     -2141.876978 -2138.628185
 48     -2348.491637 -2344.786146
-</pre>
-
-<p>
-Filter the cases where NPMLE did better than unimodal, retaining only genes
-for which NPMLE also did better than Gamma.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
-query[query[<span class="org-string">'npmle'</span>] &gt; query[<span class="org-string">'gamma'</span>] + thresh]
-</pre>
-</div>
-
-<pre class="example">
-method  dataset        gene       point       gamma  point_gamma    unimodal  \
-12      dropseq  ERCC-00131 -723.520929 -356.755781  -341.742929 -347.518213
-
-method       npmle
-12     -337.359459
-</pre>
-
-<p>
-For each control data set, for each expression model, report the number of
-genes which have improvement in marginal log likelihood above some threshold
-over the non-parametric expression model.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'npmle'</span>)
-</pre>
-</div>
-
-<pre class="example">
-method     point  gamma  point_gamma  unimodal
-dataset
-chromium1      0      1            0         2
-chromium2      1      1            1         0
-dropseq        0      0            0         0
-gemcode        0      0            0         0
-indrops        0      0            0         0
-</pre>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
-<span class="org-variable-name">temp</span> = <span class="org-builtin">dict</span>()
-<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(control)].groupby(<span class="org-string">'dataset'</span>):
-  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
-  <span class="org-variable-name">temp</span>[k] = query.loc[(query.sub(query[<span class="org-string">'npmle'</span>], axis=0) &gt; thresh).<span class="org-builtin">apply</span>(<span class="org-builtin">any</span>, axis=1)]
-<span class="org-variable-name">query</span> = (pd.concat(temp)
-         .reset_index()
-         .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
-         [[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>, <span class="org-string">'point'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]])
-query
-</pre>
-</div>
-
-<pre class="example">
-method    dataset        gene       point       gamma  point_gamma  \
-0       chromium1  ERCC-00054 -140.374338 -139.785657  -139.403474
-1       chromium1  ERCC-00116 -110.987988 -103.145967  -108.102592
-2       chromium2  ERCC-00142  -28.006585  -28.006585   -28.011618
-
-method    unimodal       npmle
-0      -139.360976 -149.364211
-1      -102.207858 -115.402711
-2      -148.213405  -43.356179
-</pre>
-
-<p>
-These cases can be explained by not starting the iterative refinement
-procedure with a fine enough grid.
-</p>
-
-<div class="org-src-container">
-<pre class="src src-ipython"><span class="org-variable-name">temp</span> = <span class="org-builtin">dict</span>()
-<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> query.groupby(<span class="org-string">'dataset'</span>):
-  <span class="org-variable-name">dat</span> = data[k]()
-  <span class="org-keyword">for</span> _, row <span class="org-keyword">in</span> g.iterrows():
-    temp[(k, row[<span class="org-string">'gene'</span>])] = scmodes.ebpm.ebpm_npmle(
-      dat[:,dat.var.iloc[:,0] == row[<span class="org-string">'gene'</span>]].X.A.ravel(),
-      dat.X.<span class="org-builtin">sum</span>(axis=1).A.ravel(),
-      K=1024,
-      max_grid_updates=10,
-      tol=1e-5,
-      verbose=<span class="org-constant">True</span>).rx2(<span class="org-string">'loglik'</span>)[0]
-pd.Series(temp).reset_index().rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>, <span class="org-string">'level_1'</span>: <span class="org-string">'gene'</span>, 0: <span class="org-string">'npmle'</span>}, axis=1)
-</pre>
-</div>
-
-<pre class="example">
-dataset        gene       npmle
-0  chromium1  ERCC-00054 -139.356572
-1  chromium1  ERCC-00116 -102.119712
-2  chromium2  ERCC-00142  -28.282124
 </pre>
 
 <p>
@@ -1287,13 +1229,88 @@ liver-caudate-lobe   0.000000  0.021605     0.021716  0.017582
 pbmc_10k_v3          0.018281  0.034091     0.036397  0.037961
 retina               0.000299  0.035334     0.036031  0.033841
 </pre>
+
+<p>
+For each control data set, for each expression model, report the number of
+genes which have improvement in marginal log likelihood above some threshold
+over the non-parametric expression model.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'npmle'</span>)
+</pre>
+</div>
+
+<pre class="example">
+method     point  gamma  point_gamma  unimodal
+dataset
+chromium1      0      1            0         2
+chromium2      1      1            1         0
+dropseq        0      0            0         0
+gemcode        0      0            0         0
+indrops        0      0            0         0
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">thresh</span> = 10
+<span class="org-variable-name">temp</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik[llik[<span class="org-string">'dataset'</span>].isin(control)].groupby(<span class="org-string">'dataset'</span>):
+  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
+  <span class="org-variable-name">temp</span>[k] = query.loc[(query.sub(query[<span class="org-string">'npmle'</span>], axis=0) &gt; thresh).<span class="org-builtin">apply</span>(<span class="org-builtin">any</span>, axis=1)]
+<span class="org-variable-name">query</span> = (pd.concat(temp)
+         .reset_index()
+         .rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>}, axis=1)
+         [[<span class="org-string">'dataset'</span>, <span class="org-string">'gene'</span>, <span class="org-string">'point'</span>, <span class="org-string">'gamma'</span>, <span class="org-string">'point_gamma'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]])
+query
+</pre>
+</div>
+
+<pre class="example">
+method    dataset        gene       point       gamma  point_gamma  \
+0       chromium1  ERCC-00054 -140.374338 -139.785657  -139.403474
+1       chromium1  ERCC-00116 -110.987988 -103.145967  -108.102592
+2       chromium2  ERCC-00142  -28.006585  -28.006585   -28.011618
+
+method    unimodal       npmle
+0      -139.360976 -149.364211
+1      -102.207858 -115.402711
+2      -148.213405  -43.356179
+</pre>
+
+<p>
+These cases can be explained by not starting the iterative refinement
+procedure with a fine enough grid.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">temp</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> query.groupby(<span class="org-string">'dataset'</span>):
+  <span class="org-variable-name">dat</span> = data[k]()
+  <span class="org-keyword">for</span> _, row <span class="org-keyword">in</span> g.iterrows():
+    temp[(k, row[<span class="org-string">'gene'</span>])] = scmodes.ebpm.ebpm_npmle(
+      dat[:,dat.var.iloc[:,0] == row[<span class="org-string">'gene'</span>]].X.A.ravel(),
+      dat.X.<span class="org-builtin">sum</span>(axis=1).A.ravel(),
+      K=1024,
+      max_grid_updates=10,
+      tol=1e-5,
+      verbose=<span class="org-constant">True</span>).rx2(<span class="org-string">'loglik'</span>)[0]
+pd.Series(temp).reset_index().rename({<span class="org-string">'level_0'</span>: <span class="org-string">'dataset'</span>, <span class="org-string">'level_1'</span>: <span class="org-string">'gene'</span>, 0: <span class="org-string">'npmle'</span>}, axis=1)
+</pre>
+</div>
+
+<pre class="example">
+dataset        gene       npmle
+0  chromium1  ERCC-00054 -139.356572
+1  chromium1  ERCC-00116 -102.119712
+2  chromium2  ERCC-00142  -28.282124
+</pre>
 </div>
 </div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-15 Tue 14:35</p>
+<p class="date">Created: 2020-09-16 Wed 12:59</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

@@ -54,7 +54,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[14]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -65,7 +65,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[15]:
   :END:
 
 * Figure 1
@@ -632,27 +632,20 @@
    #+BEGIN_SRC ipython :ipyfile figure/figures.org/model-comparison-control-lr-10.svg
      thresh = 10
      query1 = compare(llik[llik['dataset'].isin(control)], baseline='gamma', thresh=thresh, agg='mean')
-     query2 = compare(llik[llik['dataset'].isin(control)], baseline='unimodal', thresh=thresh, agg='mean')
      keys = ['chromium1', 'chromium2', 'dropseq', 'gemcode', 'indrops']
      labels = ['Chromium (1)', 'Chromium (2)', 'Drop-Seq', 'GemCode', 'InDrops']
      plt.clf()
-     fig, ax = plt.subplots(1, 2)
-     fig.set_size_inches(5, 3)
-     ax[0].bar(range(query1.shape[0]), query1.loc[keys, 'point_gamma'], color='k')
-     ax[0].set_xticks(range(query1.shape[0]))
-     ax[0].set_xticklabels(labels, rotation=90)
-     ax[0].set_title('Point-Gamma vs.\nGamma')
-     ax[0].set_ylabel(f'Fraction of genes with\nlikelihood ratio > {thresh}')
-     ax[1].bar(range(query1.shape[0]), query2.loc[keys, 'npmle'], color='k')
-     ax[1].set_xticks(range(query1.shape[0]))
-     ax[1].set_xticklabels(labels, rotation=90)
-     ax[1].set_title('Non-parametric vs.\nUnimodal')
-     fig.tight_layout()
+     plt.gcf().set_size_inches(2.5, 3)
+     plt.bar(range(query1.shape[0]), query1.loc[keys, 'point_gamma'], color='k')
+     plt.xticks(range(query1.shape[0]), labels, rotation=90)
+     plt.title('Point-Gamma vs.\nGamma')
+     plt.ylabel(f'Fraction of genes with\nlikelihood ratio > {thresh}')
+     plt.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[37]:
+   # Out[19]:
    [[file:figure/figures.org/model-comparison-control-lr-10.svg]]
    :END:
 
