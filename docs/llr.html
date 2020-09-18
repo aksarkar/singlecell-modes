@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-16 Wed 12:59 -->
+<!-- 2020-09-18 Fri 14:34 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Marginal log likelihood comparison of expression models</title>
@@ -504,7 +504,7 @@ family of expression models.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-sh" id="org7e39abd">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=30:00 -a 0-48
+<pre class="src src-sh" id="org7e39abd">sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=30:00 -a 11-12
 <span class="org-comment-delimiter">#</span><span class="org-comment">!/bin/bash</span>
 <span class="org-builtin">source</span> activate scmodes
 python &lt;&lt;EOF
@@ -975,8 +975,135 @@ Plot the results.
 <h3 id="biological-data"><a id="orgfb7d234"></a>Application to biological data sets</h3>
 <div class="outline-text-3" id="text-biological-data">
 <p>
-Report the fraction of genes with likelihood ratio &gt; 10 in favor of the more
-complex expression model.
+Report the fraction of genes with strong evidence over a point mass
+expression model.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)], baseline=<span class="org-string">'point'</span>, thresh=100, agg=<span class="org-string">'mean'</span>)
+</pre>
+</div>
+
+<pre class="example">
+method                  gamma  point_gamma  unimodal     npmle
+dataset
+b_cells              0.637993     0.676017  0.707652  0.727131
+brain                0.916042     0.942098  0.946185  0.954785
+cytotoxic_t          0.635988     0.680092  0.709342  0.737519
+cytotoxic_t-b_cells  0.848804     0.893937  0.901309  0.916052
+cytotoxic_t-naive_t  0.761447     0.818764  0.835895  0.859110
+ipsc                 0.996284     0.997489  0.998895  0.998996
+kidney               0.591443     0.605318  0.645199  0.654491
+liver-caudate-lobe   0.120432     0.133642  0.127716  0.139136
+pbmc_10k_v3          0.722744     0.737895  0.763093  0.771821
+retina               0.488404     0.508112  0.569822  0.578282
+</pre>
+
+<p>
+The liver data shows little expression variation because the relative gene
+expression is low for almost all genes.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">dat</span> = data[<span class="org-string">'liver-caudate-lobe'</span>]()
+<span class="org-variable-name">fits</span> = np.array([scmodes.ebpm.ebpm_point(dat.X[:,j].A.ravel(), dat.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()) <span class="org-keyword">for</span> j <span class="org-keyword">in</span> <span class="org-builtin">range</span>(dat.shape[1])]).squeeze()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.median(dat.X.<span class="org-builtin">sum</span>(axis=1).A.ravel()) * np.percentile(np.exp(fits[:,0]), 99.7)
+</pre>
+</div>
+
+<pre class="example">
+0.8378116504024844
+
+</pre>
+
+<p>
+This could mean some gene is dominating relative gene expression.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">dat.var.iloc[np.argmax(fits[:,0])]
+</pre>
+</div>
+
+<pre class="example">
+featurekey       ENSG00000198804
+featurename               MT-CO1
+featuretype       protein_coding
+chromosome                  chrM
+featurestart                5904
+featureend                  7445
+isgene                      True
+genus_species       Homo sapiens
+n_cells                     8856
+Name: 17897, dtype: object
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">np.exp(np.<span class="org-builtin">max</span>(fits[:,0]))
+</pre>
+</div>
+
+<pre class="example">
+0.16776194506343123
+
+</pre>
+
+<p>
+Report the fraction of genes with strong evidence over a Gamma expression
+model.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)], baseline=<span class="org-string">'gamma'</span>, thresh=100, agg=<span class="org-string">'mean'</span>)
+</pre>
+</div>
+
+<pre class="example">
+method               point  point_gamma  unimodal     npmle
+dataset
+b_cells                0.0     0.034751  0.228923  0.239676
+brain                  0.0     0.062415  0.227776  0.247701
+cytotoxic_t            0.0     0.042726  0.265850  0.284533
+cytotoxic_t-b_cells    0.0     0.085753  0.438092  0.455694
+cytotoxic_t-naive_t    0.0     0.080051  0.421230  0.446846
+ipsc                   0.0     0.007733  0.687657  0.711861
+kidney                 0.0     0.034603  0.228800  0.252221
+liver-caudate-lobe     0.0     0.006779  0.006481  0.012292
+pbmc_10k_v3            0.0     0.060030  0.196146  0.207839
+retina                 0.0     0.046183  0.256893  0.278591
+</pre>
+
+<p>
+Report the fraction of genes with strong evidence over a unimodal expression
+model.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)], baseline=<span class="org-string">'unimodal'</span>, thresh=100, agg=<span class="org-string">'mean'</span>)[<span class="org-string">'npmle'</span>].sort_values()
+</pre>
+</div>
+
+<pre class="example">
+dataset
+b_cells                0.004363
+ipsc                   0.004821
+liver-caudate-lobe     0.005736
+brain                  0.008941
+cytotoxic_t            0.009648
+cytotoxic_t-b_cells    0.012336
+kidney                 0.013481
+cytotoxic_t-naive_t    0.015690
+pbmc_10k_v3            0.019104
+retina                 0.034836
+Name: npmle, dtype: float64
+</pre>
+
+<p>
+Plot the results.
 </p>
 
 <div class="org-src-container">
@@ -990,11 +1117,6 @@ complex expression model.
 </p>
 </div>
 
-<p>
-Report the fraction of genes with likelihood ratio &gt; 50 in favor of the more
-complex expression model.
-</p>
-
 <div class="org-src-container">
 <pre class="src src-ipython">_plot(llik, thresh=50)
 </pre>
@@ -1005,11 +1127,6 @@ complex expression model.
 <p><img src="figure/llr.org/biological-point_gamma-gamma-50.png" alt="biological-point_gamma-gamma-50.png">
 </p>
 </div>
-
-<p>
-Report the fraction of genes with likelihood ratio &gt; 100 in favor of the
-more complex expression model.
-</p>
 
 <div class="org-src-container">
 <pre class="src src-ipython">_plot(llik, thresh=100)
@@ -1310,7 +1427,7 @@ dataset        gene       npmle
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-16 Wed 12:59</p>
+<p class="date">Created: 2020-09-18 Fri 14:34</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

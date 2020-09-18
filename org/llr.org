@@ -24,7 +24,7 @@
   #+END_SRC
 
   #+RESULTS:
-  : 5
+  : 8
 
   #+CALL: ipython3(venv="scmodes",partition="mstephens",memory="16G") :exports none :dir /scratch/midway2/aksarkar/modes
 
@@ -239,7 +239,7 @@
 
    #+RESULTS: data
    :RESULTS:
-   # Out[6]:
+   # Out[5]:
    :END:
 
    Report the dimensions of each data set.
@@ -283,7 +283,7 @@
 
    #+NAME: main
    #+BEGIN_SRC sh :noweb eval :dir /scratch/midway2/aksarkar/modes/
-     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=30:00 -a 0-48
+     sbatch --partition=broadwl -n1 -c28 --exclusive --job-name=llik --time=30:00 -a 11-12
      #!/bin/bash
      source activate scmodes
      python <<EOF
@@ -304,7 +304,7 @@
    #+END_SRC
 
    #+RESULTS: main
-   : Submitted batch job 3554558
+   : Submitted batch job 4774607
 
    Fit non-parametric expression models serially for control data, to avoid
    memory issues.
@@ -395,7 +395,7 @@
 
    #+RESULTS: read-llr-results
    :RESULTS:
-   # Out[7]:
+   # Out[33]:
    :END:
 
    Report the number (fraction) of genes that have likelihood ratio greater
@@ -433,7 +433,7 @@
 
    #+RESULTS: fix-llr-results
    :RESULTS:
-   # Out[8]:
+   # Out[7]:
    :END:
 
 ** Application to control data sets
@@ -773,8 +773,141 @@
    :CUSTOM_ID: biological-data
    :END:
 
-   Report the fraction of genes with likelihood ratio > 10 in favor of the more
-   complex expression model.
+   Report the fraction of genes with strong evidence over a point mass
+   expression model.
+
+   #+BEGIN_SRC ipython
+     compare(llik[llik['dataset'].isin(non_control)], baseline='point', thresh=100, agg='mean')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[34]:
+   #+BEGIN_EXAMPLE
+     method                  gamma  point_gamma  unimodal     npmle
+     dataset
+     b_cells              0.637993     0.676017  0.707652  0.727131
+     brain                0.916042     0.942098  0.946185  0.954785
+     cytotoxic_t          0.635988     0.680092  0.709342  0.737519
+     cytotoxic_t-b_cells  0.848804     0.893937  0.901309  0.916052
+     cytotoxic_t-naive_t  0.761447     0.818764  0.835895  0.859110
+     ipsc                 0.996284     0.997489  0.998895  0.998996
+     kidney               0.591443     0.605318  0.645199  0.654491
+     liver-caudate-lobe   0.120432     0.133642  0.127716  0.139136
+     pbmc_10k_v3          0.722744     0.737895  0.763093  0.771821
+     retina               0.488404     0.508112  0.569822  0.578282
+   #+END_EXAMPLE
+   :END:
+
+   The liver data shows little expression variation because the relative gene
+   expression is low for almost all genes.
+
+   #+BEGIN_SRC ipython :async t
+     dat = data['liver-caudate-lobe']()
+     fits = np.array([scmodes.ebpm.ebpm_point(dat.X[:,j].A.ravel(), dat.X.sum(axis=1).A.ravel()) for j in range(dat.shape[1])]).squeeze()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[48]:
+   :END:
+
+   #+BEGIN_SRC ipython
+     np.median(dat.X.sum(axis=1).A.ravel()) * np.percentile(np.exp(fits[:,0]), 99.7)
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[56]:
+   : 0.8378116504024844
+   :END:
+
+   This could mean some gene is dominating relative gene expression.
+
+   #+BEGIN_SRC ipython
+     dat.var.iloc[np.argmax(fits[:,0])]
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[58]:
+   #+BEGIN_EXAMPLE
+     featurekey       ENSG00000198804
+     featurename               MT-CO1
+     featuretype       protein_coding
+     chromosome                  chrM
+     featurestart                5904
+     featureend                  7445
+     isgene                      True
+     genus_species       Homo sapiens
+     n_cells                     8856
+     Name: 17897, dtype: object
+   #+END_EXAMPLE
+   :END:
+
+   #+BEGIN_SRC ipython
+     np.exp(np.max(fits[:,0]))
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[61]:
+   : 0.16776194506343123
+   :END:
+
+   Report the fraction of genes with strong evidence over a Gamma expression
+   model.
+
+   #+BEGIN_SRC ipython
+     compare(llik[llik['dataset'].isin(non_control)], baseline='gamma', thresh=100, agg='mean')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[9]:
+   #+BEGIN_EXAMPLE
+     method               point  point_gamma  unimodal     npmle
+     dataset
+     b_cells                0.0     0.034751  0.228923  0.239676
+     brain                  0.0     0.062415  0.227776  0.247701
+     cytotoxic_t            0.0     0.042726  0.265850  0.284533
+     cytotoxic_t-b_cells    0.0     0.085753  0.438092  0.455694
+     cytotoxic_t-naive_t    0.0     0.080051  0.421230  0.446846
+     ipsc                   0.0     0.007733  0.687657  0.711861
+     kidney                 0.0     0.034603  0.228800  0.252221
+     liver-caudate-lobe     0.0     0.006779  0.006481  0.012292
+     pbmc_10k_v3            0.0     0.060030  0.196146  0.207839
+     retina                 0.0     0.046183  0.256893  0.278591
+   #+END_EXAMPLE
+   :END:
+
+   Report the fraction of genes with strong evidence over a unimodal expression
+   model.
+
+   #+BEGIN_SRC ipython
+     compare(llik[llik['dataset'].isin(non_control)], baseline='unimodal', thresh=100, agg='mean')['npmle'].sort_values()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[12]:
+   #+BEGIN_EXAMPLE
+     dataset
+     b_cells                0.004363
+     ipsc                   0.004821
+     liver-caudate-lobe     0.005736
+     brain                  0.008941
+     cytotoxic_t            0.009648
+     cytotoxic_t-b_cells    0.012336
+     kidney                 0.013481
+     cytotoxic_t-naive_t    0.015690
+     pbmc_10k_v3            0.019104
+     retina                 0.034836
+     Name: npmle, dtype: float64
+   #+END_EXAMPLE
+   :END:
+
+   Plot the results.
 
    #+BEGIN_SRC ipython :ipyfile figure/llr.org/biological-point_gamma-gamma-10.png
      _plot(llik, thresh=10)
@@ -786,9 +919,6 @@
    [[file:figure/llr.org/biological-point_gamma-gamma-10.png]]
    :END:
 
-   Report the fraction of genes with likelihood ratio > 50 in favor of the more
-   complex expression model.
-
    #+BEGIN_SRC ipython :ipyfile figure/llr.org/biological-point_gamma-gamma-50.png
      _plot(llik, thresh=50)
    #+END_SRC
@@ -798,9 +928,6 @@
    # Out[61]:
    [[file:figure/llr.org/biological-point_gamma-gamma-50.png]]
    :END:
-
-   Report the fraction of genes with likelihood ratio > 100 in favor of the
-   more complex expression model.
 
    #+BEGIN_SRC ipython :ipyfile figure/llr.org/biological-point_gamma-gamma-100.png
      _plot(llik, thresh=100)
