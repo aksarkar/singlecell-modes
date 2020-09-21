@@ -709,16 +709,15 @@
 
    Plot the results.
 
+   #+NAME: plot-llr-results
    #+BEGIN_SRC ipython
-     def _plot_control(llik, thresh=10):
-       query1 = compare(llik[llik['dataset'].isin(control)], baseline='gamma', thresh=thresh, agg='mean')
-       query2 = compare(llik[llik['dataset'].isin(control)], baseline='unimodal', thresh=thresh, agg='mean')
+     def _plot(llik, keys, labels, thresh=10):
+       query1 = compare(llik, baseline='gamma', thresh=thresh, agg='mean')
+       query2 = compare(llik, baseline='unimodal', thresh=thresh, agg='mean')
 
-       keys = ['chromium1', 'chromium2', 'dropseq', 'gemcode', 'indrops']
-       labels = ['Chromium (1)', 'Chromium (2)', 'Drop-Seq', 'GemCode', 'InDrops']
        plt.clf()
        fig, ax = plt.subplots(1, 2)
-       fig.set_size_inches(4.5, 3)
+       fig.set_size_inches(5, 3)
        ax[0].bar(range(query1.shape[0]), query1.loc[keys, 'point_gamma'], color='k')
        ax[0].set_xticks(range(query1.shape[0]))
        ax[0].set_xticklabels(labels, rotation=90)
@@ -737,6 +736,11 @@
    :RESULTS:
    # Out[69]:
    :END:
+
+   #+BEGIN_SRC ipython
+     keys = ['chromium1', 'chromium2', 'dropseq', 'gemcode', 'indrops']
+     labels = ['Chromium (1)', 'Chromium (2)', 'Drop-Seq', 'GemCode', 'InDrops']
+   #+END_SRC
 
    #+BEGIN_SRC ipython :ipyfile figure/llr.org/model-comparison-control-lr-10.png
      _plot_control(llik, thresh=10)
@@ -881,6 +885,33 @@
    #+END_EXAMPLE
    :END:
 
+   Report the fraction of genes with suggestive evidence over a Gamma expression
+   model.
+
+   #+BEGIN_SRC ipython
+     compare(llik[llik['dataset'].isin(non_control)], baseline='gamma', thresh=10, agg='mean')
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[41]:
+   #+BEGIN_EXAMPLE
+     method               point  point_gamma  unimodal     npmle
+     dataset
+     b_cells                0.0     0.083840  0.364812  0.391772
+     brain                  0.0     0.114612  0.420044  0.459980
+     cytotoxic_t            0.0     0.096631  0.404747  0.449770
+     cytotoxic_t-b_cells    0.0     0.157665  0.597262  0.630961
+     cytotoxic_t-naive_t    0.0     0.149376  0.557157  0.603106
+     ipsc                   0.0     0.014964  0.832580  0.854575
+     kidney                 0.0     0.050336  0.365965  0.414107
+     liver-caudate-lobe     0.0     0.028395  0.019753  0.043519
+     pbmc_10k_v3            0.0     0.094779  0.316864  0.348403
+     retina                 0.0     0.078133  0.421121  0.456057
+   #+END_EXAMPLE
+   :END:
+
+
    Report the fraction of genes with strong evidence over a unimodal expression
    model.
 
@@ -908,6 +939,11 @@
    :END:
 
    Plot the results.
+
+   #+BEGIN_SRC ipython
+     keys = ['b_cells', 'cytotoxic_t', 'ipsc', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'kidney', 'liver-caudate-lobe', 'pbmc_10k_v3', 'brain', 'retina']
+     labels = ['B cell', 'T cell', 'iPSC', 'T cell/B cell', 'Cyto/naive T', 'Kidney', 'Liver', 'PBMC', 'Brain', 'Retina']
+   #+END_SRC
 
    #+BEGIN_SRC ipython :ipyfile figure/llr.org/biological-point_gamma-gamma-10.png
      _plot(llik, thresh=10)

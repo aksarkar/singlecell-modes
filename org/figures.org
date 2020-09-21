@@ -54,7 +54,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[14]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -65,7 +65,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[15]:
+  # Out[4]:
   :END:
 
 * Figure 1
@@ -79,7 +79,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[13]:
+  # Out[12]:
   :END:
 
   #+BEGIN_SRC ipython :async t
@@ -284,7 +284,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[7]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -297,7 +297,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[5]:
+  # Out[9]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -517,14 +517,9 @@
      cdf['Gamma'] = st.gamma(a=np.exp(gamma_res[1]), scale=np.exp(gamma_res[0] - gamma_res[1])).cdf(grid)
 
      point_gamma_res = scmodes.ebpm.ebpm_point_gamma(x, s)
-     cdf['ZIG'] = sp.expit(point_gamma_res[2]) + sp.expit(-point_gamma_res[2]) * st.gamma(a=np.exp(point_gamma_res[1]), scale=np.exp(point_gamma_res[0] - point_gamma_res[1])).cdf(grid)
-     pmf['ZIG'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]).mean()
+     cdf['Point-Gamma'] = sp.expit(point_gamma_res[2]) + sp.expit(-point_gamma_res[2]) * st.gamma(a=np.exp(point_gamma_res[1]), scale=np.exp(point_gamma_res[0] - point_gamma_res[1])).cdf(grid)
+     pmf['Point-Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=point_gamma_res[0], log_phi=-point_gamma_res[1], logodds=point_gamma_res[2]).mean()
                             for k in y])
-
-     zief_res = scmodes.ebpm.ebpm_point_expfam(x, s)
-     pmf['ZIEF'] = np.array([scmodes.benchmark.gof._point_expfam_pmf(np.full(x.shape, k), size=s, res=zief_res).mean()
-                             for k in y])
-     cdf['ZIEF'] = np.interp(grid, np.array(zief_res.slots['distribution'])[:,0], np.cumsum(np.array(zief_res.slots['distribution'])[:,1]))
 
      unimodal_res = scmodes.ebpm.ebpm_unimodal(x, s)
      g = np.array(unimodal_res.rx2('fitted_g'))
@@ -542,20 +537,20 @@
      a = np.fmin(g[1], g[2])
      b = np.fmax(g[1], g[2])
      comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
-     pmf['NPMLE'] = comp_dens_conv @ g[0]
-     cdf['NPMLE'] = ashr.cdf_ash(npmle_res, grid).rx2('y').ravel()
+     pmf['Non-parametric'] = comp_dens_conv @ g[0]
+     cdf['Non-parametric'] = ashr.cdf_ash(npmle_res, grid).rx2('y').ravel()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[11]:
+   # Out[48]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/figures.org/ipsc-rps4y1-ex.svg
      cm = plt.get_cmap('Dark2')
      plt.clf()
-     fig, ax = plt.subplots(2, 1)
-     fig.set_size_inches(4, 4)
+     fig, ax = plt.subplots(1, 2)
+     fig.set_size_inches(7.5, 2)
      ax[0].hist(x, bins=y, color='k', label=None)
      for c, k in zip(cm.colors, pmf):
        ax[0].plot(y + .5, x.shape[0] * pmf[k], color=c, lw=1, label=k)
@@ -566,6 +561,7 @@
 
      for c, k in zip(cm.colors, cdf):
        ax[1].plot(grid, cdf[k], color=c, lw=1, label=k)
+     ax[1].set_title(gene_info.loc['ENSG00000129824', 'name'])
      ax[1].set_xlabel('Latent gene expression')
      ax[1].set_ylabel('CDF')
      ax[1].legend(frameon=False)
@@ -574,7 +570,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[18]:
+   # Out[49]:
    [[file:figure/figures.org/ipsc-rps4y1-ex.svg]]
    :END:
 
@@ -584,7 +580,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[6]:
+   # Out[14]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/figures.org/nb-heuristic-control.svg
@@ -626,7 +622,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[9]:
+   # Out[22]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/figures.org/model-comparison-control-lr-10.svg
@@ -649,20 +645,58 @@
    [[file:figure/figures.org/model-comparison-control-lr-10.svg]]
    :END:
 
-   #+CALL: plot-llr-results()
+   #+BEGIN_SRC ipython :ipyfile figure/figures.org/model-comparison-lr-100.svg
+     thresh = 100
+     keys = ['b_cells', 'cytotoxic_t', 'ipsc', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'kidney', 'pbmc_10k_v3', 'brain', 'retina']
+     labels = ['B cell', 'T cell', 'iPSC', 'T cell/B cell', 'Cyto/naive T', 'Kidney', 'PBMC', 'Brain', 'Retina']
+     query1 = compare(llik[llik['dataset'].isin(keys)], baseline='gamma', thresh=thresh, agg='mean')
+     query2 = compare(llik[llik['dataset'].isin(keys)], baseline='unimodal', thresh=thresh, agg='mean')
 
-   #+RESULTS:
-   :RESULTS:
-   # Out[11]:
-   :END:
+     plt.clf()
+     fig, ax = plt.subplots(1, 3)
+     fig.set_size_inches(7.5, 3)
+     ax[0].bar(range(query1.shape[0]), query1.loc[keys, 'point_gamma'], color='k')
+     ax[0].set_title('Point-Gamma vs.\nGamma')
 
-   #+BEGIN_SRC ipython :ipyfile figure/figures.org/model-comparison-lr-10.svg
-     _plot(llik, thresh=10)
+     ax[1].bar(range(query1.shape[0]), query1.loc[keys, 'unimodal'], color='k')
+     ax[1].set_title('Unimodal vs.\nGamma')
+
+     ax[2].bar(range(query2.shape[0]), query2.loc[keys, 'npmle'], color='k')
+     ax[2].set_title('Non-parametric vs.\nUnimodal')
+
+     for a in ax:
+       a.set_xticks(range(query2.shape[0]))
+       a.set_xticklabels(labels, rotation=90)
+       a.set_xlabel('Dataset')
+       a.set_ylabel(f'Fraction of genes with\nlikelihood ratio > {thresh}')
+     fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[13]:
+   # Out[35]:
+   [[file:figure/figures.org/model-comparison-lr-100.svg]]
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/figures.org/model-comparison-lr-10.svg
+     thresh = 10
+     keys = ['b_cells', 'cytotoxic_t', 'ipsc', 'cytotoxic_t-b_cells', 'cytotoxic_t-naive_t', 'kidney', 'pbmc_10k_v3', 'brain', 'retina']
+     labels = ['B cell', 'T cell', 'iPSC', 'T cell/B cell', 'Cyto/naive T', 'Kidney', 'PBMC', 'Brain', 'Retina']
+     query1 = compare(llik[llik['dataset'].isin(keys)], baseline='gamma', thresh=thresh, agg='mean')
+
+     plt.clf()
+     plt.gcf().set_size_inches(2.5, 3)
+     plt.bar(range(query1.shape[0]), query1.loc[keys, 'point_gamma'], color='k')
+     plt.title('Point-Gamma vs.\nGamma')
+     plt.xticks(range(query1.shape[0]), labels, rotation=90)
+     plt.xlabel('Dataset')
+     plt.ylabel(f'Fraction of genes with\nlikelihood ratio > {thresh}')
+     plt.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[40]:
    [[file:figure/figures.org/model-comparison-lr-10.svg]]
    :END:
 
@@ -676,17 +710,18 @@
                      ['validation']
                      [['nmf', 'glmpca', 'pvae', 'nbvae']])
     del pois_thin_res['nbvae']
-    titles = ['T cell', 'B cell', 'iPSC', 'T cell/\nB cell', 'Cytotoxic/\nnaive T', 'Kidney', 'Liver', 'PBMC', 'Brain', 'Retina']
+    pois_thin_res = pois_thin_res.drop('liver-caudate-lobe', level=0)
+    titles = ['T cell', 'B cell', 'iPSC', 'T cell/\nB cell', 'Cytotoxic/\nnaive T', 'Kidney', 'PBMC', 'Brain', 'Retina']
   #+END_SRC
 
   #+RESULTS:
   :RESULTS:
-  # Out[46]:
+  # Out[11]:
   :END:
 
   #+BEGIN_SRC ipython :ipyfile figure/figures.org/lra-bench-8.svg
     plt.clf()
-    fig, ax = plt.subplots(1, 10, sharey=True)
+    fig, ax = plt.subplots(1, len(titles), sharey=True)
     fig.set_size_inches(8, 2.5)
     for a, (k, g), t in zip(ax.ravel(), pois_thin_res.groupby(level=0, sort=False), titles):
       for x, m in enumerate(g.columns):
@@ -703,7 +738,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[50]:
+  # Out[12]:
   [[file:figure/figures.org/lra-bench-8.svg]]
   :END:
   

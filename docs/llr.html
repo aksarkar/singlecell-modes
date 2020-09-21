@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-18 Fri 14:34 -->
+<!-- 2020-09-20 Sun 20:20 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Marginal log likelihood comparison of expression models</title>
@@ -912,15 +912,13 @@ Plot the results.
 </p>
 
 <div class="org-src-container">
-<pre class="src src-ipython"><span class="org-keyword">def</span> <span class="org-function-name">_plot_control</span>(llik, thresh=10):
-  <span class="org-variable-name">query1</span> = compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'gamma'</span>, thresh=thresh, agg=<span class="org-string">'mean'</span>)
-  <span class="org-variable-name">query2</span> = compare(llik[llik[<span class="org-string">'dataset'</span>].isin(control)], baseline=<span class="org-string">'unimodal'</span>, thresh=thresh, agg=<span class="org-string">'mean'</span>)
+<pre class="src src-ipython" id="orgc329238"><span class="org-keyword">def</span> <span class="org-function-name">_plot</span>(llik, keys, labels, thresh=10):
+  <span class="org-variable-name">query1</span> = compare(llik, baseline=<span class="org-string">'gamma'</span>, thresh=thresh, agg=<span class="org-string">'mean'</span>)
+  <span class="org-variable-name">query2</span> = compare(llik, baseline=<span class="org-string">'unimodal'</span>, thresh=thresh, agg=<span class="org-string">'mean'</span>)
 
-  <span class="org-variable-name">keys</span> = [<span class="org-string">'chromium1'</span>, <span class="org-string">'chromium2'</span>, <span class="org-string">'dropseq'</span>, <span class="org-string">'gemcode'</span>, <span class="org-string">'indrops'</span>]
-  <span class="org-variable-name">labels</span> = [<span class="org-string">'Chromium (1)'</span>, <span class="org-string">'Chromium (2)'</span>, <span class="org-string">'Drop-Seq'</span>, <span class="org-string">'GemCode'</span>, <span class="org-string">'InDrops'</span>]
   plt.clf()
   <span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(1, 2)
-  fig.set_size_inches(4.5, 3)
+  fig.set_size_inches(5, 3)
   ax[0].bar(<span class="org-builtin">range</span>(query1.shape[0]), query1.loc[keys, <span class="org-string">'point_gamma'</span>], color=<span class="org-string">'k'</span>)
   ax[0].set_xticks(<span class="org-builtin">range</span>(query1.shape[0]))
   ax[0].set_xticklabels(labels, rotation=90)
@@ -933,6 +931,12 @@ Plot the results.
   ax[1].set_title(<span class="org-string">'Non-parametric vs.\nUnimodal'</span>)
 
   fig.tight_layout()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">keys</span> = [<span class="org-string">'chromium1'</span>, <span class="org-string">'chromium2'</span>, <span class="org-string">'dropseq'</span>, <span class="org-string">'gemcode'</span>, <span class="org-string">'indrops'</span>]
+<span class="org-variable-name">labels</span> = [<span class="org-string">'Chromium (1)'</span>, <span class="org-string">'Chromium (2)'</span>, <span class="org-string">'Drop-Seq'</span>, <span class="org-string">'GemCode'</span>, <span class="org-string">'InDrops'</span>]
 </pre>
 </div>
 
@@ -1078,6 +1082,32 @@ retina                 0.0     0.046183  0.256893  0.278591
 </pre>
 
 <p>
+Report the fraction of genes with suggestive evidence over a Gamma expression
+model.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-ipython">compare(llik[llik[<span class="org-string">'dataset'</span>].isin(non_control)], baseline=<span class="org-string">'gamma'</span>, thresh=10, agg=<span class="org-string">'mean'</span>)
+</pre>
+</div>
+
+<pre class="example">
+method               point  point_gamma  unimodal     npmle
+dataset
+b_cells                0.0     0.083840  0.364812  0.391772
+brain                  0.0     0.114612  0.420044  0.459980
+cytotoxic_t            0.0     0.096631  0.404747  0.449770
+cytotoxic_t-b_cells    0.0     0.157665  0.597262  0.630961
+cytotoxic_t-naive_t    0.0     0.149376  0.557157  0.603106
+ipsc                   0.0     0.014964  0.832580  0.854575
+kidney                 0.0     0.050336  0.365965  0.414107
+liver-caudate-lobe     0.0     0.028395  0.019753  0.043519
+pbmc_10k_v3            0.0     0.094779  0.316864  0.348403
+retina                 0.0     0.078133  0.421121  0.456057
+</pre>
+
+
+<p>
 Report the fraction of genes with strong evidence over a unimodal expression
 model.
 </p>
@@ -1105,6 +1135,12 @@ Name: npmle, dtype: float64
 <p>
 Plot the results.
 </p>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">keys</span> = [<span class="org-string">'b_cells'</span>, <span class="org-string">'cytotoxic_t'</span>, <span class="org-string">'ipsc'</span>, <span class="org-string">'cytotoxic_t-b_cells'</span>, <span class="org-string">'cytotoxic_t-naive_t'</span>, <span class="org-string">'kidney'</span>, <span class="org-string">'liver-caudate-lobe'</span>, <span class="org-string">'pbmc_10k_v3'</span>, <span class="org-string">'brain'</span>, <span class="org-string">'retina'</span>]
+<span class="org-variable-name">labels</span> = [<span class="org-string">'B cell'</span>, <span class="org-string">'T cell'</span>, <span class="org-string">'iPSC'</span>, <span class="org-string">'T cell/B cell'</span>, <span class="org-string">'Cyto/naive T'</span>, <span class="org-string">'Kidney'</span>, <span class="org-string">'Liver'</span>, <span class="org-string">'PBMC'</span>, <span class="org-string">'Brain'</span>, <span class="org-string">'Retina'</span>]
+</pre>
+</div>
 
 <div class="org-src-container">
 <pre class="src src-ipython">_plot(llik, thresh=10)
@@ -1427,7 +1463,7 @@ dataset        gene       npmle
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-18 Fri 14:34</p>
+<p class="date">Created: 2020-09-20 Sun 20:20</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
