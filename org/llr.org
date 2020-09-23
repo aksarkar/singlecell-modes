@@ -395,7 +395,7 @@
 
    #+RESULTS: read-llr-results
    :RESULTS:
-   # Out[33]:
+   # Out[6]:
    :END:
 
    Report the number (fraction) of genes that have likelihood ratio greater
@@ -1271,3 +1271,226 @@
    #+END_EXAMPLE
    :END:
 
+** Examples
+*** Unimodal vs. Gamma
+
+    #+BEGIN_SRC ipython :async t
+      temp = dict()
+      for k, g in llik.groupby('dataset'):
+        query = g.pivot_table(index='gene', columns='method', values='llik')
+        query = fix_llik(query)
+        temp[k] = query
+      temp = pd.concat(temp)
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[62]:
+    :END:
+
+    #+BEGIN_SRC ipython
+      query = (temp
+               .iloc[np.argsort(-temp['unimodal'] + temp['gamma'])]
+               .reset_index())
+      query = query[query['unimodal'] >= query['npmle']].head(n=10)
+      query
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[63]:
+    #+BEGIN_EXAMPLE
+      method      level_0             gene         gamma         npmle  \
+      56           kidney  ENSG00000196565  -5298.749426  -4178.292122
+      147     pbmc_10k_v3  ENSG00000163736  -6048.916822  -5388.534550
+      170     pbmc_10k_v3  ENSG00000180573  -6213.441429  -5615.144543
+      174          retina  ENSG00000204091  -3643.764919  -3052.640395
+      188     pbmc_10k_v3  ENSG00000101856  -6772.157948  -6216.912371
+      202          kidney  ENSG00000206172  -2534.658089  -2005.458099
+      220     pbmc_10k_v3  ENSG00000257764 -16933.243032 -16435.610729
+      230           brain              VWF  -1724.793605  -1253.016660
+      338     pbmc_10k_v3  ENSG00000211898  -8754.350377  -8427.946446
+      370     pbmc_10k_v3  ENSG00000211677  -8541.039933  -8244.471002
+
+      method          point   point_gamma      unimodal
+      56     -210393.391504  -5298.738618  -4178.292122
+      147     -74261.620889  -6048.895471  -5388.534550
+      170     -10483.945396  -6213.424629  -5615.144543
+      174      -4577.708340  -3076.552292  -3052.640395
+      188      -7338.824690  -6772.110462  -6216.912371
+      202     -73444.511669  -2534.657909  -2005.458099
+      220     -26614.977976 -16484.165961 -16435.610729
+      230      -2025.719067  -1255.871231  -1253.016660
+      338     -23388.860965  -8496.428406  -8427.946446
+      370    -305710.877575  -8541.033149  -8244.471002
+    #+END_EXAMPLE
+    :END:
+
+    #+BEGIN_SRC ipython :async t :ipyfile figure/llr.org/unimodal-gamma-ex.png
+      cm = plt.get_cmap('Dark2')
+      plt.clf()
+      fig, ax = plt.subplots(2, 4)
+      fig.set_size_inches(8, 4)
+      for a, (_, row) in zip(ax.ravel(), query.iterrows()):
+        dat = data[row['level_0']]()
+        x = dat[:,dat.var.iloc[:,0] == row['gene']].X.A.ravel()
+        y = np.arange(x.max() + 1)
+        a.hist(x, bins=y, color='k')
+        a.set_title(row['gene'])
+      for a in ax:
+        a[0].set_ylabel('Number of cells')
+      for a in ax.T:
+        a[-1].set_xlabel('Number of molecules')
+      ax[1,1].legend(frameon=False)
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[40]:
+    [[file:figure/llr.org/unimodal-gamma-ex.png]]
+    :END:
+
+    #+BEGIN_SRC ipython :async t
+      dat = data['pbmc_10k_v3']()
+      pmf = dict()
+      cdf = dict()
+      gene = 'ENSG00000163736'
+
+      x = dat[:,dat.var['ensg'] == gene].X.A.ravel()
+      s = dat.obs['size']
+      y = np.arange(x.max() + 1)
+      lam = x / s
+      grid = np.linspace(0, 4e-4, 1000)
+
+      print(f'fitting {gene} (Gamma)')
+      temp = scmodes.ebpm.ebpm_gamma(x, s, tol=1e-5, extrapolate=True)
+      cdf['Gamma'] = st.gamma(a=np.exp(temp[1]), scale=np.exp(temp[0] - temp[1])).cdf(grid)
+      pmf['Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=temp[0], log_phi=-temp[1]).mean()
+                            for k in y])
+
+      print(f'fitting {gene} (Point-Gamma)')
+      temp = scmodes.ebpm.ebpm_point_gamma(x, s, tol=1e-5, extrapolate=True)
+      cdf['Point-Gamma'] = sp.expit(temp[2]) + sp.expit(-temp[2]) * st.gamma(a=np.exp(temp[1]), scale=np.exp(temp[0] - temp[1])).cdf(grid)
+      pmf['Point-Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=temp[0], log_phi=-temp[1], logodds=temp[2]).mean()
+                            for k in y])
+
+      print(f'fitting {gene} (Unimodal)')
+      unimodal_res = scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='halfuniform')
+      g = np.array(unimodal_res.rx2('fitted_g'))
+      a = np.fmin(g[1], g[2])
+      b = np.fmax(g[1], g[2])
+      comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+      comp_dens_conv[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+      pmf['Unimodal'] = comp_dens_conv @ g[0]
+      cdf['Unimodal'] = ashr.cdf_ash(unimodal_res, grid).rx2('y').ravel()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[90]:
+    :END:
+
+    #+BEGIN_SRC ipython :ipyfile figure/llr.org/pbmc_10k_v3-ex.png
+      cm = plt.get_cmap('Dark2')
+      plt.clf()
+      fig, ax = plt.subplots(3, 1)
+      fig.set_size_inches(4, 5.5)
+
+      ax[0].hist(x, bins=y, color='k')
+      ax[1].hist(x, bins=y, color='0.7')
+      for i, k in enumerate(pmf):
+        ax[1].plot(y + 0.5, x.shape[0] * pmf[k], lw=1, c=cm(i), label=k)
+        ax[2].plot(grid, cdf[k], lw=1, c=cm(i), label=k)
+      ax[0].set_xlabel('Number of molecules')
+      ax[0].set_ylabel('Number of cells')
+      ax[0].set_title(dat.var.loc[dat.var['ensg'] == gene, 'name'][0])
+      ax[1].legend(frameon=False)
+      ax[1].set_xlabel('Number of molecules')
+      ax[1].set_ylabel('Number of cells')
+      ax[1].set_ylim(0, 10)
+      ax[2].set_xlim(0, 2e-4)
+      ax[2].set_ylim(0, 1)
+      ax[2].set_yticks([0, 0.5, 1])
+      ax[2].legend(frameon=False, loc='lower right')
+      ax[2].set_xlabel('Latent gene expression')
+      ax[2].set_ylabel('CDF')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[95]:
+    [[file:figure/llr.org/pbmc_10k_v3-ex.png]]
+    :END:
+
+*** Non-parametric vs. Gamma
+
+    #+BEGIN_SRC ipython
+      temp = dict()
+      for k, g in llik.groupby('dataset'):
+        query = g.pivot_table(index='gene', columns='method', values='llik')
+        query = fix_llik(query)
+        temp[k] = query
+      temp = pd.concat(temp)
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[96]:
+    :END:
+
+    #+BEGIN_SRC ipython
+      dat = data['ipsc']()
+      query = temp.loc['ipsc']
+      (query
+       .iloc[np.argsort(-query['npmle'] + query['unimodal'])]
+       .head(n=10)
+       .merge(dat.var, left_index=True, right_on='index')
+       [['name', 'unimodal', 'npmle']])
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[105]:
+    #+BEGIN_EXAMPLE
+      name      unimodal         npmle
+      2473     NUP98 -15972.366357 -15756.178286
+      2643     PACRG -20162.088196 -19946.833473
+      3911    RPS4Y1 -18020.981045 -17869.536003
+      9784     RDH14  -6907.997280  -6848.767769
+      2029     RPS19 -28704.469940 -28662.273715
+      9386    MT-ND4 -35817.034361 -35781.158161
+      9392   MT-ATP6 -35036.853122 -35004.943643
+      540       VMP1 -27442.499556 -27419.742185
+      9333    MT-CO2 -32850.155131 -32827.614183
+      9777      ADSL -16389.557095 -16368.599617
+      9410    MT-CO3 -33337.091142 -33316.609451
+      9339    MT-CYB -34450.722833 -34432.385082
+      9388    MT-ND1 -29886.918324 -29871.024645
+      9348    MT-ND2 -31773.353979 -31757.691218
+      9879     EEF1G -19854.291184 -19839.299095
+      8139      RHOG  -8384.631765  -8370.034146
+      9351    MT-ND5 -28018.138347 -28004.922013
+      9118  HIST1H4C -30027.808944 -30014.993547
+      9358    MT-CO1 -30590.814531 -30578.200751
+      8503    RPS17L -16131.042331 -16119.353411
+    #+END_EXAMPLE
+    :END:
+
+    #+BEGIN_SRC ipython
+      (query
+       .iloc[np.argsort(-query['npmle'] + query['unimodal'])]
+       .merge(dat.var, left_index=True, right_on='index')
+       .query('name == "SKP1"')
+       [['name', 'unimodal', 'npmle']])
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[108]:
+    #+BEGIN_EXAMPLE
+      name      unimodal        npmle
+      2717  SKP1 -22075.223767 -22074.08724
+    #+END_EXAMPLE
+    :END:

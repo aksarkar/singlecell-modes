@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-09-20 Sun 20:20 -->
+<!-- 2020-09-23 Wed 17:44 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Marginal log likelihood comparison of expression models</title>
@@ -246,6 +246,7 @@ for the JavaScript code in this tag.
 <li><a href="#biological-data">Application to biological data sets</a></li>
 <li><a href="#drop-seq">Drop-Seq spike-in gene</a></li>
 <li><a href="#ash">Issue in ash</a></li>
+<li><a href="#org4f3b7ba">Examples</a></li>
 </ul>
 </li>
 </ul>
@@ -1459,11 +1460,226 @@ dataset        gene       npmle
 </pre>
 </div>
 </div>
+
+<div id="outline-container-org4f3b7ba" class="outline-3">
+<h3 id="org4f3b7ba">Examples</h3>
+<div class="outline-text-3" id="text-org4f3b7ba">
+</div>
+<div id="outline-container-orged3ae3e" class="outline-4">
+<h4 id="orged3ae3e">Unimodal vs. Gamma</h4>
+<div class="outline-text-4" id="text-orged3ae3e">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">temp</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik.groupby(<span class="org-string">'dataset'</span>):
+  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
+  <span class="org-variable-name">query</span> = fix_llik(query)
+  <span class="org-variable-name">temp</span>[k] = query
+<span class="org-variable-name">temp</span> = pd.concat(temp)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">query</span> = (temp
+         .iloc[np.argsort(-temp[<span class="org-string">'unimodal'</span>] + temp[<span class="org-string">'gamma'</span>])]
+         .reset_index())
+<span class="org-variable-name">query</span> = query[query[<span class="org-string">'unimodal'</span>] &gt;= query[<span class="org-string">'npmle'</span>]].head(n=10)
+query
+</pre>
+</div>
+
+<pre class="example">
+method      level_0             gene         gamma         npmle  \
+56           kidney  ENSG00000196565  -5298.749426  -4178.292122
+147     pbmc_10k_v3  ENSG00000163736  -6048.916822  -5388.534550
+170     pbmc_10k_v3  ENSG00000180573  -6213.441429  -5615.144543
+174          retina  ENSG00000204091  -3643.764919  -3052.640395
+188     pbmc_10k_v3  ENSG00000101856  -6772.157948  -6216.912371
+202          kidney  ENSG00000206172  -2534.658089  -2005.458099
+220     pbmc_10k_v3  ENSG00000257764 -16933.243032 -16435.610729
+230           brain              VWF  -1724.793605  -1253.016660
+338     pbmc_10k_v3  ENSG00000211898  -8754.350377  -8427.946446
+370     pbmc_10k_v3  ENSG00000211677  -8541.039933  -8244.471002
+
+method          point   point_gamma      unimodal
+56     -210393.391504  -5298.738618  -4178.292122
+147     -74261.620889  -6048.895471  -5388.534550
+170     -10483.945396  -6213.424629  -5615.144543
+174      -4577.708340  -3076.552292  -3052.640395
+188      -7338.824690  -6772.110462  -6216.912371
+202     -73444.511669  -2534.657909  -2005.458099
+220     -26614.977976 -16484.165961 -16435.610729
+230      -2025.719067  -1255.871231  -1253.016660
+338     -23388.860965  -8496.428406  -8427.946446
+370    -305710.877575  -8541.033149  -8244.471002
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(2, 4)
+fig.set_size_inches(8, 4)
+<span class="org-keyword">for</span> a, (_, row) <span class="org-keyword">in</span> <span class="org-builtin">zip</span>(ax.ravel(), query.iterrows()):
+  <span class="org-variable-name">dat</span> = data[row[<span class="org-string">'level_0'</span>]]()
+  <span class="org-variable-name">x</span> = dat[:,dat.var.iloc[:,0] == row[<span class="org-string">'gene'</span>]].X.A.ravel()
+  <span class="org-variable-name">y</span> = np.arange(x.<span class="org-builtin">max</span>() + 1)
+  a.hist(x, bins=y, color=<span class="org-string">'k'</span>)
+  a.set_title(row[<span class="org-string">'gene'</span>])
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax:
+  a[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+<span class="org-keyword">for</span> a <span class="org-keyword">in</span> ax.T:
+  a[-1].set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[1,1].legend(frameon=<span class="org-constant">False</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/llr.org/unimodal-gamma-ex.png" alt="unimodal-gamma-ex.png">
+</p>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">dat</span> = data[<span class="org-string">'pbmc_10k_v3'</span>]()
+<span class="org-variable-name">pmf</span> = <span class="org-builtin">dict</span>()
+<span class="org-variable-name">cdf</span> = <span class="org-builtin">dict</span>()
+<span class="org-variable-name">gene</span> = <span class="org-string">'ENSG00000163736'</span>
+
+<span class="org-variable-name">x</span> = dat[:,dat.var[<span class="org-string">'ensg'</span>] == gene].X.A.ravel()
+<span class="org-variable-name">s</span> = dat.obs[<span class="org-string">'size'</span>]
+<span class="org-variable-name">y</span> = np.arange(x.<span class="org-builtin">max</span>() + 1)
+<span class="org-variable-name">lam</span> = x / s
+<span class="org-variable-name">grid</span> = np.linspace(0, 4e-4, 1000)
+
+<span class="org-keyword">print</span>(f<span class="org-string">'fitting {gene} (Gamma)'</span>)
+<span class="org-variable-name">temp</span> = scmodes.ebpm.ebpm_gamma(x, s, tol=1e-5, extrapolate=<span class="org-constant">True</span>)
+<span class="org-variable-name">cdf</span>[<span class="org-string">'Gamma'</span>] = st.gamma(a=np.exp(temp[1]), scale=np.exp(temp[0] - temp[1])).cdf(grid)
+<span class="org-variable-name">pmf</span>[<span class="org-string">'Gamma'</span>] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=temp[0], log_phi=-temp[1]).mean()
+                      <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+
+<span class="org-keyword">print</span>(f<span class="org-string">'fitting {gene} (Point-Gamma)'</span>)
+<span class="org-variable-name">temp</span> = scmodes.ebpm.ebpm_point_gamma(x, s, tol=1e-5, extrapolate=<span class="org-constant">True</span>)
+<span class="org-variable-name">cdf</span>[<span class="org-string">'Point-Gamma'</span>] = sp.expit(temp[2]) + sp.expit(-temp[2]) * st.gamma(a=np.exp(temp[1]), scale=np.exp(temp[0] - temp[1])).cdf(grid)
+<span class="org-variable-name">pmf</span>[<span class="org-string">'Point-Gamma'</span>] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=temp[0], log_phi=-temp[1], logodds=temp[2]).mean()
+                      <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+
+<span class="org-keyword">print</span>(f<span class="org-string">'fitting {gene} (Unimodal)'</span>)
+<span class="org-variable-name">unimodal_res</span> = scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist=<span class="org-string">'halfuniform'</span>)
+<span class="org-variable-name">g</span> = np.array(unimodal_res.rx2(<span class="org-string">'fitted_g'</span>))
+<span class="org-variable-name">a</span> = np.fmin(g[1], g[2])
+<span class="org-variable-name">b</span> = np.fmax(g[1], g[2])
+<span class="org-variable-name">comp_dens_conv</span> = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) <span class="org-keyword">for</span> k <span class="org-keyword">in</span> y])
+<span class="org-variable-name">comp_dens_conv</span>[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+<span class="org-variable-name">pmf</span>[<span class="org-string">'Unimodal'</span>] = comp_dens_conv @ g[0]
+<span class="org-variable-name">cdf</span>[<span class="org-string">'Unimodal'</span>] = ashr.cdf_ash(unimodal_res, grid).rx2(<span class="org-string">'y'</span>).ravel()
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">cm</span> = plt.get_cmap(<span class="org-string">'Dark2'</span>)
+plt.clf()
+<span class="org-variable-name">fig</span>, <span class="org-variable-name">ax</span> = plt.subplots(3, 1)
+fig.set_size_inches(4, 5.5)
+
+ax[0].hist(x, bins=y, color=<span class="org-string">'k'</span>)
+ax[1].hist(x, bins=y, color=<span class="org-string">'0.7'</span>)
+<span class="org-keyword">for</span> i, k <span class="org-keyword">in</span> <span class="org-builtin">enumerate</span>(pmf):
+  ax[1].plot(y + 0.5, x.shape[0] * pmf[k], lw=1, c=cm(i), label=k)
+  ax[2].plot(grid, cdf[k], lw=1, c=cm(i), label=k)
+ax[0].set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[0].set_ylabel(<span class="org-string">'Number of cells'</span>)
+ax[0].set_title(dat.var.loc[dat.var[<span class="org-string">'ensg'</span>] == gene, <span class="org-string">'name'</span>][0])
+ax[1].legend(frameon=<span class="org-constant">False</span>)
+ax[1].set_xlabel(<span class="org-string">'Number of molecules'</span>)
+ax[1].set_ylabel(<span class="org-string">'Number of cells'</span>)
+ax[1].set_ylim(0, 10)
+ax[2].set_xlim(0, 2e-4)
+ax[2].set_ylim(0, 1)
+ax[2].set_yticks([0, 0.5, 1])
+ax[2].legend(frameon=<span class="org-constant">False</span>, loc=<span class="org-string">'lower right'</span>)
+ax[2].set_xlabel(<span class="org-string">'Latent gene expression'</span>)
+ax[2].set_ylabel(<span class="org-string">'CDF'</span>)
+fig.tight_layout()
+</pre>
+</div>
+
+
+<div class="figure">
+<p><img src="figure/llr.org/pbmc_10k_v3-ex.png" alt="pbmc_10k_v3-ex.png">
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org67793de" class="outline-4">
+<h4 id="org67793de">Non-parametric vs. Gamma</h4>
+<div class="outline-text-4" id="text-org67793de">
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">temp</span> = <span class="org-builtin">dict</span>()
+<span class="org-keyword">for</span> k, g <span class="org-keyword">in</span> llik.groupby(<span class="org-string">'dataset'</span>):
+  <span class="org-variable-name">query</span> = g.pivot_table(index=<span class="org-string">'gene'</span>, columns=<span class="org-string">'method'</span>, values=<span class="org-string">'llik'</span>)
+  <span class="org-variable-name">query</span> = fix_llik(query)
+  <span class="org-variable-name">temp</span>[k] = query
+<span class="org-variable-name">temp</span> = pd.concat(temp)
+</pre>
+</div>
+
+<div class="org-src-container">
+<pre class="src src-ipython"><span class="org-variable-name">dat</span> = data[<span class="org-string">'ipsc'</span>]()
+<span class="org-variable-name">query</span> = temp.loc[<span class="org-string">'ipsc'</span>]
+(query
+ .iloc[np.argsort(-query[<span class="org-string">'npmle'</span>] + query[<span class="org-string">'unimodal'</span>])]
+ .head(n=10)
+ .merge(dat.var, left_index=<span class="org-constant">True</span>, right_on=<span class="org-string">'index'</span>)
+ [[<span class="org-string">'name'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]])
+</pre>
+</div>
+
+<pre class="example">
+name      unimodal         npmle
+2473     NUP98 -15972.366357 -15756.178286
+2643     PACRG -20162.088196 -19946.833473
+3911    RPS4Y1 -18020.981045 -17869.536003
+9784     RDH14  -6907.997280  -6848.767769
+2029     RPS19 -28704.469940 -28662.273715
+9386    MT-ND4 -35817.034361 -35781.158161
+9392   MT-ATP6 -35036.853122 -35004.943643
+540       VMP1 -27442.499556 -27419.742185
+9333    MT-CO2 -32850.155131 -32827.614183
+9777      ADSL -16389.557095 -16368.599617
+9410    MT-CO3 -33337.091142 -33316.609451
+9339    MT-CYB -34450.722833 -34432.385082
+9388    MT-ND1 -29886.918324 -29871.024645
+9348    MT-ND2 -31773.353979 -31757.691218
+9879     EEF1G -19854.291184 -19839.299095
+8139      RHOG  -8384.631765  -8370.034146
+9351    MT-ND5 -28018.138347 -28004.922013
+9118  HIST1H4C -30027.808944 -30014.993547
+9358    MT-CO1 -30590.814531 -30578.200751
+8503    RPS17L -16131.042331 -16119.353411
+</pre>
+
+<div class="org-src-container">
+<pre class="src src-ipython">(query
+ .iloc[np.argsort(-query[<span class="org-string">'npmle'</span>] + query[<span class="org-string">'unimodal'</span>])]
+ .merge(dat.var, left_index=<span class="org-constant">True</span>, right_on=<span class="org-string">'index'</span>)
+ .query(<span class="org-string">'name == "SKP1"'</span>)
+ [[<span class="org-string">'name'</span>, <span class="org-string">'unimodal'</span>, <span class="org-string">'npmle'</span>]])
+</pre>
+</div>
+
+<pre class="example">
+name      unimodal        npmle
+2717  SKP1 -22075.223767 -22074.08724
+</pre>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-09-20 Sun 20:20</p>
+<p class="date">Created: 2020-09-23 Wed 17:44</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>
