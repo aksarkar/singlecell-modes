@@ -54,7 +54,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[3]:
+  # Out[104]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -65,7 +65,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[4]:
+  # Out[105]:
   :END:
 
 * Figure 1
@@ -699,6 +699,83 @@
    # Out[40]:
    [[file:figure/figures.org/model-comparison-lr-10.svg]]
    :END:
+
+   Plot an example of unimodal over Gamma.
+
+   #+BEGIN_SRC ipython :async t
+     dat = data['pbmc_10k_v3']()
+     pmf = dict()
+     cdf = dict()
+     gene = 'ENSG00000163736'
+
+     x = dat[:,dat.var['ensg'] == gene].X.A.ravel()
+     s = dat.obs['size']
+     y = np.arange(x.max() + 1)
+     lam = x / s
+     grid = np.logspace(-11, -3, 1000)
+
+     print(f'fitting {gene} (Gamma)')
+     temp = scmodes.ebpm.ebpm_gamma(x, s, tol=1e-5, extrapolate=True)
+     cdf['Gamma'] = st.gamma(a=np.exp(temp[1]), scale=np.exp(temp[0] - temp[1])).cdf(grid)
+     pmf['Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=temp[0], log_phi=-temp[1]).mean()
+                           for k in y])
+
+     print(f'fitting {gene} (Point-Gamma)')
+     temp = scmodes.ebpm.ebpm_point_gamma(x, s, tol=1e-5, extrapolate=True)
+     cdf['Point-Gamma'] = sp.expit(temp[2]) + sp.expit(-temp[2]) * st.gamma(a=np.exp(temp[1]), scale=np.exp(temp[0] - temp[1])).cdf(grid)
+     pmf['Point-Gamma'] = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=temp[0], log_phi=-temp[1], logodds=temp[2]).mean()
+                           for k in y])
+
+     print(f'fitting {gene} (Unimodal)')
+     unimodal_res = scmodes.ebpm.ebpm_unimodal(x, s, mixcompdist='halfuniform')
+     g = np.array(unimodal_res.rx2('fitted_g'))
+     a = np.fmin(g[1], g[2])
+     b = np.fmax(g[1], g[2])
+     comp_dens_conv = np.array([((st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(b.reshape(1, -1)) - st.gamma(a=k + 1, scale=1 / s.values.reshape(-1, 1)).cdf(a.reshape(1, -1))) / np.outer(s, b - a)).mean(axis=0) for k in y])
+     comp_dens_conv[:,0] = st.poisson(mu=s.values.reshape(-1, 1) * b[0]).pmf(y).mean(axis=0)
+     pmf['Unimodal'] = comp_dens_conv @ g[0]
+     cdf['Unimodal'] = ashr.cdf_ash(unimodal_res, grid).rx2('y').ravel()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[106]:
+   :END:
+
+   #+BEGIN_SRC ipython :ipyfile figure/figures.org/pbmc_10k_v3-ppbp.svg
+     cm = plt.get_cmap('Dark2')
+     plt.clf()
+     fig, ax = plt.subplots(3, 1)
+     fig.set_size_inches(4, 5.5)
+
+     ax[0].hist(x, bins=y, color='k')
+     ax[1].hist(x, bins=y, color='0.7')
+     ax[2].set_xscale('log')
+     for i, (k, ls) in enumerate(zip(pmf, ['-', (0, (3, 3)), '-'])):
+       ax[1].plot(y + 0.5, x.shape[0] * pmf[k], lw=1, ls=ls, c=cm(i), label=k)
+       ax[2].plot(grid, cdf[k], lw=1, ls=ls, c=cm(i), label=k)
+     ax[0].set_xlabel('Number of molecules')
+     ax[0].set_ylabel('Number of cells')
+     ax[0].set_title(dat.var.loc[dat.var['ensg'] == gene, 'name'][0])
+     ax[1].legend(frameon=False)
+     ax[1].set_xlabel('Number of molecules')
+     ax[1].set_ylabel('Number of cells')
+     ax[1].set_ylim(0, 10)
+     ax[2].legend(frameon=False, loc='lower left')
+     ax[2].set_xlabel('Latent gene expression')
+     ax[2].set_ylabel('CDF')
+     ax[2].set_xlim(1e-11, 1e-3)
+     ax[2].set_ylim(0, 1)
+     ax[2].set_yticks([0, 0.5, 1])
+     fig.tight_layout()
+   #+END_SRC
+
+   #+RESULTS:
+   :RESULTS:
+   # Out[108]:
+   [[file:figure/figures.org/pbmc_10k_v3-ppbp.svg]]
+   :END:
+
 
 * Figure 2
 
