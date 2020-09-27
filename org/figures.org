@@ -21,9 +21,11 @@
   : Submitted batch job 66310303
 
   #+BEGIN_SRC ipython
+    import anndata
     import numpy as np
     import os
     import pandas as pd
+    import scanpy as sc
     import scmodes
     import scipy.stats as st
     import scipy.special as sp
@@ -32,7 +34,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[1]:
+  # Out[10]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -54,7 +56,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[104]:
+  # Out[3]:
   :END:
 
   #+BEGIN_SRC ipython
@@ -65,7 +67,7 @@
 
   #+RESULTS:
   :RESULTS:
-  # Out[105]:
+  # Out[4]:
   :END:
 
 * Figure 1
@@ -580,7 +582,7 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[14]:
+   # Out[6]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/figures.org/nb-heuristic-control.svg
@@ -739,21 +741,19 @@
 
    #+RESULTS:
    :RESULTS:
-   # Out[106]:
+   # Out[11]:
    :END:
 
    #+BEGIN_SRC ipython :ipyfile figure/figures.org/pbmc_10k_v3-ppbp.svg
      cm = plt.get_cmap('Dark2')
      plt.clf()
-     fig, ax = plt.subplots(3, 1)
-     fig.set_size_inches(4, 5.5)
+     fig, ax = plt.subplots(2, 1)
+     fig.set_size_inches(3.75, 4)
 
      ax[0].hist(x, bins=y, color='k')
      ax[1].hist(x, bins=y, color='0.7')
-     ax[2].set_xscale('log')
      for i, (k, ls) in enumerate(zip(pmf, ['-', (0, (3, 3)), '-'])):
        ax[1].plot(y + 0.5, x.shape[0] * pmf[k], lw=1, ls=ls, c=cm(i), label=k)
-       ax[2].plot(grid, cdf[k], lw=1, ls=ls, c=cm(i), label=k)
      ax[0].set_xlabel('Number of molecules')
      ax[0].set_ylabel('Number of cells')
      ax[0].set_title(dat.var.loc[dat.var['ensg'] == gene, 'name'][0])
@@ -761,18 +761,13 @@
      ax[1].set_xlabel('Number of molecules')
      ax[1].set_ylabel('Number of cells')
      ax[1].set_ylim(0, 10)
-     ax[2].legend(frameon=False, loc='lower left')
-     ax[2].set_xlabel('Latent gene expression')
-     ax[2].set_ylabel('CDF')
-     ax[2].set_xlim(1e-11, 1e-3)
-     ax[2].set_ylim(0, 1)
-     ax[2].set_yticks([0, 0.5, 1])
+     ax[1].set_yticks([0, 5, 10])
      fig.tight_layout()
    #+END_SRC
 
    #+RESULTS:
    :RESULTS:
-   # Out[108]:
+   # Out[14]:
    [[file:figure/figures.org/pbmc_10k_v3-ppbp.svg]]
    :END:
 

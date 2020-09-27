@@ -1340,7 +1340,7 @@
 
       x = dat[:,dat.var['ensg'] == gene].X.A.ravel()
       s = dat.obs['size']
-      y = np.arange(x.max() + 1)
+      y = np.arange(x.max() + 2)
       lam = x / s
       grid = np.logspace(-11, -3, 1000)
 
@@ -1369,41 +1369,92 @@
 
     #+RESULTS:
     :RESULTS:
-    # Out[32]:
+    # Out[56]:
     :END:
 
     #+BEGIN_SRC ipython :ipyfile figure/llr.org/pbmc_10k_v3-ex.png
       cm = plt.get_cmap('Dark2')
       plt.clf()
-      fig, ax = plt.subplots(3, 1)
-      fig.set_size_inches(4, 5.5)
+      fig, ax = plt.subplots(2, 1)
+      fig.set_size_inches(4, 4)
 
-      ax[0].hist(x, bins=y, color='k')
-      ax[1].hist(x, bins=y, color='0.7')
-      ax[2].set_xscale('log')
+      for a, c in zip(ax, ['k', '0.7']):
+        a.hist(x, bins=y, color=c)
+        a.set_ylabel('Number of cells')
       for i, (k, ls) in enumerate(zip(pmf, ['-', (0, (3, 3)), '-'])):
         ax[1].plot(y + 0.5, x.shape[0] * pmf[k], lw=1, ls=ls, c=cm(i), label=k)
-        ax[2].plot(grid, cdf[k], lw=1, ls=ls, c=cm(i), label=k)
-      ax[0].set_xlabel('Number of molecules')
-      ax[0].set_ylabel('Number of cells')
       ax[0].set_title(dat.var.loc[dat.var['ensg'] == gene, 'name'][0])
-      ax[1].legend(frameon=False)
       ax[1].set_xlabel('Number of molecules')
-      ax[1].set_ylabel('Number of cells')
       ax[1].set_ylim(0, 10)
-      ax[2].legend(frameon=False, loc='lower left')
-      ax[2].set_xlabel('Latent gene expression')
-      ax[2].set_ylabel('CDF')
-      ax[2].set_xlim(1e-11, 1e-3)
-      ax[2].set_ylim(0, 1)
-      ax[2].set_yticks([0, 0.5, 1])
+      ax[1].legend(frameon=False)
       fig.tight_layout()
     #+END_SRC
 
     #+RESULTS:
     :RESULTS:
-    # Out[33]:
+    # Out[65]:
     [[file:figure/llr.org/pbmc_10k_v3-ex.png]]
+    :END:
+
+    Examine why point-Gamma does not fit better than Gamma. First, check if the
+    initialization is a problem.
+
+    #+BEGIN_SRC ipython :async t
+      dat = data['pbmc_10k_v3']()
+      gene = 'ENSG00000163736'
+      x = dat[:,dat.var['ensg'] == gene].X.A.ravel()
+      s = dat.obs['size'].values.ravel()
+
+      fit0 = pd.Series(scmodes.ebpm.ebpm_gamma(x, s, tol=1e-5, extrapolate=True),
+                       index=['log_mean', 'log_inv_disp', 'llik'])
+      fit1 = pd.Series(scmodes.ebpm.ebpm_point_gamma(x, s, init=np.array([-sp.expit((x > 0).mean()), 1, s[x > 0].sum() / x[x > 0].sum()]), tol=1e-5, extrapolate=True),
+                       index=['log_mean', 'log_inv_disp', 'logodds', 'llik'])
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[40]:
+    :END:
+
+    #+BEGIN_SRC ipython
+      pd.DataFrame({'gamma': fit0, 'point_gamma': fit1}).T
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[46]:
+    #+BEGIN_EXAMPLE
+      llik  log_inv_disp  log_mean  logodds
+      gamma       -6048.895515     -4.267916 -7.292463      NaN
+      point_gamma -6048.897291     -4.268733 -7.292503 -9.28471
+    #+END_EXAMPLE
+    :END:
+
+    Plot the histogram restricting to entries greater than zero.
+
+    #+BEGIN_SRC ipython :ipyfile figure/llr.org/pbmc_10k_v3-ENSG00000163736-nz.png
+      temp = scmodes.ebpm.ebpm_gamma(x[x > 0], s[x > 0], tol=1e-7, extrapolate=True)
+      pmf = np.array([scmodes.benchmark.gof._zig_pmf(k, size=s, log_mu=temp[0], log_phi=-temp[1]).mean() for k in y])
+
+      plt.clf()
+      fig, ax = plt.subplots(2, 1, sharex=True)
+      fig.set_size_inches(4, 4)
+      for a in ax:
+        a.hist(x[x > 0], bins=y, color='0.7')
+        a.set_ylabel('Number of cells')
+      name = dat.var.loc[dat.var['ensg'] == gene, 'name'][0]
+      ax[0].set_title(f'{name} (non-zero observations)')
+      ax[1].plot(y + .5, (x > 0).sum() * pmf, lw=1, c=plt.get_cmap('Dark2')(0))
+      ax[1].set_ylim(0, 10)
+      ax[1].set_yticks([0, 5, 10])
+      ax[1].set_xlabel('Number of molecules')
+      fig.tight_layout()
+    #+END_SRC
+
+    #+RESULTS:
+    :RESULTS:
+    # Out[67]:
+    [[file:figure/llr.org/pbmc_10k_v3-ENSG00000163736-nz.png]]
     :END:
 
 *** Non-parametric vs. Gamma
