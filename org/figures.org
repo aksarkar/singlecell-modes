@@ -771,7 +771,6 @@
    [[file:figure/figures.org/pbmc_10k_v3-ppbp.svg]]
    :END:
 
-
 * Figure 2
 
   Plot the Poisson thinning benchmark.
