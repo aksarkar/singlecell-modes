@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2020-08-08 Sat 06:13 -->
+<!-- 2021-05-20 Thu 16:51 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Interactive simulations</title>
@@ -238,6 +238,7 @@ for the JavaScript code in this tag.
 <ul>
 <li><a href="#org8ef35b4">Test environment</a></li>
 <li><a href="#orgab18353">Production environment</a></li>
+<li><a href="#org33dc290">Docker</a></li>
 </ul>
 </div>
 </div>
@@ -393,7 +394,48 @@ Start the QTL browser. The code/data are available under <code>/vagrant</code> i
 <div class="org-src-container">
 <pre class="src src-sh"><span class="org-builtin">cd</span> /vagrant
 <span class="org-builtin">source</span> activate scmodes
-nohup bokeh serve capture gof markers --port 5006 --allow-websocket-origin=shiny.stephenslab.uchicago.edu:5009 &amp;
+nohup bokeh serve capture gof markers --port 5006 --allow-websocket-origin=shiny.stephenslab.uchicago.edu --prefix=scmodes &amp;
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org33dc290" class="outline-2">
+<h2 id="org33dc290">Docker</h2>
+<div class="outline-text-2" id="text-org33dc290">
+<p>
+Specify the Dockerfile.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">FROM continuumio/miniconda3
+RUN conda init bash
+RUN conda create -yqn scmodes numpy scipy pandas <span class="org-variable-name">bokeh</span>=1.2.0=py37_0
+WORKDIR /project2/mstephens/aksarkar/projects/singlecell-modes/browser/
+COPY browser.db .
+COPY capture capture
+COPY gof gof
+COPY markers markers
+EXPOSE 5006
+ENTRYPOINT [<span class="org-string">"conda"</span>, <span class="org-string">"run"</span>, <span class="org-string">"--no-capture-output"</span>, <span class="org-string">"-n"</span>, <span class="org-string">"scmodes"</span>, <span class="org-string">"bokeh"</span>, <span class="org-string">"serve"</span>, <span class="org-string">"capture"</span>, <span class="org-string">"gof"</span>, <span class="org-string">"markers"</span>, <span class="org-string">"--port=5006"</span>, <span class="org-string">"--allow-websocket-origin=shiny.stephenslab.uchicago.edu"</span>, <span class="org-string">"--prefix=/scmodes"</span>]
+</pre>
+</div>
+
+<p>
+Build the Docker container.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">sudo docker build ~/scmodes -t scmodes
+</pre>
+</div>
+
+<p>
+Start the Docker container.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-sh">sudo docker run --name scmodes -d -p 5009:5006 --rm scmodes
 </pre>
 </div>
 </div>
@@ -401,7 +443,7 @@ nohup bokeh serve capture gof markers --port 5006 --allow-websocket-origin=shiny
 </div>
 <div id="postamble" class="status">
 <p class="author">Author: Abhishek Sarkar</p>
-<p class="date">Created: 2020-08-08 Sat 06:13</p>
+<p class="date">Created: 2021-05-20 Thu 16:51</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

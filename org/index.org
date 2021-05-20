@@ -2,23 +2,24 @@
 #+SETUPFILE: setup.org
 #+OPTIONS: toc:nil
 
-The development of single cell RNA sequencing (scRNA-seq) technologies has
-greatly facilitated investigation of important biological questions that were
-previously difficult or impossible to study. However, how to model and analyze
-scRNA-seq data has been the subject of considerable confusion and debate. We
-develop a simple way of thinking and talking about scRNA-seq data that can
-clarify much of this confusion. We outline a general framework which explicitly
-models, and distinguishes between, the measurement process and variation in
-actual expression levels between cells. Although our simple framework cannot on
-its own address all issues that arise in scRNA-seq data, we show how it can
-help clarify thinking, guide interpretation of existing analysis methods,
-address questions of biological interest, and suggest directions for
-development of new methods and analysis strategies.
+The high proportion of zeros in typical scRNA-seq datasets has led to
+widespread but inconsistent use of terminology such as "dropout" and "missing
+data". Here, we argue that much of this terminology is unhelpful and confusing,
+and outline simple ideas to help reduce confusion. These include: (1) observed
+scRNA-seq counts reflect both true gene expression levels and measurement
+error, and carefully distinguishing these contributions helps clarify thinking;
+and (2) method development should start with a Poisson measurement model,
+rather than more complex models, because it is simple and generally consistent
+with existing data. We outline how several existing methods can be viewed
+within this framework and highlight how these methods differ in their
+assumptions about expression variation. We also illustrate how our perspective
+helps address questions of biological interest, such as whether mRNA expression
+levels are multimodal among cells.
 
-Sarkar and Stephens,
-[[https://dx.doi.org/10.1101/2020.04.07.030007]["Separating measurement and
-expression models clarifies confusion in single cell RNA-seq analysis."]]
-/BioRxiv/ 2020.
+Sarkar, A. and Stephens,
+M. "[[https://www.nature.com/articles/s41588-021-00873-4][Separating
+measurement and expression models clarifies confusion in single-cell RNA
+sequencing analysis.]]" /Nature Genetics/ (2021).
 
 * Empirical results
 
