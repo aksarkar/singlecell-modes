@@ -36,7 +36,7 @@ sequencing analysis.]]" /Nature Genetics/ (2021).
 - [[file:deconv-examples.org][Distribution deconvolution examples]]
 - [[file:gof.org][Goodness of fit of deconvolved distributions]] ([[https://shiny.stephenslab.uchicago.edu/scmodes/gof][interactive browser]])
 - [[file:marker-genes.org][Marker genes in /in silico/ mixtures]]
-  ([[http://shiny.stephenslab.uchicago.edu:5009/markers][interactive browser]])
+  ([[http://shiny.stephenslab.uchicago.edu/scmodes/markers][interactive browser]])
 - [[file:immune-census.org][Expression variation in Census of Immune Cells]]
 - [[file:chromium3.org][Expression variation in 10X v3 PBMC data]]
 - [[file:brain-dronc-seq.org][Expression variation in human brain cells]]
